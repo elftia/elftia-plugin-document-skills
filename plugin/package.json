@@ -1,0 +1,17 @@
+{
+  "name": "@elftia/document-skills-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Internal Node providers behind the document-skills Python facade",
+  "license": "GPL-3.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "acorn": "8.15.0",
+    "docxtemplater": "3.69.3",
+    "pizzip": "3.2.0",
+    "playwright-core": "1.62.1"
+  }
+}

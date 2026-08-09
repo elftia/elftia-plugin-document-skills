@@ -1,0 +1,376 @@
+{
+  "fixtures": [
+    {
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "foundation-probe.json",
+      "purpose": "Deterministic fixture-registry and hashing probe",
+      "recipe": "tests/fixtures/recipes/foundation_probe.py",
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "2d26117879b18a59e00920f672ac54400cd84aa4bc34c311f153666bde8dd8ea"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-rich.docx",
+      "purpose": "Rich read/create/template/replace fixture",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-preservation.docx",
+      "purpose": "Copy-through fixture with custom XML, unknown safe data, and unrelated media",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-preservation",
+      "sha256": "defd456edd8122238c6d0b8a990d025bf9140594d38ac8246088daf91a25f9c5"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-revision-comments.docx",
+      "purpose": "Field, revision, deleted text, and comment mutation boundary fixture",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "protected-content",
+      "sha256": "e2dc6d7c491d5bdc6a2140eaf9f2a3620dfb050a9858712e2a96c8d3fd001eca"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-absolute.docx",
+      "purpose": "Bounded security-negative fixture: absolute",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "d35b78bca43b6ecbdce6234f9b3aa057ffc36d1b76c04bdbb512e1f3757f1d4e"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-path.docx",
+      "purpose": "Bounded security-negative fixture: path",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "c87319a2b88da2d6e73d235f483c59bb8abf8578fc74615b0bffe11788600fa6"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-alias.docx",
+      "purpose": "Bounded security-negative fixture: alias",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "886f9fef7840d28e24a9dac88687566eb03af4b4eecde5b3f395c5e5dd078536"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-duplicate.docx",
+      "purpose": "Bounded security-negative fixture: duplicate",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "01e3f06aebfad63dc82069098f6baf822bbebbe7caabb7243ba826b20a3fb562"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-entity.docx",
+      "purpose": "Bounded security-negative fixture: entity",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "562c435a273809dea99a9c52865afc3506e2a1106b874a2c57387de4bf3be474"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-xml-limit.docx",
+      "purpose": "Bounded security-negative fixture: xml-limit",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "216cd131a616619fc2b4a54e440f57443adc015ce3ffe81817ba9ccc2d1bde6c"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-expansion.docx",
+      "purpose": "Bounded security-negative fixture: expansion",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "2550d164acaeb7352439ba49ca6fe6eeaefb0b595e963a045017b276b9ee06d3"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-symlink.docx",
+      "purpose": "Bounded security-negative fixture: symlink",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "b578379db62904dfcf0dc8cabc7e66a548f163ac5bc7edabea2cc255a8eeeab8"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-active.docx",
+      "purpose": "Bounded security-negative fixture: active",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "f289842ae8c3ad10ac5c15301ae1e70d5aaa8707c9194226ded4ce46fcd1b2b9"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-malicious-crc.docx",
+      "purpose": "Bounded security-negative fixture: crc",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "malicious",
+      "sha256": "ecac4f5a7a4deffdee241567cea7b38265f2bc6d5d84629a82a742f66e3891b7"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-rich.expected.json",
+      "purpose": "Complete rich DOCX structured-read and inspection oracle",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "0a17b51a53a9f842af6a716c789393a9cca7aff3673df7d19b4c4eff1713c096"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-preservation.expected.json",
+      "purpose": "Per-part copy-through preservation hash oracle",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "0e784d9eed07de710f0f29762842ea13f7b98572fce44a084ab824052c581ad5"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-cases.expected.json",
+      "purpose": "Fixture behavior, mutation, and security-classification oracle matrix",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "b65940f5114fc917d45ad72bc1c8b63189b30017f22464863f6edaece3bc5eaa"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "html",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-native-deck.html",
+      "purpose": "Native fixed-canvas HTML deck with mixed runs, two slides, paint order, and local image",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "d98f8f58d0262c387f1b1a091724d6cfa23912a62cce83d1bca3ad6e227baa2e"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "png",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-native-image.png",
+      "purpose": "Repository-authored local image referenced by the native HTML deck",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "f4ff8690a85bf88c50999a3b43250f09360fb4e88c8cfc2c1a8055da93a66df2"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "png",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "asset-f4ff8690a85bf88c50999a3b43250f09360fb4e88c8cfc2c1a8055da93a66df2.png",
+      "purpose": "Hash-bound private-scene image used to deterministically emit the expected PPTX",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "f4ff8690a85bf88c50999a3b43250f09360fb4e88c8cfc2c1a8055da93a66df2"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-native-scene.json",
+      "purpose": "Deterministic private-scene oracle for native HTML conversion",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "68fff7d8f3c876fb0bb58d9da0fc1643718c1eb163f302211113c505231c596e"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pptx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-native.expected.pptx",
+      "purpose": "Deterministic direct-OOXML output oracle for the native scene",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "1790a2d1aa8836b091a36c02297e86c392e8aefce50fb1936bd5be8eac788392"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "html",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-fallback-deck.html",
+      "purpose": "Editable approximation, element fallback, pseudo, hint, guard, and font fixture",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign-fallback",
+      "sha256": "570d55f6121e763b6509f9e983ead12c6412233703a8ae5c6f99b3db6c0785a0"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "html",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-adversarial-deck.html",
+      "purpose": "Static hostile-resource and disabled-script HTML fixture",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial",
+      "sha256": "2e35a48a64143fc03687850bb85573833e9b4a9b41172b3f402887c0b5b3ec7d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "html-pptx-cases.expected.json",
+      "purpose": "HTML-to-PPTX native, fallback, adversarial, and limit oracle matrix",
+      "recipe": "tests/fixtures/recipes/html_pptx_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "1f99571f5da57b2003e59ad981c8542c46567a79c9d169f2fc2156234926df28"
+    }
+  ],
+  "schema_version": "1.0"
+}

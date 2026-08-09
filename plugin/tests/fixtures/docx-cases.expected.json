@@ -1,0 +1,99 @@
+{
+  "preservation": {
+    "expected_unknown_parts": [
+      "elftia/unknown-safe.bin"
+    ],
+    "required_untouched_parts": [
+      "customXml/item1.xml",
+      "elftia/unknown-safe.bin",
+      "word/media/unrelated2.png"
+    ]
+  },
+  "protected": {
+    "expected_status": "enhancement_required",
+    "features": {
+      "comments": 1,
+      "fields": 1,
+      "revisions": 2,
+      "sections": 2
+    },
+    "recommended_provider": "dotnet-openxml",
+    "replacement_text": [
+      "comment-only",
+      "deleted-only",
+      "field-only",
+      "revision-only"
+    ],
+    "template_tokens": [
+      "protected.comment",
+      "protected.deleted",
+      "protected.field",
+      "protected.revision"
+    ]
+  },
+  "rich": {
+    "replacement": {
+      "counts_by_story": {
+        "body:word/document.xml": [
+          2
+        ],
+        "footer:word/footer1.xml": [
+          1
+        ],
+        "header:word/header1.xml": [
+          1
+        ]
+      },
+      "expected_matches": 4,
+      "formatting_anchor": "first-affected-run",
+      "overlap_rules": [
+        "AAA",
+        "AA"
+      ],
+      "overlap_source": "AAAA",
+      "search": "TARGET"
+    },
+    "template": {
+      "formatting_anchor": "first-affected-run",
+      "missing_case": [
+        "region"
+      ],
+      "split_run_token": "customer.name",
+      "tokens": [
+        "customer.name",
+        "normal",
+        "region"
+      ],
+      "unused_case": [
+        "unused"
+      ]
+    }
+  },
+  "schema_version": "1.0",
+  "security": {
+    "container_reject": {
+      "docx-malicious-absolute.docx": "archive-preflight",
+      "docx-malicious-alias.docx": "opc-index",
+      "docx-malicious-crc.docx": "archive-preflight",
+      "docx-malicious-duplicate.docx": "opc-index",
+      "docx-malicious-entity.docx": "archive-preflight",
+      "docx-malicious-expansion.docx": "archive-preflight",
+      "docx-malicious-path.docx": "archive-preflight",
+      "docx-malicious-symlink.docx": "archive-preflight",
+      "docx-malicious-xml-limit.docx": "archive-preflight"
+    },
+    "inert_inventory": {
+      "expected_positive_categories": [
+        "vba",
+        "activex",
+        "ole",
+        "templates",
+        "dde",
+        "external_targets",
+        "executable_parts"
+      ],
+      "fixture": "docx-malicious-active.docx",
+      "mutation_authorized": false
+    }
+  }
+}

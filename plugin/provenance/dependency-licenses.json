@@ -1,0 +1,15 @@
+{
+  "@xmldom/xmldom": "MIT",
+  "acorn": "MIT",
+  "attrs": "MIT",
+  "defusedxml": "PSF-2.0",
+  "docxtemplater": "MIT",
+  "jsonschema": "MIT",
+  "jsonschema-specifications": "MIT",
+  "pako": "MIT AND Zlib",
+  "pizzip": "MIT",
+  "playwright-core": "Apache-2.0",
+  "referencing": "MIT",
+  "rpds-py": "MIT",
+  "typing-extensions": "PSF-2.0"
+}

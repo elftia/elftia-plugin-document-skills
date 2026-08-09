@@ -1,0 +1,8 @@
+Elftia Document Skills
+Copyright (C) 2026 Elftia contributors
+
+This project is distributed under GPL-3.0. Production dependencies and adopted-source
+attributions are listed in THIRD_PARTY_NOTICES.md and provenance/modules.json.
+
+The Core DOCX scalar-template backend invokes exact locked upstream packages
+docxtemplater, pizzip, @xmldom/xmldom, and pako through original Elftia containment code.

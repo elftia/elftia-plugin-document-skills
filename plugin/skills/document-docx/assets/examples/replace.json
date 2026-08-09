@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit.replace-text",
+  "input": "<input.docx>",
+  "output": "<replaced.docx>",
+  "arguments": {
+    "case_sensitive": true,
+    "replacements": [
+      {"search": "DRAFT", "replace": "FINAL", "expected_matches": 1}
+    ]
+  }
+}

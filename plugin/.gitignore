@@ -1,0 +1,13 @@
+.venv/
+node_modules/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.document-skills-tmp/
+*.tmp
+~$*
+bin/
+obj/
+dist/
+

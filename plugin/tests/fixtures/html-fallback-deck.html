@@ -1,0 +1,21 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+*{box-sizing:border-box}html,body{margin:0}.slide{position:relative;width:1920px;height:1080px;background:#fff}
+.item{position:absolute;width:240px;height:160px}.shadow{left:80px;top:80px;background:#def;box-shadow:12px 12px 24px #345}
+.gradient{left:360px;top:80px;background-image:linear-gradient(45deg,#125,#8cf)}
+.filter{left:640px;top:80px;background:#acf;filter:blur(3px)}.clip{left:920px;top:80px;background:#fac;clip-path:polygon(50% 0,100% 100%,0 100%)}
+.forced{left:1200px;top:80px;background:#cfc}.pseudo{left:1480px;top:80px;background:#eee}.pseudo::before{content:'complex';background-image:linear-gradient(red,blue)}
+.missing{left:80px;top:360px;width:700px;font:48px 'Definitely Missing Fixture Font',Arial}
+.flatten{left:10px;top:10px;width:1900px;height:1000px;background:#fff}
+</style>
+<section class="slide">
+  <div class="item shadow" data-pptx-id="box-shadow"></div>
+  <div class="item gradient" data-pptx-id="gradient"></div>
+  <div class="item filter" data-pptx-id="filter"></div>
+  <div class="item clip" data-pptx-id="clip"></div>
+  <div class="item forced" data-pptx-id="forced" data-pptx-raster="true"></div>
+  <div class="item pseudo" data-pptx-id="complex-pseudo"></div>
+  <div class="missing" data-pptx-id="missing-font">Font substitution evidence</div>
+</section>
+<section class="slide"><div class="flatten" data-pptx-id="whole-slide" data-pptx-raster="true"><p>Editable descendant</p></div></section>

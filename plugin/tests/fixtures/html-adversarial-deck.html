@@ -1,0 +1,14 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>*{box-sizing:border-box}html,body{margin:0}.slide{position:relative;width:1920px;height:1080px}img{display:block;width:100px;height:100px}</style>
+<script>
+navigator.serviceWorker.register('worker.js');
+document.write('<section class="slide" data-pptx-id="script-created"></section>');
+</script>
+<section class="slide">
+  <img src="https://example.invalid/remote.png" alt="remote">
+  <img src="file:///private.png" alt="file">
+  <img src="custom:payload" alt="custom">
+  <img src="../outside.png" alt="parent">
+  <img src="data:image/png;base64,AAAAA===" alt="malformed">
+</section>

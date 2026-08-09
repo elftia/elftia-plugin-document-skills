@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elftia.dev/document-skills/operation-result.schema.json",
+  "title": "Document Skills operation result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "operation", "provider_chain", "requested_fidelity",
+    "achieved_fidelity", "degraded", "degradations", "artifacts", "validation",
+    "warnings", "errors", "diagnostics"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["success", "degraded", "enhancement_required", "invalid_request", "unavailable", "failed"]},
+    "operation": {"type": "string"},
+    "provider_chain": {"type": "array", "items": {"type": "string"}},
+    "requested_fidelity": {"type": "string", "enum": ["core", "enhanced", "full", "unknown"]},
+    "achieved_fidelity": {"type": "string", "enum": ["core", "enhanced", "full", "none"]},
+    "degraded": {"type": "boolean"},
+    "degradations": {"type": "array", "items": {"$ref": "#/$defs/degradation"}},
+    "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "validation": {"$ref": "validation-report.schema.json"},
+    "warnings": {"type": "array", "items": {"$ref": "#/$defs/message"}},
+    "errors": {"type": "array", "items": {"$ref": "#/$defs/error"}},
+    "diagnostics": {"type": "object"}
+  },
+  "$defs": {
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {"code": {"type": "string"}, "message": {"type": "string"}, "details": {"type": "object"}}
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {"code": {"type": "string", "pattern": "^DS_[A-Z0-9_]+$"}, "message": {"type": "string"}, "details": {"type": "object"}}
+    },
+    "degradation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "semantic_difference"],
+      "properties": {
+        "code": {"type": "string"},
+        "semantic_difference": {"type": "string"},
+        "missing_capabilities": {"type": "array", "items": {"type": "string"}},
+        "recommended_providers": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256", "bytes"],
+      "properties": {
+        "role": {"enum": ["input", "output", "report"]},
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "bytes": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "status": "invalid_request",
+      "operation": "unknown",
+      "provider_chain": [],
+      "requested_fidelity": "core",
+      "achieved_fidelity": "none",
+      "degraded": false,
+      "degradations": [],
+      "artifacts": [],
+      "validation": {"schema_version": "1.0", "status": "not_run", "gates": []},
+      "warnings": [],
+      "errors": [{"code": "DS_OPERATION_UNKNOWN", "message": "The operation is not registered.", "details": {}}],
+      "diagnostics": {}
+    }
+  ]
+}

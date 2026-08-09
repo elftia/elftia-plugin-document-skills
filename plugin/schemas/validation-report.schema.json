@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elftia.dev/document-skills/validation-report.schema.json",
+  "title": "Document Skills validation report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "gates"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["pass", "fail", "unavailable", "not_run", "not_applicable"]},
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "required", "outcome", "validator", "duration_ms", "evidence", "warnings"],
+        "properties": {
+          "id": {"type": "string"},
+          "required": {"type": "boolean"},
+          "outcome": {"enum": ["pass", "fail", "unavailable", "not_run", "not_applicable"]},
+          "validator": {"type": "string"},
+          "version": {"type": ["string", "null"]},
+          "duration_ms": {"type": "integer", "minimum": 0},
+          "evidence": {"type": "object"},
+          "warnings": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  },
+  "examples": [{"schema_version": "1.0", "status": "not_run", "gates": []}]
+}
+

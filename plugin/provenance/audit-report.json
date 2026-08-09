@@ -1,0 +1,65 @@
+{
+  "checks": {
+    "clean_room": {
+      "adopted_records": 0,
+      "expression_detection": "not_claimed",
+      "method": "exact-inventory-provenance-and-independent-review",
+      "module_records": 234,
+      "status": "pass"
+    },
+    "commands": {
+      "command_count": 21,
+      "status": "pass"
+    },
+    "execution_boundary": {
+      "classified_release_files": 312,
+      "dependency_manifests": 4,
+      "executable_artifacts": 234,
+      "registration_manifests": 2,
+      "source_files": 230,
+      "status": "pass"
+    },
+    "fixtures": {
+      "fixture_count": 25,
+      "status": "pass"
+    },
+    "inventory": {
+      "classified_count": 312,
+      "file_count": 312,
+      "risky_count": 234,
+      "status": "pass"
+    },
+    "manifests": {
+      "skills_root": "skills",
+      "status": "pass"
+    },
+    "provenance": {
+      "data_classification_count": 65,
+      "exclusion_count": 0,
+      "mapping_sha256": "295c3fecdb2646ff5389a52f0d33e3bb818de39ee23bf0a128922f441b055442",
+      "metadata_exclusion_count": 13,
+      "module_count": 234,
+      "record_count": 234,
+      "release_file_count": 312,
+      "review_attestations": 1,
+      "status": "pass"
+    },
+    "public_skills": {
+      "count": 4,
+      "names": [
+        "document-docx",
+        "document-pdf",
+        "document-pptx",
+        "document-xlsx"
+      ],
+      "status": "pass"
+    },
+    "sbom": {
+      "sha256": "756c8b1b0d241fa8bdea39ddd678df776a257cd7a82a5ca5223d0cc1d78b4bf0",
+      "status": "pass"
+    }
+  },
+  "errors": [],
+  "schema_version": "1.0",
+  "status": "pass"
+}

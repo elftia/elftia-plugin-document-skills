@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elftia.dev/document-skills/doctor-report.schema.json",
+  "title": "Document Skills doctor report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "project_version", "format", "runtime", "providers", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["healthy", "degraded", "unavailable"]},
+    "project_version": {"type": "string"},
+    "format": {"enum": ["docx", "xlsx", "pptx", "pdf"]},
+    "runtime": {"type": "array", "items": {"$ref": "#/$defs/component"}},
+    "providers": {"type": "array", "items": {"$ref": "#/$defs/component"}},
+    "errors": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "available", "version", "reason", "required"],
+      "properties": {
+        "id": {"type": "string"},
+        "available": {"type": "boolean"},
+        "version": {"type": ["string", "null"]},
+        "reason": {"type": ["string", "null"]},
+        "required": {"type": "boolean"},
+        "path": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "status": "healthy",
+      "project_version": "0.1.0",
+      "format": "docx",
+      "runtime": [],
+      "providers": [],
+      "errors": []
+    }
+  ]
+}
+

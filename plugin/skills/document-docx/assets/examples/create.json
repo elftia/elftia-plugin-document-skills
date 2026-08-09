@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.create",
+  "output": "<created.docx>",
+  "arguments": {
+    "report": {
+      "metadata": {"title": "Example document", "creator": "Elftia"},
+      "blocks": [
+        {"type": "heading", "text": "Example document", "level": 1},
+        {"type": "paragraph", "text": "Only the blocks listed here are written."}
+      ]
+    }
+  }
+}

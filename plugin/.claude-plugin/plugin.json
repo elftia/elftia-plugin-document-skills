@@ -1,0 +1,10 @@
+{
+  "name": "document-skills",
+  "version": "0.5.0",
+  "description": "Portable DOCX, XLSX, PPTX, and PDF Agent Skills",
+  "author": {
+    "name": "Elftia"
+  },
+  "license": "GPL-3.0",
+  "skills": "./skills/"
+}

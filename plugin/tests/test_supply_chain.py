@@ -1,0 +1,395 @@
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+import pytest
+
+from tools.audit import audit_fixtures, audit_provenance, release_inventory, run_audits
+from tools.audit_provenance import provenance_modules
+from tools.provenance_records import validate_metadata_exclusion
+from tools.supply_chain import build_sbom, canonical_json
+from tests.support.provenance_review_fixture import bind_test_review
+
+
+def test_fixture_recipe_and_manifest_are_deterministic(project_root):
+    fixture = project_root / "tests" / "fixtures" / "foundation-probe.json"
+    recipe = project_root / "tests" / "fixtures" / "recipes" / "foundation_probe.py"
+    generated = subprocess.run(
+        [sys.executable, str(recipe)],
+        check=True,
+        capture_output=True,
+        text=False,
+        shell=False,
+    ).stdout
+    assert generated == fixture.read_bytes()
+    manifest = json.loads(
+        (project_root / "tests" / "fixtures" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert audit_fixtures(project_root)["fixture_count"] == len(
+        manifest["fixtures"]
+    )
+
+
+def test_provenance_covers_implementation_modules(project_root, tmp_path):
+    root = _copy_audit_project(project_root, tmp_path / "reviewed")
+    bind_test_review(root)
+    report = audit_provenance(root)
+    assert report["module_count"] > 0
+    assert (
+        report["record_count"] + report["exclusion_count"]
+        == len(provenance_modules(root))
+    )
+    assert report["release_file_count"] == len(release_inventory(root))
+    assert (
+        report["record_count"]
+        + report["exclusion_count"]
+        + report["data_classification_count"]
+        + report["metadata_exclusion_count"]
+        == report["release_file_count"]
+    )
+    assert len(report["mapping_sha256"]) == 64
+
+
+def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "core-docx-review")
+    report_name = "core-docx-review-cycle-round-1.md"
+    bind_test_review(root, report_name=report_name)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
+
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    core_record = next(
+        record
+        for record in manifest["metadata_exclusions"]
+        if record["artifact"] == f"provenance/reviews/{report_name}"
+    )
+    reviewers = {manifest["review_attestations"][0]["reviewer"]}
+    validate_metadata_exclusion(root, core_record, reviewers)
+
+    unexpected = {
+        **core_record,
+        "artifact": "provenance/reviews/core-docx-review-cycle-round-2.md",
+    }
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(root, unexpected, reviewers)
+
+
+def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "core-pptx-review")
+    report_name = "core-pptx-review-cycle-round-1.md"
+    bind_test_review(root, report_name=report_name)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
+
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    core_record = next(
+        record
+        for record in manifest["metadata_exclusions"]
+        if record["artifact"] == f"provenance/reviews/{report_name}"
+    )
+    reviewers = {manifest["review_attestations"][0]["reviewer"]}
+    validate_metadata_exclusion(root, core_record, reviewers)
+
+    unexpected = {
+        **core_record,
+        "artifact": "provenance/reviews/core-pptx-review-cycle-round-2.md",
+    }
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(root, unexpected, reviewers)
+
+
+def test_sbom_is_deterministic_and_matches_locks(project_root):
+    first = canonical_json(build_sbom(project_root))
+    second = canonical_json(build_sbom(project_root))
+    assert first == second
+    assert json.loads(first)["bomFormat"] == "CycloneDX"
+    assert (project_root / "sbom.cdx.json").read_text(encoding="utf-8") == first
+
+
+def test_sbom_records_docx_node_provider_and_transitive_graph(project_root):
+    sbom = build_sbom(project_root)
+    components = {item["bom-ref"]: item for item in sbom["components"]}
+    dependencies = {
+        item["ref"]: item["dependsOn"] for item in sbom["dependencies"]
+    }
+    assert "provider:core-node-docx-template" in components
+    assert "provider:html-browser-capture" in components
+    assert dependencies["pkg:npm/playwright-core@1.62.1"] == []
+    assert dependencies["pkg:npm/docxtemplater@3.69.3"] == [
+        "pkg:npm/@xmldom/xmldom@0.9.10"
+    ]
+    assert dependencies["pkg:npm/pizzip@3.2.0"] == [
+        "pkg:npm/pako@2.2.0"
+    ]
+
+
+def test_machine_readable_audit_report(project_root):
+    report = run_audits(project_root)
+    audit_path = project_root / "provenance" / "audit-report.json"
+    assert audit_path.read_text(encoding="utf-8") == canonical_json(report)
+
+    manifest = json.loads(
+        (project_root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    attestations = manifest["review_attestations"]
+    if not attestations:
+        assert report["status"] == "fail"
+        assert report["checks"]["provenance"] == {"status": "fail"}
+        assert report["errors"] == [
+            {
+                "check": "provenance",
+                "message": "Independent review attestation is missing",
+            }
+        ]
+    elif len(attestations) == 1:
+        assert report["status"] == "pass"
+        assert report["errors"] == []
+        assert report["checks"]["provenance"]["status"] == "pass"
+        assert report["checks"]["provenance"]["review_attestations"] == 1
+    else:
+        pytest.fail(f"unsupported review attestation count: {len(attestations)}")
+
+
+def _copy_audit_project(project_root: Path, destination: Path) -> Path:
+    return Path(
+        shutil.copytree(
+            project_root,
+            destination,
+            ignore=shutil.ignore_patterns(
+                ".venv",
+                "node_modules",
+                ".pytest_cache",
+                "__pycache__",
+                "*.pyc",
+            ),
+        )
+    )
+
+
+def test_provenance_rejects_broad_glob_unreviewed_module_and_hash_drift(
+    project_root, tmp_path
+):
+    broad = _copy_audit_project(project_root, tmp_path / "broad")
+    manifest_path = broad / "provenance" / "modules.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["modules"][0]["module"] = "src/**"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(AssertionError):
+        audit_provenance(broad)
+
+    unreviewed = _copy_audit_project(project_root, tmp_path / "unreviewed")
+    (unreviewed / "src" / "unreviewed.py").write_text("VALUE = 1\n", encoding="utf-8")
+    with pytest.raises(AssertionError):
+        audit_provenance(unreviewed)
+
+    drift = _copy_audit_project(project_root, tmp_path / "drift")
+    module = provenance_modules(drift)[0]
+    with (drift / module).open("a", encoding="utf-8") as handle:
+        handle.write("\n# unreviewed drift\n")
+    with pytest.raises(AssertionError):
+        audit_provenance(drift)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "runtime/provider.ps1",
+        "runtime/provider.sh",
+        "runtime/provider",
+        "runtime/provider.dll",
+        "runtime/provider.xll",
+    ],
+)
+def test_release_inventory_requires_provenance_for_every_executable_artifact(
+    project_root, tmp_path, relative
+):
+    case_name = Path(relative).suffix.lstrip(".") or "extensionless"
+    root = _copy_audit_project(project_root, tmp_path / case_name)
+    artifact = root / relative
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(b"provider artifact\n")
+    report = run_audits(root)
+    assert report["status"] == "fail"
+    assert report["checks"]["provenance"]["status"] == "fail"
+    assert any(error["check"] == "provenance" for error in report["errors"])
+
+
+def test_reviewed_non_executable_artifact_exclusion_is_exact_and_evidenced(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "excluded")
+    bind_test_review(root)
+    artifact = root / "runtime" / "reference.ps1"
+    artifact.write_text("# inert provenance test data\n", encoding="utf-8")
+    manifest_path = root / "provenance" / "modules.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    reviewer = manifest["review_attestations"][0]["reviewer"]
+    base_exclusions = len(manifest["executable_exclusions"])
+    manifest["executable_exclusions"].append(
+        {
+            "artifact": "runtime/reference.ps1",
+            "sha256": hashlib.sha256(artifact.read_bytes()).hexdigest(),
+            "classification": "non-executable-data",
+            "reason": "Inert audit fixture retained only as reviewed reference data.",
+            "reviewer": reviewer,
+            "review_evidence": [
+                "provenance/reviews/foundation-review-cycle-round-1.md"
+            ],
+        }
+    )
+    entries = [
+        *(f"module:{record['module']}:{record['sha256']}" for record in manifest["modules"]),
+        *(
+            f"excluded:{record['artifact']}:{record['sha256']}"
+            for record in manifest["executable_exclusions"]
+        ),
+        *(
+            f"data:{record['artifact']}:{record['classification']}:{record['sha256']}"
+            for record in manifest["data_classifications"]
+        ),
+        *(
+            f"metadata:{record['artifact']}:{record['classification']}"
+            for record in manifest["metadata_exclusions"]
+        ),
+    ]
+    mapping_digest = hashlib.sha256(
+        "\n".join(sorted(entries)).encode("utf-8")
+    ).hexdigest()
+    review = manifest["review_attestations"][0]
+    evidence_path = root / review["report_evidence"]
+    evidence = evidence_path.read_text(encoding="utf-8").replace(
+        review["reviewed_mapping_sha256"], mapping_digest
+    )
+    evidence_path.write_text(evidence, encoding="utf-8")
+    review["reviewed_mapping_sha256"] = mapping_digest
+    review["report_sha256"] = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    report = audit_provenance(root)
+    assert report["exclusion_count"] == base_exclusions + 1
+
+    manifest["executable_exclusions"][-1]["review_evidence"] = ["PROVENANCE.md"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(AssertionError):
+        audit_provenance(root)
+
+
+def test_complete_machine_audit_rejects_dynamic_mcp_command_and_artifact_bypasses(
+    project_root, tmp_path
+):
+    dynamic = _copy_audit_project(project_root, tmp_path / "dynamic")
+    source = dynamic / "src" / "dynamic_import.py"
+    source.write_text(
+        'module = __import__("mcp.server.fastmcp", fromlist=["FastMCP"])\n'
+        'app = module.FastMCP("documents")\n',
+        encoding="utf-8",
+    )
+    dynamic_report = run_audits(dynamic)
+    assert dynamic_report["status"] == "fail"
+    assert dynamic_report["checks"]["execution_boundary"]["status"] == "fail"
+
+    direct = _copy_audit_project(project_root, tmp_path / "direct-command")
+    with (direct / "README.md").open("a", encoding="utf-8") as handle:
+        handle.write("\n```text\nnode runtime/node/health.mjs\n```\n")
+    command_report = run_audits(direct)
+    assert command_report["status"] == "fail"
+    assert command_report["checks"]["commands"]["status"] == "fail"
+
+    artifact_root = _copy_audit_project(project_root, tmp_path / "artifact")
+    (artifact_root / "runtime" / "provider.ps1").write_text(
+        "Write-Output provider\n", encoding="utf-8"
+    )
+    artifact_report = run_audits(artifact_root)
+    assert artifact_report["status"] == "fail"
+    assert artifact_report["checks"]["provenance"]["status"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("relative", "payload"),
+    [
+        ("runtime/bin/provider.exe", b"MZ\x90\x00provider"),
+        (
+            "assets/provider.msi",
+            b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1provider",
+        ),
+        ("launch-provider", b"#!/bin/sh\nexec provider\n"),
+        (".hidden/bin/provider.dat", b"provider binary"),
+        ("assets/renamed-provider.dat", b"MZ\x90\x00provider"),
+        ("assets/renamed-ole.dat", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1payload"),
+        ("assets/macho32-be.dat", b"\xfe\xed\xfa\xcepayload"),
+        ("assets/macho32-le.dat", b"\xce\xfa\xed\xfepayload"),
+        ("assets/macho64-be.dat", b"\xfe\xed\xfa\xcfpayload"),
+        ("assets/macho64-le.dat", b"\xcf\xfa\xed\xfepayload"),
+        ("assets/macho-fat-be.dat", b"\xca\xfe\xba\xbepayload"),
+        ("assets/macho-fat-le.dat", b"\xbe\xba\xfe\xcapayload"),
+        ("assets/macho-fat64-be.dat", b"\xca\xfe\xba\xbfpayload"),
+        ("assets/macho-fat64-le.dat", b"\xbf\xba\xfe\xcapayload"),
+        ("assets/renamed-elf.dat", b"\x7fELFpayload"),
+        ("assets/renamed-wasm.dat", b"\x00asmpayload"),
+        ("assets/renamed-java.dat", b"\xca\xfe\xba\xbepayload"),
+        ("assets/opaque-nul.dat", b"plain-looking\x00opaque"),
+        ("assets/opaque-low-text.dat", bytes(range(1, 32)) * 4),
+        ("assets/extensionless", b"ordinary text with no suffix\n"),
+    ],
+)
+def test_complete_audit_sees_hidden_location_magic_installer_and_shebang_artifacts(
+    project_root, tmp_path, relative, payload
+):
+    root = _copy_audit_project(project_root, tmp_path / "artifact-variant")
+    artifact = root / relative
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    artifact.write_bytes(payload)
+    report = run_audits(root)
+    assert report["status"] == "fail"
+    assert any(
+        error["check"] in {"inventory", "provenance", "execution_boundary"}
+        for error in report["errors"]
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["zero-hash", "self-reference", "placeholder-identity", "mapping-mismatch"],
+)
+def test_provenance_rejects_forged_or_unrooted_review_attestations(
+    project_root, tmp_path, mutation
+):
+    root = _copy_audit_project(project_root, tmp_path / mutation)
+    bind_test_review(root)
+    manifest_path = root / "provenance" / "modules.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    review = manifest["review_attestations"][0]
+    if mutation == "zero-hash":
+        review["report_sha256"] = "0" * 64
+    elif mutation == "self-reference":
+        review["report_evidence"] = "provenance/modules.json"
+        review["report_name"] = "modules.json"
+        review["report_sha256"] = hashlib.sha256(
+            manifest_path.read_bytes()
+        ).hexdigest()
+    elif mutation == "placeholder-identity":
+        review["identity"] = "codex-reviewer/placeholder"
+    else:
+        review["reviewed_mapping_sha256"] = "1" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    report = run_audits(root)
+    assert report["status"] == "fail"
+    assert report["checks"]["provenance"]["status"] == "fail"

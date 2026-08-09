@@ -1,0 +1,58 @@
+name: Core DOCX
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  core-docx:
+    name: Core DOCX (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up frozen uv toolchain
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: 0.8.12
+          enable-cache: true
+
+      - name: Install exact production Node graph
+        run: npm ci --ignore-scripts
+
+      - name: Install frozen Python graph
+        run: uv sync --frozen
+
+      - name: Verify locks
+        run: |
+          uv lock --check --offline --project .
+          npm ls --omit=dev --all
+
+      - name: Run Core DOCX and release suites
+        run: uv run --project . --frozen python -m pytest
+
+      - name: Compile Python
+        run: uv run --project . --frozen python -m compileall -q src tools tests
+
+      - name: Run exact release audit
+        run: uv run --project . --frozen python -m tools.audit --project-root .

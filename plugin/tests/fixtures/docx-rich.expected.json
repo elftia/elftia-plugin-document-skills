@@ -1,0 +1,815 @@
+{
+  "inspection": {
+    "dangerous_content": {
+      "categories": {
+        "activex": [],
+        "dde": [],
+        "executable_parts": [],
+        "external_targets": [],
+        "ole": [],
+        "templates": [],
+        "vba": [],
+        "xlm": []
+      },
+      "counts": {
+        "activex": 0,
+        "dde": 0,
+        "executable_parts": 0,
+        "external_targets": 0,
+        "ole": 0,
+        "templates": 0,
+        "vba": 0,
+        "xlm": 0
+      },
+      "dangerous": false,
+      "mutation_authorized": true,
+      "policy": "preserve-disabled",
+      "requires_disabled_preservation": false
+    },
+    "mutation_authorized": false,
+    "package": {
+      "content_types": {
+        "*.png": "image/png",
+        "*.rels": "application/vnd.openxmlformats-package.relationships+xml",
+        "*.xml": "application/xml",
+        "/docProps/app.xml": "application/vnd.openxmlformats-officedocument.extended-properties+xml",
+        "/docProps/core.xml": "application/vnd.openxmlformats-package.core-properties+xml",
+        "/word/document.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+        "/word/footer1.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml",
+        "/word/header1.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
+        "/word/numbering.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+        "/word/styles.xml": "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
+      },
+      "media": [
+        {
+          "bytes": 68,
+          "content_type": "image/png",
+          "name": "word/media/image1.png",
+          "sha256": "b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d"
+        }
+      ],
+      "part_count": 12,
+      "parts": [
+        {
+          "bytes": 1227,
+          "content_type": "application/xml",
+          "name": "[Content_Types].xml",
+          "sha256": "ec0f6c310518308c4dde9d335d9dc2cc2897b0ee8b9b80e751b78da80966ca94"
+        },
+        {
+          "bytes": 605,
+          "content_type": "application/vnd.openxmlformats-package.relationships+xml",
+          "name": "_rels/.rels",
+          "sha256": "29abe756449e9e80dd4f0ffafb9ffc108fda3bcae6cd2020a34e3ed67ec63a87"
+        },
+        {
+          "bytes": 275,
+          "content_type": "application/vnd.openxmlformats-officedocument.extended-properties+xml",
+          "name": "docProps/app.xml",
+          "sha256": "9543b7f67692025eb949950cb3a0ade5da87af38d95208c2c7fb20686b57e539"
+        },
+        {
+          "bytes": 553,
+          "content_type": "application/vnd.openxmlformats-package.core-properties+xml",
+          "name": "docProps/core.xml",
+          "sha256": "c7e2a4d3bb82844dae0a334c63805c23732414232fb98f2ac14e0b7e16a215b7"
+        },
+        {
+          "bytes": 1012,
+          "content_type": "application/vnd.openxmlformats-package.relationships+xml",
+          "name": "word/_rels/document.xml.rels",
+          "sha256": "d68d53787b897f60fe827b318d722273af3c60e857cd39c7bba36704a489f42a"
+        },
+        {
+          "bytes": 52,
+          "content_type": "application/xml",
+          "name": "word/bookmarks.xml",
+          "sha256": "e599ef1c33c6f35b92e25351bd819ac66e19de647bedcb8f6fb2ae3faf36a5b7"
+        },
+        {
+          "bytes": 2750,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+          "name": "word/document.xml",
+          "sha256": "25408688dd3a7a920bbe947233acb21e1f6712a314463fb0d354803af0b98898"
+        },
+        {
+          "bytes": 280,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml",
+          "name": "word/footer1.xml",
+          "sha256": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da"
+        },
+        {
+          "bytes": 280,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml",
+          "name": "word/header1.xml",
+          "sha256": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727"
+        },
+        {
+          "bytes": 68,
+          "content_type": "image/png",
+          "name": "word/media/image1.png",
+          "sha256": "b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d"
+        },
+        {
+          "bytes": 322,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+          "name": "word/numbering.xml",
+          "sha256": "9a851f9e7087bf5e70ffa55cbf3856089ecf01f64442fdfc272b48c3831b4344"
+        },
+        {
+          "bytes": 622,
+          "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml",
+          "name": "word/styles.xml",
+          "sha256": "2ae6e514277aadfe4c14be2c39a580ace71109e43e6ee56e9861ee54c8ec0e3a"
+        }
+      ],
+      "relationship_count": 9,
+      "relationships": [
+        {
+          "id": "rId1",
+          "relationship_part": "_rels/.rels",
+          "resolved_target": "word/document.xml",
+          "source_part": "",
+          "target": "word/document.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+        },
+        {
+          "id": "rId2",
+          "relationship_part": "_rels/.rels",
+          "resolved_target": "docProps/core.xml",
+          "source_part": "",
+          "target": "docProps/core.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties"
+        },
+        {
+          "id": "rId3",
+          "relationship_part": "_rels/.rels",
+          "resolved_target": "docProps/app.xml",
+          "source_part": "",
+          "target": "docProps/app.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties"
+        },
+        {
+          "id": "rIdFooter1",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/footer1.xml",
+          "source_part": "word/document.xml",
+          "target": "footer1.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer"
+        },
+        {
+          "id": "rIdHeader1",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/header1.xml",
+          "source_part": "word/document.xml",
+          "target": "header1.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/header"
+        },
+        {
+          "id": "rIdImage1",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/media/image1.png",
+          "source_part": "word/document.xml",
+          "target": "media/image1.png",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
+        },
+        {
+          "id": "rIdInternalLink",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/bookmarks.xml",
+          "source_part": "word/document.xml",
+          "target": "bookmarks.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+        },
+        {
+          "id": "rIdNumbering",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/numbering.xml",
+          "source_part": "word/document.xml",
+          "target": "numbering.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering"
+        },
+        {
+          "id": "rIdStyles",
+          "relationship_part": "word/_rels/document.xml.rels",
+          "resolved_target": "word/styles.xml",
+          "source_part": "word/document.xml",
+          "target": "styles.xml",
+          "target_mode": "Internal",
+          "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
+        }
+      ],
+      "unknown_parts": []
+    },
+    "policy": "inert-inspection",
+    "sections": [
+      {
+        "index": 0,
+        "margins": {
+          "bottom": "1440",
+          "footer": "720",
+          "gutter": "0",
+          "header": "720",
+          "left": "1440",
+          "right": "1440",
+          "top": "1440"
+        },
+        "orientation": "portrait",
+        "page_size": {
+          "h": "15840",
+          "w": "12240"
+        },
+        "references": [
+          {
+            "kind": "header",
+            "reference_type": "default",
+            "relationship_id": "rIdHeader1",
+            "target_part": "word/header1.xml"
+          },
+          {
+            "kind": "footer",
+            "reference_type": "default",
+            "relationship_id": "rIdFooter1",
+            "target_part": "word/footer1.xml"
+          }
+        ],
+        "type": "nextPage"
+      },
+      {
+        "index": 1,
+        "margins": {
+          "bottom": "1440",
+          "footer": "720",
+          "gutter": "0",
+          "header": "720",
+          "left": "1440",
+          "right": "1440",
+          "top": "1440"
+        },
+        "orientation": "landscape",
+        "page_size": {
+          "h": "12240",
+          "w": "15840"
+        },
+        "references": [
+          {
+            "kind": "header",
+            "reference_type": "default",
+            "relationship_id": "rIdHeader1",
+            "target_part": "word/header1.xml"
+          },
+          {
+            "kind": "footer",
+            "reference_type": "default",
+            "relationship_id": "rIdFooter1",
+            "target_part": "word/footer1.xml"
+          }
+        ],
+        "type": "continuous"
+      }
+    ],
+    "security_summary": {
+      "categories": {
+        "activex": 0,
+        "dde": 0,
+        "executable_parts": 0,
+        "external_targets": 0,
+        "ole": 0,
+        "templates": 0,
+        "vba": 0,
+        "xlm": 0
+      },
+      "dangerous": false,
+      "mutation_authorized": false
+    },
+    "truncated": {
+      "parts": false,
+      "relationships": false
+    },
+    "word_features": {
+      "comments": 0,
+      "fields": 0,
+      "revisions": 0,
+      "sections": 2
+    }
+  },
+  "read": {
+    "document": {
+      "images": [
+        {
+          "alt_text": "Elftia pixel",
+          "content_type": "image/png",
+          "dimensions_emu": {
+            "cx": "914400",
+            "cy": "914400"
+          },
+          "relationship_id": "rIdImage1",
+          "source_part": "word/document.xml",
+          "target_part": "word/media/image1.png"
+        }
+      ],
+      "sections": [
+        {
+          "index": 0,
+          "margins": {
+            "bottom": "1440",
+            "footer": "720",
+            "gutter": "0",
+            "header": "720",
+            "left": "1440",
+            "right": "1440",
+            "top": "1440"
+          },
+          "orientation": "portrait",
+          "page_size": {
+            "h": "15840",
+            "w": "12240"
+          },
+          "references": [
+            {
+              "kind": "header",
+              "reference_type": "default",
+              "relationship_id": "rIdHeader1",
+              "target_part": "word/header1.xml"
+            },
+            {
+              "kind": "footer",
+              "reference_type": "default",
+              "relationship_id": "rIdFooter1",
+              "target_part": "word/footer1.xml"
+            }
+          ],
+          "type": "nextPage"
+        },
+        {
+          "index": 1,
+          "margins": {
+            "bottom": "1440",
+            "footer": "720",
+            "gutter": "0",
+            "header": "720",
+            "left": "1440",
+            "right": "1440",
+            "top": "1440"
+          },
+          "orientation": "landscape",
+          "page_size": {
+            "h": "12240",
+            "w": "15840"
+          },
+          "references": [
+            {
+              "kind": "header",
+              "reference_type": "default",
+              "relationship_id": "rIdHeader1",
+              "target_part": "word/header1.xml"
+            },
+            {
+              "kind": "footer",
+              "reference_type": "default",
+              "relationship_id": "rIdFooter1",
+              "target_part": "word/footer1.xml"
+            }
+          ],
+          "type": "continuous"
+        }
+      ],
+      "stories": [
+        {
+          "kind": "body",
+          "paragraphs": [
+            {
+              "heading_level": 1,
+              "hyperlinks": [],
+              "index": 0,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Core DOCX"
+                }
+              ],
+              "style": "Heading1",
+              "text": "Core DOCX"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 1,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Template {customer."
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 1,
+                  "italic": true,
+                  "style": null,
+                  "text": "name}"
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 2,
+                  "italic": false,
+                  "style": null,
+                  "text": " and {region}; Replace TA"
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 3,
+                  "italic": true,
+                  "style": null,
+                  "text": "RGET."
+                }
+              ],
+              "style": null,
+              "text": "Template {customer.name} and {region}; Replace TARGET."
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 2,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Location"
+                }
+              ],
+              "style": null,
+              "text": "Location"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 3,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Value"
+                }
+              ],
+              "style": null,
+              "text": "Value"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 4,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Table"
+                }
+              ],
+              "style": null,
+              "text": "Table"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 5,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "TA"
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 1,
+                  "italic": true,
+                  "style": null,
+                  "text": "RGET"
+                }
+              ],
+              "style": null,
+              "text": "TARGET"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 6,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": ""
+                }
+              ],
+              "style": null,
+              "text": ""
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 7,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [],
+              "style": null,
+              "text": ""
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 8,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Normal placeholder {normal}"
+                }
+              ],
+              "style": null,
+              "text": "Normal placeholder {normal}"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 9,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Overlap AAAA"
+                }
+              ],
+              "style": null,
+              "text": "Overlap AAAA"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 10,
+              "numbering": {
+                "level": "0",
+                "numbering_id": "1"
+              },
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "List item"
+                }
+              ],
+              "style": null,
+              "text": "List item"
+            },
+            {
+              "heading_level": null,
+              "hyperlinks": [
+                {
+                  "relationship_id": "rIdInternalLink",
+                  "resolved_target": "word/bookmarks.xml",
+                  "target": "bookmarks.xml",
+                  "target_mode": "Internal",
+                  "type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+                }
+              ],
+              "index": 11,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": "rIdInternalLink",
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Internal reference"
+                }
+              ],
+              "style": null,
+              "text": "Internal reference"
+            }
+          ],
+          "part": "word/document.xml",
+          "tables": [
+            {
+              "index": 0,
+              "rows": [
+                {
+                  "cells": [
+                    {
+                      "grid_span": null,
+                      "index": 0,
+                      "paragraphs": [
+                        {
+                          "style": null,
+                          "text": "Location"
+                        }
+                      ]
+                    },
+                    {
+                      "grid_span": null,
+                      "index": 1,
+                      "paragraphs": [
+                        {
+                          "style": null,
+                          "text": "Value"
+                        }
+                      ]
+                    }
+                  ],
+                  "index": 0
+                },
+                {
+                  "cells": [
+                    {
+                      "grid_span": null,
+                      "index": 0,
+                      "paragraphs": [
+                        {
+                          "style": null,
+                          "text": "Table"
+                        }
+                      ]
+                    },
+                    {
+                      "grid_span": null,
+                      "index": 1,
+                      "paragraphs": [
+                        {
+                          "style": null,
+                          "text": "TARGET"
+                        }
+                      ]
+                    }
+                  ],
+                  "index": 1
+                }
+              ],
+              "style": "TableGrid"
+            }
+          ]
+        },
+        {
+          "kind": "footer",
+          "paragraphs": [
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 0,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Footer "
+                },
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 1,
+                  "italic": false,
+                  "style": null,
+                  "text": "TA"
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 2,
+                  "italic": true,
+                  "style": null,
+                  "text": "RGET"
+                }
+              ],
+              "style": null,
+              "text": "Footer TARGET"
+            }
+          ],
+          "part": "word/footer1.xml",
+          "tables": []
+        },
+        {
+          "kind": "header",
+          "paragraphs": [
+            {
+              "heading_level": null,
+              "hyperlinks": [],
+              "index": 0,
+              "numbering": null,
+              "protected_text_present": false,
+              "runs": [
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 0,
+                  "italic": false,
+                  "style": null,
+                  "text": "Header "
+                },
+                {
+                  "bold": true,
+                  "hyperlink_id": null,
+                  "index": 1,
+                  "italic": false,
+                  "style": null,
+                  "text": "TA"
+                },
+                {
+                  "bold": false,
+                  "hyperlink_id": null,
+                  "index": 2,
+                  "italic": true,
+                  "style": null,
+                  "text": "RGET"
+                }
+              ],
+              "style": null,
+              "text": "Header TARGET"
+            }
+          ],
+          "part": "word/header1.xml",
+          "tables": []
+        }
+      ]
+    },
+    "limits": {
+      "max_paragraphs": 5000,
+      "max_table_rows": 5000,
+      "max_tables": 500,
+      "max_text_chars": 250000
+    },
+    "metadata": {
+      "created": "2000-01-01T00:00:00Z",
+      "creator": "Elftia",
+      "keywords": "docx,acceptance",
+      "modified": null,
+      "subject": "Original deterministic fixture",
+      "title": "Elftia DOCX acceptance"
+    },
+    "truncated": false,
+    "truncations": []
+  }
+}

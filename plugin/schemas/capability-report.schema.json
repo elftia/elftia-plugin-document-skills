@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://elftia.dev/document-skills/capability-report.schema.json",
+  "title": "Document Skills capability report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "format", "operations", "providers", "validation"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "format": {"enum": ["docx", "xlsx", "pptx", "pdf"]},
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["operation", "available", "fidelity", "providers", "reason"],
+        "properties": {
+          "operation": {"type": "string"},
+          "available": {"type": "boolean"},
+          "fidelity": {"enum": ["core", "enhanced", "full", "none"]},
+          "providers": {"type": "array", "items": {"type": "string"}},
+          "reason": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "providers": {"type": "array", "items": {"type": "object"}},
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package", "schema", "visual"],
+      "properties": {
+        "package": {"enum": ["available", "unavailable"]},
+        "schema": {"enum": ["available", "unavailable"]},
+        "visual": {"enum": ["available", "unavailable"]}
+      }
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "format": "pdf",
+      "operations": [],
+      "providers": [],
+      "validation": {"package": "available", "schema": "unavailable", "visual": "unavailable"}
+    }
+  ]
+}
+

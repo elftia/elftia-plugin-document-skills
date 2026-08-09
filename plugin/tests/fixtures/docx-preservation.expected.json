@@ -1,0 +1,22 @@
+{
+  "part_hashes": {
+    "[Content_Types].xml": "ec0f6c310518308c4dde9d335d9dc2cc2897b0ee8b9b80e751b78da80966ca94",
+    "_rels/.rels": "29abe756449e9e80dd4f0ffafb9ffc108fda3bcae6cd2020a34e3ed67ec63a87",
+    "customXml/item1.xml": "6bf15af81201164ff5fff7a56fab25940ad213387fa8a6447cb4d79841837f5a",
+    "docProps/app.xml": "9543b7f67692025eb949950cb3a0ade5da87af38d95208c2c7fb20686b57e539",
+    "docProps/core.xml": "c7e2a4d3bb82844dae0a334c63805c23732414232fb98f2ac14e0b7e16a215b7",
+    "elftia/unknown-safe.bin": "95fcd7c029548b716424f827047cbcb331add913d1fadc9cdf2d7dbda99f182f",
+    "word/_rels/document.xml.rels": "d68d53787b897f60fe827b318d722273af3c60e857cd39c7bba36704a489f42a",
+    "word/bookmarks.xml": "e599ef1c33c6f35b92e25351bd819ac66e19de647bedcb8f6fb2ae3faf36a5b7",
+    "word/document.xml": "25408688dd3a7a920bbe947233acb21e1f6712a314463fb0d354803af0b98898",
+    "word/footer1.xml": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da",
+    "word/header1.xml": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727",
+    "word/media/image1.png": "b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d",
+    "word/media/unrelated2.png": "b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d",
+    "word/numbering.xml": "9a851f9e7087bf5e70ffa55cbf3856089ecf01f64442fdfc272b48c3831b4344",
+    "word/styles.xml": "2ae6e514277aadfe4c14be2c39a580ace71109e43e6ee56e9861ee54c8ec0e3a"
+  },
+  "unknown_parts": [
+    "elftia/unknown-safe.bin"
+  ]
+}

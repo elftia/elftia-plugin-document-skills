@@ -1,0 +1,356 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:npm/@xmldom/xmldom@0.9.10",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "@xmldom/xmldom",
+      "purl": "pkg:npm/@xmldom/xmldom@0.9.10",
+      "type": "library",
+      "version": "0.9.10"
+    },
+    {
+      "bom-ref": "pkg:npm/acorn@8.15.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "acorn",
+      "purl": "pkg:npm/acorn@8.15.0",
+      "type": "library",
+      "version": "8.15.0"
+    },
+    {
+      "bom-ref": "pkg:npm/docxtemplater@3.69.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "docxtemplater",
+      "purl": "pkg:npm/docxtemplater@3.69.3",
+      "type": "library",
+      "version": "3.69.3"
+    },
+    {
+      "bom-ref": "pkg:npm/pako@2.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT AND Zlib"
+          }
+        }
+      ],
+      "name": "pako",
+      "purl": "pkg:npm/pako@2.2.0",
+      "type": "library",
+      "version": "2.2.0"
+    },
+    {
+      "bom-ref": "pkg:npm/pizzip@3.2.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "pizzip",
+      "purl": "pkg:npm/pizzip@3.2.0",
+      "type": "library",
+      "version": "3.2.0"
+    },
+    {
+      "bom-ref": "pkg:npm/playwright-core@1.62.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "name": "playwright-core",
+      "purl": "pkg:npm/playwright-core@1.62.1",
+      "type": "library",
+      "version": "1.62.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/attrs@26.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "attrs",
+      "purl": "pkg:pypi/attrs@26.1.0",
+      "type": "library",
+      "version": "26.1.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/defusedxml@0.7.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ],
+      "name": "defusedxml",
+      "purl": "pkg:pypi/defusedxml@0.7.1",
+      "type": "library",
+      "version": "0.7.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "jsonschema-specifications",
+      "purl": "pkg:pypi/jsonschema-specifications@2025.9.1",
+      "type": "library",
+      "version": "2025.9.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/jsonschema@4.25.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "jsonschema",
+      "purl": "pkg:pypi/jsonschema@4.25.1",
+      "type": "library",
+      "version": "4.25.1"
+    },
+    {
+      "bom-ref": "pkg:pypi/referencing@0.37.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "referencing",
+      "purl": "pkg:pypi/referencing@0.37.0",
+      "type": "library",
+      "version": "0.37.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/rpds-py@2026.6.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "rpds-py",
+      "purl": "pkg:pypi/rpds-py@2026.6.3",
+      "type": "library",
+      "version": "2026.6.3"
+    },
+    {
+      "bom-ref": "pkg:pypi/typing-extensions@4.16.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ],
+      "name": "typing-extensions",
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
+      "bom-ref": "provider:core-node-docx-template",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ebdbff191335aa4c582f03122939973bac1a28fed77bd3092bae284af417057b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-3.0"
+          }
+        }
+      ],
+      "name": "runtime/node/docx_template.mjs",
+      "properties": [
+        {
+          "name": "elftia:provider",
+          "value": "core-node"
+        }
+      ],
+      "type": "file"
+    },
+    {
+      "bom-ref": "provider:core-node-health",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c723383e2dfc5d68342380f9590bf6df3a3a3ea03f28ed1f11b02a846f59b08d"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-3.0"
+          }
+        }
+      ],
+      "name": "runtime/node/health.mjs",
+      "properties": [
+        {
+          "name": "elftia:provider",
+          "value": "core-node"
+        }
+      ],
+      "type": "file"
+    },
+    {
+      "bom-ref": "provider:html-browser-capture",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f32d408c514f01c34ee7097b986b312880a3b6e1bf5c5477b3ecc5e9cc3308ca"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-3.0"
+          }
+        }
+      ],
+      "name": "runtime/node/html_capture.mjs",
+      "properties": [
+        {
+          "name": "elftia:provider",
+          "value": "core-node"
+        }
+      ],
+      "type": "file"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "pkg:npm/acorn@8.15.0",
+        "pkg:npm/docxtemplater@3.69.3",
+        "pkg:npm/pizzip@3.2.0",
+        "pkg:npm/playwright-core@1.62.1",
+        "pkg:pypi/defusedxml@0.7.1",
+        "pkg:pypi/jsonschema@4.25.1"
+      ],
+      "ref": "application:document-skills"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:npm/@xmldom/xmldom@0.9.10"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:npm/acorn@8.15.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:npm/@xmldom/xmldom@0.9.10"
+      ],
+      "ref": "pkg:npm/docxtemplater@3.69.3"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:npm/pako@2.2.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:npm/pako@2.2.0"
+      ],
+      "ref": "pkg:npm/pizzip@3.2.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:npm/playwright-core@1.62.1"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/attrs@26.1.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/defusedxml@0.7.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/referencing@0.37.0"
+      ],
+      "ref": "pkg:pypi/jsonschema-specifications@2025.9.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/attrs@26.1.0",
+        "pkg:pypi/jsonschema-specifications@2025.9.1",
+        "pkg:pypi/referencing@0.37.0",
+        "pkg:pypi/rpds-py@2026.6.3"
+      ],
+      "ref": "pkg:pypi/jsonschema@4.25.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:pypi/attrs@26.1.0",
+        "pkg:pypi/rpds-py@2026.6.3",
+        "pkg:pypi/typing-extensions@4.16.0"
+      ],
+      "ref": "pkg:pypi/referencing@0.37.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/rpds-py@2026.6.3"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/typing-extensions@4.16.0"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "application:document-skills",
+      "name": "document-skills",
+      "type": "application",
+      "version": "0.1.0"
+    },
+    "properties": [
+      {
+        "name": "elftia:lock-sha256",
+        "value": "055c0488b5cf1032b206a9b823b324e57bf72e3421cd8dcfab212e55f92f0778"
+      }
+    ]
+  },
+  "serialNumber": "urn:uuid:055c0488-b5cf-1032-b206-a9b823b324e5",
+  "specVersion": "1.5",
+  "version": 1
+}

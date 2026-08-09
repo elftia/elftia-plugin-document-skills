@@ -1,0 +1,69 @@
+{
+  "adversarial": {
+    "cases": [
+      "script-disabled",
+      "service-worker-blocked",
+      "remote-url-blocked",
+      "custom-scheme-blocked",
+      "file-url-blocked",
+      "parent-traversal",
+      "symlink-escape",
+      "malformed-data-url",
+      "asset-count-limit",
+      "image-pixel-limit",
+      "dom-node-limit",
+      "text-byte-limit",
+      "non-finite-geometry",
+      "capture-timeout"
+    ],
+    "html": "html-adversarial-deck.html",
+    "limits": {
+      "assets": 512,
+      "capture_bytes": 33554432,
+      "dom_nodes": 20000,
+      "image_bytes": 8388608,
+      "image_pixels": 40000000,
+      "images": 512,
+      "paint_items": 8000,
+      "resource_requests": 512,
+      "scene_bytes": 33554432,
+      "slides": 100,
+      "text_bytes": 4194304,
+      "total_asset_bytes": 33554432
+    }
+  },
+  "fallback": {
+    "cases": {
+      "box-shadow": "box_shadow_omitted",
+      "clip": "css_clip_path",
+      "complex-pseudo": "complex_pseudo_element",
+      "filter": "css_filter",
+      "forced": "forced_element_raster",
+      "gradient": "css_background_image",
+      "missing-font": "font_substitution",
+      "whole-slide": "semantic_flattening_guard"
+    },
+    "html": "html-fallback-deck.html"
+  },
+  "native": {
+    "html": "html-native-deck.html",
+    "media": 1,
+    "objects": 6,
+    "paint_order_source_ids": [
+      [
+        "slide-1-back",
+        "slide-1-front",
+        "slide-1-title",
+        "slide-1-image"
+      ],
+      [
+        "slide-2-shape",
+        "slide-2-title"
+      ]
+    ],
+    "pptx": "html-native.expected.pptx",
+    "scene": "html-native-scene.json",
+    "slides": 2
+  },
+  "schema_version": "1.0"
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.read",
+  "input": "<input.docx>",
+  "arguments": {
+    "include_headers_footers": true,
+    "max_paragraphs": 5000,
+    "max_tables": 500,
+    "max_table_rows": 5000,
+    "max_text_chars": 250000
+  }
+}
