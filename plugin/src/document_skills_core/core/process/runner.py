@@ -24,7 +24,7 @@ _STREAM_CLOSE_GRACE_SECONDS = 0.25
 @dataclass
 class ProcessPolicy:
     project_root: Path
-    executables: dict[str, set[Path]] = field(default_factory=dict)
+    executables: dict[str, dict[Path, Path]] = field(default_factory=dict)
     scripts: dict[str, set[Path]] = field(default_factory=dict)
 
     def allow_executable(self, provider_id: str, executable: str | Path) -> Path:
@@ -36,9 +36,10 @@ class ProcessPolicy:
                 f"Executable is unavailable for provider {provider_id}.",
                 details={"provider": provider_id, "executable": Path(raw).name},
             )
-        resolved = Path(resolved_raw).resolve()
-        self.executables.setdefault(provider_id, set()).add(resolved)
-        return resolved
+        launch_path = Path(resolved_raw).absolute()
+        canonical_identity = launch_path.resolve()
+        self.executables.setdefault(provider_id, {})[launch_path] = canonical_identity
+        return launch_path
 
     def allow_script(self, provider_id: str, script: str | Path) -> Path:
         resolved = Path(script).resolve()
@@ -189,14 +190,16 @@ class ProcessRunner:
         return ProcessResult(process.returncode, stdout, redacted_stderr, duration_ms)
 
     def _check_executable(self, provider_id: str, executable: str | Path) -> Path:
-        resolved = Path(executable).resolve()
-        if resolved not in self.policy.executables.get(provider_id, set()):
+        launch_path = Path(executable).absolute()
+        canonical_identity = launch_path.resolve()
+        approved_identity = self.policy.executables.get(provider_id, {}).get(launch_path)
+        if approved_identity != canonical_identity:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
                 "Executable is not allowlisted for this provider.",
-                details={"provider": provider_id, "executable": resolved.name},
+                details={"provider": provider_id, "executable": launch_path.name},
             )
-        return resolved
+        return launch_path
 
     def _check_script(self, provider_id: str, script: Path) -> None:
         resolved = script.resolve()

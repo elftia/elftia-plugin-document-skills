@@ -1,6 +1,6 @@
 {
   "name": "document-skills",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "kind": "agent",
   "description": "Portable DOCX, XLSX, PPTX, and PDF Agent Skills",
   "license": "GPL-3.0",

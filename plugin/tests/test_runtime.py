@@ -231,6 +231,40 @@ def test_process_policy_rejects_executable_and_script_escape(project_root, tmp_p
     assert argv_error.value.code == ErrorCode.PATH_UNSAFE
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX virtualenv executables are symlinks")
+def test_process_runner_preserves_allowlisted_executable_symlink(project_root, tmp_path):
+    executable_link = tmp_path / "python3"
+    executable_link.symlink_to(Path(sys.executable))
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", executable_link)
+
+    result = ProcessRunner(policy).run(
+        "fixture",
+        executable,
+        ["-c", "import json, sys; print(json.dumps({'executable': sys.executable}))"],
+    )
+
+    assert result.returncode == 0
+    assert Path(result.json()["executable"]) == executable_link
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX executable identity uses symlinks")
+def test_process_runner_rejects_retargeted_executable_symlink(project_root, tmp_path):
+    executable_link = tmp_path / "python3"
+    executable_link.symlink_to(Path(sys.executable))
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", executable_link)
+    replacement = shutil.which("true")
+    assert replacement is not None
+    executable_link.unlink()
+    executable_link.symlink_to(replacement)
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run("fixture", executable, [])
+
+    assert failure.value.code == ErrorCode.PROVIDER_FAILED
+
+
 def test_timeout_crash_and_invalid_json_are_contained(project_root):
     script = project_root / "tests" / "support" / "provider_fixture.py"
     policy = ProcessPolicy(project_root)
