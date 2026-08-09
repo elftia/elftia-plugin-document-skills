@@ -1,6 +1,7 @@
 import { buildArtifact, validateArtifact } from './artifact.mjs';
 import { runCommand } from './process.mjs';
 
+runCommand(process.execPath, ['--test', 'scripts/__tests__/reproducibility.test.mjs']);
 runCommand(process.execPath, ['scripts/run-plugin-checks.mjs']);
 const built = await buildArtifact();
 const { artifact } = await validateArtifact();

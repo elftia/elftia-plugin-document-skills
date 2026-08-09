@@ -132,3 +132,64 @@ export function inventoriesEqual(left, right) {
   });
 }
 
+export function firstInventoryDifference(expected, observed) {
+  const expectedByPath = new Map(expected.entries.map((entry) => [entry.path, entry]));
+  const observedByPath = new Map(observed.entries.map((entry) => [entry.path, entry]));
+  const paths = [...new Set([...expectedByPath.keys(), ...observedByPath.keys()])].sort((left, right) =>
+    Buffer.compare(Buffer.from(left, 'utf8'), Buffer.from(right, 'utf8')),
+  );
+  for (const relative of paths) {
+    const expectedEntry = expectedByPath.get(relative);
+    const observedEntry = observedByPath.get(relative);
+    if (!expectedEntry || !observedEntry) {
+      return {
+        path: relative,
+        field: 'type',
+        expected: expectedEntry ? 'file' : 'absent',
+        observed: observedEntry ? 'file' : 'absent',
+      };
+    }
+    if (expectedEntry.length !== observedEntry.length) {
+      return {
+        path: relative,
+        field: 'length',
+        expected: expectedEntry.length,
+        observed: observedEntry.length,
+      };
+    }
+    if (expectedEntry.sha256 !== observedEntry.sha256) {
+      return {
+        path: relative,
+        field: 'sha256',
+        expected: expectedEntry.sha256,
+        observed: observedEntry.sha256,
+      };
+    }
+  }
+  if (expected.fileCount !== observed.fileCount) {
+    return {
+      path: '<inventory>',
+      field: 'fileCount',
+      expected: expected.fileCount,
+      observed: observed.fileCount,
+    };
+  }
+  if (expected.sha256 !== observed.sha256) {
+    return {
+      path: '<inventory>',
+      field: 'sha256',
+      expected: expected.sha256,
+      observed: observed.sha256,
+    };
+  }
+  return null;
+}
+
+export function assertInventoriesEqual(expected, observed, label = 'inventory mismatch') {
+  const difference = firstInventoryDifference(expected, observed);
+  if (!difference) return;
+  throw new Error(
+    `${label}: first inventory delta path=${difference.path} field=${difference.field} ` +
+      `expected=${difference.expected} observed=${difference.observed}`,
+  );
+}

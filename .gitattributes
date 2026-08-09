@@ -1,8 +1,11 @@
 * text=auto eol=lf
 
-# Preserve the five reviewed legacy CRLF payloads exactly.
-plugin/provenance/audit-report.json text eol=crlf
-plugin/provenance/modules.json text eol=crlf
+# Binary release fixtures must never enter a text conversion path.
+plugin/**/*.docx binary
+plugin/**/*.png binary
+plugin/**/*.pptx binary
+
+# Preserve the three reviewed legacy CRLF payloads exactly.
 plugin/src/document_skills_core/formats/pdf/create.py text eol=crlf
 plugin/src/document_skills_core/formats/pdf/edit.py text eol=crlf
 plugin/src/document_skills_core/formats/pdf/rewrite.py text eol=crlf
