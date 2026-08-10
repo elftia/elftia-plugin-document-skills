@@ -142,6 +142,22 @@ def test_sbom_records_docx_node_provider_and_transitive_graph(project_root):
     ]
 
 
+def test_consumer_dependencies_are_exactly_allowlisted_but_not_in_runtime_sbom(
+    project_root,
+):
+    policy = json.loads(
+        (project_root / "provenance" / "dependency-allowlist.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert policy["python"]["development_packages"]["openpyxl"] == "3.1.5"
+    assert policy["python"]["development_packages"]["pymupdf"] == "1.27.2.2"
+    assert policy["python"]["development_packages"]["python-docx"] == "1.2.0"
+    assert policy["python"]["development_packages"]["python-pptx"] == "1.0.2"
+    runtime_names = {item["name"] for item in build_sbom(project_root)["components"]}
+    assert runtime_names.isdisjoint({"openpyxl", "pymupdf", "python-docx", "python-pptx"})
+
+
 def test_machine_readable_audit_report(project_root):
     report = run_audits(project_root)
     audit_path = project_root / "provenance" / "audit-report.json"

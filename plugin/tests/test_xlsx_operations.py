@@ -76,21 +76,29 @@ def _sample_workbook() -> dict:
 
 @pytest.fixture
 def created_xlsx(project_root: Path, tmp_path: Path) -> Path:
+    from openpyxl import Workbook
+
     output = tmp_path / "created.xlsx"
-    service = _service(project_root)
-    result = service.execute("xlsx.create", {
-        "schema_version": "1.0",
-        "operation": "xlsx.create",
-        "output": str(output),
-        "arguments": {"workbook": _sample_workbook()},
-    })
-    assert result["status"] in {"success", "degraded"}
-    assert output.is_file()
+    workbook = Workbook()
+    data = workbook.active
+    data.title = "Data"
+    data["A1"] = "Name"
+    data["B1"] = "Value"
+    data["A2"] = "Alpha"
+    data["B2"] = 10
+    data["A3"] = "Beta"
+    data["B3"] = 20
+    data["A5"] = "Total"
+    data["B5"] = "=SUM(B2:B3)"
+    summary = workbook.create_sheet("Summary")
+    summary["A1"] = "Result"
+    summary["B1"] = "=Data!B5*2"
+    workbook.save(output)
     return output
 
 
 class TestCreateOperation:
-    def test_create_produces_valid_workbook(self, project_root: Path, tmp_path: Path):
+    def test_disconnected_create_request_fails_before_output(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "test.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -99,12 +107,12 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        assert result["status"] in {"success", "degraded"}
+        assert result["status"] == "enhancement_required"
         assert result["provider_chain"] == []
-        assert output.is_file()
-        assert result["artifacts"][-1]["sha256"]
+        assert not output.exists()
+        assert not result["artifacts"]
 
-    def test_created_formulas_report_recalculation_required(self, project_root: Path, tmp_path: Path):
+    def test_disconnected_create_does_not_report_formula_success(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "formulas.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -113,13 +121,11 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        formula_state = result["diagnostics"]["operation_result"]["formula_state"]
-        for ref, cell_state in formula_state["cells"].items():
-            assert cell_state["state"] != "recalculated", f"Cell {ref} falsely reports recalculated"
-            assert cell_state["state"] in {"recalculation_required", "stale"}
+        assert result["status"] == "enhancement_required"
+        assert "operation_result" not in result["diagnostics"]
+        assert not output.exists()
 
-    def test_create_with_formulas_is_degraded(self, project_root: Path, tmp_path: Path):
-        """A workbook with formulas must report degraded status when recalculation is outstanding."""
+    def test_create_with_disconnected_features_is_not_degraded(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "degraded.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -128,9 +134,10 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        assert result["status"] == "degraded"
-        assert result["degraded"] is True
-        assert any(d["code"] == "outstanding-formula-recalculation" for d in result["degradations"])
+        assert result["status"] == "enhancement_required"
+        assert result["degraded"] is False
+        assert not result["degradations"]
+        assert not output.exists()
 
 
 class TestReadOperation:
@@ -235,7 +242,7 @@ class TestEditOperation:
             "output": str(output),
             "arguments": {
                 "edits": [
-                    {"sheet": "Data", "type": "cell_value", "ref": "A2", "value": "Modified"},
+                    {"sheet": "Data", "type": "cell_value", "ref": "B3", "value": "21"},
                 ],
             },
         })

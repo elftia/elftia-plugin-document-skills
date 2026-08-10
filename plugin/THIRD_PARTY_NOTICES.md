@@ -29,6 +29,17 @@ package has no production transitive dependencies and no install lifecycle scrip
 binary is downloaded or redistributed; the provider can launch only a supported local
 Chrome/Chromium/Edge executable selected from the host-authored platform list.
 
+The independent consumer verification suite uses the following development-only locked graph;
+none of these packages is distributed or imported by production runtime sources:
+
+- `openpyxl` 3.1.5 and `et-xmlfile` 2.0.0 — MIT.
+- `PyMuPDF` 1.27.2.2 — GNU AGPL-3.0-only or Artifex commercial license.
+- `python-docx` 1.2.0 — MIT; `lxml` 6.1.1 — BSD-3-Clause.
+- `python-pptx` 1.0.2 — MIT; `Pillow` 12.3.0 — HPND; `XlsxWriter` 3.2.9 — BSD-2-Clause.
+- `pytest` 8.4.1 — MIT; `colorama` 0.4.6 — BSD-3-Clause; `iniconfig` 2.3.0 — MIT;
+  `packaging` 26.2 — Apache-2.0 or BSD-2-Clause; `pluggy` 1.6.0 — MIT; and
+  `Pygments` 2.20.0 — BSD-2-Clause.
+
 Development-only dependencies are not distributed as production runtime components. Adopted
 source is not present in this release; later additions must update this file and
 `provenance/modules.json`.

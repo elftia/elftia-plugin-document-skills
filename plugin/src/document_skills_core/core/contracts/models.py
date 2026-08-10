@@ -23,6 +23,7 @@ def make_error_result(
     *,
     requested_fidelity: str = "unknown",
 ) -> dict[str, Any]:
+    validation = error.validation or _error_validation(error)
     return {
         "schema_version": SCHEMA_VERSION,
         "status": error.status,
@@ -33,10 +34,32 @@ def make_error_result(
         "degraded": False,
         "degradations": [],
         "artifacts": [],
-        "validation": empty_validation(),
+        "validation": validation,
         "warnings": [],
         "errors": [error.record()],
         "diagnostics": {},
+    }
+
+
+def _error_validation(error: DocumentSkillsError) -> dict[str, Any]:
+    """Give every typed rejection an explicit required non-pass gate."""
+
+    outcome = "unavailable" if error.status == "unavailable" else "fail"
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "status": outcome,
+        "gates": [
+            gate_record(
+                "request.preflight",
+                outcome,
+                required=True,
+                evidence={
+                    "error_code": error.code.value,
+                    "result_status": error.status,
+                },
+                warnings=[str(error)[:512]],
+            )
+        ],
     }
 
 

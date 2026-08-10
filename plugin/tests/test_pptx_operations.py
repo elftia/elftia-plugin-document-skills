@@ -76,11 +76,16 @@ class TestCreate:
         assert creation["has_table"] is True
         assert creation["has_notes"] is True
 
-    def test_created_deck_validates(self, tmp_path: Path):
+    def test_created_deck_fails_consumer_package_validation(self, tmp_path: Path):
         destination = tmp_path / "test.pptx"
         create_pptx(destination, _deck())
-        report = validate_created(destination, _deck())
-        assert report["status"] == "pass"
+        with pytest.raises(DocumentSkillsError) as captured:
+            validate_created(destination, _deck())
+        assert any(
+            gate["id"] == "operation.consumer-package-conformance"
+            and gate["outcome"] == "fail"
+            for gate in captured.value.validation["gates"]
+        )
 
     def test_created_deck_reopens(self, created_deck: Path):
         result = reopen_pptx(created_deck)

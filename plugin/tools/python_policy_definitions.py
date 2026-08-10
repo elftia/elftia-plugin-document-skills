@@ -48,6 +48,7 @@ MCP_REGISTRATION = {
     "tool",
 }
 ALLOWED_STDLIB = {
+    "__future__",
     "argparse",
     "builtins",
     "collections",

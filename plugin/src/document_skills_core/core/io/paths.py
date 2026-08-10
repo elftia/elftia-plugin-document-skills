@@ -106,10 +106,35 @@ def atomic_promote(
     destination: str | Path,
     *,
     expected_destination: DestinationSnapshot | None = None,
+    expected_source_sha256: str | None = None,
+    expected_source_bytes: int | None = None,
 ) -> ArtifactRecord:
+    source_record = file_record(staged_source, "output")
+    if (
+        expected_source_sha256 is not None
+        and source_record.sha256 != expected_source_sha256
+    ) or (
+        expected_source_bytes is not None
+        and source_record.bytes != expected_source_bytes
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "Promotion source differs from the validated candidate.",
+            details={"candidate_identity_mismatch": True},
+        )
     destination_path = normalized_path(destination)
     stage = stage_for_destination(staged_source, destination_path)
     try:
+        staged_record = file_record(stage, "output")
+        if (
+            staged_record.sha256 != source_record.sha256
+            or staged_record.bytes != source_record.bytes
+        ):
+            raise DocumentSkillsError(
+                ErrorCode.VALIDATION_FAILED,
+                "Promotion staging copy differs from the candidate.",
+                details={"candidate_identity_mismatch": True},
+            )
         if expected_destination is not None:
             _assert_destination_unchanged(destination_path, expected_destination)
         os.replace(stage, destination_path)

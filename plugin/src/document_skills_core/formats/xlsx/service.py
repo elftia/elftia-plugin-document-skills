@@ -26,7 +26,7 @@ from .formula_state import (
 )
 from .inspect import inspect_xlsx
 from .read import read_xlsx
-from .results import mutation_validation, read_validation, success_result
+from .results import read_validation, success_result, with_formula_gate
 from .transaction import promote_candidate, write_candidate_result
 from .validation import validate_created, validate_mutation
 
@@ -177,12 +177,12 @@ class XlsxService:
                     "missing_capabilities": ["recalculation"],
                     "recommended_providers": ["libreoffice"],
                 })
-            validation_gates = mutation_validation("create-semantics", operation_result)
+            validation = with_formula_gate(validation, operation_result)
             result = write_candidate_result(
                 self.schemas,
                 request,
                 staged,
-                validation_gates,
+                validation,
                 operation_result,
                 warnings=[],
                 source=None,
@@ -234,12 +234,12 @@ class XlsxService:
                         "missing_capabilities": ["recalculation"],
                         "recommended_providers": ["libreoffice"],
                     })
-                validation_gates = mutation_validation("edit-semantics", operation_result)
+                validation = with_formula_gate(validation, operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,

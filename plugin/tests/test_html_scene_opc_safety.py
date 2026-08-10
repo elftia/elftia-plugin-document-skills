@@ -142,7 +142,12 @@ def _candidate(tmp_path: Path) -> tuple[Path, NormalizedScene, dict[str, object]
     )
     candidate = tmp_path / "candidate.pptx"
     manifest = emit_scene_pptx(candidate, scene, {})
-    assert validate_scene_created(candidate, scene, manifest)["status"] == "pass"
+    with pytest.raises(DocumentSkillsError) as captured:
+        validate_scene_created(candidate, scene, manifest)
+    validation = captured.value.validation
+    assert validation is not None
+    assert _outcome(validation, "operation.consumer-package-conformance") == "fail"
+    assert _outcome(validation, "operation.scene-package-correspondence") == "pass"
     return candidate, scene, manifest
 
 
@@ -189,5 +194,18 @@ def _assert_rejected(
 ) -> None:
     tampered = tmp_path / f"tampered-{suffix}.pptx"
     write_deterministic_zip(tampered, parts)
-    with pytest.raises(DocumentSkillsError):
+    with pytest.raises(DocumentSkillsError) as captured:
         validate_scene_created(tampered, scene, manifest)
+    validation = captured.value.validation
+    assert validation is not None
+    assert _outcome(validation, "operation.scene-package-correspondence") == "fail"
+
+
+def _outcome(validation: dict[str, object], gate_id: str) -> str:
+    gates = validation["gates"]
+    assert isinstance(gates, list)
+    return next(
+        str(gate["outcome"])
+        for gate in gates
+        if isinstance(gate, dict) and gate.get("id") == gate_id
+    )

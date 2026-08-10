@@ -20,7 +20,10 @@ def validate_created(
     path: Path,
     deck: dict[str, Any],
 ) -> dict[str, Any]:
-    assertions = [("create-semantics", lambda candidate: _assert_created(candidate, deck))]
+    assertions = [
+        ("consumer-package-conformance", _assert_consumer_package),
+        ("create-semantics", lambda candidate: _assert_created(candidate, deck)),
+    ]
     return _required_report(path, assertions=assertions)
 
 
@@ -30,6 +33,7 @@ def validate_scene_created(
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
     assertions = [
+        ("consumer-package-conformance", _assert_consumer_package),
         (
             "scene-package-correspondence",
             lambda candidate: _assert_scene_created(candidate, scene, manifest),
@@ -176,6 +180,57 @@ def _assert_created(path: Path, deck: dict[str, Any]) -> dict[str, Any]:
         "slides": len(mapped),
         "layouts": len(layout_parts),
         "requested_structure": True,
+    }
+
+
+def _assert_consumer_package(path: Path) -> dict[str, Any]:
+    """Reject known theme/reference shapes that PowerPoint repairs or rejects."""
+
+    package = OpcPackage.open(path)
+    presentation = package.xml("ppt/presentation.xml")
+    relationship_ids = {
+        relationship.relationship_id
+        for relationship in package.part_rels("ppt/presentation.xml")
+    }
+    referenced_ids = {
+        value
+        for node in presentation.iter()
+        for name, value in node.attrib.items()
+        if name == f"{{{NS['r']}}}id"
+    }
+    missing_relationships = sorted(referenced_ids - relationship_ids)
+
+    theme_parts = package.theme_parts()
+    missing_theme_schemes: list[str] = []
+    if not theme_parts:
+        missing_theme_schemes.append("theme")
+    else:
+        theme = package.xml(theme_parts[0])
+        theme_elements = next(
+            (item for item in theme if item.tag.rsplit("}", 1)[-1] == "themeElements"),
+            None,
+        )
+        present = (
+            set()
+            if theme_elements is None
+            else {item.tag.rsplit("}", 1)[-1] for item in theme_elements}
+        )
+        missing_theme_schemes.extend(
+            sorted({"clrScheme", "fontScheme", "fmtScheme"} - present)
+        )
+    if missing_relationships or missing_theme_schemes:
+        raise DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "PPTX package is not consumer-conformant.",
+            details={
+                "missing_relationship_ids": missing_relationships,
+                "missing_theme_schemes": missing_theme_schemes,
+            },
+        )
+    return {
+        "referenced_relationships": len(referenced_ids),
+        "theme_schemes": 3,
+        "consumer_conformant": True,
     }
 
 
@@ -531,5 +586,6 @@ def _required_report(
             ErrorCode.VALIDATION_FAILED,
             "Staged PPTX failed required validation gates.",
             details={"failed_gates": failed},
+            validation=report,
         )
     return report

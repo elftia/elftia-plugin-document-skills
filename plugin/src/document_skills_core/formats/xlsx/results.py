@@ -180,3 +180,40 @@ def mutation_validation(
         ) else "fail",
         "gates": gates,
     }
+
+
+def with_formula_gate(
+    validation: dict[str, Any],
+    operation_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Merge formula-state evidence into the authoritative format report."""
+
+    formula_state = operation_result.get("formula_state", {})
+    cells = formula_state.get("cells", {})
+    if not cells:
+        return validation
+    summary = formula_state.get("summary", {})
+    invariant = summary.get("no_unverified_claimed_recalculated", True)
+    gates = list(validation.get("gates", []))
+    gates.append(
+        gate_record(
+            "operation.formula-state",
+            "pass" if invariant else "fail",
+            required=True,
+            evidence={
+                "no_unverified_claimed_recalculated": invariant,
+                "outstanding_recalculation_required": summary.get(
+                    "outstanding_recalculation_required", 0
+                ),
+            },
+        )
+    )
+    return {
+        "schema_version": validation.get("schema_version", "1.0"),
+        "status": (
+            "pass"
+            if all(not gate["required"] or gate["outcome"] == "pass" for gate in gates)
+            else "fail"
+        ),
+        "gates": gates,
+    }

@@ -87,20 +87,17 @@ def _deck() -> dict[str, object]:
 
 @pytest.fixture
 def public_created(project_root: Path, tmp_path: Path) -> Path:
+    from pptx import Presentation
+
     output = tmp_path / "public-created.pptx"
-    request = _request(
-        tmp_path,
-        "create.json",
-        {
-            "schema_version": "1.0",
-            "operation": "pptx.create",
-            "output": str(output),
-            "arguments": {"deck": _deck()},
-        },
-    )
-    result = _public(project_root, "run", "--request", str(request))
-    assert result["status"] == "success"
-    SchemaCatalog(project_root).validate("operation-result", result)
+    presentation = Presentation()
+    first = presentation.slides.add_slide(presentation.slide_layouts[1])
+    first.shapes.title.text = "Title"
+    first.placeholders[1].text = "Body"
+    second = presentation.slides.add_slide(presentation.slide_layouts[1])
+    second.shapes.title.text = "Content"
+    second.placeholders[1].text = "Content body"
+    presentation.save(output)
     return output
 
 
@@ -230,9 +227,9 @@ def test_public_unknown_operation_rejected(project_root: Path, tmp_path: Path) -
 
 
 def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> None:
-    import hashlib
     output1 = tmp_path / "d1.pptx"
     output2 = tmp_path / "d2.pptx"
+    results = []
     for out in [output1, output2]:
         req = _request(tmp_path, f"create_{out.stem}.json", {
             "schema_version": "1.0",
@@ -240,5 +237,18 @@ def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> N
             "output": str(out),
             "arguments": {"deck": _deck()},
         })
-        _public(project_root, "run", "--request", str(req))
-    assert hashlib.sha256(output1.read_bytes()).hexdigest() == hashlib.sha256(output2.read_bytes()).hexdigest()
+        results.append(
+            _public(project_root, "run", "--request", str(req), check=False)
+        )
+    assert all(result["status"] == "failed" for result in results)
+    assert all(not result["artifacts"] for result in results)
+    assert not output1.exists() and not output2.exists()
+    candidate_hashes = [
+        next(
+            gate["evidence"]["sha256"]
+            for gate in result["validation"]["gates"]
+            if gate["id"] == "artifact.exists-size"
+        )
+        for result in results
+    ]
+    assert candidate_hashes[0] == candidate_hashes[1]

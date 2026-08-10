@@ -43,6 +43,7 @@
     "src/document_skills_core/core/process/streams.py",
     "src/document_skills_core/core/process/tree.py",
     "src/document_skills_core/core/validation/__init__.py",
+    "src/document_skills_core/core/validation/promotion.py",
     "src/document_skills_core/core/validation/runner.py",
     "src/document_skills_core/formats/__init__.py",
     "src/document_skills_core/formats/docx/__init__.py",

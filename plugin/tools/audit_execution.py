@@ -195,6 +195,33 @@ def _audit_exact_allowlists(root: Path) -> None:
         actual["node"] == policy["node"]["packages"],
         "Frozen Node production graph differs from the exact allowlist",
     )
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    lock = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))
+    locked = {_normalize_python_name(item["name"]): item for item in lock["package"]}
+    direct_dev = {
+        _normalize_python_name(re.split(r"[\s\[<>=!~]", item, maxsplit=1)[0])
+        for group in project.get("dependency-groups", {}).values()
+        for item in group
+    }
+    selected_dev: set[str] = set()
+    pending = list(direct_dev)
+    while pending:
+        name = pending.pop()
+        if name in selected_dev or name not in locked:
+            continue
+        selected_dev.add(name)
+        pending.extend(
+            _normalize_python_name(item["name"])
+            for item in locked[name].get("dependencies", [])
+        )
+    development_graph = {
+        name: locked[name]["version"]
+        for name in sorted(selected_dev - set(actual["python"]))
+    }
+    _require(
+        development_graph == policy["python"]["development_packages"],
+        "Frozen Python development graph differs from the exact allowlist",
+    )
     runtime_policy = json.loads(
         runtime_policy_path.read_text(encoding="utf-8")
     )
@@ -220,6 +247,10 @@ def _audit_exact_allowlists(root: Path) -> None:
         actual_node == runtime_policy["node"],
         "Node runtime-source allowlist differs from exact current files",
     )
+
+
+def _normalize_python_name(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).casefold()
 
 
 def _walk_json(value: Any, key: str = "$") -> list[tuple[str, Any]]:

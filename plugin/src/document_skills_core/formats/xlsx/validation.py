@@ -16,7 +16,10 @@ def validate_created(
     path: Path,
     workbook: dict[str, Any],
 ) -> dict[str, Any]:
-    assertions = [("create-semantics", lambda candidate: _assert_created(candidate, workbook))]
+    assertions = [
+        ("consumer-package-conformance", _assert_consumer_package),
+        ("create-semantics", lambda candidate: _assert_created(candidate, workbook)),
+    ]
     return _required_report(path, assertions=assertions)
 
 
@@ -108,6 +111,51 @@ def _assert_created(path: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _assert_consumer_package(path: Path) -> dict[str, Any]:
+    """Reject the known malformed style table that Excel repairs/rejects."""
+
+    package = OpcPackage.open(path)
+    styles = package.xml("xl/styles.xml")
+    expected_children = {
+        "fonts": ("font", 1),
+        "fills": ("fill", 2),
+        "borders": ("border", 1),
+        "cellStyleXfs": ("xf", 1),
+        "cellXfs": ("xf", 1),
+        "cellStyles": ("cellStyle", 1),
+    }
+    failures: list[dict[str, Any]] = []
+    evidence: dict[str, int] = {}
+    for container_name, (child_name, minimum) in expected_children.items():
+        container = next(
+            (item for item in styles if item.tag.rsplit("}", 1)[-1] == container_name),
+            None,
+        )
+        actual = (
+            0
+            if container is None
+            else sum(1 for item in container if item.tag.rsplit("}", 1)[-1] == child_name)
+        )
+        declared = int(container.attrib.get("count", "-1")) if container is not None else -1
+        evidence[container_name] = actual
+        if actual < minimum or declared != actual:
+            failures.append(
+                {
+                    "container": container_name,
+                    "declared": declared,
+                    "actual": actual,
+                    "minimum": minimum,
+                }
+            )
+    if failures:
+        raise DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "XLSX style package is not consumer-conformant.",
+            details={"style_table_failures": failures},
+        )
+    return {"style_table_counts": evidence, "consumer_conformant": True}
+
+
 def _assert_preservation(manifest: PreservationManifest) -> dict[str, Any]:
     if manifest.removed:
         raise DocumentSkillsError(
@@ -161,5 +209,6 @@ def _required_report(
             ErrorCode.VALIDATION_FAILED,
             "Staged XLSX failed required validation gates.",
             details={"failed_gates": failed},
+            validation=report,
         )
     return report

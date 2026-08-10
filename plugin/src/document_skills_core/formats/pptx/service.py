@@ -21,7 +21,7 @@ from .edit import edit_pptx
 from .inspect import inspect_pptx
 from .read import read_pptx
 from .html_capture import HtmlDeckCapture
-from .results import mutation_validation, read_validation, success_result
+from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
 from .transaction import promote_candidate, write_candidate_result
@@ -103,12 +103,11 @@ class PptxService:
             creation = create_pptx(staged, deck)
             validation = validate_created(staged, deck)
             operation_result = {"creation": creation}
-            validation_gates = mutation_validation("create-semantics", operation_result)
             result = write_candidate_result(
                 self.schemas,
                 request,
                 staged,
-                validation_gates,
+                validation,
                 operation_result,
                 warnings=[],
                 source=None,
@@ -149,12 +148,11 @@ class PptxService:
                     manifest=manifest,
                     assertion=assertion,
                 )
-                validation_gates = mutation_validation("edit-semantics", operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,

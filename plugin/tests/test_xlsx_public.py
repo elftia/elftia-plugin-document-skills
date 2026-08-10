@@ -81,10 +81,27 @@ def _workbook() -> dict[str, object]:
 
 @pytest.fixture
 def public_created(project_root: Path, tmp_path: Path) -> Path:
+    from openpyxl import Workbook
+
     output = tmp_path / "public-created.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Sheet1"
+    sheet["A1"] = "Name"
+    sheet["B1"] = 10
+    sheet["B2"] = "=B1*2"
+    workbook.save(output)
+    return output
+
+
+def test_public_current_create_fails_required_package_gate(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "not-promoted.xlsx"
     request = _request(
         tmp_path,
-        "create.json",
+        "create-fail-closed.json",
         {
             "schema_version": "1.0",
             "operation": "xlsx.create",
@@ -92,10 +109,16 @@ def public_created(project_root: Path, tmp_path: Path) -> Path:
             "arguments": {"workbook": _workbook()},
         },
     )
-    result = _public(project_root, "run", "--request", str(request))
-    assert result["status"] in {"success", "degraded"}
+    result = _public(project_root, "run", "--request", str(request), check=False)
     SchemaCatalog(project_root).validate("operation-result", result)
-    return output
+    assert result["status"] == "failed"
+    assert not result["artifacts"]
+    assert not output.exists()
+    assert any(
+        gate["id"] == "operation.consumer-package-conformance"
+        and gate["outcome"] == "fail"
+        for gate in result["validation"]["gates"]
+    )
 
 
 def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
@@ -157,7 +180,7 @@ def test_public_edit_produces_distinct_output(project_root: Path, public_created
             "output": str(output),
             "arguments": {
                 "edits": [
-                    {"sheet": "Sheet1", "type": "cell_value", "ref": "A1", "value": "Modified"},
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "B1", "value": "42"},
                 ],
             },
         },
