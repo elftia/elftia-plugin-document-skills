@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import importlib
 from pathlib import Path
@@ -11,6 +12,7 @@ from openpyxl import Workbook
 import pytest
 from pptx import Presentation
 
+import document_skills_core.core.io.paths as paths_module
 from document_skills_core.cli import execute_request
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.pdf.create import create_pdf
@@ -94,6 +96,94 @@ def test_public_edit_source_race_merges_with_committed_output(
         promotion["source_preservation"]["error"]["code"]
         == "DS_VALIDATION_FAILED"
     )
+
+
+@pytest.mark.parametrize("format_id", _EDIT_FORMATS)
+def test_public_edit_failure_preserves_promotion_and_source_race_truth(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    format_id: str,
+) -> None:
+    source, request = _edit_request(project_root, tmp_path, format_id)
+    output = Path(str(request["output"]))
+    output.write_bytes(b"prior-output")
+    real_rename = paths_module._rename_no_replace
+    failures: list[str] = []
+
+    def fail_install_and_restore(
+        rename_source: Path,
+        rename_destination: Path,
+        *,
+        state: Any,
+    ) -> None:
+        if rename_destination.name == output.name and rename_source.name.startswith(
+            ".document-skills-stage-"
+        ):
+            source.write_bytes(b"concurrent-source-writer")
+            failures.append("candidate_install")
+            raise OSError(errno.EIO, "injected candidate install failure")
+        if rename_destination.name == output.name and rename_source.name.startswith(
+            ".document-skills-capture-"
+        ):
+            failures.append("capture_restore")
+            raise OSError(errno.EIO, "injected capture restore failure")
+        real_rename(rename_source, rename_destination, state=state)
+
+    monkeypatch.setattr(
+        paths_module,
+        "_rename_no_replace",
+        fail_install_and_restore,
+    )
+    result = _execute(project_root, request)
+
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert failures == ["candidate_install", "capture_restore"]
+    assert result["status"] == "failed"
+    assert result["artifacts"] == []
+    assert len(result["errors"]) == 1
+    error = result["errors"][0]
+    assert error["code"] == "DS_VALIDATION_FAILED"
+    assert error["message"] == (
+        "Atomic no-replace promotion is unavailable for this destination."
+    )
+    details = error["details"]
+    assert details["atomic_no_replace_unavailable"] is True
+    assert details["errno"] == errno.EIO
+    assert details["rollback_complete"] is False
+    assert details["rollback_reason"] == "OSError"
+    assert details["destination_capture_preserved"] is True
+    assert details["residue_observation_stable"] is True
+    source_preservation = details["source_preservation"]
+    assert source_preservation["status"] == "fail"
+    assert source_preservation["error"]["code"] == "DS_VALIDATION_FAILED"
+    assert source_preservation["error"]["message"] == (
+        "Source artifact changed during a non-destructive operation."
+    )
+    assert source_preservation["error"]["details"]["actual_sha256"] == (
+        hashlib.sha256(b"concurrent-source-writer").hexdigest()
+    )
+    assert source.read_bytes() == b"concurrent-source-writer"
+    assert not output.exists()
+
+    residues = details["transaction_residues"]
+    residue_paths = sorted(Path(path) for path in details["transaction_residue_paths"])
+    assert residue_paths == sorted(tmp_path.glob(".document-skills-*"))
+    assert sorted(Path(item["path"]) for item in residues) == residue_paths
+    assert {item["role"] for item in residues} == {
+        "destination_capture",
+        "stage",
+    }
+    for item in residues:
+        path = Path(str(item["path"]))
+        assert item["stable"] is True
+        assert item["bytes"] == path.stat().st_size
+        assert item["sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+    recovery_bytes = {
+        item["role"]: Path(str(item["path"])).read_bytes() for item in residues
+    }
+    assert recovery_bytes["destination_capture"] == b"prior-output"
+    assert recovery_bytes["stage"]
 
 
 def _execute(project_root: Path, request: dict[str, Any]) -> dict[str, Any]:

@@ -11,6 +11,7 @@ from document_skills_core.core.io.paths import (
     assert_source_preserved,
     destination_snapshot,
     file_record,
+    merge_source_preservation_failure,
 )
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
@@ -164,8 +165,10 @@ class PptxService:
                     source=source_record,
                     destination=destination,
                 )
-        except Exception:
-            assert_source_preserved(source_record.path, source_record.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(
+                error, source_record.path, source_record.sha256
+            )
             raise
 
     def _create_from_html(self, request: ParsedPptxRequest) -> dict[str, Any]:
@@ -296,8 +299,8 @@ class PptxService:
                     source=source,
                     destination=destination,
                 )
-        except Exception:
-            assert_source_preserved(source.path, source.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(error, source.path, source.sha256)
             raise
 
 

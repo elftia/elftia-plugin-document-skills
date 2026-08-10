@@ -21,6 +21,7 @@ from .promotion_checks import (
     assert_source_preserved as _check_source_preserved,
     matches_record as _check_record,
     matches_snapshot as _check_snapshot,
+    merge_source_preservation_failure as _merge_source_preservation_failure,
 )
 from .promotion_errors import (
     destination_transaction_busy as _destination_transaction_busy,
@@ -75,17 +76,23 @@ def stage_for_destination(
     stage_identity: FileIdentity | None = None
     digest = hashlib.sha256()
     copied_bytes = 0
+
+    def own_created_stage(identity: FileIdentity) -> None:
+        nonlocal stage_identity
+        stage_identity = identity
+        state.track("stage", stage_name, identity)
+
     try:
         with source_path.open("rb") as source_handle:
             try:
-                stage_handle = parent.create_exclusive(stage_name)
+                stage_handle = parent.create_exclusive(
+                    stage_name,
+                    on_created=own_created_stage,
+                )
             except FileExistsError as error:
                 state.track("occupied_stage", stage_name, None)
                 raise _internal_target_occupied("stage", stage_path) from error
             with stage_handle:
-                metadata = os.fstat(stage_handle.fileno())
-                stage_identity = (metadata.st_dev, metadata.st_ino)
-                state.track("stage", stage_name, stage_identity)
                 for chunk in iter(lambda: source_handle.read(1024 * 1024), b""):
                     stage_handle.write(chunk)
                     digest.update(chunk)
@@ -602,6 +609,19 @@ def _assert_destination_unchanged(
 
 def assert_source_preserved(path: str | Path, expected_sha256: str) -> None:
     _check_source_preserved(
+        path,
+        expected_sha256,
+        hash_file=sha256_file,
+    )
+
+
+def merge_source_preservation_failure(
+    primary_error: BaseException,
+    path: str | Path,
+    expected_sha256: str,
+) -> None:
+    _merge_source_preservation_failure(
+        primary_error,
         path,
         expected_sha256,
         hash_file=sha256_file,

@@ -7,6 +7,7 @@ import hashlib
 import importlib
 import os
 from pathlib import Path
+import stat
 import sys
 from types import SimpleNamespace
 from typing import Any
@@ -746,6 +747,110 @@ def test_occupied_rollback_name_is_rejected_without_overwrite(
     assert _assert_exact_residue_inventory(captured.value, tmp_path) == sorted(
         [capture, occupied]
     )
+
+
+def test_created_stage_is_owned_before_post_create_parent_assertion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
+    real_assert = parent_anchor_module.DestinationParentAnchor.assert_bound
+    event: dict[str, str] = {}
+
+    def fail_stage_created(self: Any, phase: str) -> Path:
+        if phase == "stage_created":
+            event["phase"] = phase
+            raise parent_anchor_module.ParentSafetyError(
+                "destination_parent_identity_changed",
+                phase=phase,
+                original_path=self.original_path,
+                current_path=self.current_path(),
+            )
+        return real_assert(self, phase)
+
+    monkeypatch.setattr(
+        parent_anchor_module.DestinationParentAnchor,
+        "assert_bound",
+        fail_stage_created,
+    )
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(
+            candidate,
+            output,
+            expected_destination=destination_snapshot(output),
+        )
+
+    assert event == {"phase": "stage_created"}
+    assert captured.value.details["parent_phase"] == "stage_created"
+    stage = _only_residue(captured.value, tmp_path, "stage")
+    assert stage.read_bytes() == b""
+    entry = captured.value.details["transaction_residues"][0]
+    assert entry["identity_matches_expected"] is True
+    assert entry["bytes"] == 0
+    assert entry["sha256"] == hashlib.sha256(b"").hexdigest()
+    assert not output.exists()
+
+
+@pytest.mark.skipif(
+    not (sys.platform.startswith("linux") or sys.platform == "darwin"),
+    reason="requires a POSIX directory descriptor with movable open parent",
+)
+def test_posix_parent_move_during_stage_identity_handoff_reports_exact_stage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "destination-parent"
+    parent.mkdir()
+    displaced = tmp_path / "displaced-parent"
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = parent / "output.bin"
+    output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    real_fstat = parent_anchor_module.os.fstat
+    event: dict[str, bool] = {}
+
+    def move_parent_after_open(descriptor: int) -> os.stat_result:
+        metadata = real_fstat(descriptor)
+        if stat.S_ISREG(metadata.st_mode) and not event:
+            parent.rename(displaced)
+            parent.mkdir()
+            guard = parent / "guard"
+            guard.mkdir()
+            (guard / "sentinel.bin").write_bytes(b"replacement-tree")
+            event["moved"] = True
+        return metadata
+
+    monkeypatch.setattr(parent_anchor_module.os, "fstat", move_parent_after_open)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(candidate, output, expected_destination=snapshot)
+
+    assert event == {"moved": True}
+    assert captured.value.details["destination_parent_changed"] is True
+    assert captured.value.details["parent_phase"] == "stage_created"
+    assert sorted(path.relative_to(parent).as_posix() for path in parent.rglob("*")) == [
+        "guard",
+        "guard/sentinel.bin",
+    ]
+    assert (parent / "guard" / "sentinel.bin").read_bytes() == b"replacement-tree"
+    assert (displaced / "output.bin").read_bytes() == b"initial"
+    reported = [
+        Path(path) for path in captured.value.details["transaction_residue_paths"]
+    ]
+    actual = _transaction_residue(displaced)
+    assert reported == actual
+    assert len(reported) == 1
+    assert reported[0].parent == displaced
+    assert reported[0].read_bytes() == b""
+    entry = captured.value.details["transaction_residues"][0]
+    assert entry["role"] == "stage"
+    assert entry["path"] == str(reported[0])
+    assert entry["stable"] is True
+    assert entry["identity_matches_expected"] is True
+    assert entry["bytes"] == 0
+    assert entry["sha256"] == hashlib.sha256(b"").hexdigest()
 
 
 @pytest.mark.parametrize("destination_exists", [False, True])

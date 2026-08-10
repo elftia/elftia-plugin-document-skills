@@ -21,6 +21,38 @@ EntryObserver = Callable[
 FileHasher = Callable[[str | Path], str]
 
 
+def merge_source_preservation_failure(
+    primary_error: BaseException,
+    path: str | Path,
+    expected_sha256: str,
+    *,
+    hash_file: FileHasher,
+) -> None:
+    """Keep an active failure primary while recording a concurrent source race."""
+
+    try:
+        assert_source_preserved(path, expected_sha256, hash_file=hash_file)
+    except Exception as check_error:
+        if isinstance(check_error, DocumentSkillsError):
+            source_error = check_error
+        else:
+            source_error = DocumentSkillsError(
+                ErrorCode.INTERNAL_ERROR,
+                "Source preservation could not be checked while another failure was active.",
+                details={"reason": type(check_error).__name__},
+            )
+        record = {"status": "fail", "error": source_error.record()}
+        if isinstance(primary_error, DocumentSkillsError):
+            primary_error.details = {
+                **primary_error.details,
+                "source_preservation": record,
+            }
+        else:
+            primary_error.add_note(
+                f"Source preservation also failed: {source_error.code.value}"
+            )
+
+
 def matches_snapshot(
     path: Path,
     expected: DestinationSnapshot,

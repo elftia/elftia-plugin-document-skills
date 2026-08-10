@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import stat
 import sys
-from typing import BinaryIO
+from typing import BinaryIO, Callable
 
 from .parent_anchor_types import FileIdentity, ParentSafetyError
 from .parent_anchor_posix import (
@@ -168,7 +168,12 @@ class DestinationParentAnchor:
         parent = self.assert_bound(phase) if require_bound else self.current_path()
         return parent / leaf
 
-    def create_exclusive(self, name: str) -> BinaryIO:
+    def create_exclusive(
+        self,
+        name: str,
+        *,
+        on_created: Callable[[FileIdentity], None],
+    ) -> BinaryIO:
         leaf = _safe_leaf(name)
         self.assert_bound("stage_create")
         if self._descriptor is not None:
@@ -184,16 +189,20 @@ class DestinationParentAnchor:
                 create=True,
                 writable=True,
             )
-        metadata = os.fstat(handle.fileno())
-        if metadata.st_dev != self.device or not stat.S_ISREG(metadata.st_mode):
+        try:
+            metadata = os.fstat(handle.fileno())
+            on_created((metadata.st_dev, metadata.st_ino))
+            if metadata.st_dev != self.device or not stat.S_ISREG(metadata.st_mode):
+                raise ParentSafetyError(
+                    "cross_volume_or_non_regular_stage",
+                    phase="stage_create",
+                    original_path=self.original_path,
+                    current_path=self.current_path(),
+                )
+            self.assert_bound("stage_created")
+        except Exception:
             handle.close()
-            raise ParentSafetyError(
-                "cross_volume_or_non_regular_stage",
-                phase="stage_create",
-                original_path=self.original_path,
-                current_path=self.current_path(),
-            )
-        self.assert_bound("stage_created")
+            raise
         return handle
 
     def open_entry(self, name: str) -> BinaryIO:
