@@ -172,7 +172,8 @@ def test_noncooperating_writer_after_destination_comparison_survives(
     assert captured.value.details["destination_transaction_busy"] is True
     assert captured.value.details["rollback_complete"] is True
     assert output.read_bytes() == b"concurrent"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
 def test_noncooperating_atomic_replace_after_comparison_is_restored(
@@ -199,7 +200,8 @@ def test_noncooperating_atomic_replace_after_comparison_is_restored(
     assert captured.value.details["destination_transaction_busy"] is True
     assert captured.value.details["rollback_complete"] is True
     assert output.read_bytes() == b"concurrent-replacement"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
 def test_noncooperating_writer_created_after_absent_comparison_survives(
@@ -221,12 +223,11 @@ def test_noncooperating_writer_created_after_absent_comparison_survives(
         atomic_promote(candidate, output, expected_destination=snapshot)
 
     assert captured.value.code == ErrorCode.VALIDATION_FAILED
-    assert captured.value.details == {
-        "destination_race": True,
-        "destination_transaction_busy": True,
-    }
+    assert captured.value.details["destination_race"] is True
+    assert captured.value.details["destination_transaction_busy"] is True
     assert output.read_bytes() == b"concurrent"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
 def test_path_writer_after_captured_identity_comparison_wins_without_overwrite(
@@ -259,10 +260,11 @@ def test_path_writer_after_captured_identity_comparison_wins_without_overwrite(
     assert output.read_bytes() == b"concurrent"
     capture = Path(captured.value.details["destination_capture_path"])
     assert capture.read_bytes() == b"initial"
-    assert _transaction_residue(tmp_path) == [capture]
+    residues = _assert_exact_residue_inventory(captured.value, tmp_path)
+    assert {path.read_bytes() for path in residues} == {b"initial", b"validated"}
 
 
-def test_writer_to_captured_inode_after_comparison_is_restored(
+def test_late_writer_to_captured_inode_remains_reachable_after_final_check(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -271,25 +273,30 @@ def test_writer_to_captured_inode_after_comparison_is_restored(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
-    real_matches = paths_module._matches_snapshot
-    compared = False
+    real_matches = paths_module._matches_record
+    injected_capture: Path | None = None
 
-    def inject_captured_inode_writer(path: Path, expected: Any) -> bool:
-        nonlocal compared
-        matched = real_matches(path, expected)
-        if not compared:
-            compared = True
-            path.write_bytes(b"concurrent-old-inode")
+    def inject_after_final_check(path: Path, identity: Any, record: Any) -> bool:
+        nonlocal injected_capture
+        matched = real_matches(path, identity, record)
+        captures = list(tmp_path.glob(".document-skills-capture-*"))
+        if path == output and captures and injected_capture is None:
+            injected_capture = captures[0]
+            injected_capture.write_bytes(b"late-old-inode-writer")
         return matched
 
-    monkeypatch.setattr(paths_module, "_matches_snapshot", inject_captured_inode_writer)
+    monkeypatch.setattr(paths_module, "_matches_record", inject_after_final_check)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
-    assert captured.value.details["destination_transaction_busy"] is True
-    assert captured.value.details["rollback_complete"] is True
-    assert output.read_bytes() == b"concurrent-old-inode"
-    assert _transaction_residue(tmp_path) == []
+    assert captured.value.details["promotion_committed"] is True
+    assert captured.value.details["committed_with_cleanup_failure"] is True
+    assert output.read_bytes() == b"validated"
+    assert injected_capture is not None
+    assert injected_capture.read_bytes() == b"late-old-inode-writer"
+    assert _assert_exact_residue_inventory(captured.value, tmp_path) == [
+        injected_capture
+    ]
 
 
 def test_path_writer_during_rollback_wins_and_all_captures_survive(
@@ -301,43 +308,68 @@ def test_path_writer_during_rollback_wins_and_all_captures_survive(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
-    real_matches = paths_module._matches_snapshot
-    real_replace = paths_module.os.replace
-    compared = False
+    real_stage = paths_module.stage_for_destination
+    real_rename = paths_module._rename_no_replace
 
-    def mutate_old_inode(path: Path, expected: Any) -> bool:
-        nonlocal compared
-        matched = real_matches(path, expected)
-        if not compared:
-            compared = True
-            path.write_bytes(b"old-inode-writer")
-        return matched
+    def substitute_stage(source: Path, destination: Path) -> Any:
+        stage = real_stage(source, destination)
+        alien = tmp_path / "stage-writer.bin"
+        alien.write_bytes(b"stage-path-writer")
+        alien.replace(stage.path)
+        return stage
 
     def inject_during_rollback(source: Path, destination: Path) -> None:
-        real_replace(source, destination)
+        real_rename(source, destination)
         if destination.name.startswith(".document-skills-rollback-"):
             output.write_bytes(b"rollback-path-writer")
 
-    monkeypatch.setattr(paths_module, "_matches_snapshot", mutate_old_inode)
-    monkeypatch.setattr(paths_module.os, "replace", inject_during_rollback)
+    monkeypatch.setattr(paths_module, "stage_for_destination", substitute_stage)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", inject_during_rollback)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
+    assert captured.value.details["candidate_identity_mismatch"] is True
     assert captured.value.details["rollback_complete"] is False
     assert captured.value.details["rollback_reason"] == "destination_occupied"
     assert output.read_bytes() == b"rollback-path-writer"
     capture = Path(captured.value.details["destination_capture_path"])
     rollback = Path(captured.value.details["rollback_candidate_path"])
-    assert capture.read_bytes() == b"old-inode-writer"
-    assert rollback.read_bytes() == b"validated"
-    assert _transaction_residue(tmp_path) == sorted([capture, rollback])
+    assert capture.read_bytes() == b"initial"
+    assert rollback.read_bytes() == b"stage-path-writer"
+    assert _assert_exact_residue_inventory(captured.value, tmp_path) == sorted(
+        [capture, rollback]
+    )
 
 
-def test_existing_destination_success_cleans_run_owned_links(tmp_path: Path) -> None:
+def test_existing_destination_commit_preserves_capture_and_reports_non_success(
+    tmp_path: Path,
+) -> None:
     candidate = tmp_path / "candidate.bin"
     candidate.write_bytes(b"validated")
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(
+            candidate,
+            output,
+            expected_destination=destination_snapshot(output),
+        )
+
+    assert captured.value.details["promotion_committed"] is True
+    assert captured.value.details["committed_with_cleanup_failure"] is True
+    assert captured.value.details["capture_cleanup_skipped"] is True
+    assert output.read_bytes() == b"validated"
+    capture = _only_residue(captured.value, tmp_path, "destination_capture")
+    assert capture.read_bytes() == b"initial"
+
+
+def test_absent_destination_success_consumes_stage_without_residue(
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
 
     promoted = atomic_promote(
         candidate,
@@ -352,7 +384,7 @@ def test_existing_destination_success_cleans_run_owned_links(tmp_path: Path) -> 
 
 @pytest.mark.parametrize("destination_exists", [False, True])
 @pytest.mark.parametrize("error_number", [errno.EPERM, errno.EXDEV])
-def test_no_replace_link_unavailable_fails_before_destination_mutation(
+def test_no_replace_rename_unavailable_preserves_destination_and_stage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     destination_exists: bool,
@@ -365,22 +397,26 @@ def test_no_replace_link_unavailable_fails_before_destination_mutation(
         output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
 
-    def unavailable_link(_source: Path, _destination: Path) -> None:
+    def unavailable_rename(_source: Path, _destination: Path) -> None:
         raise OSError(error_number, "injected no-replace failure")
 
-    monkeypatch.setattr(paths_module.os, "link", unavailable_link)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", unavailable_rename)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
-    assert captured.value.details["atomic_no_replace_unavailable"] is True
-    assert captured.value.details["errno"] == error_number
+    if destination_exists:
+        assert captured.value.details["destination_transaction_unavailable"] is True
+    else:
+        assert captured.value.details["atomic_no_replace_unavailable"] is True
+        assert captured.value.details["errno"] == error_number
     assert output.exists() is destination_exists
     if destination_exists:
         assert output.read_bytes() == b"initial"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
-def test_candidate_link_failure_after_capture_rolls_back_without_residue(
+def test_candidate_rename_failure_after_capture_restores_old_and_reports_stage(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -389,24 +425,25 @@ def test_candidate_link_failure_after_capture_rolls_back_without_residue(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
-    real_link = paths_module.os.link
+    real_rename = paths_module._rename_no_replace
 
-    def fail_candidate_link(source: Path, destination: Path) -> None:
+    def fail_candidate_rename(source: Path, destination: Path) -> None:
         if source.name.startswith(".document-skills-stage-") and destination == output:
-            raise OSError(errno.EIO, "injected candidate-link failure")
-        real_link(source, destination)
+            raise OSError(errno.EIO, "injected candidate-rename failure")
+        real_rename(source, destination)
 
-    monkeypatch.setattr(paths_module.os, "link", fail_candidate_link)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", fail_candidate_rename)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
     assert captured.value.details["atomic_no_replace_unavailable"] is True
     assert captured.value.details["rollback_complete"] is True
     assert output.read_bytes() == b"initial"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
-def test_restore_link_failure_preserves_only_copy_and_reports_residue(
+def test_restore_rename_failure_preserves_capture_and_stage_residues(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -415,14 +452,20 @@ def test_restore_link_failure_preserves_only_copy_and_reports_residue(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
-    real_link = paths_module.os.link
+    real_assert = paths_module._assert_destination_unchanged
+    real_rename = paths_module._rename_no_replace
 
-    def fail_destination_links(source: Path, destination: Path) -> None:
-        if destination == output:
-            raise OSError(errno.EIO, "injected destination-link failure")
-        real_link(source, destination)
+    def inject_writer(path: Path, expected: Any) -> None:
+        real_assert(path, expected)
+        path.write_bytes(b"concurrent-old-inode")
 
-    monkeypatch.setattr(paths_module.os, "link", fail_destination_links)
+    def fail_capture_restore(source: Path, destination: Path) -> None:
+        if source.name.startswith(".document-skills-capture-"):
+            raise OSError(errno.EIO, "injected capture-restore failure")
+        real_rename(source, destination)
+
+    monkeypatch.setattr(paths_module, "_assert_destination_unchanged", inject_writer)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", fail_capture_restore)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
@@ -430,8 +473,12 @@ def test_restore_link_failure_preserves_only_copy_and_reports_residue(
     assert captured.value.details["destination_capture_preserved"] is True
     assert not output.exists()
     capture = Path(captured.value.details["destination_capture_path"])
-    assert capture.read_bytes() == b"initial"
-    assert _transaction_residue(tmp_path) == [capture]
+    assert capture.read_bytes() == b"concurrent-old-inode"
+    residues = _assert_exact_residue_inventory(captured.value, tmp_path)
+    assert {path.read_bytes() for path in residues} == {
+        b"concurrent-old-inode",
+        b"validated",
+    }
 
 
 def test_windows_style_open_handle_capture_failure_leaves_destination_unchanged(
@@ -447,16 +494,17 @@ def test_windows_style_open_handle_capture_failure_leaves_destination_unchanged(
     def capture_denied(_source: Path, _destination: Path) -> None:
         raise PermissionError(errno.EACCES, "injected sharing violation")
 
-    monkeypatch.setattr(paths_module.os, "replace", capture_denied)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", capture_denied)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
     assert captured.value.details["destination_transaction_unavailable"] is True
     assert output.read_bytes() == b"initial"
-    assert _transaction_residue(tmp_path) == []
+    residue = _only_residue(captured.value, tmp_path, "stage")
+    assert residue.read_bytes() == b"validated"
 
 
-def test_capture_identity_substitution_is_not_deleted_after_commit(
+def test_post_identity_observation_capture_substitution_is_never_unlinked(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -465,30 +513,180 @@ def test_capture_identity_substitution_is_not_deleted_after_commit(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
-    real_matches = paths_module._matches_snapshot
-    comparisons = 0
+    real_entry = paths_module._residue_entry
+    unlink_calls: list[Path] = []
 
-    def substitute_before_cleanup(path: Path, expected: Any) -> bool:
-        nonlocal comparisons
-        comparisons += 1
-        matched = real_matches(path, expected)
-        if comparisons == 2:
+    def substitute_after_observation(reference: Any) -> Any:
+        observed = real_entry(reference)
+        if reference.role == "destination_capture" and not unlink_calls:
             alien = tmp_path / "alien.bin"
             alien.write_bytes(b"alien-capture-path")
-            alien.replace(path)
-        return matched
+            alien.replace(reference.path)
+            unlink_calls.append(reference.path)
+            # Re-observe so the committed inventory is exact after injection.
+            return real_entry(reference)
+        return observed
 
-    monkeypatch.setattr(paths_module, "_matches_snapshot", substitute_before_cleanup)
+    def forbidden_unlink(_path: Path, *_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("promotion must not unlink mutable pathnames")
+
+    monkeypatch.setattr(paths_module, "_residue_entry", substitute_after_observation)
+    monkeypatch.setattr(Path, "unlink", forbidden_unlink)
     with pytest.raises(DocumentSkillsError) as captured:
         atomic_promote(candidate, output, expected_destination=snapshot)
 
     assert captured.value.details["promotion_committed"] is True
-    assert captured.value.details["capture_cleanup_failed"] is True
-    assert captured.value.details["capture_cleanup_reason"] == "identity_changed"
+    assert captured.value.details["capture_cleanup_skipped"] is True
     assert output.read_bytes() == b"validated"
     capture = Path(captured.value.details["destination_capture_path"])
     assert capture.read_bytes() == b"alien-capture-path"
-    assert _transaction_residue(tmp_path) == [capture]
+    assert unlink_calls == [capture]
+    assert _assert_exact_residue_inventory(captured.value, tmp_path) == [capture]
+
+
+def test_stage_substitution_is_preserved_in_rollback_residue(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
+    output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    real_stage = paths_module.stage_for_destination
+
+    def substitute_stage(source: Path, destination: Path) -> Any:
+        stage = real_stage(source, destination)
+        alien = tmp_path / "alien-stage.bin"
+        alien.write_bytes(b"concurrent-stage-bytes")
+        alien.replace(stage.path)
+        return stage
+
+    monkeypatch.setattr(paths_module, "stage_for_destination", substitute_stage)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(candidate, output, expected_destination=snapshot)
+
+    assert captured.value.details["candidate_identity_mismatch"] is True
+    assert captured.value.details["rollback_complete"] is True
+    assert captured.value.details["concurrent_writer_captured_during_rollback"] is True
+    assert output.read_bytes() == b"initial"
+    rollback = _only_residue(captured.value, tmp_path, "rollback_candidate")
+    assert rollback.read_bytes() == b"concurrent-stage-bytes"
+
+
+def test_occupied_capture_name_is_rejected_without_overwrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
+    output.write_bytes(b"initial")
+    occupied = tmp_path / ".document-skills-capture-occupied"
+    occupied.write_bytes(b"capture-name-writer")
+    real_internal_path = paths_module._internal_path
+
+    def choose_occupied(parent: Path, role: str) -> Path:
+        if role == "capture":
+            return occupied
+        return real_internal_path(parent, role)
+
+    monkeypatch.setattr(paths_module, "_internal_path", choose_occupied)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(
+            candidate,
+            output,
+            expected_destination=destination_snapshot(output),
+        )
+
+    assert captured.value.details["internal_target_occupied"] is True
+    assert captured.value.details["internal_target_role"] == "capture"
+    assert output.read_bytes() == b"initial"
+    assert occupied.read_bytes() == b"capture-name-writer"
+    residues = _assert_exact_residue_inventory(captured.value, tmp_path)
+    assert {path.read_bytes() for path in residues} == {
+        b"capture-name-writer",
+        b"validated",
+    }
+
+
+def test_occupied_stage_name_is_rejected_without_overwrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
+    output.write_bytes(b"initial")
+    occupied = tmp_path / ".document-skills-stage-occupied"
+    occupied.write_bytes(b"stage-name-writer")
+    real_internal_path = paths_module._internal_path
+
+    def choose_occupied(parent: Path, role: str) -> Path:
+        if role == "stage":
+            return occupied
+        return real_internal_path(parent, role)
+
+    monkeypatch.setattr(paths_module, "_internal_path", choose_occupied)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(
+            candidate,
+            output,
+            expected_destination=destination_snapshot(output),
+        )
+
+    assert captured.value.details["internal_target_occupied"] is True
+    assert captured.value.details["internal_target_role"] == "stage"
+    assert output.read_bytes() == b"initial"
+    assert occupied.read_bytes() == b"stage-name-writer"
+    assert _only_residue(captured.value, tmp_path, "occupied_stage") == occupied
+
+
+def test_occupied_rollback_name_is_rejected_without_overwrite(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = tmp_path / "output.bin"
+    output.write_bytes(b"initial")
+    occupied = tmp_path / ".document-skills-rollback-occupied"
+    occupied.write_bytes(b"rollback-name-writer")
+    real_stage = paths_module.stage_for_destination
+    real_internal_path = paths_module._internal_path
+
+    def substitute_stage(source: Path, destination: Path) -> Any:
+        stage = real_stage(source, destination)
+        alien = tmp_path / "alien-stage.bin"
+        alien.write_bytes(b"stage-path-writer")
+        alien.replace(stage.path)
+        return stage
+
+    def choose_occupied(parent: Path, role: str) -> Path:
+        if role == "rollback":
+            return occupied
+        return real_internal_path(parent, role)
+
+    monkeypatch.setattr(paths_module, "stage_for_destination", substitute_stage)
+    monkeypatch.setattr(paths_module, "_internal_path", choose_occupied)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(
+            candidate,
+            output,
+            expected_destination=destination_snapshot(output),
+        )
+
+    assert captured.value.details["candidate_identity_mismatch"] is True
+    assert captured.value.details["internal_target_occupied"] is True
+    assert captured.value.details["internal_target_role"] == "rollback"
+    assert captured.value.details["rollback_complete"] is False
+    assert output.read_bytes() == b"stage-path-writer"
+    capture = Path(captured.value.details["destination_capture_path"])
+    assert capture.read_bytes() == b"initial"
+    assert occupied.read_bytes() == b"rollback-name-writer"
+    assert _assert_exact_residue_inventory(captured.value, tmp_path) == sorted(
+        [capture, occupied]
+    )
 
 
 def _transaction(format_id: str) -> Any:
@@ -549,3 +747,33 @@ def _transaction_residue(root: Path) -> list[Path]:
         for path in root.iterdir()
         if path.name.startswith(".document-skills-")
     )
+
+
+def _assert_exact_residue_inventory(
+    error: DocumentSkillsError,
+    root: Path,
+) -> list[Path]:
+    actual = _transaction_residue(root)
+    reported = sorted(Path(path) for path in error.details["transaction_residue_paths"])
+    inventory = error.details["transaction_residues"]
+    assert reported == actual
+    assert sorted(Path(item["path"]) for item in inventory) == actual
+    for item in inventory:
+        path = Path(item["path"])
+        assert item["state"] == "regular_file"
+        assert item["bytes"] == path.stat().st_size
+        assert item["sha256"] == _sha256(path)
+    return actual
+
+
+def _only_residue(
+    error: DocumentSkillsError,
+    root: Path,
+    role: str,
+) -> Path:
+    residues = _assert_exact_residue_inventory(error, root)
+    assert len(residues) == 1
+    inventory = error.details["transaction_residues"]
+    assert len(inventory) == 1
+    assert inventory[0]["role"] == role
+    return residues[0]

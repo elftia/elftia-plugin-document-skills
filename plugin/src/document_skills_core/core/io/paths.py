@@ -1,11 +1,12 @@
 """Artifact identity, hashing, destination staging, and atomic promotion."""
 
-from dataclasses import asdict, dataclass
+import ctypes
+from dataclasses import asdict, dataclass, field
 import hashlib
 import os
 from pathlib import Path
-import shutil
 import stat
+import sys
 import uuid
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
@@ -32,6 +33,33 @@ class DestinationSnapshot:
 
 
 FileIdentity = tuple[int, int]
+
+
+@dataclass(frozen=True)
+class StagedArtifact:
+    path: Path
+    identity: FileIdentity
+    record: ArtifactRecord
+
+
+@dataclass(frozen=True)
+class _ResidueReference:
+    role: str
+    path: Path
+    expected_identity: FileIdentity | None
+
+
+@dataclass
+class _PromotionState:
+    references: list[_ResidueReference] = field(default_factory=list)
+
+    def track(
+        self,
+        role: str,
+        path: Path,
+        expected_identity: FileIdentity | None,
+    ) -> None:
+        self.references.append(_ResidueReference(role, path, expected_identity))
 
 
 def normalized_path(path: str | Path) -> Path:
@@ -77,24 +105,80 @@ def file_record(path: str | Path, role: str) -> ArtifactRecord:
     return ArtifactRecord(role, str(resolved), sha256_file(resolved), resolved.stat().st_size)
 
 
-def stage_for_destination(source: str | Path, destination: str | Path) -> Path:
+def stage_for_destination(
+    source: str | Path, destination: str | Path
+) -> StagedArtifact:
+    """Copy a candidate into its destination directory and retain creation identity.
+
+    The public stage name is never deleted by pathname. If creation or copying fails,
+    any reachable residue is reported for explicit recovery rather than being removed
+    after a racy identity check.
+    """
+
     source_path = normalized_path(source)
     destination_path = normalized_path(destination)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
-    stage = destination_path.parent / f".document-skills-stage-{uuid.uuid4().hex}"
+    stage = _internal_path(destination_path.parent, "stage")
     stage_identity: FileIdentity | None = None
+    digest = hashlib.sha256()
+    copied_bytes = 0
     try:
-        with source_path.open("rb") as source_handle, stage.open("xb") as stage_handle:
-            metadata = os.fstat(stage_handle.fileno())
-            stage_identity = (metadata.st_dev, metadata.st_ino)
-            shutil.copyfileobj(source_handle, stage_handle, length=1024 * 1024)
-            stage_handle.flush()
-            os.fsync(stage_handle.fileno())
-    except Exception:
-        if stage_identity is not None:
-            _remove_owned_file(stage, stage_identity)
+        with source_path.open("rb") as source_handle:
+            try:
+                stage_handle = stage.open("xb")
+            except FileExistsError as error:
+                occupied = DocumentSkillsError(
+                    ErrorCode.VALIDATION_FAILED,
+                    "The selected promotion stage name is occupied.",
+                    details={
+                        "destination_race": True,
+                        "internal_target_occupied": True,
+                        "internal_target_role": "stage",
+                        "stage_path": str(stage),
+                    },
+                )
+                _attach_residue_inventory(
+                    occupied, [_ResidueReference("occupied_stage", stage, None)]
+                )
+                raise occupied from error
+            with stage_handle:
+                metadata = os.fstat(stage_handle.fileno())
+                stage_identity = (metadata.st_dev, metadata.st_ino)
+                for chunk in iter(lambda: source_handle.read(1024 * 1024), b""):
+                    stage_handle.write(chunk)
+                    digest.update(chunk)
+                    copied_bytes += len(chunk)
+                stage_handle.flush()
+                os.fsync(stage_handle.fileno())
+    except DocumentSkillsError:
         raise
-    return stage
+    except Exception as error:
+        details: dict[str, object] = {
+            "stage_creation_failed": True,
+            "stage_path": str(stage),
+            "reason": type(error).__name__,
+        }
+        failed = DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "Promotion staging did not complete.",
+            details=details,
+        )
+        if stage_identity is not None:
+            _attach_residue_inventory(
+                failed,
+                [_ResidueReference("stage", stage, stage_identity)],
+            )
+        raise failed from error
+    if stage_identity is None:  # pragma: no cover - creation invariant
+        raise DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "Promotion stage identity was not captured at creation time.",
+        )
+    return StagedArtifact(
+        stage,
+        stage_identity,
+        ArtifactRecord("output", str(stage), digest.hexdigest(), copied_bytes),
+    )
 
 
 def destination_snapshot(destination: str | Path) -> DestinationSnapshot:
@@ -135,15 +219,12 @@ def atomic_promote(
     destination_path = normalized_path(destination)
     effective_destination = expected_destination or destination_snapshot(destination_path)
     stage = stage_for_destination(staged_source, destination_path)
-    promoted_record: ArtifactRecord | None = None
-    stage_identity: FileIdentity | None = None
-    operation_error: DocumentSkillsError | None = None
+    state = _PromotionState()
+    state.track("stage", stage.path, stage.identity)
     try:
-        staged_record = file_record(stage, "output")
-        stage_identity = _regular_file_identity(stage)
         if (
-            staged_record.sha256 != source_record.sha256
-            or staged_record.bytes != source_record.bytes
+            stage.record.sha256 != source_record.sha256
+            or stage.record.bytes != source_record.bytes
         ):
             raise DocumentSkillsError(
                 ErrorCode.VALIDATION_FAILED,
@@ -155,78 +236,50 @@ def atomic_promote(
         # hook, while the capture closes the check-to-commit window for writers
         # that do not cooperate with any lock file.
         _assert_destination_unchanged(destination_path, effective_destination)
-        _conditional_promote(
+        promoted_record = _conditional_promote(
             stage,
             destination_path,
             effective_destination,
-            stage_identity,
-            staged_record,
+            state,
         )
-        promoted_record = file_record(destination_path, "output")
-        if (
-            promoted_record.sha256 != staged_record.sha256
-            or promoted_record.bytes != staged_record.bytes
-        ):
-            raise DocumentSkillsError(
-                ErrorCode.VALIDATION_FAILED,
-                "Promoted output differs from the validated candidate.",
-                details={"candidate_identity_mismatch": True},
-            )
     except DocumentSkillsError as error:
-        operation_error = error
+        _attach_residue_inventory(error, state.references)
         raise
-    finally:
-        if stage_identity is not None:
-            cleanup_reason = _remove_owned_file(stage, stage_identity)
-            if cleanup_reason is not None:
-                details = {
-                    "promotion_committed": promoted_record is not None,
-                    "stage_cleanup_failed": True,
-                    "stage_path": str(stage),
-                    "stage_cleanup_reason": cleanup_reason,
-                }
-                if operation_error is not None:
-                    operation_error.details.update(details)
-                else:
-                    raise DocumentSkillsError(
-                        ErrorCode.VALIDATION_FAILED,
-                        "Promotion stage cleanup failed after the destination transaction.",
-                        details=details,
-                    )
-    if promoted_record is None:  # pragma: no cover - defensive invariant
-        raise DocumentSkillsError(
-            ErrorCode.VALIDATION_FAILED,
-            "Promotion did not produce an output record.",
-        )
     return promoted_record
 
 
 def _conditional_promote(
-    stage: Path,
+    stage: StagedArtifact,
     destination: Path,
     expected: DestinationSnapshot,
-    stage_identity: FileIdentity,
-    staged_record: ArtifactRecord,
-) -> None:
-    """Conditionally install ``stage`` without overwriting an arbitrary writer.
+    state: _PromotionState,
+) -> ArtifactRecord:
+    """Install ``stage`` using only atomic no-replace renames.
 
-    For an existing destination, an atomic same-directory rename first captures
-    the current inode in a unique backup.  We compare that captured inode to the
-    expected identity, then install the candidate with a no-replace hard link.
-    A writer that appears after capture therefore makes the link fail and its
-    bytes remain at the destination.  For an initially absent destination the
-    no-replace link is the compare-and-commit operation itself.
+    No internal path is ever overwritten or unlinked. An existing destination is
+    retained at an exact capture path; because portable identity-bound deletion
+    is unavailable, a committed replacement is reported as committed-with-
+    cleanup-failure instead of silently discarding the captured inode.
     """
 
-    _probe_no_replace_link(stage, destination.parent, stage_identity)
     if not expected.exists:
         try:
-            os.link(stage, destination)
+            _rename_no_replace(stage.path, destination)
         except FileExistsError as error:
             raise _destination_transaction_busy() from error
         except OSError as error:
             raise _no_replace_unavailable(error) from error
-        return
+        if not _matches_record(destination, stage.identity, stage.record):
+            mismatch = DocumentSkillsError(
+                ErrorCode.VALIDATION_FAILED,
+                "Installed output does not match the creation-time stage identity.",
+                details={
+                    "candidate_identity_mismatch": True,
+                    "destination_changed_after_install": True,
+                },
+            )
+            _preserve_installed_path(mismatch, stage, destination, state, None)
+        return _promoted_record(stage.record, destination)
 
     if expected.device is None or expected.inode is None:
         raise DocumentSkillsError(
@@ -234,99 +287,55 @@ def _conditional_promote(
             "Existing destination snapshot lacks a stable file identity.",
             details={"destination_snapshot_identity_missing": True},
         )
-    backup = destination.parent / f".document-skills-capture-{uuid.uuid4().hex}"
+    backup = _internal_path(destination.parent, "capture")
+    backup_identity = (expected.device, expected.inode)
+    state.track("destination_capture", backup, backup_identity)
     try:
-        # On Windows, an ordinary open handle commonly makes this fail before
-        # any path change.  On POSIX the same-directory rename is atomic.
-        os.replace(destination, backup)
+        _rename_no_replace(destination, backup)
+    except FileExistsError as error:
+        occupied = _internal_target_occupied("capture", backup)
+        raise occupied from error
     except FileNotFoundError as error:
         raise _destination_transaction_busy() from error
     except OSError as error:
         raise _destination_transaction_unavailable(error) from error
-
-    try:
-        backup_identity = _regular_file_identity(backup)
-    except OSError as identity_error:
-        raise DocumentSkillsError(
-            ErrorCode.VALIDATION_FAILED,
-            "Captured destination identity could not be established.",
-            details={
-                "destination_race": True,
-                "rollback_complete": False,
-                "destination_capture_path": str(backup),
-                "capture_path_exists": backup.exists(),
-                "capture_identity_unavailable": True,
-                "reason": type(identity_error).__name__,
-            },
-        ) from identity_error
     if not _matches_snapshot(backup, expected):
-        _raise_after_rollback(
-            _destination_transaction_busy(), backup, backup_identity, destination
-        )
+        _restore_capture(_destination_transaction_busy(), backup, destination)
 
     try:
-        os.link(stage, destination)
+        _rename_no_replace(stage.path, destination)
     except FileExistsError as error:
-        _raise_after_rollback(
-            _destination_transaction_busy(), backup, backup_identity, destination
-        )
+        _restore_capture(_destination_transaction_busy(), backup, destination)
     except OSError as error:
-        unavailable = _no_replace_unavailable(error)
-        _raise_after_rollback(unavailable, backup, backup_identity, destination)
+        _restore_capture(_no_replace_unavailable(error), backup, destination)
 
-    # A writer that already held the captured inode can mutate it after the
-    # first comparison.  Recheck it after the candidate link and roll back the
-    # still-unmodified candidate when that deterministic window is observed.
-    if not _matches_snapshot(backup, expected):
-        _raise_after_rollback(
-            _destination_transaction_busy(),
-            backup,
-            backup_identity,
-            destination,
-            installed=(stage_identity, staged_record),
-        )
-
-    cleanup_reason = _remove_owned_file(backup, backup_identity)
-    if cleanup_reason is not None:
-        raise DocumentSkillsError(
+    if not _matches_record(destination, stage.identity, stage.record):
+        mismatch = DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
-            "Candidate committed, but the captured destination could not be cleaned.",
+            "Installed output does not match the creation-time stage identity.",
             details={
-                "promotion_committed": True,
-                "destination_capture_preserved": _owns_file(
-                    backup, backup_identity
-                ),
-                "capture_path_exists": backup.exists(),
-                "destination_capture_path": str(backup),
-                "capture_cleanup_failed": True,
-                "capture_cleanup_reason": cleanup_reason,
-                "output_sha256": staged_record.sha256,
-                "output_bytes": staged_record.bytes,
+                "candidate_identity_mismatch": True,
+                "destination_changed_after_install": True,
             },
         )
-
-
-def _probe_no_replace_link(
-    stage: Path, parent: Path, stage_identity: FileIdentity
-) -> None:
-    probe = parent / f".document-skills-link-probe-{uuid.uuid4().hex}"
-    try:
-        os.link(stage, probe)
-    except OSError as error:
-        raise _no_replace_unavailable(error) from error
-    cleanup_reason = _remove_owned_file(probe, stage_identity)
-    if cleanup_reason is not None:
-        raise DocumentSkillsError(
-            ErrorCode.VALIDATION_FAILED,
-            "Atomic no-replace promotion probe could not be cleaned.",
-            details={
-                "destination_race": True,
-                "atomic_no_replace_unavailable": True,
-                "link_probe_cleanup_failed": True,
-                "link_probe_path": str(probe),
-                "link_probe_cleanup_reason": cleanup_reason,
-            },
+        _preserve_installed_path(
+            mismatch, stage, destination, state, backup
         )
+
+    raise DocumentSkillsError(
+        ErrorCode.VALIDATION_FAILED,
+        "Candidate committed, but identity-bound capture deletion is unavailable.",
+        details={
+            "promotion_committed": True,
+            "committed_with_cleanup_failure": True,
+            "destination_capture_preserved": True,
+            "destination_capture_path": str(backup),
+            "capture_cleanup_skipped": True,
+            "capture_cleanup_reason": "identity_bound_deletion_unavailable",
+            "output_sha256": stage.record.sha256,
+            "output_bytes": stage.record.bytes,
+        },
+    )
 
 
 def _matches_snapshot(path: Path, expected: DestinationSnapshot) -> bool:
@@ -340,165 +349,117 @@ def _matches_snapshot(path: Path, expected: DestinationSnapshot) -> bool:
         return False
 
 
-def _raise_after_rollback(
+def _restore_capture(
     error: DocumentSkillsError,
     backup: Path,
-    backup_identity: FileIdentity,
     destination: Path,
-    *,
-    installed: tuple[FileIdentity, ArtifactRecord] | None = None,
 ) -> None:
-    if not _owns_file(backup, backup_identity):
-        _raise_with_capture(
-            error, backup, backup_identity, destination, "capture_identity_changed"
-        )
-    rollback_path: Path | None = None
-    rollback_identity: FileIdentity | None = None
-    if installed is not None:
-        identity, record = installed
-        rollback_path = destination.parent / (
-            f".document-skills-rollback-{uuid.uuid4().hex}"
-        )
-        try:
-            # Capture the current path atomically instead of checking and then
-            # unlinking it.  A path writer is either captured here or wins the
-            # following no-replace restore; rollback never replaces it.
-            os.replace(destination, rollback_path)
-        except FileNotFoundError:
-            rollback_path = None
-        except OSError as capture_error:
-            _raise_with_capture(
-                error,
-                backup,
-                backup_identity,
-                destination,
-                type(capture_error).__name__,
-            )
-        if rollback_path is not None:
-            try:
-                rollback_identity = _regular_file_identity(rollback_path)
-            except OSError as identity_error:
-                error.details.update(
-                    {
-                        "rollback_path": str(rollback_path),
-                        "rollback_path_identity_unavailable": True,
-                    }
-                )
-                _raise_with_capture(
-                    error,
-                    backup,
-                    backup_identity,
-                    destination,
-                    type(identity_error).__name__,
-                )
-            if not _matches_record(rollback_path, identity, record):
-                _restore_rollback_writer(
-                    error,
-                    rollback_path,
-                    rollback_identity,
-                    backup,
-                    backup_identity,
-                    destination,
-                )
-            error.details.update(
-                {
-                    "rollback_candidate_path": str(rollback_path),
-                    "rollback_candidate_preserved": True,
-                }
-            )
     try:
-        os.link(backup, destination)
+        _rename_no_replace(backup, destination)
     except FileExistsError:
-        _raise_with_capture(
-            error, backup, backup_identity, destination, "destination_occupied"
-        )
-    except OSError as restore_error:
-        _raise_with_capture(
-            error,
-            backup,
-            backup_identity,
-            destination,
-            type(restore_error).__name__,
-        )
-    error.details["rollback_complete"] = True
-    if rollback_path is not None and rollback_identity is not None:
-        rollback_cleanup = _remove_owned_file(rollback_path, rollback_identity)
-        error.details["rollback_candidate_preserved"] = rollback_cleanup is not None
-        if rollback_cleanup is not None:
-            error.details["rollback_candidate_cleanup_reason"] = rollback_cleanup
-    cleanup_reason = _remove_owned_file(backup, backup_identity)
-    if cleanup_reason is not None:
         error.details.update(
             {
-                "destination_capture_preserved": _owns_file(
-                    backup, backup_identity
-                ),
-                "capture_path_exists": backup.exists(),
+                "rollback_complete": False,
+                "rollback_reason": "destination_occupied",
+                "destination_capture_preserved": True,
                 "destination_capture_path": str(backup),
-                "capture_cleanup_failed": True,
-                "capture_cleanup_reason": cleanup_reason,
+                "destination_exists": destination.is_file(),
             }
         )
+        raise error
+    except OSError as restore_error:
+        error.details.update(
+            {
+                "rollback_complete": False,
+                "rollback_reason": type(restore_error).__name__,
+                "destination_capture_preserved": True,
+                "destination_capture_path": str(backup),
+                "destination_exists": destination.is_file(),
+            }
+        )
+        raise error
+    error.details["rollback_complete"] = True
+    error.details["destination_capture_preserved"] = False
     raise error
 
 
-def _restore_rollback_writer(
+def _preserve_installed_path(
     error: DocumentSkillsError,
-    rollback: Path,
-    rollback_identity: FileIdentity,
-    backup: Path,
-    backup_identity: FileIdentity,
+    stage: StagedArtifact,
     destination: Path,
+    state: _PromotionState,
+    backup: Path | None,
 ) -> None:
+    rollback = _internal_path(destination.parent, "rollback")
+    state.track("rollback_candidate", rollback, stage.identity)
+    error.details["rollback_candidate_path"] = str(rollback)
     error.details.update(
         {
-            "concurrent_writer_captured_during_rollback": True,
-            "rollback_writer_path": str(rollback),
-            "rollback_writer_preserved": True,
+            "rollback_candidate_preserved": False,
+            "destination_capture_path": str(backup) if backup is not None else None,
         }
     )
+    installed_path_preserved = False
     try:
-        os.link(rollback, destination)
-    except FileExistsError:
-        _raise_with_capture(
-            error, backup, backup_identity, destination, "destination_occupied"
+        _rename_no_replace(destination, rollback)
+        installed_path_preserved = True
+    except FileExistsError as rollback_error:
+        error.details.update(
+            {
+                "rollback_complete": False,
+                "rollback_reason": "rollback_target_occupied",
+                "internal_target_occupied": True,
+                "internal_target_role": "rollback",
+            }
         )
+        raise error from rollback_error
+    except FileNotFoundError:
+        if backup is None:
+            error.details["rollback_complete"] = True
+            raise error
     except OSError as restore_error:
-        _raise_with_capture(
-            error,
-            backup,
-            backup_identity,
-            destination,
-            type(restore_error).__name__,
+        error.details.update(
+            {
+                "rollback_complete": False,
+                "rollback_reason": type(restore_error).__name__,
+            }
         )
-    cleanup_reason = _remove_owned_file(rollback, rollback_identity)
-    error.details.update(
-        {
-            "concurrent_writer_restored": True,
-            "rollback_writer_preserved": cleanup_reason is not None,
-        }
-    )
-    if cleanup_reason is not None:
-        error.details["rollback_writer_cleanup_reason"] = cleanup_reason
-    _raise_with_capture(error, backup, backup_identity, destination, "writer_won")
+        raise error
 
-
-def _raise_with_capture(
-    error: DocumentSkillsError,
-    backup: Path,
-    backup_identity: FileIdentity,
-    destination: Path,
-    reason: str,
-) -> None:
-    error.details.update(
-        {
-            "rollback_complete": False,
-            "rollback_reason": reason,
-            "destination_capture_preserved": _owns_file(backup, backup_identity),
-            "destination_capture_path": str(backup),
-            "destination_exists": destination.is_file(),
-        }
-    )
+    if installed_path_preserved:
+        error.details.update(
+            {
+                "rollback_candidate_preserved": True,
+                "rollback_candidate_matches_stage": _matches_record(
+                    rollback, stage.identity, stage.record
+                ),
+            }
+        )
+        if not error.details["rollback_candidate_matches_stage"]:
+            error.details["concurrent_writer_captured_during_rollback"] = True
+    if backup is not None:
+        try:
+            _rename_no_replace(backup, destination)
+        except FileExistsError:
+            error.details.update(
+                {
+                    "rollback_complete": False,
+                    "rollback_reason": "destination_occupied",
+                    "destination_capture_preserved": True,
+                }
+            )
+            raise error
+        except OSError as restore_error:
+            error.details.update(
+                {
+                    "rollback_complete": False,
+                    "rollback_reason": type(restore_error).__name__,
+                    "destination_capture_preserved": True,
+                }
+            )
+            raise error
+        error.details["destination_capture_preserved"] = False
+    error.details["rollback_complete"] = True
     raise error
 
 
@@ -522,27 +483,125 @@ def _regular_file_identity(path: Path) -> FileIdentity:
     return metadata.st_dev, metadata.st_ino
 
 
-def _owns_file(path: Path, identity: FileIdentity) -> bool:
-    try:
-        return _regular_file_identity(path) == identity
-    except OSError:
-        return False
+def _promoted_record(record: ArtifactRecord, destination: Path) -> ArtifactRecord:
+    return ArtifactRecord("output", str(destination), record.sha256, record.bytes)
 
 
-def _remove_owned_file(path: Path, identity: FileIdentity) -> str | None:
+def _internal_path(parent: Path, role: str) -> Path:
+    return parent / f".document-skills-{role}-{uuid.uuid4().hex}"
+
+
+def _internal_target_occupied(role: str, path: Path) -> DocumentSkillsError:
+    return DocumentSkillsError(
+        ErrorCode.VALIDATION_FAILED,
+        f"The selected internal {role} target is occupied.",
+        details={
+            "destination_race": True,
+            "internal_target_occupied": True,
+            "internal_target_role": role,
+            "internal_target_path": str(path),
+        },
+    )
+
+
+def _rename_no_replace(source: Path, destination: Path) -> None:
+    """Atomically rename while rejecting an occupied target, or fail closed."""
+
+    if os.name == "nt":
+        # CPython maps os.rename to a non-replacing Windows rename. Unlike
+        # os.replace, an occupied target raises FileExistsError.
+        os.rename(source, destination)
+        return
+    source_bytes = os.fsencode(source)
+    destination_bytes = os.fsencode(destination)
+    library = ctypes.CDLL(None, use_errno=True)
+    if sys.platform.startswith("linux"):
+        try:
+            renameat2 = library.renameat2
+        except AttributeError:
+            raise OSError("renameat2 is unavailable")
+        renameat2.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_uint,
+        ]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, source_bytes, -100, destination_bytes, 1)
+    elif sys.platform == "darwin":
+        try:
+            renamex_np = library.renamex_np
+        except AttributeError:
+            raise OSError("renamex_np is unavailable")
+        renamex_np.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint]
+        renamex_np.restype = ctypes.c_int
+        result = renamex_np(source_bytes, destination_bytes, 4)
+    else:
+        raise OSError("atomic no-replace rename is unavailable")
+    if result != 0:
+        error_number = ctypes.get_errno()
+        raise OSError(
+            error_number,
+            os.strerror(error_number),
+            str(destination),
+        )
+
+
+def _attach_residue_inventory(
+    error: DocumentSkillsError,
+    references: list[_ResidueReference],
+) -> None:
+    inventory: list[dict[str, object]] = []
+    seen: set[tuple[str, str]] = set()
+    for reference in references:
+        key = (reference.role, str(reference.path))
+        if key in seen:
+            continue
+        seen.add(key)
+        entry = _residue_entry(reference)
+        if entry is not None:
+            inventory.append(entry)
+    inventory.sort(key=lambda item: (str(item["path"]), str(item["role"])))
+    error.details["transaction_residues"] = inventory
+    error.details["transaction_residue_paths"] = [
+        str(item["path"]) for item in inventory
+    ]
+
+
+def _residue_entry(
+    reference: _ResidueReference,
+) -> dict[str, object] | None:
     try:
-        actual = _regular_file_identity(path)
+        metadata = os.stat(reference.path, follow_symlinks=False)
     except FileNotFoundError:
         return None
     except OSError as error:
-        return type(error).__name__
-    if actual != identity:
-        return "identity_changed"
-    try:
-        path.unlink()
-    except OSError as error:
-        return type(error).__name__
-    return None
+        return {
+            "role": reference.role,
+            "path": str(reference.path),
+            "state": "identity_unavailable",
+            "reason": type(error).__name__,
+        }
+    actual_identity = (metadata.st_dev, metadata.st_ino)
+    entry: dict[str, object] = {
+        "role": reference.role,
+        "path": str(reference.path),
+        "state": "regular_file" if stat.S_ISREG(metadata.st_mode) else "non_regular",
+        "device": metadata.st_dev,
+        "inode": metadata.st_ino,
+    }
+    if reference.expected_identity is not None:
+        entry["identity_matches_expected"] = (
+            actual_identity == reference.expected_identity
+        )
+    if stat.S_ISREG(metadata.st_mode):
+        entry["bytes"] = metadata.st_size
+        try:
+            entry["sha256"] = sha256_file(reference.path)
+        except OSError as error:
+            entry["sha256_unavailable"] = type(error).__name__
+    return entry
 
 
 def _destination_transaction_busy() -> DocumentSkillsError:
