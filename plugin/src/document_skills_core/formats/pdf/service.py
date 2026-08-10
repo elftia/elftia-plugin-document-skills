@@ -164,8 +164,9 @@ class PdfService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
+        except Exception:
             assert_source_preserved(source_record.path, source_record.sha256)
+            raise
 
     def _rewrite_apply(self, request: ParsedPdfRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -222,8 +223,9 @@ class PdfService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
+        except Exception:
             assert_source_preserved(source_record.path, source_record.sha256)
+            raise
 
 
 def build_pdf_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:

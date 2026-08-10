@@ -5,12 +5,15 @@ from __future__ import annotations
 import errno
 import hashlib
 import importlib
+import os
 from pathlib import Path
+import sys
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
+import document_skills_core.core.io.parent_anchor as parent_anchor_module
 import document_skills_core.core.io.paths as paths_module
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.models import gate_record, make_error_result
@@ -157,8 +160,8 @@ def test_noncooperating_writer_after_destination_comparison_survives(
     snapshot = destination_snapshot(output)
     real_assert = paths_module._assert_destination_unchanged
 
-    def inject_writer(path: Path, expected: Any) -> None:
-        real_assert(path, expected)
+    def inject_writer(path: Path, expected: Any, *, parent: Any) -> None:
+        real_assert(path, expected, parent=parent)
         # Deliberately bypass all transaction helpers: this models an
         # arbitrary writer using the ordinary filesystem API.
         path.write_bytes(b"concurrent")
@@ -187,8 +190,8 @@ def test_noncooperating_atomic_replace_after_comparison_is_restored(
     snapshot = destination_snapshot(output)
     real_assert = paths_module._assert_destination_unchanged
 
-    def inject_replace(path: Path, expected: Any) -> None:
-        real_assert(path, expected)
+    def inject_replace(path: Path, expected: Any, *, parent: Any) -> None:
+        real_assert(path, expected, parent=parent)
         replacement = tmp_path / "writer-replacement.bin"
         replacement.write_bytes(b"concurrent-replacement")
         replacement.replace(path)
@@ -214,8 +217,8 @@ def test_noncooperating_writer_created_after_absent_comparison_survives(
     snapshot = destination_snapshot(output)
     real_assert = paths_module._assert_destination_unchanged
 
-    def inject_writer(path: Path, expected: Any) -> None:
-        real_assert(path, expected)
+    def inject_writer(path: Path, expected: Any, *, parent: Any) -> None:
+        real_assert(path, expected, parent=parent)
         path.write_bytes(b"concurrent")
 
     monkeypatch.setattr(paths_module, "_assert_destination_unchanged", inject_writer)
@@ -242,9 +245,9 @@ def test_path_writer_after_captured_identity_comparison_wins_without_overwrite(
     real_matches = paths_module._matches_snapshot
     compared = False
 
-    def inject_writer(path: Path, expected: Any) -> bool:
+    def inject_writer(path: Path, expected: Any, *, parent: Any) -> bool:
         nonlocal compared
-        matched = real_matches(path, expected)
+        matched = real_matches(path, expected, parent=parent)
         if not compared:
             compared = True
             output.write_bytes(b"concurrent")
@@ -276,9 +279,15 @@ def test_late_writer_to_captured_inode_remains_reachable_after_final_check(
     real_matches = paths_module._matches_record
     injected_capture: Path | None = None
 
-    def inject_after_final_check(path: Path, identity: Any, record: Any) -> bool:
+    def inject_after_final_check(
+        path: Path,
+        identity: Any,
+        record: Any,
+        *,
+        parent: Any,
+    ) -> bool:
         nonlocal injected_capture
-        matched = real_matches(path, identity, record)
+        matched = real_matches(path, identity, record, parent=parent)
         captures = list(tmp_path.glob(".document-skills-capture-*"))
         if path == output and captures and injected_capture is None:
             injected_capture = captures[0]
@@ -286,17 +295,15 @@ def test_late_writer_to_captured_inode_remains_reachable_after_final_check(
         return matched
 
     monkeypatch.setattr(paths_module, "_matches_record", inject_after_final_check)
-    with pytest.raises(DocumentSkillsError) as captured:
-        atomic_promote(candidate, output, expected_destination=snapshot)
+    outcome = atomic_promote(candidate, output, expected_destination=snapshot)
 
-    assert captured.value.details["promotion_committed"] is True
-    assert captured.value.details["committed_with_cleanup_failure"] is True
+    details = outcome.promotion_details()
+    assert details["promotion_committed"] is True
+    assert details["state"] == "committed_with_residue"
     assert output.read_bytes() == b"validated"
     assert injected_capture is not None
     assert injected_capture.read_bytes() == b"late-old-inode-writer"
-    assert _assert_exact_residue_inventory(captured.value, tmp_path) == [
-        injected_capture
-    ]
+    assert _assert_exact_outcome_inventory(outcome, tmp_path) == [injected_capture]
 
 
 def test_path_writer_during_rollback_wins_and_all_captures_survive(
@@ -311,15 +318,24 @@ def test_path_writer_during_rollback_wins_and_all_captures_survive(
     real_stage = paths_module.stage_for_destination
     real_rename = paths_module._rename_no_replace
 
-    def substitute_stage(source: Path, destination: Path) -> Any:
-        stage = real_stage(source, destination)
+    def substitute_stage(
+        source: Path,
+        destination: Path,
+        **kwargs: Any,
+    ) -> Any:
+        stage = real_stage(source, destination, **kwargs)
         alien = tmp_path / "stage-writer.bin"
         alien.write_bytes(b"stage-path-writer")
         alien.replace(stage.path)
         return stage
 
-    def inject_during_rollback(source: Path, destination: Path) -> None:
-        real_rename(source, destination)
+    def inject_during_rollback(
+        source: Path,
+        destination: Path,
+        *,
+        state: Any,
+    ) -> None:
+        real_rename(source, destination, state=state)
         if destination.name.startswith(".document-skills-rollback-"):
             output.write_bytes(b"rollback-path-writer")
 
@@ -341,7 +357,7 @@ def test_path_writer_during_rollback_wins_and_all_captures_survive(
     )
 
 
-def test_existing_destination_commit_preserves_capture_and_reports_non_success(
+def test_existing_destination_commit_preserves_capture_and_reports_committed_outcome(
     tmp_path: Path,
 ) -> None:
     candidate = tmp_path / "candidate.bin"
@@ -349,18 +365,18 @@ def test_existing_destination_commit_preserves_capture_and_reports_non_success(
     output = tmp_path / "output.bin"
     output.write_bytes(b"initial")
 
-    with pytest.raises(DocumentSkillsError) as captured:
-        atomic_promote(
-            candidate,
-            output,
-            expected_destination=destination_snapshot(output),
-        )
+    outcome = atomic_promote(
+        candidate,
+        output,
+        expected_destination=destination_snapshot(output),
+    )
 
-    assert captured.value.details["promotion_committed"] is True
-    assert captured.value.details["committed_with_cleanup_failure"] is True
-    assert captured.value.details["capture_cleanup_skipped"] is True
+    details = outcome.promotion_details()
+    assert details["promotion_committed"] is True
+    assert details["state"] == "committed_with_residue"
+    assert details["destination_capture_preserved"] is True
     assert output.read_bytes() == b"validated"
-    capture = _only_residue(captured.value, tmp_path, "destination_capture")
+    capture = _only_outcome_residue(outcome, tmp_path, "destination_capture")
     assert capture.read_bytes() == b"initial"
 
 
@@ -397,7 +413,12 @@ def test_no_replace_rename_unavailable_preserves_destination_and_stage(
         output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
 
-    def unavailable_rename(_source: Path, _destination: Path) -> None:
+    def unavailable_rename(
+        _source: Path,
+        _destination: Path,
+        *,
+        state: Any,
+    ) -> None:
         raise OSError(error_number, "injected no-replace failure")
 
     monkeypatch.setattr(paths_module, "_rename_no_replace", unavailable_rename)
@@ -427,10 +448,15 @@ def test_candidate_rename_failure_after_capture_restores_old_and_reports_stage(
     snapshot = destination_snapshot(output)
     real_rename = paths_module._rename_no_replace
 
-    def fail_candidate_rename(source: Path, destination: Path) -> None:
+    def fail_candidate_rename(
+        source: Path,
+        destination: Path,
+        *,
+        state: Any,
+    ) -> None:
         if source.name.startswith(".document-skills-stage-") and destination == output:
             raise OSError(errno.EIO, "injected candidate-rename failure")
-        real_rename(source, destination)
+        real_rename(source, destination, state=state)
 
     monkeypatch.setattr(paths_module, "_rename_no_replace", fail_candidate_rename)
     with pytest.raises(DocumentSkillsError) as captured:
@@ -455,14 +481,19 @@ def test_restore_rename_failure_preserves_capture_and_stage_residues(
     real_assert = paths_module._assert_destination_unchanged
     real_rename = paths_module._rename_no_replace
 
-    def inject_writer(path: Path, expected: Any) -> None:
-        real_assert(path, expected)
+    def inject_writer(path: Path, expected: Any, *, parent: Any) -> None:
+        real_assert(path, expected, parent=parent)
         path.write_bytes(b"concurrent-old-inode")
 
-    def fail_capture_restore(source: Path, destination: Path) -> None:
+    def fail_capture_restore(
+        source: Path,
+        destination: Path,
+        *,
+        state: Any,
+    ) -> None:
         if source.name.startswith(".document-skills-capture-"):
             raise OSError(errno.EIO, "injected capture-restore failure")
-        real_rename(source, destination)
+        real_rename(source, destination, state=state)
 
     monkeypatch.setattr(paths_module, "_assert_destination_unchanged", inject_writer)
     monkeypatch.setattr(paths_module, "_rename_no_replace", fail_capture_restore)
@@ -491,7 +522,12 @@ def test_windows_style_open_handle_capture_failure_leaves_destination_unchanged(
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
 
-    def capture_denied(_source: Path, _destination: Path) -> None:
+    def capture_denied(
+        _source: Path,
+        _destination: Path,
+        *,
+        state: Any,
+    ) -> None:
         raise PermissionError(errno.EACCES, "injected sharing violation")
 
     monkeypatch.setattr(paths_module, "_rename_no_replace", capture_denied)
@@ -504,7 +540,7 @@ def test_windows_style_open_handle_capture_failure_leaves_destination_unchanged(
     assert residue.read_bytes() == b"validated"
 
 
-def test_post_identity_observation_capture_substitution_is_never_unlinked(
+def test_residue_substitution_inside_hash_window_is_marked_unstable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -514,34 +550,49 @@ def test_post_identity_observation_capture_substitution_is_never_unlinked(
     output.write_bytes(b"initial")
     snapshot = destination_snapshot(output)
     real_entry = paths_module._residue_entry
-    unlink_calls: list[Path] = []
+    real_hash = paths_module._sha256_open_file
+    observing_capture = False
+    substituted_path: Path | None = None
 
-    def substitute_after_observation(reference: Any) -> Any:
-        observed = real_entry(reference)
-        if reference.role == "destination_capture" and not unlink_calls:
+    def enter_real_observation(reference: Any, *, parent: Any) -> Any:
+        nonlocal observing_capture
+        observing_capture = reference.role == "destination_capture"
+        try:
+            return real_entry(reference, parent=parent)
+        finally:
+            observing_capture = False
+
+    def substitute_during_handle_hash(handle: Any) -> str:
+        nonlocal substituted_path
+        if observing_capture and substituted_path is None:
+            captures = list(tmp_path.glob(".document-skills-capture-*"))
+            assert len(captures) == 1
+            displaced = tmp_path / "writer-preserved-capture.bin"
+            captures[0].rename(displaced)
             alien = tmp_path / "alien.bin"
-            alien.write_bytes(b"alien-capture-path")
-            alien.replace(reference.path)
-            unlink_calls.append(reference.path)
-            # Re-observe so the committed inventory is exact after injection.
-            return real_entry(reference)
-        return observed
+            alien.write_bytes(b"alien-is-a-different-size")
+            alien.rename(captures[0])
+            substituted_path = captures[0]
+        return real_hash(handle)
 
-    def forbidden_unlink(_path: Path, *_args: Any, **_kwargs: Any) -> None:
-        raise AssertionError("promotion must not unlink mutable pathnames")
+    monkeypatch.setattr(paths_module, "_residue_entry", enter_real_observation)
+    monkeypatch.setattr(paths_module, "_sha256_open_file", substitute_during_handle_hash)
+    outcome = atomic_promote(candidate, output, expected_destination=snapshot)
 
-    monkeypatch.setattr(paths_module, "_residue_entry", substitute_after_observation)
-    monkeypatch.setattr(Path, "unlink", forbidden_unlink)
-    with pytest.raises(DocumentSkillsError) as captured:
-        atomic_promote(candidate, output, expected_destination=snapshot)
-
-    assert captured.value.details["promotion_committed"] is True
-    assert captured.value.details["capture_cleanup_skipped"] is True
+    details = outcome.promotion_details()
+    assert details["promotion_committed"] is True
+    assert details["destination_capture_preserved"] is False
+    assert details["residue_observation_stable"] is False
     assert output.read_bytes() == b"validated"
-    capture = Path(captured.value.details["destination_capture_path"])
-    assert capture.read_bytes() == b"alien-capture-path"
-    assert unlink_calls == [capture]
-    assert _assert_exact_residue_inventory(captured.value, tmp_path) == [capture]
+    assert substituted_path is not None
+    assert substituted_path.read_bytes() == b"alien-is-a-different-size"
+    assert (tmp_path / "writer-preserved-capture.bin").read_bytes() == b"initial"
+    entry = outcome.transaction_residues[0]
+    assert entry["state"] == "changed_during_observation"
+    assert entry["stable"] is False
+    assert "path_identity_changed" in entry["change_reasons"]
+    for claim in ("device", "inode", "bytes", "sha256", "identity_matches_expected"):
+        assert claim not in entry
 
 
 def test_stage_substitution_is_preserved_in_rollback_residue(
@@ -555,8 +606,12 @@ def test_stage_substitution_is_preserved_in_rollback_residue(
     snapshot = destination_snapshot(output)
     real_stage = paths_module.stage_for_destination
 
-    def substitute_stage(source: Path, destination: Path) -> Any:
-        stage = real_stage(source, destination)
+    def substitute_stage(
+        source: Path,
+        destination: Path,
+        **kwargs: Any,
+    ) -> Any:
+        stage = real_stage(source, destination, **kwargs)
         alien = tmp_path / "alien-stage.bin"
         alien.write_bytes(b"concurrent-stage-bytes")
         alien.replace(stage.path)
@@ -655,8 +710,12 @@ def test_occupied_rollback_name_is_rejected_without_overwrite(
     real_stage = paths_module.stage_for_destination
     real_internal_path = paths_module._internal_path
 
-    def substitute_stage(source: Path, destination: Path) -> Any:
-        stage = real_stage(source, destination)
+    def substitute_stage(
+        source: Path,
+        destination: Path,
+        **kwargs: Any,
+    ) -> Any:
+        stage = real_stage(source, destination, **kwargs)
         alien = tmp_path / "alien-stage.bin"
         alien.write_bytes(b"stage-path-writer")
         alien.replace(stage.path)
@@ -689,10 +748,281 @@ def test_occupied_rollback_name_is_rejected_without_overwrite(
     )
 
 
+@pytest.mark.parametrize("destination_exists", [False, True])
+def test_destination_parent_swap_during_install_is_blocked_or_reported_from_anchor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    destination_exists: bool,
+) -> None:
+    parent = tmp_path / "destination-parent"
+    parent.mkdir()
+    displaced = tmp_path / "displaced-parent"
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = parent / "output.bin"
+    if destination_exists:
+        output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    real_assert = paths_module._assert_destination_unchanged
+    event: dict[str, bool] = {}
+
+    def swap_after_compare(path: Path, expected: Any, *, parent: Any) -> None:
+        real_assert(path, expected, parent=parent)
+        event.update(_attempt_parent_swap(path.parent, displaced))
+
+    monkeypatch.setattr(paths_module, "_assert_destination_unchanged", swap_after_compare)
+    outcome = None
+    failure = None
+    try:
+        outcome = atomic_promote(candidate, output, expected_destination=snapshot)
+    except DocumentSkillsError as error:
+        failure = error
+    if event == {"blocked": True}:
+        assert outcome is not None
+        assert failure is None
+        assert output.read_bytes() == b"validated"
+        if destination_exists:
+            assert outcome.state == "committed_with_residue"
+        else:
+            assert outcome.state == "committed_clean"
+    else:
+        assert failure is not None
+        assert outcome is None
+        assert event == {"moved": True}
+        assert failure.details["destination_parent_changed"] is True
+        assert not output.exists()
+        reported = {
+            Path(path) for path in failure.details["transaction_residue_paths"]
+        }
+        assert reported == set(_transaction_residue(displaced))
+        assert all(path.parent == displaced for path in reported)
+
+
+def test_parent_swap_inside_raw_anchored_rename_reports_displaced_residue(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "destination-parent"
+    parent.mkdir()
+    displaced = tmp_path / "displaced-parent"
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = parent / "output.bin"
+    output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    event: dict[str, bool] = {}
+
+    if os.name == "nt":
+        raw_rename_name = "_windows_rename_relative"
+    elif sys.platform.startswith("linux"):
+        raw_rename_name = "_linux_rename_no_replace"
+    elif sys.platform == "darwin":
+        raw_rename_name = "_darwin_rename_no_replace"
+    else:  # pragma: no cover - unsupported promotion platform
+        pytest.skip("anchored no-replace rename is unavailable")
+    real_raw_rename = getattr(parent_anchor_module, raw_rename_name)
+
+    def swap_inside_raw_rename(*args: Any) -> None:
+        try:
+            parent.rename(displaced)
+        except PermissionError as error:  # pragma: no cover - platform policy
+            pytest.skip(
+                f"open destination parent cannot move: {type(error).__name__}"
+            )
+        parent.mkdir()
+        guard = parent / "replacement-guard"
+        guard.mkdir()
+        (guard / "sentinel.bin").write_bytes(b"replacement-tree")
+        event["moved"] = True
+        real_raw_rename(*args)
+
+    monkeypatch.setattr(
+        parent_anchor_module,
+        raw_rename_name,
+        swap_inside_raw_rename,
+    )
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(candidate, output, expected_destination=snapshot)
+
+    assert event == {"moved": True}
+    assert captured.value.details["destination_parent_changed"] is True
+    assert captured.value.details["parent_phase"] == "rename_after"
+    assert not output.exists()
+    assert sorted(
+        path.relative_to(parent).as_posix() for path in parent.rglob("*")
+    ) == ["replacement-guard", "replacement-guard/sentinel.bin"]
+    assert (parent / "replacement-guard" / "sentinel.bin").read_bytes() == (
+        b"replacement-tree"
+    )
+    reported = {
+        Path(path) for path in captured.value.details["transaction_residue_paths"]
+    }
+    assert reported == set(_transaction_residue(displaced))
+    assert all(path.parent == displaced for path in reported)
+    assert {
+        item["role"]: Path(item["path"]).read_bytes()
+        for item in captured.value.details["transaction_residues"]
+    } == {
+        "destination_capture": b"initial",
+        "stage": b"validated",
+    }
+
+
+def test_destination_parent_swap_during_rollback_is_blocked_or_displaced_truthfully(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "destination-parent"
+    parent.mkdir()
+    displaced = tmp_path / "displaced-parent"
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = parent / "output.bin"
+    output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    real_stage = paths_module.stage_for_destination
+    real_rename = paths_module._rename_no_replace
+    event: dict[str, bool] = {}
+
+    def substitute_stage(
+        source: Path,
+        destination: Path,
+        **kwargs: Any,
+    ) -> Any:
+        stage = real_stage(source, destination, **kwargs)
+        alien = parent / "stage-writer.bin"
+        alien.write_bytes(b"stage-path-writer")
+        alien.replace(stage.path)
+        return stage
+
+    def swap_after_rollback_capture(
+        source: Path,
+        destination: Path,
+        *,
+        state: Any,
+    ) -> None:
+        real_rename(source, destination, state=state)
+        if destination.name.startswith(".document-skills-rollback-") and not event:
+            event.update(_attempt_parent_swap(parent, displaced))
+
+    monkeypatch.setattr(paths_module, "stage_for_destination", substitute_stage)
+    monkeypatch.setattr(paths_module, "_rename_no_replace", swap_after_rollback_capture)
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(candidate, output, expected_destination=snapshot)
+
+    if event == {"blocked": True}:
+        assert event == {"blocked": True}
+        assert output.read_bytes() == b"initial"
+        assert {
+            path.read_bytes() for path in _assert_exact_residue_inventory(
+                captured.value,
+                parent,
+            )
+        } == {b"stage-path-writer"}
+    else:
+        assert event == {"moved": True}
+        assert captured.value.details["destination_parent_changed"] is True
+        assert not output.exists()
+        reported = {
+            Path(path) for path in captured.value.details["transaction_residue_paths"]
+        }
+        assert reported == set(_transaction_residue(displaced))
+        assert {path.read_bytes() for path in reported} == {
+            b"initial",
+            b"stage-path-writer",
+        }
+
+
+def test_destination_parent_swap_during_committed_residue_observation_is_safe(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parent = tmp_path / "destination-parent"
+    parent.mkdir()
+    displaced = tmp_path / "displaced-parent"
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+    output = parent / "output.bin"
+    output.write_bytes(b"initial")
+    snapshot = destination_snapshot(output)
+    real_entry = paths_module._residue_entry
+    real_hash = paths_module._sha256_open_file
+    observing_capture = False
+    event: dict[str, bool] = {}
+
+    def enter_capture_observation(reference: Any, *, parent: Any) -> Any:
+        nonlocal observing_capture
+        observing_capture = reference.role == "destination_capture"
+        try:
+            return real_entry(reference, parent=parent)
+        finally:
+            observing_capture = False
+
+    def swap_during_hash(handle: Any) -> str:
+        if observing_capture and not event:
+            event.update(_attempt_parent_swap(parent, displaced))
+        return real_hash(handle)
+
+    monkeypatch.setattr(paths_module, "_residue_entry", enter_capture_observation)
+    monkeypatch.setattr(paths_module, "_sha256_open_file", swap_during_hash)
+    outcome = None
+    failure = None
+    try:
+        outcome = atomic_promote(candidate, output, expected_destination=snapshot)
+    except DocumentSkillsError as error:
+        failure = error
+    if event == {"blocked": True}:
+        assert outcome is not None
+        assert failure is None
+        assert outcome.state == "committed_with_residue"
+        assert output.read_bytes() == b"validated"
+    else:
+        assert failure is not None
+        assert outcome is None
+        assert event == {"moved": True}
+        assert failure.details["destination_parent_changed"] is True
+        assert not output.exists()
+        reported = {
+            Path(path) for path in failure.details["transaction_residue_paths"]
+        }
+        assert reported == set(_transaction_residue(displaced))
+        assert {path.read_bytes() for path in reported} == {b"initial", b"validated"}
+
+
+def test_symlinked_destination_parent_is_rejected_before_staging(
+    tmp_path: Path,
+) -> None:
+    physical = tmp_path / "physical"
+    physical.mkdir()
+    redirected = tmp_path / "redirected"
+    try:
+        redirected.symlink_to(physical, target_is_directory=True)
+    except OSError as error:
+        pytest.skip(f"directory symlink unavailable: {type(error).__name__}")
+    candidate = tmp_path / "candidate.bin"
+    candidate.write_bytes(b"validated")
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        atomic_promote(candidate, redirected / "output.bin")
+
+    assert captured.value.code == ErrorCode.PATH_UNSAFE
+    assert captured.value.details["destination_parent_safety_failure"] is True
+    assert _transaction_residue(physical) == []
+
+
 def _transaction(format_id: str) -> Any:
     return importlib.import_module(
         f"document_skills_core.formats.{format_id}.transaction"
     )
+
+
+def _attempt_parent_swap(parent: Path, displaced: Path) -> dict[str, bool]:
+    try:
+        parent.rename(displaced)
+    except PermissionError:
+        return {"blocked": True}
+    parent.mkdir()
+    return {"moved": True}
 
 
 def _request(format_id: str, output: Path) -> Any:
@@ -757,10 +1087,29 @@ def _assert_exact_residue_inventory(
     reported = sorted(Path(path) for path in error.details["transaction_residue_paths"])
     inventory = error.details["transaction_residues"]
     assert reported == actual
+    return _assert_exact_inventory(inventory, actual)
+
+
+def _assert_exact_outcome_inventory(
+    outcome: Any,
+    root: Path,
+) -> list[Path]:
+    actual = _transaction_residue(root)
+    details = outcome.promotion_details()
+    reported = sorted(Path(path) for path in details["transaction_residue_paths"])
+    assert reported == actual
+    return _assert_exact_inventory(list(outcome.transaction_residues), actual)
+
+
+def _assert_exact_inventory(
+    inventory: list[dict[str, Any]],
+    actual: list[Path],
+) -> list[Path]:
     assert sorted(Path(item["path"]) for item in inventory) == actual
     for item in inventory:
         path = Path(item["path"])
         assert item["state"] == "regular_file"
+        assert item["stable"] is True
         assert item["bytes"] == path.stat().st_size
         assert item["sha256"] == _sha256(path)
     return actual
@@ -774,6 +1123,19 @@ def _only_residue(
     residues = _assert_exact_residue_inventory(error, root)
     assert len(residues) == 1
     inventory = error.details["transaction_residues"]
+    assert len(inventory) == 1
+    assert inventory[0]["role"] == role
+    return residues[0]
+
+
+def _only_outcome_residue(
+    outcome: Any,
+    root: Path,
+    role: str,
+) -> Path:
+    residues = _assert_exact_outcome_inventory(outcome, root)
+    assert len(residues) == 1
+    inventory = list(outcome.transaction_residues)
     assert len(inventory) == 1
     assert inventory[0]["role"] == role
     return residues[0]

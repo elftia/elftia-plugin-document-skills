@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.core.contracts.models import apply_committed_promotion
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.validation.promotion import assert_promotable
 from document_skills_core.core.io.paths import (
@@ -67,6 +68,8 @@ def promote_candidate(
 ) -> dict[str, Any]:
     assert request.output_path is not None
     identity = assert_promotable(result["status"], result["validation"], staged)
+    if source is not None:
+        assert_source_preserved(source.path, source.sha256)
     promoted = atomic_promote(
         staged,
         request.output_path,
@@ -80,6 +83,14 @@ def promote_candidate(
             ErrorCode.VALIDATION_FAILED,
             "Promoted PPTX differs from the validated candidate.",
         )
+    source_error = None
     if source is not None:
-        assert_source_preserved(source.path, source.sha256)
-    return result
+        try:
+            assert_source_preserved(source.path, source.sha256)
+        except DocumentSkillsError as error:
+            source_error = error
+    return apply_committed_promotion(
+        result,
+        promoted,
+        source_error=source_error,
+    )

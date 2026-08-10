@@ -41,6 +41,61 @@ def make_error_result(
     }
 
 
+def apply_committed_promotion(
+    result: dict[str, Any],
+    promotion: Any,
+    *,
+    source_error: DocumentSkillsError | None = None,
+) -> dict[str, Any]:
+    """Expose one truthful result shape for every verified committed output."""
+
+    details = promotion.promotion_details()
+    filesystem_state = str(details["state"])
+    details["filesystem_state"] = filesystem_state
+    warnings = list(result.get("warnings", []))
+    if filesystem_state == "committed_with_residue":
+        warnings.append(
+            {
+                "code": "DS_PROMOTION_RESIDUE_PRESERVED",
+                "message": "The validated output committed and the displaced destination remains preserved.",
+                "details": {
+                    "transaction_residues": details["transaction_residues"],
+                    "transaction_residue_paths": details[
+                        "transaction_residue_paths"
+                    ],
+                    "destination_capture_preserved": details[
+                        "destination_capture_preserved"
+                    ],
+                    "residue_observation_stable": details[
+                        "residue_observation_stable"
+                    ],
+                },
+            }
+        )
+    if source_error is not None:
+        details["state"] = "committed_with_warnings"
+        details["source_preservation"] = {
+            "status": "fail",
+            "error": source_error.record(),
+        }
+        warnings.append(
+            {
+                "code": "DS_SOURCE_CHANGED_AFTER_COMMIT",
+                "message": "The validated output committed, but the mutation source changed concurrently afterward.",
+                "details": source_error.record()["details"],
+            }
+        )
+    else:
+        details["source_preservation"] = {"status": "pass"}
+    diagnostics = dict(result.get("diagnostics", {}))
+    diagnostics["promotion"] = details
+    return {
+        **result,
+        "warnings": warnings,
+        "diagnostics": diagnostics,
+    }
+
+
 def _error_validation(error: DocumentSkillsError) -> dict[str, Any]:
     """Give every typed rejection an explicit required non-pass gate."""
 
