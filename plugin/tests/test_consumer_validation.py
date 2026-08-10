@@ -11,13 +11,14 @@ import subprocess
 import sys
 import time
 from typing import Any
+import xml.etree.ElementTree as ElementTree
 import zipfile
 
 import pytest
 
 from consumer_validation.contracts import validate_consumer_report
 from consumer_validation.harness import qualify_artifact
-from consumer_validation.office import detect_office, open_with_office
+from consumer_validation.office import _parse_probe_output, detect_office, open_with_office
 import consumer_validation.office as office_module
 
 
@@ -73,6 +74,131 @@ def test_deliberately_corrupted_fixture_fails_independently(
     )
 
 
+@pytest.mark.parametrize("format_id", ["docx", "xlsx", "pptx"])
+def test_external_relationships_are_rejected_for_every_ooxml_format(
+    tmp_path: Path,
+    format_id: str,
+) -> None:
+    artifact, expectations = _known_good(tmp_path, format_id)
+    relationship_part = {
+        "docx": "word/_rels/document.xml.rels",
+        "xlsx": "xl/_rels/workbook.xml.rels",
+        "pptx": "ppt/_rels/presentation.xml.rels",
+    }[format_id]
+    mutated = _mutate_relationships(
+        tmp_path,
+        artifact,
+        relationship_part,
+        lambda root: ElementTree.SubElement(
+            root,
+            "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
+            {
+                "Id": "rIdExternalRegression",
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate",
+                "Target": "https://example.invalid/never-fetch",
+                "TargetMode": "External",
+            },
+        ),
+    )
+
+    report = qualify_artifact(
+        format_id=format_id,
+        operation=f"{format_id}.create",
+        artifact=mutated,
+        expectations=expectations,
+        office_policy="off",
+    )
+
+    assertion = _assertions(report)["ooxml.relationship-graph"]
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"]["issues"][0]["category"] == "external-relationship"
+
+
+def test_pptx_slide_layout_master_closure_is_required(tmp_path: Path) -> None:
+    artifact, expectations = _known_good(tmp_path, "pptx")
+
+    def remove_slide_layout(root: ElementTree.Element) -> None:
+        for relationship in list(root):
+            if relationship.attrib.get("Type", "").endswith("/slideLayout"):
+                root.remove(relationship)
+
+    mutated = _mutate_relationships(
+        tmp_path,
+        artifact,
+        "ppt/slides/_rels/slide1.xml.rels",
+        remove_slide_layout,
+    )
+    report = qualify_artifact(
+        format_id="pptx",
+        operation="pptx.create",
+        artifact=mutated,
+        expectations=expectations,
+        office_policy="off",
+    )
+
+    assert report["status"] == "fail"
+    assert _assertions(report)["ooxml.critical-relationship-closure"]["outcome"] == "fail"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "category"),
+    [
+        ("dangling", "dangling-relationship-target"),
+        ("unsafe", "unsafe-relationship-target"),
+        ("duplicate", "duplicate-relationship-id"),
+        ("empty", "empty-relationship-field"),
+    ],
+)
+def test_relationship_graph_rejects_invalid_internal_records(
+    tmp_path: Path,
+    mutation: str,
+    category: str,
+) -> None:
+    artifact, expectations = _known_good(tmp_path, "docx")
+
+    def mutate(root: ElementTree.Element) -> None:
+        first = next(iter(root))
+        attributes = {
+            "Id": "rIdRelationshipRegression",
+            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+            "Target": "media/missing.png",
+        }
+        if mutation == "unsafe":
+            attributes["Target"] = "../../../outside.xml"
+        elif mutation == "duplicate":
+            attributes.update(
+                {
+                    "Id": first.attrib["Id"],
+                    "Type": first.attrib["Type"],
+                    "Target": first.attrib["Target"],
+                }
+            )
+        elif mutation == "empty":
+            attributes["Target"] = ""
+        ElementTree.SubElement(
+            root,
+            "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
+            attributes,
+        )
+
+    mutated = _mutate_relationships(
+        tmp_path,
+        artifact,
+        "word/_rels/document.xml.rels",
+        mutate,
+    )
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=mutated,
+        expectations=expectations,
+        office_policy="off",
+    )
+
+    issues = _assertions(report)["ooxml.relationship-graph"]["evidence"]["issues"]
+    assert any(issue["category"] == category for issue in issues)
+
+
 def test_pdf_text_delta_and_placeholder_only_image_fail(tmp_path: Path) -> None:
     import fitz
 
@@ -84,12 +210,22 @@ def test_pdf_text_delta_and_placeholder_only_image_fail(tmp_path: Path) -> None:
     page.insert_text((80, 150), "[Image: placeholder.png]")
     document.save(artifact)
     document.close()
+    reference = tmp_path / "expected.pdf"
+    _write_pdf(reference, "Expected PDF", include_image=True)
 
     report = qualify_artifact(
         format_id="pdf",
         operation="pdf.create",
         artifact=artifact,
-        expectations={"text": ["中文"], "real_images": 1, "render": True},
+        expectations={
+            "text": ["中文"],
+            "real_images": 1,
+            "render": {
+                "reference": str(reference),
+                "reference_kind": "expected",
+                "mode": "match",
+            },
+        },
         office_policy="off",
     )
 
@@ -97,7 +233,38 @@ def test_pdf_text_delta_and_placeholder_only_image_fail(tmp_path: Path) -> None:
     assertions = {item["id"]: item for item in report["portable"]["assertions"]}
     assert assertions["pdf.requested-text"]["outcome"] == "fail"
     assert assertions["pdf.real-images"]["outcome"] == "fail"
-    assert assertions["pdf.render"]["outcome"] == "pass"
+    assert assertions["pdf.render-delta"]["outcome"] == "fail"
+
+
+def test_pdf_visible_mutation_fails_source_render_delta_with_same_page_count(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    candidate = tmp_path / "candidate.pdf"
+    _write_pdf(source, "Stable visible output")
+    _write_pdf(candidate, "Changed visible output")
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.edit",
+        artifact=candidate,
+        expectations={
+            "text": ["Changed visible output"],
+            "render": {
+                "reference": str(source),
+                "reference_kind": "source",
+                "mode": "match",
+                "max_changed_sample_ratio": 0.0,
+            },
+        },
+        office_policy="off",
+    )
+
+    assertion = _assertions(report)["pdf.render-delta"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"]["pages"] == 1
+    assert assertion["evidence"]["changed_samples"] > 0
 
 
 def test_absent_office_is_unavailable_not_pass(tmp_path: Path) -> None:
@@ -143,6 +310,8 @@ def test_installed_office_cannot_silently_skip_failed_open(tmp_path: Path) -> No
     assert report["office"]["outcome"] == "fail"
     assert report["status"] == "fail"
     assert report["office_acceptance"] is False
+    assert report["office"]["evidence"]["application"] == "excel"
+    assert report["office"]["evidence"]["version"] == "test-version"
 
 
 def test_office_timeout_preserves_artifact_and_reports_cleanup(tmp_path: Path) -> None:
@@ -174,7 +343,24 @@ def test_office_timeout_preserves_artifact_and_reports_cleanup(tmp_path: Path) -
     assert report["office"]["outcome"] == "fail"
     assert report["office"]["evidence"]["category"] == "timeout"
     assert report["office"]["evidence"]["descendants_cleaned"] is True
+    assert report["office"]["evidence"]["application"] == "powerpoint"
+    assert report["office"]["evidence"]["version"] == "test-version"
     assert _sha256(artifact) == before
+
+
+def test_nonzero_office_child_json_retains_identity() -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0"}\r\n'
+        b'{"outcome":"fail","application":"word","version":"16.0",'
+        b'"category":"open-rejected","exception":"COMException"}\r\n'
+    )
+
+    evidence = _parse_probe_output(payload, require_result=True)
+
+    assert evidence["outcome"] == "fail"
+    assert evidence["application"] == "word"
+    assert evidence["version"] == "16.0"
+    assert evidence["category"] == "open-rejected"
 
 
 def test_consumer_module_does_not_import_core_format_or_validation_modules(
@@ -293,6 +479,8 @@ Start-Sleep -Seconds 30
     assert result["outcome"] == "fail"
     assert result["category"] == "timeout"
     assert result["descendants_cleaned"] is True
+    assert result["application"] == "word"
+    assert result["version"]
     assert elapsed < 10
     assert _sha256(artifact) == before
     child_pid = int(child_pid_path.read_text(encoding="utf-8"))
@@ -413,13 +601,56 @@ def _known_good(tmp_path: Path, format_id: str) -> tuple[Path, dict[str, Any]]:
     import fitz
 
     artifact = tmp_path / "independent.pdf"
+    reference = tmp_path / "independent.expected-render.pdf"
+    _write_pdf(artifact, "Independent PDF", include_image=True)
+    _write_pdf(reference, "Independent PDF", include_image=True)
+    return artifact, {
+        "text": ["Independent PDF"],
+        "real_images": 1,
+        "render": {
+            "reference": str(reference),
+            "reference_kind": "expected",
+            "mode": "match",
+        },
+    }
+
+
+def _write_pdf(path: Path, text: str, *, include_image: bool = False) -> None:
+    import fitz
+
     document = fitz.open()
     page = document.new_page()
-    page.insert_text((72, 72), "Independent PDF")
-    page.insert_image(fitz.Rect(72, 100, 136, 164), stream=_PNG)
-    document.save(artifact)
+    page.insert_text((72, 72), text)
+    if include_image:
+        page.insert_image(fitz.Rect(72, 100, 136, 164), stream=_PNG)
+    document.save(path)
     document.close()
-    return artifact, {"text": ["Independent PDF"], "real_images": 1, "render": True}
+
+
+def _mutate_relationships(
+    tmp_path: Path,
+    artifact: Path,
+    relationship_part: str,
+    mutation: Any,
+) -> Path:
+    mutated = tmp_path / f"{artifact.stem}-{hashlib.sha256(relationship_part.encode()).hexdigest()[:8]}-mutated{artifact.suffix}"
+    with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(
+        mutated,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as target:
+        for info in source.infolist():
+            payload = source.read(info.filename)
+            if info.filename == relationship_part:
+                root = ElementTree.fromstring(payload)
+                mutation(root)
+                payload = ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+            target.writestr(info, payload)
+    return mutated
+
+
+def _assertions(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {item["id"]: item for item in report["portable"]["assertions"]}
 
 
 def _corrupt(

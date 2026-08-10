@@ -4,7 +4,7 @@
 - Runtime: Codex
 - Identity assurance: self-asserted
 - Scope: `all-release-artifacts`
-- Reviewed mapping digest: `fc8882eedde11d7daa6666d4e0c21bc40b4e0e164f8eee9711117ee3361acb97`
+- Reviewed mapping digest: `9c079d8f7eadd627d06e420d953b640f9207f7bf02d8dea6d223c351983ddaab`
 - Status: `clean`
 - Approval claimed: no
 
@@ -15,6 +15,12 @@ its exact provenance classifications. It checked the changed validation, promoti
 consumer-harness, dependency, lock, notice, SBOM, test, and policy files for inventory
 coverage and exact hashes. No missing or multiply classified release file remained in
 that mechanical provenance scope.
+
+The round-1 review-fix delta additionally covered complete owner-relative OOXML
+relationship graphs and active/external-content rejection, create-strength XLSX
+mutation conformance, reference-bound PDF render deltas, retained Office identity on
+all installed-application outcomes, and the explicit Word-positive/Word-negative DOCX
+fixture split. The fixture registry binds both stable filenames and exact bytes.
 
 The audit also correlated the mapping with focused passing evidence for truthful typed
 results, independent portable consumers, real Office safe-open probes, cross-format

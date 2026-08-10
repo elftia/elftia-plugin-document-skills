@@ -32,6 +32,29 @@ _GATE = {
     },
     "additionalProperties": False,
 }
+_OFFICE_GATE = {
+    **_GATE,
+    "allOf": [
+        {
+            "if": {
+                "properties": {"availability": {"const": "available"}},
+                "required": ["availability"],
+            },
+            "then": {
+                "properties": {
+                    "evidence": {
+                        "type": "object",
+                        "required": ["application", "version"],
+                        "properties": {
+                            "application": {"type": "string", "minLength": 1},
+                            "version": {"type": "string", "minLength": 1},
+                        },
+                    }
+                }
+            },
+        }
+    ],
+}
 CONSUMER_REPORT_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
@@ -64,7 +87,7 @@ CONSUMER_REPORT_SCHEMA: dict[str, Any] = {
         },
         "status": {"enum": _OUTCOMES},
         "portable": _GATE,
-        "office": _GATE,
+        "office": _OFFICE_GATE,
         "office_acceptance": {"type": "boolean"},
         "warnings": {"type": "array", "items": {"type": "string"}},
     },

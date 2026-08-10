@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
 import posixpath
+from typing import Any
+from urllib.parse import unquote, urlsplit
 import zipfile
 
 from defusedxml.ElementTree import fromstring
@@ -15,6 +16,26 @@ _MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 _MAX_ENTRIES = 4096
 _PACKAGE_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 _DOC_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_RELATIONSHIP_ATTRIBUTES = {
+    f"{{{_DOC_REL}}}embed",
+    f"{{{_DOC_REL}}}id",
+    f"{{{_DOC_REL}}}link",
+}
+_ACTIVE_RELATIONSHIP_MARKERS = (
+    "/activex",
+    "/attachedtemplate",
+    "/control",
+    "/externallink",
+    "/oleobject",
+    "/vbaproject",
+)
+_ACTIVE_CONTENT_TYPE_MARKERS = (
+    "activex",
+    "externallink",
+    "macroenabled",
+    "oleobject",
+    "vbaproject",
+)
 _NS = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
@@ -43,10 +64,22 @@ _REQUIRED = {
 
 
 @dataclass(frozen=True)
+class Relationship:
+    relationship_id: str
+    relationship_type: str
+    target: str
+    owner: str
+    relationship_part: str
+
+
+@dataclass(frozen=True)
 class PackageSnapshot:
     names: frozenset[str]
     xml: dict[str, Any]
     total_bytes: int
+
+
+RelationshipGraph = dict[str, dict[str, Relationship]]
 
 
 def qualify_ooxml(
@@ -66,14 +99,17 @@ def qualify_ooxml(
         )
         if missing:
             return _gate(assertions, {"total_uncompressed_bytes": snapshot.total_bytes})
-        _validate_root_relationship(snapshot, format_id, assertions)
+        graph, _ = _validate_relationship_graph(snapshot, assertions)
         _validate_content_types(snapshot, format_id, assertions)
+        _validate_root_relationship(graph, format_id, assertions)
+        _validate_relationship_references(snapshot, graph, assertions)
+        _validate_critical_relationships(snapshot, graph, format_id, assertions)
         if format_id == "docx":
             _docx_assertions(snapshot, expectations, assertions)
         elif format_id == "xlsx":
-            _xlsx_assertions(snapshot, expectations, assertions)
+            _xlsx_assertions(snapshot, graph, expectations, assertions)
         else:
-            _pptx_assertions(snapshot, expectations, assertions)
+            _pptx_assertions(snapshot, graph, expectations, assertions)
         return _gate(assertions, {"total_uncompressed_bytes": snapshot.total_bytes})
     except Exception as error:
         _record(
@@ -102,6 +138,8 @@ def _read_package(path: Path) -> PackageSnapshot:
             pure = PurePosixPath(name)
             if pure.is_absolute() or ".." in pure.parts or not name:
                 raise ValueError("unsafe-archive-path")
+            if name in names:
+                raise ValueError(f"duplicate-archive-entry:{name}")
             total += info.file_size
             if total > _MAX_ARCHIVE_BYTES:
                 raise ValueError("archive-uncompressed-size-limit")
@@ -111,8 +149,147 @@ def _read_package(path: Path) -> PackageSnapshot:
     return PackageSnapshot(frozenset(names), xml, total)
 
 
-def _validate_root_relationship(
+def _validate_relationship_graph(
     snapshot: PackageSnapshot,
+    assertions: list[dict[str, Any]],
+) -> tuple[RelationshipGraph, bool]:
+    graph: RelationshipGraph = {}
+    issues: list[dict[str, str]] = []
+    relationship_count = 0
+    relationship_parts = sorted(name for name in snapshot.names if name.endswith(".rels"))
+    for part in relationship_parts:
+        try:
+            owner = _relationship_owner(part)
+        except ValueError as error:
+            issues.append({"part": part, "category": str(error)})
+            continue
+        if owner and owner not in snapshot.names:
+            issues.append({"part": part, "category": "missing-relationship-owner", "owner": owner})
+        root = snapshot.xml.get(part)
+        if root is None:
+            issues.append({"part": part, "category": "unparsed-relationships"})
+            continue
+        elements = root.findall(f"{{{_PACKAGE_REL}}}Relationship")
+        if not elements:
+            issues.append({"part": part, "category": "empty-relationships"})
+        relationships: dict[str, Relationship] = {}
+        for element in elements:
+            relationship_count += 1
+            relationship_id = element.attrib.get("Id", "").strip()
+            relationship_type = element.attrib.get("Type", "").strip()
+            target = element.attrib.get("Target", "").strip()
+            target_mode = element.attrib.get("TargetMode", "").strip()
+            if not relationship_id or not relationship_type or not target:
+                issues.append(
+                    {
+                        "part": part,
+                        "category": "empty-relationship-field",
+                        "id": relationship_id,
+                    }
+                )
+                continue
+            if relationship_id in relationships:
+                issues.append(
+                    {
+                        "part": part,
+                        "category": "duplicate-relationship-id",
+                        "id": relationship_id,
+                    }
+                )
+                continue
+            if target_mode:
+                issues.append(
+                    {
+                        "part": part,
+                        "category": "external-relationship",
+                        "id": relationship_id,
+                        "target_mode": target_mode,
+                    }
+                )
+                continue
+            if any(marker in relationship_type.casefold() for marker in _ACTIVE_RELATIONSHIP_MARKERS):
+                issues.append(
+                    {
+                        "part": part,
+                        "category": "active-or-updateable-relationship",
+                        "id": relationship_id,
+                    }
+                )
+                continue
+            try:
+                normalized = _resolve_relationship_target(owner, target)
+            except ValueError as error:
+                issues.append(
+                    {
+                        "part": part,
+                        "category": str(error),
+                        "id": relationship_id,
+                    }
+                )
+                continue
+            if normalized not in snapshot.names:
+                issues.append(
+                    {
+                        "part": part,
+                        "category": "dangling-relationship-target",
+                        "id": relationship_id,
+                        "target": normalized,
+                    }
+                )
+                continue
+            relationships[relationship_id] = Relationship(
+                relationship_id=relationship_id,
+                relationship_type=relationship_type,
+                target=normalized,
+                owner=owner,
+                relationship_part=part,
+            )
+        graph[owner] = relationships
+    _record(
+        assertions,
+        "ooxml.relationship-graph",
+        not issues,
+        {
+            "relationship_parts": len(relationship_parts),
+            "relationships": relationship_count,
+            "issues": issues[:64],
+            "issues_truncated": max(0, len(issues) - 64),
+        },
+    )
+    return graph, not issues
+
+
+def _relationship_owner(part: str) -> str:
+    if part == "_rels/.rels":
+        return ""
+    pieces = list(PurePosixPath(part).parts)
+    if len(pieces) < 2 or pieces[-2] != "_rels" or not pieces[-1].endswith(".rels"):
+        raise ValueError("invalid-relationship-part")
+    owner_name = pieces[-1][: -len(".rels")]
+    if not owner_name:
+        raise ValueError("empty-relationship-owner")
+    return PurePosixPath(*pieces[:-2], owner_name).as_posix()
+
+
+def _resolve_relationship_target(owner: str, target: str) -> str:
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
+        raise ValueError("unsafe-relationship-target")
+    decoded = unquote(parsed.path)
+    if not decoded or "\\" in decoded or "\x00" in decoded:
+        raise ValueError("unsafe-relationship-target")
+    normalized = posixpath.normpath(
+        decoded.lstrip("/")
+        if decoded.startswith("/")
+        else posixpath.join(posixpath.dirname(owner), decoded)
+    )
+    if normalized in {"", ".", ".."} or normalized.startswith("../"):
+        raise ValueError("unsafe-relationship-target")
+    return normalized
+
+
+def _validate_root_relationship(
+    graph: RelationshipGraph,
     format_id: str,
     assertions: list[dict[str, Any]],
 ) -> None:
@@ -121,18 +298,133 @@ def _validate_root_relationship(
         "xlsx": "xl/workbook.xml",
         "pptx": "ppt/presentation.xml",
     }[format_id]
-    relationships = _relationships(snapshot, "_rels/.rels", "")
     office_targets = [
-        item["target"]
-        for item in relationships.values()
-        if item["type"].endswith("/officeDocument")
+        item.target
+        for item in graph.get("", {}).values()
+        if item.relationship_type.endswith("/officeDocument")
     ]
     _record(
         assertions,
         "ooxml.office-document-relationship",
-        expected in office_targets,
+        office_targets == [expected],
         {"expected": expected, "actual": office_targets},
     )
+
+
+def _validate_relationship_references(
+    snapshot: PackageSnapshot,
+    graph: RelationshipGraph,
+    assertions: list[dict[str, Any]],
+) -> None:
+    missing: list[dict[str, str]] = []
+    checked = 0
+    for part, root in snapshot.xml.items():
+        if part.endswith(".rels") or part == "[Content_Types].xml":
+            continue
+        relationships = graph.get(part, {})
+        for element in root.iter():
+            for attribute, relationship_id in element.attrib.items():
+                if attribute not in _RELATIONSHIP_ATTRIBUTES:
+                    continue
+                checked += 1
+                if not relationship_id or relationship_id not in relationships:
+                    missing.append({"part": part, "id": relationship_id})
+    _record(
+        assertions,
+        "ooxml.relationship-references",
+        not missing,
+        {"checked": checked, "missing": missing[:64]},
+    )
+
+
+def _validate_critical_relationships(
+    snapshot: PackageSnapshot,
+    graph: RelationshipGraph,
+    format_id: str,
+    assertions: list[dict[str, Any]],
+) -> None:
+    issues: list[dict[str, Any]] = []
+    if format_id == "docx":
+        relationships = graph.get("word/document.xml", {})
+        if not _targets_by_type(relationships, "/styles"):
+            issues.append({"owner": "word/document.xml", "missing_type": "/styles"})
+    elif format_id == "xlsx":
+        relationships = graph.get("xl/workbook.xml", {})
+        if not _targets_by_type(relationships, "/styles"):
+            issues.append({"owner": "xl/workbook.xml", "missing_type": "/styles"})
+        workbook = snapshot.xml["xl/workbook.xml"]
+        for sheet in workbook.findall(".//s:sheet", _NS):
+            relationship_id = sheet.attrib.get(f"{{{_DOC_REL}}}id", "")
+            relationship = relationships.get(relationship_id)
+            if relationship is None or not relationship.relationship_type.endswith("/worksheet"):
+                issues.append(
+                    {
+                        "owner": "xl/workbook.xml",
+                        "id": relationship_id,
+                        "expected_type": "/worksheet",
+                    }
+                )
+    else:
+        presentation_relationships = graph.get("ppt/presentation.xml", {})
+        slide_parts = _targets_by_type(presentation_relationships, "/slide")
+        master_parts = _targets_by_type(presentation_relationships, "/slideMaster")
+        if not slide_parts:
+            issues.append({"owner": "ppt/presentation.xml", "missing_type": "/slide"})
+        if not master_parts:
+            issues.append({"owner": "ppt/presentation.xml", "missing_type": "/slideMaster"})
+        for slide_part in slide_parts:
+            layouts = _targets_by_type(graph.get(slide_part, {}), "/slideLayout")
+            if len(layouts) != 1:
+                issues.append(
+                    {"owner": slide_part, "expected_type": "/slideLayout", "actual": layouts}
+                )
+        layout_parts = {
+            layout
+            for master_part in master_parts
+            for layout in _targets_by_type(graph.get(master_part, {}), "/slideLayout")
+        }
+        for slide_part in slide_parts:
+            layout_parts.update(_targets_by_type(graph.get(slide_part, {}), "/slideLayout"))
+        for layout_part in sorted(layout_parts):
+            masters = _targets_by_type(graph.get(layout_part, {}), "/slideMaster")
+            if len(masters) != 1:
+                issues.append(
+                    {"owner": layout_part, "expected_type": "/slideMaster", "actual": masters}
+                )
+            elif masters[0] not in master_parts:
+                issues.append(
+                    {"owner": layout_part, "unexpected_master": masters[0]}
+                )
+            elif layout_part not in _targets_by_type(graph.get(masters[0], {}), "/slideLayout"):
+                issues.append(
+                    {"owner": layout_part, "missing_master_back_reference": masters[0]}
+                )
+        for master_part in master_parts:
+            themes = _targets_by_type(graph.get(master_part, {}), "/theme")
+            layouts = _targets_by_type(graph.get(master_part, {}), "/slideLayout")
+            if len(themes) != 1:
+                issues.append(
+                    {"owner": master_part, "expected_type": "/theme", "actual": themes}
+                )
+            if not layouts:
+                issues.append({"owner": master_part, "missing_type": "/slideLayout"})
+    _record(
+        assertions,
+        "ooxml.critical-relationship-closure",
+        not issues,
+        {"format": format_id, "issues": issues[:64]},
+    )
+
+
+def _targets_by_type(
+    relationships: dict[str, Relationship],
+    relationship_type_suffix: str,
+) -> list[str]:
+    return [
+        relationship.target
+        for relationship in relationships.values()
+        if relationship.relationship_type.endswith(relationship_type_suffix)
+    ]
 
 
 def _validate_content_types(
@@ -146,6 +438,11 @@ def _validate_content_types(
         for child in root
         if child.tag.endswith("Override")
     }
+    defaults = [
+        child.attrib.get("ContentType", "")
+        for child in root
+        if child.tag.endswith("Default")
+    ]
     required = {
         "docx": ["word/document.xml"],
         "xlsx": ["xl/workbook.xml"],
@@ -157,11 +454,16 @@ def _validate_content_types(
         ],
     }[format_id]
     missing = [name for name in required if name not in overrides]
+    active = sorted(
+        content_type
+        for content_type in [*overrides.values(), *defaults]
+        if any(marker in content_type.casefold() for marker in _ACTIVE_CONTENT_TYPE_MARKERS)
+    )
     _record(
         assertions,
         "ooxml.content-types",
-        not missing,
-        {"missing_overrides": missing},
+        not missing and not active,
+        {"missing_overrides": missing, "active_or_external": active},
     )
 
 
@@ -187,19 +489,20 @@ def _docx_assertions(
 
 def _xlsx_assertions(
     snapshot: PackageSnapshot,
+    graph: RelationshipGraph,
     expectations: dict[str, Any],
     assertions: list[dict[str, Any]],
 ) -> None:
     workbook = snapshot.xml["xl/workbook.xml"]
-    relationships = _relationships(snapshot, "xl/_rels/workbook.xml.rels", "xl")
+    relationships = graph.get("xl/workbook.xml", {})
     shared_strings = _shared_strings(snapshot)
     sheet_parts: dict[str, str] = {}
     for sheet in workbook.findall(".//s:sheet", _NS):
         name = sheet.attrib.get("name", "")
-        rel_id = sheet.attrib.get(f"{{{_DOC_REL}}}id", "")
-        relationship = relationships.get(rel_id)
-        if relationship is not None:
-            sheet_parts[name] = relationship["target"]
+        relationship_id = sheet.attrib.get(f"{{{_DOC_REL}}}id", "")
+        relationship = relationships.get(relationship_id)
+        if relationship is not None and relationship.relationship_type.endswith("/worksheet"):
+            sheet_parts[name] = relationship.target
     expected_sheets = [str(value) for value in expectations.get("sheets", [])]
     missing_sheets = [name for name in expected_sheets if name not in sheet_parts]
     _record(
@@ -220,18 +523,19 @@ def _xlsx_assertions(
 
 def _pptx_assertions(
     snapshot: PackageSnapshot,
+    graph: RelationshipGraph,
     expectations: dict[str, Any],
     assertions: list[dict[str, Any]],
 ) -> None:
     presentation = snapshot.xml["ppt/presentation.xml"]
-    relationships = _relationships(snapshot, "ppt/_rels/presentation.xml.rels", "ppt")
+    relationships = graph.get("ppt/presentation.xml", {})
     slide_ids = presentation.findall(".//p:sldIdLst/p:sldId", _NS)
     slide_parts: list[str] = []
     for slide_id in slide_ids:
-        rel_id = slide_id.attrib.get(f"{{{_DOC_REL}}}id", "")
-        relationship = relationships.get(rel_id)
-        if relationship is not None and relationship["type"].endswith("/slide"):
-            slide_parts.append(relationship["target"])
+        relationship_id = slide_id.attrib.get(f"{{{_DOC_REL}}}id", "")
+        relationship = relationships.get(relationship_id)
+        if relationship is not None and relationship.relationship_type.endswith("/slide"):
+            slide_parts.append(relationship.target)
     missing_slide_parts = [name for name in slide_parts if name not in snapshot.names]
     _record(
         assertions,
@@ -254,25 +558,6 @@ def _pptx_assertions(
     requested = [str(value) for value in expectations.get("text", [])]
     missing = [value for value in requested if value not in text]
     _record(assertions, "pptx.requested-text", not missing, {"missing": missing})
-
-
-def _relationships(
-    snapshot: PackageSnapshot,
-    part: str,
-    base: str,
-) -> dict[str, dict[str, str]]:
-    root = snapshot.xml[part]
-    result: dict[str, dict[str, str]] = {}
-    for relationship in root.findall(f"{{{_PACKAGE_REL}}}Relationship"):
-        if relationship.attrib.get("TargetMode") == "External":
-            continue
-        target = relationship.attrib.get("Target", "")
-        normalized = posixpath.normpath(posixpath.join(base, target)).lstrip("/")
-        result[relationship.attrib.get("Id", "")] = {
-            "target": normalized,
-            "type": relationship.attrib.get("Type", ""),
-        }
-    return result
 
 
 def _shared_strings(snapshot: PackageSnapshot) -> list[str]:
@@ -330,7 +615,7 @@ def _record(
 def _gate(assertions: list[dict[str, Any]], evidence: dict[str, Any]) -> dict[str, Any]:
     failed = any(item["outcome"] == "fail" for item in assertions)
     return {
-        "consumer": "stdlib-zip-defusedxml/1",
+        "consumer": "stdlib-zip-defusedxml/2",
         "availability": "available",
         "outcome": "fail" if failed else "pass",
         "assertions": assertions,

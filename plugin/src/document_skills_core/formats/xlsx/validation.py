@@ -32,6 +32,7 @@ def validate_mutation(
     assertion: Callable[[Path], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] = [
+        ("consumer-package-conformance", _assert_consumer_package),
         ("part-preservation", lambda _candidate: _assert_preservation(manifest))
     ]
     if assertion is not None:

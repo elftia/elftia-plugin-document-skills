@@ -588,6 +588,16 @@
       "sha256": "0e784d9eed07de710f0f29762842ea13f7b98572fce44a084ab824052c581ad5"
     },
     {
+      "artifact": "tests/fixtures/docx-public-bounded-word16-accepted.docx",
+      "classification": "fixture-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "3f41412fa24ea0561bf655e85448d5facad36d9d1f4bda302078836507eb62f5"
+    },
+    {
       "artifact": "tests/fixtures/docx-revision-comments.docx",
       "classification": "fixture-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -596,6 +606,16 @@
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
       "sha256": "e2dc6d7c491d5bdc6a2140eaf9f2a3620dfb050a9858712e2a96c8d3fd001eca"
+    },
+    {
+      "artifact": "tests/fixtures/docx-rich-word16-rejected.docx",
+      "classification": "fixture-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
     },
     {
       "artifact": "tests/fixtures/docx-rich.docx",
@@ -747,7 +767,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "d8dbea45bc61a611337728ff8fd88c5a1016b24dd82c9f2aef764277f95f66ff"
+      "sha256": "1fad644b627112bf1ab0a615e5e7c0b944b9fee9d1c83ab1df388945b93516eb"
     },
     {
       "artifact": "uv.lock",
@@ -1015,7 +1035,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "42a02563b97273cea45111ec69ace6f8c2218ef9140aeda3aaf523fe923398e7",
+      "sha256": "4f9795fc664c29902310d9a2903f6f1397147510838fc4f48b3a8f556a85c2b4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1035,7 +1055,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "75d83b333d5db1192b253c10f10b8ec72caaaf885e159d304c8f1d0905e9af53",
+      "sha256": "752bf810d520c1949c9c32e4a74b405eb27b60a7d4622dde1f44338273b76e32",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1055,7 +1075,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "f46abf2c7327071e07a05cbe6da61cbbe5fd9902eba77fe61f5bdfafea11a4e0",
+      "sha256": "8315e4b4207254c80ec0ce2d76573733c292dbfbc142a8d9203fc08078b6c6b8",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1075,7 +1095,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "4b2cf4cbd77c079bb81e77dcab106a82131b6c6787181b7541fbd2d4b3bd2189",
+      "sha256": "22f54e2130c26c3a5a7152a2cf01bf452218059e9c3a2bf2605156400e21507f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1095,7 +1115,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "6f5b5a4eaeb44d965c7621e350ee7c9638432c5bf663d55ddd88adaaaf02aad8",
+      "sha256": "ad355c36e90c0dce941b20732e296e14e37e360d56a2946cc6529a3c8e26686b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1794,7 +1814,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "99a8ddb4697b3c78a75b348819c8b8f294e617c0604cc74a3d5b192ed5e81147",
+      "sha256": "8d468618c80dbe30646b687f646a8b2a6a35ffd629dd7bc55b1a7bfa76e9eaaf",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3705,7 +3725,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "0947ee66700de96315519d33e79dca7a6a84b4b55562bc3110808d28bd127bff",
+      "sha256": "97626128bbdd5502c4ded0c8fafaee42cf8dbd1ec2c60e6c129b76094366d750",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4416,7 +4436,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "f1dd046324e725faab26a5f11aa16bffa7cc77bc4c76bdfa103ba213191eab38",
+      "sha256": "02d55536bada0c4ccea59a567ec159b98c9b55b41affe8bea3dac495bcd9b8be",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4647,7 +4667,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "e37303b321fe56969ca051c24c1ed1bd0cec418c9acd623e67a2b25856689623",
+      "sha256": "87cb3d31577fcdf8d31fd8eeac6cd28cc9cafc4b16d7140662818b6a4098579f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4707,7 +4727,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "c6bd44586a7cd4484ac2ea779fae49cf64fa63df2ede99cde7fc7e6f6b0d262d",
+      "sha256": "d54656b0b7a851044b9719ecdd547d22a911ea2d16a1abc8dc7f51d928bf2ef2",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4770,7 +4790,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "1f836f22a364b33798e38e05e5d970ca5d572bd1be79552a64a09fe0cee3b587",
+      "sha256": "0053b320237f4dcc84141edebc7b4277653e90935ff8e7f2cb795bc543870351",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5455,7 +5475,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "4ca9b9c3502b1ed23b73ef5967ea65f56c5c33214b56deb0df6fc28c602c9010",
+      "sha256": "934a99f23b580109757588e0eab2e6071b6a27c3636365b78d4fa1e9e6a5bb78",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5475,7 +5495,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "08c6c800f8cb8dc8e5dff6102a89865495b92ac5e01134f81a7d750a9da374b0",
+      "sha256": "0bb2022dbcda6c1cd0d58e59fe9309d4f065a4da0d2d55ca850c69850c189e44",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5913,8 +5933,8 @@
       "identity_limitations": "This implementation-side audit cannot provide author/verifier separation or cryptographically prove its backing service identity, and it does not claim release approval.",
       "report_evidence": "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
       "report_name": "document-skills-0.5.1-consumer-gates-implementation-audit.md",
-      "report_sha256": "cf189fc2e011ae1317f767cc8dbe025dda896cf6807b6e67fffe708999f28f9e",
-      "reviewed_mapping_sha256": "fc8882eedde11d7daa6666d4e0c21bc40b4e0e164f8eee9711117ee3361acb97",
+      "report_sha256": "06db3ddb996edcb7e2734a902888353b0c4377fcfcb771e7c0d3623e9d9bf896",
+      "reviewed_mapping_sha256": "9c079d8f7eadd627d06e420d953b640f9207f7bf02d8dea6d223c351983ddaab",
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
       "role": "reviewer",
       "runtime": "codex",

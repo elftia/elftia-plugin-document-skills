@@ -120,7 +120,14 @@ def _office_gate(
             "warnings": [reason],
             "evidence": detection,
         }
-    evidence = runner(application, artifact, timeout_seconds)
+    runner_evidence = runner(application, artifact, timeout_seconds)
+    evidence = {**detection, **runner_evidence}
+    evidence["application"] = str(evidence.get("application", application))
+    version = evidence.get("version")
+    if not isinstance(version, str) or not version:
+        evidence["version"] = "unavailable"
+        evidence["category"] = "application-version-unavailable"
+        evidence["outcome"] = "fail"
     outcome = "pass" if evidence.get("outcome") == "pass" else "fail"
     return {
         "consumer": "microsoft-office-com/1",

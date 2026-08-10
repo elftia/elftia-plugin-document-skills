@@ -18,6 +18,7 @@ from document_skills_core.formats.docx.inspect import inspect_docx
 from document_skills_core.formats.docx.package import OpcPackage
 from document_skills_core.formats.docx.read import read_docx
 from tools.audit import audit_fixtures
+from consumer_validation.harness import qualify_artifact
 
 _FIXED_TIME = (1980, 1, 1, 0, 0, 0)
 _READ_ARGUMENTS = {
@@ -173,6 +174,27 @@ def test_manifest_has_exact_hashes_and_original_recipe_metadata(
                 (project_root / dependency).is_file()
                 for dependency in record["recipe_dependencies"]
             )
+
+
+def test_word_positive_and_negative_fixture_names_are_truthful(project_root: Path) -> None:
+    fixture_root = _fixture_root(project_root)
+    positive = fixture_root / "docx-public-bounded-word16-accepted.docx"
+    negative = fixture_root / "docx-rich-word16-rejected.docx"
+    prior_rich = fixture_root / "docx-rich.docx"
+
+    assert hashlib.sha256(negative.read_bytes()).hexdigest() == (
+        "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+    )
+    assert negative.read_bytes() == prior_rich.read_bytes()
+    assert positive.read_bytes() != negative.read_bytes()
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=positive,
+        expectations={"text": ["Bounded public DOCX", "Public frozen-uv"]},
+        office_policy="off",
+    )
+    assert report["portable"]["outcome"] == "pass"
 
 
 @pytest.mark.parametrize("mutation", ["unregistered", "stale-hash"])

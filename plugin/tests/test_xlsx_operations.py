@@ -1,14 +1,17 @@
 """XLSX operation tests — create, read, inspect, edit through the real service."""
 
+import hashlib
 from pathlib import Path
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
+from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.xlsx.constants import (
     FORMULA_STATE_RECALCULATION_REQUIRED,
     FORMULA_STATE_STALE,
 )
+from document_skills_core.formats.xlsx.create import create_xlsx
 from document_skills_core.formats.xlsx.service import XlsxService
 
 
@@ -71,6 +74,30 @@ def _sample_workbook() -> dict:
             "header": "Test Header",
             "footer": "Test Footer",
         },
+    }
+
+
+def _bounded_workbook() -> dict:
+    return {
+        "metadata": {"title": "Bounded", "creator": "Test", "subject": ""},
+        "sheets": [
+            {
+                "name": "Sheet1",
+                "rows": [
+                    {
+                        "cells": [
+                            {"ref": "A1", "value": "Name", "type": "s"},
+                            {"ref": "B1", "value": "10", "type": "n"},
+                        ]
+                    }
+                ],
+                "number_formats": [],
+            }
+        ],
+        "defined_names": [],
+        "tables": [],
+        "chart_reference": None,
+        "page_setup": None,
     }
 
 
@@ -229,6 +256,57 @@ class TestEditOperation:
         assert result["status"] in {"success", "degraded"}
         assert output.is_file()
         assert created_xlsx.is_file()  # source preserved
+        assert any(
+            gate["id"] == "operation.consumer-package-conformance"
+            and gate["outcome"] == "pass"
+            for gate in result["validation"]["gates"]
+        )
+
+    def test_edit_rejects_consumer_invalid_package_without_promotion(
+        self,
+        project_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        source = tmp_path / "core-invalid.xlsx"
+        create_xlsx(source, _bounded_workbook())
+        source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+        output = tmp_path / "existing.xlsx"
+        existing = b"existing-destination-must-survive"
+        output.write_bytes(existing)
+        service = _service(project_root)
+
+        result = service.execute(
+            "xlsx.edit",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.edit",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {
+                    "edits": [
+                        {
+                            "sheet": "Sheet1",
+                            "type": "cell_value",
+                            "ref": "B1",
+                            "value": "42",
+                        }
+                    ]
+                },
+            },
+        )
+
+        SchemaCatalog(project_root).validate("operation-result", result)
+        assert result["status"] == "failed"
+        assert result["validation"]["status"] == "fail"
+        assert any(
+            gate["id"] == "operation.consumer-package-conformance"
+            and gate["required"] is True
+            and gate["outcome"] == "fail"
+            for gate in result["validation"]["gates"]
+        )
+        assert result["artifacts"] == []
+        assert output.read_bytes() == existing
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha256
 
     def test_edit_preserves_source(self, project_root: Path, created_xlsx: Path, tmp_path: Path):
         import hashlib

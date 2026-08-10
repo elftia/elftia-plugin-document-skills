@@ -18,32 +18,35 @@ _PROG_IDS = {
 _POWERSHELL = {
     "word": r"""
 $app = New-Object -ComObject Word.Application
+$version = [string]$app.Version
+@{ event = 'identity'; application = 'word'; version = $version } | ConvertTo-Json -Compress
 $app.Visible = $false
 $app.DisplayAlerts = 0
 $app.AutomationSecurity = 3
 $app.Options.UpdateLinksAtOpen = $false
 $doc = $app.Documents.Open($env:DS_ARTIFACT, $false, $true)
-$version = [string]$app.Version
 $doc.Close($false)
 $doc = $null
 """,
     "excel": r"""
 $app = New-Object -ComObject Excel.Application
+$version = [string]$app.Version
+@{ event = 'identity'; application = 'excel'; version = $version } | ConvertTo-Json -Compress
 $app.Visible = $false
 $app.DisplayAlerts = $false
 $app.AutomationSecurity = 3
 $app.AskToUpdateLinks = $false
 $book = $app.Workbooks.Open($env:DS_ARTIFACT, 0, $true)
-$version = [string]$app.Version
 $book.Close($false)
 $book = $null
 """,
     "powerpoint": r"""
 $app = New-Object -ComObject PowerPoint.Application
+$version = [string]$app.Version
+@{ event = 'identity'; application = 'powerpoint'; version = $version } | ConvertTo-Json -Compress
 $app.DisplayAlerts = 1
 $app.AutomationSecurity = 3
 $deck = $app.Presentations.Open($env:DS_ARTIFACT, $true, $true, $false)
-$version = [string]$app.Version
 $deck.Close()
 $deck = $null
 """,
@@ -63,7 +66,22 @@ def detect_office(application: str) -> dict[str, Any]:
 
         with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, f"{prog_id}\\CLSID") as key:
             clsid, _ = winreg.QueryValueEx(key, None)
-        return {"available": True, "application": application, "progid": prog_id, "clsid": clsid}
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, f"{prog_id}\\CurVer") as key:
+            current_prog_id, _ = winreg.QueryValueEx(key, None)
+        registered_version = str(current_prog_id).rsplit(".", 1)[-1]
+        version = (
+            f"{registered_version}.0"
+            if registered_version.isdigit()
+            else registered_version
+        )
+        return {
+            "available": True,
+            "application": application,
+            "progid": prog_id,
+            "clsid": clsid,
+            "registered_progid": str(current_prog_id),
+            "version": version,
+        }
     except OSError:
         return {"available": False, "application": application, "reason": "not-installed"}
 
@@ -75,6 +93,7 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
         raise ValueError(f"Unknown Office application: {application}")
     if os.name != "nt":
         return {"outcome": "unavailable", "category": "not-windows"}
+    identity = detect_office(application)
     script = _script(application)
     encoded = base64.b64encode(script.encode("utf-16le")).decode("ascii")
     environment = os.environ.copy()
@@ -104,29 +123,35 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
     except subprocess.TimeoutExpired:
         cleaned = _terminate_tree(process.pid)
         stdout, stderr = process.communicate(timeout=5)
+        payload = _parse_probe_output(stdout)
         return {
+            **identity,
+            **payload,
             "outcome": "fail",
             "category": "timeout",
             "descendants_cleaned": cleaned,
             "stdout_bytes": len(stdout[:4096]),
             "stderr_bytes": len(stderr[:4096]),
         }
-    if process.returncode != 0:
-        return {
-            "outcome": "fail",
-            "category": "open-rejected",
-            "returncode": process.returncode,
-            "stderr_sha256": _payload_hash(stderr[:4096]),
-        }
     try:
-        payload = json.loads(stdout.decode("utf-8", errors="strict"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
+        payload = _parse_probe_output(stdout, require_result=True)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
         return {
+            **identity,
             "outcome": "fail",
             "category": "invalid-probe-output",
             "stdout_sha256": _payload_hash(stdout[:4096]),
         }
-    return payload if payload.get("outcome") == "pass" else {"outcome": "fail", **payload}
+    merged = {**identity, **payload}
+    if process.returncode != 0:
+        return {
+            **merged,
+            "outcome": "fail",
+            "category": str(payload.get("category", "open-rejected")),
+            "returncode": process.returncode,
+            "stderr_sha256": _payload_hash(stderr[:4096]),
+        }
+    return merged if merged.get("outcome") == "pass" else {"outcome": "fail", **merged}
 
 
 def _script(application: str) -> str:
@@ -137,11 +162,12 @@ $app = $null
 $doc = $null
 $book = $null
 $deck = $null
+$version = $null
 try {{
 {body}
   @{{ outcome = 'pass'; application = '{application}'; version = $version; read_only = $true; saved = $false; macros = 'disabled'; external_updates = 'disabled' }} | ConvertTo-Json -Compress
 }} catch {{
-  @{{ outcome = 'fail'; category = 'open-rejected'; exception = $_.Exception.GetType().Name }} | ConvertTo-Json -Compress
+  @{{ outcome = 'fail'; application = '{application}'; version = $version; category = 'open-rejected'; exception = $_.Exception.GetType().Name }} | ConvertTo-Json -Compress
   exit 2
 }} finally {{
   try {{ if ($doc -ne $null) {{ $doc.Close($false) }} }} catch {{}}
@@ -155,6 +181,32 @@ try {{
   [GC]::WaitForPendingFinalizers()
 }}
 """
+
+
+def _parse_probe_output(payload: bytes, *, require_result: bool = False) -> dict[str, Any]:
+    decoded = payload[:4096].decode("utf-8", errors="strict")
+    merged: dict[str, Any] = {}
+    result_seen = False
+    for line in decoded.splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        if type(record) is not dict:
+            raise ValueError("probe-record-is-not-object")
+        if record.get("event") == "identity":
+            merged.update(
+                {
+                    key: record[key]
+                    for key in ("application", "version")
+                    if record.get(key) is not None
+                }
+            )
+            continue
+        merged.update(record)
+        result_seen = "outcome" in record
+    if require_result and not result_seen:
+        raise ValueError("probe-result-missing")
+    return merged
 
 
 def _terminate_tree(pid: int) -> bool:
