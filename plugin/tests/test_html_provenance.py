@@ -4,6 +4,7 @@ import json
 
 from tools.html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
+    SHARED_PROVENANCE_REQUIREMENT,
     html_pptx_data_profile,
     html_pptx_module_profile,
 )
@@ -19,7 +20,12 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
         if profile is None:
             continue
         relevant_modules.append(record["module"])
-        assert record["requirement_source"] == HTML_PPTX_REQUIREMENT
+        expected_requirement = (
+            SHARED_PROVENANCE_REQUIREMENT
+            if record["module"] == "tools/regenerate_provenance.py"
+            else HTML_PPTX_REQUIREMENT
+        )
+        assert record["requirement_source"] == expected_requirement
         assert record["modifications"] == profile[0]
         assert record["artifact_tests"] == profile[1]
         assert "strategy-attempt-3" not in record["modifications"]

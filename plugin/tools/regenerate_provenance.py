@@ -9,6 +9,7 @@ from typing import Any
 from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
+    SHARED_PROVENANCE_REQUIREMENT,
     html_pptx_data_profile,
     html_pptx_module_profile,
 )
@@ -16,6 +17,13 @@ from .provenance_records import mapping_digest
 from .release_inventory import release_artifacts
 
 PENDING_REVIEWER = "PENDING independent review"
+CONSUMER_GATES_REQUIREMENT = (
+    "Rasen document-skills-consumer-gates-and-truthful-contracts"
+)
+DOCX_CONSUMER_GATES_REQUIREMENT = (
+    "Rasen document-skills-core-docx + "
+    "document-skills-consumer-gates-and-truthful-contracts"
+)
 
 
 def regenerate(
@@ -72,6 +80,15 @@ def regenerate(
 
 def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     html_profile = html_pptx_module_profile(artifact.path)
+    is_consumer_gate = artifact.path.startswith("consumer_validation/") or artifact.path in {
+        "tests/test_consumer_validation.py",
+        "tests/test_consumer_validation_strategy3.py",
+        "tests/test_cross_format_transactions.py",
+    }
+    is_docx_consumer_gate = artifact.path in {
+        "tests/fixtures/recipes/docx_fixtures.py",
+        "tests/test_docx_fixtures.py",
+    }
     is_docx = (
         "/docx/" in artifact.path
         or "document-docx" in artifact.path
@@ -79,7 +96,15 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx-" in artifact.path
     )
     tests = html_profile[1] if html_profile else (
-        [
+        ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
+        if is_docx_consumer_gate
+        else [
+            "tests/test_consumer_validation.py",
+            "tests/test_consumer_validation_strategy3.py",
+            "tests/test_cross_format_transactions.py",
+        ]
+        if is_consumer_gate
+        else [
             "tests/test_docx_contracts.py",
             "tests/test_docx_operations.py",
             "tests/test_docx_public.py",
@@ -104,8 +129,14 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "sha256": artifact.sha256,
         "source_class": "original",
         "requirement_source": (
-            HTML_PPTX_REQUIREMENT
+            SHARED_PROVENANCE_REQUIREMENT
+            if artifact.path == "tools/regenerate_provenance.py"
+            else HTML_PPTX_REQUIREMENT
             if html_profile
+            else DOCX_CONSUMER_GATES_REQUIREMENT
+            if is_docx_consumer_gate
+            else CONSUMER_GATES_REQUIREMENT
+            if is_consumer_gate
             else "Rasen document-skills-core-docx"
             if is_docx
             else "Rasen document-skills-foundation strategy-attempt-3"
@@ -116,6 +147,19 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "modifications": (
             html_profile[0]
             if html_profile
+            else
+            (
+                "Deterministic DOCX fixture generation and nested frozen-uv consumer "
+                "qualification isolated from outer project environments."
+            )
+            if is_docx_consumer_gate
+            else
+            (
+                "Independent bounded consumer validation, truthful PDF identity, "
+                "typed Office timeout cleanup, cross-format preservation, or their "
+                "direct Strategy-4 regression evidence."
+            )
+            if is_consumer_gate
             else
             (
                 "Original Core DOCX contract, package, projection, mutation, "

@@ -3,6 +3,10 @@
 from pathlib import Path
 
 HTML_PPTX_REQUIREMENT = "Rasen html-to-editable-pptx"
+SHARED_PROVENANCE_REQUIREMENT = (
+    "Rasen html-to-editable-pptx + "
+    "document-skills-consumer-gates-and-truthful-contracts"
+)
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
     "src/document_skills_core/core/capabilities/registry.py",
@@ -61,6 +65,16 @@ def html_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
         return (
             "Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability.",
             [path],
+        )
+    if path == "tools/regenerate_provenance.py":
+        return (
+            "Shared exact provenance generation for HTML-to-editable-PPTX and independent consumer-gate Strategy-4 release evidence.",
+            [
+                "tests/test_html_provenance.py",
+                "tests/test_html_pptx_public.py",
+                "tests/test_strategy3.py",
+                "tests/test_supply_chain.py",
+            ],
         )
     if path in _SHARED_MODULES:
         return (

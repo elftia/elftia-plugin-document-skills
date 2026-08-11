@@ -306,6 +306,7 @@ def _create_public_bounded_fixture(destination: Path) -> None:
         )
         environment = os.environ.copy()
         environment.pop("UV_PROJECT_ENVIRONMENT", None)
+        environment.pop("VIRTUAL_ENV", None)
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
         process = subprocess.run(
             [

@@ -67,6 +67,17 @@ def _request(
     }
 
 
+def test_recipe_nested_uv_is_detached_from_outer_environment(project_root: Path) -> None:
+    recipe = _fixture_root(project_root) / "recipes" / "docx_fixtures.py"
+    source = recipe.read_text(encoding="utf-8")
+    uv_environment = source.index('environment.pop("UV_PROJECT_ENVIRONMENT", None)')
+    virtual_environment = source.index('environment.pop("VIRTUAL_ENV", None)')
+    nested_run = source.index("process = subprocess.run(", virtual_environment)
+
+    assert uv_environment < nested_run
+    assert virtual_environment < nested_run
+
+
 def test_recipe_regenerates_twice_to_checked_in_bytes(
     project_root: Path,
     tmp_path: Path,
