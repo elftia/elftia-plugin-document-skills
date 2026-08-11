@@ -6,6 +6,7 @@ import base64
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 from typing import Any
 
@@ -15,6 +16,7 @@ _PROG_IDS = {
     "excel": "Excel.Application",
     "powerpoint": "PowerPoint.Application",
 }
+_OFFICE_VERSION = re.compile(r"^[0-9]{1,4}(?:\.[0-9A-Za-z]{1,16}){0,3}$")
 _POWERSHELL = {
     "word": r"""
 $app = New-Object -ComObject Word.Application
@@ -129,7 +131,7 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
             drain_status = "timeout"
             stdout = _timeout_stream(drain_timeout.output, primary_timeout.output)
             stderr = _timeout_stream(drain_timeout.stderr, primary_timeout.stderr)
-        payload = _safe_timeout_payload(stdout)
+        payload = _safe_timeout_payload(stdout, application)
         return {
             **identity,
             **payload,
@@ -216,9 +218,26 @@ def _parse_probe_output(payload: bytes, *, require_result: bool = False) -> dict
     return merged
 
 
-def _safe_timeout_payload(payload: bytes) -> dict[str, Any]:
+def _safe_timeout_payload(payload: bytes, expected_application: str) -> dict[str, Any]:
     try:
-        return _parse_probe_output(payload)
+        decoded = payload[:4096].decode("utf-8", errors="strict")
+        identity: dict[str, Any] = {}
+        for line in decoded.splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if type(record) is not dict:
+                raise ValueError("probe-record-is-not-object")
+            if record.get("event") != "identity":
+                continue
+            application = record.get("application")
+            version = record.get("version")
+            if application != expected_application:
+                raise ValueError("probe-identity-application-mismatch")
+            if not isinstance(version, str) or _OFFICE_VERSION.fullmatch(version) is None:
+                raise ValueError("probe-identity-version-invalid")
+            identity = {"application": application, "version": version}
+        return identity
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
         return {"probe_output_category": "invalid-probe-output"}
 

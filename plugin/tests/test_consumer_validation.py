@@ -19,6 +19,7 @@ import pytest
 from consumer_validation.contracts import validate_consumer_report
 from consumer_validation.harness import qualify_artifact
 from consumer_validation.office import _parse_probe_output, detect_office, open_with_office
+import consumer_validation.harness as harness_module
 import consumer_validation.office as office_module
 import consumer_validation.pdf as pdf_module
 
@@ -312,14 +313,16 @@ def test_pdf_oversized_artifact_fails_before_full_read(
         policy_limit,
         raising=False,
     )
-    original_read_bytes = Path.read_bytes
+    hash_calls = 0
 
-    def reject_candidate_full_read(path: Path) -> bytes:
-        if path == artifact:
-            raise AssertionError("oversized candidate must not be read in full")
-        return original_read_bytes(path)
+    def reject_candidate_hash(path: Path) -> str:
+        nonlocal hash_calls
+        hash_calls += 1
+        raise AssertionError(
+            f"oversized candidate must be rejected before aggregate hash: {path}"
+        )
 
-    monkeypatch.setattr(Path, "read_bytes", reject_candidate_full_read)
+    monkeypatch.setattr(harness_module, "_sha256", reject_candidate_hash)
 
     report = qualify_artifact(
         format_id="pdf",
@@ -338,6 +341,13 @@ def test_pdf_oversized_artifact_fails_before_full_read(
         "category": "artifact-byte-limit",
         "maximum": policy_limit,
     }
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-resource-limit",
+        "bytes": artifact.stat().st_size,
+    }
+    assert hash_calls == 0
 
 
 def test_pdf_oversized_render_reference_fails_before_reference_read(
@@ -380,6 +390,55 @@ def test_pdf_oversized_render_reference_fails_before_reference_read(
         "actual": reference.stat().st_size,
         "category": "reference-artifact-byte-limit",
         "maximum": policy_limit,
+    }
+
+
+def test_pdf_over_page_render_reference_fails_before_render_or_hash(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import fitz
+
+    artifact = tmp_path / "candidate.pdf"
+    reference = tmp_path / "thirty-three-page-reference.pdf"
+    _write_pdf(artifact, "Stable render")
+    document = fitz.open()
+    for _index in range(33):
+        document.new_page()
+    document.save(reference)
+    document.close()
+
+    def reject_reference_hash(_path: Path) -> str:
+        raise AssertionError("over-page reference must not be hashed")
+
+    def reject_reference_render(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        raise AssertionError("over-page reference must not be rendered")
+
+    monkeypatch.setattr(pdf_module, "_sha256_file", reject_reference_hash)
+    monkeypatch.setattr(pdf_module, "_compare_rendered_pages", reject_reference_render)
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        expectations={
+            "render": {
+                "reference": str(reference),
+                "reference_kind": "expected",
+                "mode": "match",
+            },
+        },
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _assertions(report)["pdf.render-delta"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"] == {
+        "actual": 33,
+        "category": "reference-artifact-page-limit",
+        "maximum": 32,
     }
 
 
@@ -470,6 +529,10 @@ def test_office_second_timeout_returns_identified_schema_valid_failure(
 ) -> None:
     artifact, expectations = _known_good(tmp_path, "docx")
     identity = b'{"event":"identity","application":"word","version":"16.0"}\n'
+    child_json = (
+        b'{"raw_output":"TOPSECRET","document_text":"CONFIDENTIAL"}\n'
+    )
+    timeout_output = identity + child_json
 
     class UnresponsiveProcess:
         pid = 4242
@@ -483,7 +546,7 @@ def test_office_second_timeout_returns_identified_schema_valid_failure(
             raise subprocess.TimeoutExpired(
                 cmd="powershell.exe",
                 timeout=timeout,
-                output=identity,
+                output=timeout_output,
                 stderr=b"x" * 5000,
             )
 
@@ -524,12 +587,17 @@ def test_office_second_timeout_returns_identified_schema_valid_failure(
     assert evidence["category"] == "timeout"
     assert evidence["descendants_cleaned"] is False
     assert evidence["post_termination_drain"] == "timeout"
-    assert evidence["stdout_bytes"] == len(identity)
+    assert evidence["stdout_bytes"] == len(timeout_output)
     assert evidence["stdout_truncated"] is False
     assert evidence["stderr_bytes"] == 4096
     assert evidence["stderr_truncated"] is True
     assert "stdout" not in evidence
     assert "stderr" not in evidence
+    serialized_office = json.dumps(report["office"], sort_keys=True)
+    assert "raw_output" not in serialized_office
+    assert "TOPSECRET" not in serialized_office
+    assert "document_text" not in serialized_office
+    assert "CONFIDENTIAL" not in serialized_office
     assert process.calls == 2
 
 

@@ -12,25 +12,36 @@ _MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 _MAX_RENDER_SAMPLES = 64 * 1024 * 1024
 
 
+def preflight_pdf_resource_bounds(artifact: Path) -> dict[str, Any] | None:
+    """Reject an oversized candidate before any aggregate read or hash."""
+
+    artifact_bytes = _artifact_size(artifact)
+    if artifact_bytes <= _MAX_ARTIFACT_BYTES:
+        return None
+    assertions: list[dict[str, Any]] = []
+    _record(
+        assertions,
+        "pdf.resource-bounds",
+        False,
+        {
+            "actual": artifact_bytes,
+            "category": "artifact-byte-limit",
+            "maximum": _MAX_ARTIFACT_BYTES,
+        },
+    )
+    return _gate(assertions, {})
+
+
 def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
     assertions: list[dict[str, Any]] = []
     evidence: dict[str, Any] = {}
     try:
         import fitz
 
+        resource_rejection = preflight_pdf_resource_bounds(artifact)
+        if resource_rejection is not None:
+            return resource_rejection
         artifact_bytes = _artifact_size(artifact)
-        if artifact_bytes > _MAX_ARTIFACT_BYTES:
-            _record(
-                assertions,
-                "pdf.resource-bounds",
-                False,
-                {
-                    "actual": artifact_bytes,
-                    "category": "artifact-byte-limit",
-                    "maximum": _MAX_ARTIFACT_BYTES,
-                },
-            )
-            return _gate(assertions, evidence)
         document = fitz.open(artifact)
         try:
             if document.page_count <= 0:

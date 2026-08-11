@@ -80,10 +80,26 @@ CONSUMER_REPORT_SCHEMA: dict[str, Any] = {
             "required": ["path", "sha256", "bytes"],
             "properties": {
                 "path": {"type": "string", "minLength": 1},
-                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "sha256": {
+                    "oneOf": [
+                        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                        {"type": "null"},
+                    ]
+                },
+                "sha256_status": {"const": "not-computed-resource-limit"},
                 "bytes": {"type": "integer", "minimum": 1},
             },
             "additionalProperties": False,
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"sha256": {"type": "null"}},
+                        "required": ["sha256"],
+                    },
+                    "then": {"required": ["sha256_status"]},
+                    "else": {"not": {"required": ["sha256_status"]}},
+                }
+            ],
         },
         "status": {"enum": _OUTCOMES},
         "portable": _GATE,

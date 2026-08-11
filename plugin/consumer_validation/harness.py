@@ -10,7 +10,7 @@ from typing import Any
 from .contracts import validate_consumer_report
 from .office import detect_office, open_with_office
 from .ooxml import qualify_ooxml
-from .pdf import qualify_pdf
+from .pdf import preflight_pdf_resource_bounds, qualify_pdf
 
 
 OfficeDetector = Callable[[str], dict[str, Any]]
@@ -38,6 +38,27 @@ def qualify_artifact(
     resolved = Path(artifact).resolve(strict=True)
     if not resolved.is_file() or resolved.stat().st_size <= 0:
         raise ValueError("Artifact is missing or empty.")
+    if format_id == "pdf":
+        resource_rejection = preflight_pdf_resource_bounds(resolved)
+        if resource_rejection is not None:
+            office = _office_gate(
+                format_id,
+                resolved,
+                office_policy,
+                office_detector or detect_office,
+                office_runner or open_with_office,
+                timeout_seconds,
+            )
+            return _build_report(
+                format_id=format_id,
+                operation=operation,
+                artifact=resolved,
+                artifact_sha256=None,
+                sha256_status="not-computed-resource-limit",
+                portable=resource_rejection,
+                office=office,
+                office_policy=office_policy,
+            )
     before = _sha256(resolved)
     portable = (
         qualify_pdf(resolved, expectations or {})
@@ -70,17 +91,43 @@ def qualify_artifact(
             "warnings": office["warnings"],
             "evidence": office["evidence"],
         }
+    return _build_report(
+        format_id=format_id,
+        operation=operation,
+        artifact=resolved,
+        artifact_sha256=after,
+        sha256_status=None,
+        portable=portable,
+        office=office,
+        office_policy=office_policy,
+    )
+
+
+def _build_report(
+    *,
+    format_id: str,
+    operation: str,
+    artifact: Path,
+    artifact_sha256: str | None,
+    sha256_status: str | None,
+    portable: dict[str, Any],
+    office: dict[str, Any],
+    office_policy: str,
+) -> dict[str, Any]:
+    artifact_evidence: dict[str, Any] = {
+        "path": str(artifact),
+        "sha256": artifact_sha256,
+        "bytes": artifact.stat().st_size,
+    }
+    if sha256_status is not None:
+        artifact_evidence["sha256_status"] = sha256_status
     status = _aggregate_status(portable["outcome"], office["outcome"], office_policy)
     report = {
         "schema_version": "1.0",
         "format": format_id,
         "operation": operation,
         "consumer_identity": "elftia-independent-consumer/1",
-        "artifact": {
-            "path": str(resolved),
-            "sha256": after,
-            "bytes": resolved.stat().st_size,
-        },
+        "artifact": artifact_evidence,
         "status": status,
         "portable": portable,
         "office": office,
