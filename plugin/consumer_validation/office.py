@@ -166,6 +166,10 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
             drain_status = "timeout"
             stdout = _timeout_stream(drain_timeout.output, primary_timeout.output)
             stderr = _timeout_stream(drain_timeout.stderr, primary_timeout.stderr)
+        except (OSError, subprocess.SubprocessError):
+            drain_status = "error"
+            stdout = _timeout_stream(None, primary_timeout.output)
+            stderr = _timeout_stream(None, primary_timeout.stderr)
         return project_timeout_evidence(
             application=application,
             detection=identity,
@@ -292,7 +296,7 @@ def project_timeout_evidence(
         "descendants_cleaned": termination.get("descendants_cleaned") is True,
         "cleanup_category": cleanup_category,
         "post_termination_drain": (
-            drain_status if drain_status in {"complete", "timeout"} else "timeout"
+            drain_status if drain_status in {"complete", "error", "timeout"} else "error"
         ),
         **_stream_metadata("stdout", stdout),
         **_stream_metadata("stderr", stderr),

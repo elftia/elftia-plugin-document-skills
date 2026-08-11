@@ -652,6 +652,70 @@ def test_taskkill_failure_returns_schema_valid_bounded_cleanup_failure(
     assert evidence["post_termination_drain"] == "timeout"
 
 
+@pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")
+def test_post_termination_drain_error_returns_typed_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "drain-error.docx"
+    _write_docx(artifact, "Drain error")
+
+    class DrainErrorProcess:
+        pid = 4242
+        returncode = None
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def communicate(self, timeout: float) -> tuple[bytes, bytes]:
+            self.calls += 1
+            if self.calls == 1:
+                raise subprocess.TimeoutExpired(
+                    cmd="powershell.exe",
+                    timeout=timeout,
+                    output=b"bounded-child-output",
+                    stderr=b"bounded-child-error",
+                )
+            raise OSError("post-termination-drain-failed")
+
+    process = DrainErrorProcess()
+    trusted = {"available": True, "application": "word", "version": "16.0"}
+    monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(office_module, "detect_office", lambda _application: trusted)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda _pid: {
+            "descendants_cleaned": False,
+            "cleanup_category": "taskkill-error",
+        },
+    )
+
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=artifact,
+        expectations={"text": ["Drain error"]},
+        office_policy="auto",
+        office_detector=lambda _application: trusted,
+        office_runner=office_module.open_with_office,
+        timeout_seconds=0.01,
+    )
+
+    validate_consumer_report(report)
+    evidence = report["office"]["evidence"]
+    assert report["status"] == "fail"
+    assert evidence["category"] == "timeout"
+    assert evidence["application"] == "word"
+    assert evidence["version"] == "16.0"
+    assert evidence["descendants_cleaned"] is False
+    assert evidence["cleanup_category"] == "taskkill-error"
+    assert evidence["post_termination_drain"] == "error"
+    assert evidence["stdout_bytes"] == len(b"bounded-child-output")
+    assert evidence["stderr_bytes"] == len(b"bounded-child-error")
+    assert process.calls == 2
+
+
 def test_ordinary_office_result_keeps_truthful_completed_evidence(tmp_path: Path) -> None:
     artifact = tmp_path / "completed.docx"
     _write_docx(artifact, "Completed result")
