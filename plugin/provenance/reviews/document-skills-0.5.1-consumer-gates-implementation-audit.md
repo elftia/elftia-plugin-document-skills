@@ -4,7 +4,7 @@
 - Runtime: Codex
 - Identity assurance: self-asserted
 - Scope: `all-release-artifacts`
-- Reviewed mapping digest: `9c079d8f7eadd627d06e420d953b640f9207f7bf02d8dea6d223c351983ddaab`
+- Reviewed mapping digest: `8b3139699f9e4d26c0c6f4e047b88979db030def3bc108f838613ca8414ca776`
 - Status: `clean`
 - Approval claimed: no
 
@@ -21,6 +21,12 @@ relationship graphs and active/external-content rejection, create-strength XLSX
 mutation conformance, reference-bound PDF render deltas, retained Office identity on
 all installed-application outcomes, and the explicit Word-positive/Word-negative DOCX
 fixture split. The fixture registry binds both stable filenames and exact bytes.
+
+The F-4 integration refresh additionally binds the review-clean promotion-recovery
+delta at commit `bdf01b689e99f4587050c86b4c6bef591f3f16b5`. Its independent non-author
+re-review reported zero open findings for the nine-file delta. This provenance binding
+records the resulting exact runtime-source and all-file inventories; it does not turn
+that delta review into final release approval.
 
 The audit also correlated the mapping with focused passing evidence for truthful typed
 results, independent portable consumers, real Office safe-open probes, cross-format

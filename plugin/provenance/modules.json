@@ -211,7 +211,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "8a13d81e55bd30e333e16f883e289ed7e8d8266ccca1e357f90067f1b6ec182d"
+      "sha256": "c4d6855508c9634e1e20707f438dbfee4db2525b7b3c9fe8521507ca90d110be"
     },
     {
       "artifact": "pyproject.toml",
@@ -1654,7 +1654,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "094867fea6e4407049a30fdbf30f7dcfb9db0102e1493b5051b28654798abf12",
+      "sha256": "147676301dfb3f16d95ef66d6d109505d22d68bf1be29aed772b124d2abced18",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1808,13 +1808,113 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/parent_anchor.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "d1000be4826620e97b7f88c9842d681159329230fb0a32a2a947b18a8ffb5e58",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/parent_anchor_posix.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "f585c4ddc68b947c5866da2a19441eb9fc1a77cd075b217ec2b6529a17667f85",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/parent_anchor_types.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "428dde0ac6ec3d20abd9af98c7baf638401c50474496c69c5e891028805ceeb2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/parent_anchor_windows.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "42581edc094c5a240292a5f3ce09029643c30f9ae8e3cd3006ace6b3a22b45f6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/path_identity.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "518672933c044bd47099b88314fcc7fd367865c7eafd376d63a81fe23bee5834",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
       "module": "src/document_skills_core/core/io/paths.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
       "review_evidence": [
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "8d468618c80dbe30646b687f646a8b2a6a35ffd629dd7bc55b1a7bfa76e9eaaf",
+      "sha256": "ae9a4910de332e723db825eaa1ab47b50a950dfb590baa683df75d7033c472af",
       "source_class": "original",
       "third_party_files": []
     },
@@ -1835,6 +1935,86 @@
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
       "sha256": "91f7866ddfbf9a27b88e5ff2230c65064adf782b87a2a58b859df575cf1961c1",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/promotion_checks.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "954a69397b6a3e680b6bc33524903fa93ec5a25ce6e41553cb1e4220f2409d1a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/promotion_errors.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "68fae218aef7fcb6c68d53d447f8b655b0c26af7bfd0c428a715194f89e745f9",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/promotion_models.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "82cebdfa1ce270c09d69bd8f111c0e35f4cf2e4f01e437e9ed931efe93a4455d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/core/io/promotion_observation.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "a033a1609cedd71191bb4bb6b2ae4b8aa7f3059bfd7a072aed60f3b53898686a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -2350,7 +2530,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "b5740a82accf7f8b0d8c95c76efa92727caab46805d59ad4e83e751f7ee67ca6",
+      "sha256": "a9b1290957ce77bfcc9d22b7cf6aa79b0911a8550f3ec4534f76854451ff50f8",
       "source_class": "original",
       "third_party_files": []
     },
@@ -2392,7 +2572,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "d2c039582f8e510ada7c8364ebd63a61ca1ec9edd4adfc762fb4fc3955fc126e",
+      "sha256": "78177aee2fa53746997940b761baeb749ed347d422032ffc595c5d442c2c8dbe",
       "source_class": "original",
       "third_party_files": []
     },
@@ -2794,7 +2974,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "2f5cd2b6ae8c88aa973e981c95ef5afa88144e13fac6bc39d144225d91b85185",
+      "sha256": "5b05e0a866194bc8f23435b0477d931a383099bf6dd8d73bc1054f795c9130b7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -2814,7 +2994,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "72c55f674493f781ebc49d945dc73a9a137b6f68d51ed217fc89814040885b25",
+      "sha256": "57bc3a312d6e8f42e2ad5a98601193dc7598f0804b538c072bec3d4790d1f3c7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3263,7 +3443,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "27c8a365f71058620824e10bdb1d7885d0a1a8c3ba5497573310e93fbce925a6",
+      "sha256": "c759889e24f3741a830f8d62378515d1315817a640d2482964f8cab48ae870d3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3283,7 +3463,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "380ab4bdce38cfb9d5ddedd20c44dbb94e7782009c3836a6e1709b61816f905f",
+      "sha256": "c030544c3a14b201b68d76f6a42a27c6480a9d066fc13bb4d37eed87be35f387",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3645,7 +3825,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "aa92d56c3240d9244f83ab86cf9ec39a9476c7d220bb54ecf159f8d57f92b157",
+      "sha256": "7127a814b6b0003bfc367094e2dafd38848e488db763890d43a877a5d240fdde",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3705,7 +3885,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "9153a5636603405c3dd92505277b0f80f90916115b9d14ba1e7671656bf605ac",
+      "sha256": "d81e031774202fcdfd62275ecc5c92c2b9b73d35e8621f4043046fbd82f94f97",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4661,6 +4841,26 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "tests/test_committed_promotion_contract.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
+      ],
+      "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
+      "sha256": "628079f7712d8fd7a2cc9f36196d546244a8861e13be10bb4e5cc08e272124f5",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
       "module": "tests/test_consumer_validation.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
       "review_evidence": [
@@ -4727,7 +4927,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "d54656b0b7a851044b9719ecdd547d22a911ea2d16a1abc8dc7f51d928bf2ef2",
+      "sha256": "9d9c80c169012c6707df0ee81eb9fde735e80ad0ba98830ec2a4f709e03c5874",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5575,7 +5775,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "f2b83b6bf7dc18b5b9a58d87657c566fcef6abd1daf203593ce7762d4b4c50e8",
+      "sha256": "802d384327bd55b92ac9f1f35fe150cb10bed22e8db507c22a4768fda248a829",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5878,7 +6078,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
-      "sha256": "072e905b3d6589b44f37beb5c5533c8fbd4dde2003af81b27e67671413ebd1ff",
+      "sha256": "234ca750dd43bb93cfc56d2ced14b8f771755760e570d8753a97296c266cc9ce",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5933,8 +6133,8 @@
       "identity_limitations": "This implementation-side audit cannot provide author/verifier separation or cryptographically prove its backing service identity, and it does not claim release approval.",
       "report_evidence": "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
       "report_name": "document-skills-0.5.1-consumer-gates-implementation-audit.md",
-      "report_sha256": "06db3ddb996edcb7e2734a902888353b0c4377fcfcb771e7c0d3623e9d9bf896",
-      "reviewed_mapping_sha256": "9c079d8f7eadd627d06e420d953b640f9207f7bf02d8dea6d223c351983ddaab",
+      "report_sha256": "08456fb9af532adc20776e4d81d7bee5e56fb48897b56db2e7388b338a120b49",
+      "reviewed_mapping_sha256": "8b3139699f9e4d26c0c6f4e047b88979db030def3bc108f838613ca8414ca776",
       "reviewer": "Codex implementation-session provenance auditor: document-skills-consumer-gates/2026-08-10",
       "role": "reviewer",
       "runtime": "codex",

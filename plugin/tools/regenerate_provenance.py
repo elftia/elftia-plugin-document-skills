@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
     html_pptx_data_profile,
@@ -182,14 +183,46 @@ def _is_metadata(path: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-root", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--runtime-source-output", type=Path)
+    parser.add_argument("--reuse-review-from", type=Path)
+    parser.add_argument("--print-mapping-only", action="store_true")
     args = parser.parse_args()
-    manifest, digest = regenerate(args.project_root.resolve())
-    args.output.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
+    root = args.project_root.resolve()
+    manifest, digest = regenerate(root)
+    if args.print_mapping_only:
+        if args.output or args.runtime_source_output or args.reuse_review_from:
+            parser.error("--print-mapping-only cannot be combined with output options")
+        print(digest)
+        return 0
+    if args.output is None and args.runtime_source_output is None:
+        parser.error("at least one generated output is required")
+    if args.reuse_review_from:
+        previous = json.loads(args.reuse_review_from.read_text(encoding="utf-8"))
+        reviews = previous.get("review_attestations", [])
+        if len(reviews) != 1:
+            parser.error("--reuse-review-from requires exactly one review attestation")
+        review = reviews[0]
+        review["reviewed_mapping_sha256"] = digest
+        manifest, rebound = regenerate(
+            root,
+            reviewer=review["reviewer"],
+            review=review,
+        )
+        if rebound != digest:
+            raise RuntimeError("review rebinding changed the provenance mapping")
+    if args.output:
+        args.output.write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+    if args.runtime_source_output:
+        args.runtime_source_output.write_text(
+            json.dumps(runtime_source_allowlist(root), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
     print(digest)
     return 0
 

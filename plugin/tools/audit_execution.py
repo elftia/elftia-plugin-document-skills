@@ -79,6 +79,26 @@ def audit_execution_boundary(
     }
 
 
+def runtime_source_allowlist(root: Path) -> dict[str, list[str]]:
+    """Return the exact distributable runtime sources covered by value-flow policy."""
+    sources: dict[str, list[str]] = {}
+    sources["python"] = sorted(
+        path.relative_to(root).as_posix()
+        for base in ("src", "skills", "providers", "runtime")
+        if (root / base).exists()
+        for path in (root / base).rglob("*.py")
+        if path.is_file()
+    )
+    sources["node"] = sorted(
+        path.relative_to(root).as_posix()
+        for base in ("src", "skills", "providers", "runtime")
+        if (root / base).exists()
+        for path in (root / base).rglob("*")
+        if path.is_file() and path.suffix.lower() in {".js", ".mjs", ".cjs", ".ts"}
+    )
+    return sources
+
+
 def is_forbidden_execution_path(relative: str) -> bool:
     identity = PORTABLE_PATH_POLICY.parse_relative(relative)
     if identity.has_forbidden_component:
@@ -225,26 +245,13 @@ def _audit_exact_allowlists(root: Path) -> None:
     runtime_policy = json.loads(
         runtime_policy_path.read_text(encoding="utf-8")
     )
-    actual_python = sorted(
-        path.relative_to(root).as_posix()
-        for base in ("src", "skills", "providers", "runtime")
-        if (root / base).exists()
-        for path in (root / base).rglob("*.py")
-        if path.is_file()
-    )
-    actual_node = sorted(
-        path.relative_to(root).as_posix()
-        for base in ("src", "skills", "providers", "runtime")
-        if (root / base).exists()
-        for path in (root / base).rglob("*")
-        if path.is_file() and path.suffix.lower() in {".js", ".mjs", ".cjs", ".ts"}
-    )
+    actual_sources = runtime_source_allowlist(root)
     _require(
-        actual_python == runtime_policy["python"],
+        actual_sources["python"] == runtime_policy["python"],
         "Python runtime-source allowlist differs from exact current files",
     )
     _require(
-        actual_node == runtime_policy["node"],
+        actual_sources["node"] == runtime_policy["node"],
         "Node runtime-source allowlist differs from exact current files",
     )
 
