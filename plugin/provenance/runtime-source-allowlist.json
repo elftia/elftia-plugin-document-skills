@@ -111,6 +111,7 @@
     "src/document_skills_core/formats/pptx/read.py",
     "src/document_skills_core/formats/pptx/relationships.py",
     "src/document_skills_core/formats/pptx/results.py",
+    "src/document_skills_core/formats/pptx/scaffold.py",
     "src/document_skills_core/formats/pptx/scene.py",
     "src/document_skills_core/formats/pptx/scene_emitter.py",
     "src/document_skills_core/formats/pptx/scene_normalizer.py",

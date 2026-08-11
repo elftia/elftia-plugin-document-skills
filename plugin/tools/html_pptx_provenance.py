@@ -47,6 +47,16 @@ def html_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
             "Contained system-browser detection, local-asset serving, DOM capture, and private scene transport for editable HTML-to-PPTX conversion.",
             capture_tests,
         )
+    if path == "src/document_skills_core/formats/pptx/scaffold.py":
+        return (
+            "Shared Office-valid PresentationML scaffold vocabulary (theme, slide "
+            "master, slide layout, root relationships, document properties) common "
+            "to typed pptx.create and HTML scene emission.",
+            [
+                "tests/test_html_scene_opc_safety.py",
+                "tests/test_pptx_operations.py",
+            ],
+        )
     if path.startswith("src/document_skills_core/formats/pptx/") and Path(path).name in {
         "html_capture.py", "html_contracts.py", "png_compare.py", "scene.py",
         "scene_emitter.py", "scene_normalizer.py", "scene_opc_validation.py",
