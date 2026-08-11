@@ -1,14 +1,33 @@
 """XLSX public command surface tests — frozen uv subprocess boundary."""
 
 import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
+import zipfile
 
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.xlsx.create import create_xlsx
+
+
+def _strip_style_children(path: Path) -> None:
+    """Replace styles.xml with an empty-container form that fails the style gate."""
+
+    with zipfile.ZipFile(path, "r") as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["xl/styles.xml"] = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b'<fonts count="1"/><fills count="2"/><borders count="1"/>'
+        b'<cellStyleXfs count="1"/><cellXfs count="1"/>'
+        b'<cellStyles count="1"/><dxfs count="0"/></styleSheet>'
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(parts.items()):
+            archive.writestr(name, data)
 
 
 def _public(
@@ -96,14 +115,14 @@ def public_created(project_root: Path, tmp_path: Path) -> Path:
     return output
 
 
-def test_public_current_create_fails_required_package_gate(
+def test_public_create_is_truthful_and_promotes_bounded_artifact(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
-    output = tmp_path / "not-promoted.xlsx"
+    output = tmp_path / "bounded.xlsx"
     request = _request(
         tmp_path,
-        "create-fail-closed.json",
+        "create-bounded.json",
         {
             "schema_version": "1.0",
             "operation": "xlsx.create",
@@ -111,14 +130,17 @@ def test_public_current_create_fails_required_package_gate(
             "arguments": {"workbook": _workbook()},
         },
     )
-    result = _public(project_root, "run", "--request", str(request), check=False)
+    result = _public(project_root, "run", "--request", str(request))
     SchemaCatalog(project_root).validate("operation-result", result)
-    assert result["status"] == "failed"
-    assert not result["artifacts"]
-    assert not output.exists()
+    assert result["status"] in {"success", "degraded"}
+    assert output.is_file()
+    assert any(
+        item["path"] == str(output.resolve())
+        for item in result["artifacts"]
+    )
     assert any(
         gate["id"] == "operation.consumer-package-conformance"
-        and gate["outcome"] == "fail"
+        and gate["outcome"] == "pass"
         for gate in result["validation"]["gates"]
     )
 
@@ -205,6 +227,7 @@ def test_public_edit_rejects_consumer_invalid_package_and_preserves_paths(
 ) -> None:
     source = tmp_path / "core-invalid.xlsx"
     create_xlsx(source, _workbook())
+    _strip_style_children(source)
     source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
     output = tmp_path / "existing.xlsx"
     existing = b"existing-public-destination"

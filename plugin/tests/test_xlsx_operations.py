@@ -2,6 +2,7 @@
 
 import hashlib
 from pathlib import Path
+import zipfile
 
 import pytest
 
@@ -17,6 +18,23 @@ from document_skills_core.formats.xlsx.service import XlsxService
 
 def _service(project_root: Path) -> XlsxService:
     return XlsxService(project_root)
+
+
+def _strip_style_children(path: Path) -> None:
+    """Replace styles.xml with an empty-container form that fails the style gate."""
+
+    with zipfile.ZipFile(path, "r") as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["xl/styles.xml"] = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b'<fonts count="1"/><fills count="2"/><borders count="1"/>'
+        b'<cellStyleXfs count="1"/><cellXfs count="1"/>'
+        b'<cellStyles count="1"/><dxfs count="0"/></styleSheet>'
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(parts.items()):
+            archive.writestr(name, data)
 
 
 def _sample_workbook() -> dict:
@@ -269,6 +287,7 @@ class TestEditOperation:
     ) -> None:
         source = tmp_path / "core-invalid.xlsx"
         create_xlsx(source, _bounded_workbook())
+        _strip_style_children(source)
         source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
         output = tmp_path / "existing.xlsx"
         existing = b"existing-destination-must-survive"
