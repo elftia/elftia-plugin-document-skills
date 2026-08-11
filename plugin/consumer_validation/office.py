@@ -15,6 +15,17 @@ _PROG_IDS = {
     "excel": "Excel.Application",
     "powerpoint": "PowerPoint.Application",
 }
+_CLEANUP_CATEGORIES = {
+    "cleanup-internal-error",
+    "descendant-cleanup-error",
+    "descendant-cleanup-incomplete",
+    "descendant-enumeration-error",
+    "taskkill-complete",
+    "taskkill-error",
+    "taskkill-incomplete",
+    "taskkill-nonzero",
+    "taskkill-timeout",
+}
 _POWERSHELL = {
     "word": r"""
 $app = New-Object -ComObject Word.Application
@@ -141,7 +152,13 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
     try:
         stdout, stderr = process.communicate(timeout=max(float(timeout_seconds), 0.1))
     except subprocess.TimeoutExpired as primary_timeout:
-        cleaned = _terminate_tree(process.pid)
+        try:
+            termination = _terminate_tree(process.pid)
+        except Exception:
+            termination = {
+                "descendants_cleaned": False,
+                "cleanup_category": "cleanup-internal-error",
+            }
         drain_status = "complete"
         try:
             stdout, stderr = process.communicate(timeout=5)
@@ -149,16 +166,14 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
             drain_status = "timeout"
             stdout = _timeout_stream(drain_timeout.output, primary_timeout.output)
             stderr = _timeout_stream(drain_timeout.stderr, primary_timeout.stderr)
-        return {
-            **identity,
-            **trusted_office_identity(application, identity),
-            "outcome": "fail",
-            "category": "timeout",
-            "descendants_cleaned": cleaned,
-            "post_termination_drain": drain_status,
-            **_stream_metadata("stdout", stdout),
-            **_stream_metadata("stderr", stderr),
-        }
+        return project_timeout_evidence(
+            application=application,
+            detection=identity,
+            termination=termination,
+            drain_status=drain_status,
+            stdout=stdout,
+            stderr=stderr,
+        )
     try:
         payload = _parse_probe_output(stdout, require_result=True)
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
@@ -255,45 +270,114 @@ def _stream_metadata(prefix: str, payload: bytes) -> dict[str, Any]:
     }
 
 
-def _terminate_tree(pid: int) -> bool:
-    descendant_handles = _open_descendant_handles(pid)
+def project_timeout_evidence(
+    *,
+    application: str,
+    detection: dict[str, Any],
+    termination: dict[str, Any],
+    drain_status: str,
+    stdout: bytes,
+    stderr: bytes,
+) -> dict[str, Any]:
+    """Project a timeout using trusted identity and harness-owned cleanup facts."""
+
+    cleanup_category = termination.get("cleanup_category")
+    if cleanup_category not in _CLEANUP_CATEGORIES:
+        cleanup_category = "cleanup-internal-error"
+    return {
+        **detection,
+        **trusted_office_identity(application, detection),
+        "outcome": "fail",
+        "category": "timeout",
+        "descendants_cleaned": termination.get("descendants_cleaned") is True,
+        "cleanup_category": cleanup_category,
+        "post_termination_drain": (
+            drain_status if drain_status in {"complete", "timeout"} else "timeout"
+        ),
+        **_stream_metadata("stdout", stdout),
+        **_stream_metadata("stderr", stderr),
+    }
+
+
+def _terminate_tree(pid: int) -> dict[str, Any]:
+    cleanup_category = "taskkill-complete"
     try:
-        result = subprocess.run(
-            ["taskkill.exe", "/PID", str(pid), "/T", "/F"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            shell=False,
-            timeout=10,
+        descendant_handles = _open_descendant_handles(pid)
+    except Exception:
+        descendant_handles = []
+        cleanup_category = "descendant-enumeration-error"
+    try:
+        try:
+            result = subprocess.run(
+                ["taskkill.exe", "/PID", str(pid), "/T", "/F"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                shell=False,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            result = None
+            cleanup_category = "taskkill-timeout"
+        except (OSError, subprocess.SubprocessError):
+            result = None
+            cleanup_category = "taskkill-error"
+        try:
+            descendant_handles.extend(_open_descendant_handles(pid))
+        except Exception:
+            if cleanup_category == "taskkill-complete":
+                cleanup_category = "descendant-enumeration-error"
+        cleaned = (
+            result is not None
+            and result.returncode == 0
+            and cleanup_category == "taskkill-complete"
         )
-        descendant_handles.extend(_open_descendant_handles(pid))
-        cleaned = result.returncode == 0
+        if result is not None and result.returncode != 0:
+            cleanup_category = "taskkill-nonzero"
         if not descendant_handles:
-            return cleaned
+            return {
+                "descendants_cleaned": cleaned,
+                "cleanup_category": cleanup_category,
+            }
 
-        import ctypes
-
-        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        wait_object_0 = 0
-        wait_timeout = 258
-        for handle in descendant_handles:
-            outcome = kernel32.WaitForSingleObject(handle, 250)
-            if outcome == wait_timeout:
-                if not kernel32.TerminateProcess(handle, 1):
-                    cleaned = False
-                    continue
-                outcome = kernel32.WaitForSingleObject(handle, 2000)
-            if outcome != wait_object_0:
-                cleaned = False
-        return cleaned
-    finally:
-        if descendant_handles:
+        try:
             import ctypes
 
             kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            wait_object_0 = 0
+            wait_timeout = 258
             for handle in descendant_handles:
-                kernel32.CloseHandle(handle)
+                outcome = kernel32.WaitForSingleObject(handle, 250)
+                if outcome == wait_timeout:
+                    if not kernel32.TerminateProcess(handle, 1):
+                        cleaned = False
+                        continue
+                    outcome = kernel32.WaitForSingleObject(handle, 2000)
+                if outcome != wait_object_0:
+                    cleaned = False
+        except Exception:
+            cleaned = False
+            cleanup_category = "descendant-cleanup-error"
+        if not cleaned and cleanup_category == "taskkill-complete":
+            cleanup_category = "descendant-cleanup-incomplete"
+        return {
+            "descendants_cleaned": cleaned,
+            "cleanup_category": cleanup_category,
+        }
+    finally:
+        if descendant_handles:
+            try:
+                import ctypes
+
+                kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+                for handle in descendant_handles:
+                    try:
+                        kernel32.CloseHandle(handle)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
 
 
 def _open_descendant_handles(pid: int) -> list[int]:

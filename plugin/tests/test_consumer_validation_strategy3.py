@@ -137,7 +137,6 @@ def test_pdf_mutation_during_second_evidence_is_typed_and_schema_valid(
     replacement = tmp_path / "replacement.pdf"
     _write_pdf(artifact, "Stable bounded candidate")
     _write_pdf(replacement, "Replacement candidate")
-    initial_sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
     initial_bytes = artifact.stat().st_size
     policy_limit = max(initial_bytes, replacement.stat().st_size) + 256
     original_open = Path.open
@@ -178,8 +177,12 @@ def test_pdf_mutation_during_second_evidence_is_typed_and_schema_valid(
     assertion = _portable_assertions(report)["consumer.source-preservation"]
     assert report["status"] == "fail"
     assert report["portable"]["outcome"] == "fail"
-    assert report["artifact"]["sha256"] == initial_sha256
-    assert report["artifact"]["bytes"] == initial_bytes
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-non-exact-observation",
+        "bytes": None,
+    }
     assert assertion["outcome"] == "fail"
     assert assertion["evidence"]["category"] == "artifact-mutated-during-evidence"
     assert assertion["evidence"]["phase"] == "post-consumer"
@@ -193,7 +196,6 @@ def test_pdf_replacement_during_second_evidence_is_typed_and_schema_valid(
     replacement = tmp_path / "replacement.pdf"
     _write_pdf(artifact, "Stable bounded candidate")
     _write_pdf(replacement, "Replacement candidate")
-    initial_sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
     initial_bytes = artifact.stat().st_size
     policy_limit = max(initial_bytes, replacement.stat().st_size) + 256
     original_open = Path.open
@@ -221,14 +223,18 @@ def test_pdf_replacement_during_second_evidence_is_typed_and_schema_valid(
     validate_consumer_report(report)
     assertion = _portable_assertions(report)["consumer.source-preservation"]
     assert report["status"] == "fail"
-    assert report["artifact"]["sha256"] == initial_sha256
-    assert report["artifact"]["bytes"] == initial_bytes
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-non-exact-observation",
+        "bytes": None,
+    }
     assert assertion["outcome"] == "fail"
     assert assertion["evidence"]["category"] == "artifact-replaced-before-evidence"
     assert assertion["evidence"]["phase"] == "post-consumer"
 
 
-@pytest.mark.parametrize("mutation_kind", ["grow", "truncate", "replace"])
+@pytest.mark.parametrize("mutation_kind", ["grow", "truncate", "replace", "delete"])
 def test_pdf_change_between_evidence_points_is_typed_and_schema_valid(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -249,8 +255,10 @@ def test_pdf_change_between_evidence_points_is_typed_and_schema_valid(
         elif mutation_kind == "truncate":
             with artifact.open("r+b") as handle:
                 handle.truncate(max(1, artifact.stat().st_size // 2))
-        else:
+        elif mutation_kind == "replace":
             os.replace(replacement, artifact)
+        else:
+            artifact.unlink()
         return result
 
     policy_limit = max(artifact.stat().st_size, replacement.stat().st_size) + 256
@@ -268,9 +276,22 @@ def test_pdf_change_between_evidence_points_is_typed_and_schema_valid(
     validate_consumer_report(report)
     assertion = _portable_assertions(report)["consumer.source-preservation"]
     assert report["status"] == "fail"
-    assert report["artifact"]["sha256"] != initial_sha256
+    if mutation_kind == "delete":
+        assert report["artifact"] == {
+            "path": str(artifact),
+            "sha256": None,
+            "sha256_status": "not-computed-non-exact-observation",
+            "bytes": None,
+        }
+    else:
+        assert report["artifact"]["sha256"] != initial_sha256
     assert assertion["outcome"] == "fail"
-    assert assertion["evidence"]["category"] == "artifact-changed-between-evidence-points"
+    expected_category = (
+        "artifact-unavailable-before-evidence"
+        if mutation_kind == "delete"
+        else "artifact-changed-between-evidence-points"
+    )
+    assert assertion["evidence"]["category"] == expected_category
     assert assertion["evidence"]["phase"] == "post-consumer"
 
 
@@ -310,12 +331,96 @@ def test_pdf_repeated_initial_mutation_returns_typed_failure(
     validate_consumer_report(report)
     assertion = _portable_assertions(report)["consumer.source-preservation"]
     assert report["status"] == "fail"
-    assert isinstance(report["artifact"]["sha256"], str)
-    assert len(report["artifact"]["sha256"]) == 64
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-non-exact-observation",
+        "bytes": None,
+    }
     assert assertion["outcome"] == "fail"
     assert assertion["evidence"]["category"] == "artifact-mutated-during-evidence"
     assert assertion["evidence"]["phase"] == "initial-retry"
     assert len(tracked) == 2
+
+
+@pytest.mark.parametrize("mutation_kind", ["replace", "delete"])
+def test_pdf_repeated_stat_to_open_change_returns_typed_unknown_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation_kind: str,
+) -> None:
+    artifact = tmp_path / "candidate.pdf"
+    _write_pdf(artifact, "Repeated pathname change")
+    replacement_bytes = artifact.read_bytes()
+    original_open = Path.open
+    target_open_count = 0
+
+    def patched_open(path: Path, *args: Any, **kwargs: Any) -> Any:
+        nonlocal target_open_count
+        if path == artifact and args and args[0] == "rb":
+            target_open_count += 1
+            if mutation_kind == "replace":
+                replacement = tmp_path / f"replacement-{target_open_count}.pdf"
+                replacement.write_bytes(replacement_bytes + bytes([target_open_count]))
+                os.replace(replacement, artifact)
+            else:
+                artifact.unlink()
+                try:
+                    return original_open(path, *args, **kwargs)
+                except FileNotFoundError:
+                    artifact.write_bytes(replacement_bytes)
+                    raise
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", patched_open)
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _portable_assertions(report)["consumer.source-preservation"]
+    assert report["status"] == "fail"
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-non-exact-observation",
+        "bytes": None,
+    }
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"]["identity_status"] == "unavailable-non-exact-observation"
+    assert assertion["evidence"]["phase"] == "initial-retry"
+    assert target_open_count == 2
+
+
+def test_pdf_missing_across_bounded_attempts_returns_typed_unknown_identity(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "missing.pdf"
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _portable_assertions(report)["consumer.source-preservation"]
+    assert report["status"] == "fail"
+    assert report["artifact"] == {
+        "path": str(artifact),
+        "sha256": None,
+        "sha256_status": "not-computed-non-exact-observation",
+        "bytes": None,
+    }
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"]["category"] == "artifact-unavailable-before-evidence"
+    assert assertion["evidence"]["identity_status"] == "unavailable-non-exact-observation"
+    assert assertion["evidence"]["phase"] == "initial-retry"
 
 
 @pytest.mark.parametrize(
@@ -338,6 +443,7 @@ def test_pdf_repeated_initial_mutation_returns_typed_failure(
         ),
     ],
 )
+@pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")
 def test_timeout_report_uses_trusted_detection_identity_only(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -362,7 +468,14 @@ def test_timeout_report_uses_trusted_detection_identity_only(
     trusted = {"available": True, "application": "word", "version": "16.0"}
     monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: UnresponsiveProcess())
     monkeypatch.setattr(office_module, "detect_office", lambda _application: trusted)
-    monkeypatch.setattr(office_module, "_terminate_tree", lambda _pid: True)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda _pid: {
+            "descendants_cleaned": True,
+            "cleanup_category": "taskkill-complete",
+        },
+    )
 
     report = qualify_artifact(
         format_id="docx",
@@ -384,6 +497,7 @@ def test_timeout_report_uses_trusted_detection_identity_only(
         assert value not in serialized
 
 
+@pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")
 def test_timeout_without_trusted_version_is_explicitly_redacted(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -407,7 +521,14 @@ def test_timeout_without_trusted_version_is_explicitly_redacted(
     detection = {"available": True, "application": "word"}
     monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: UnresponsiveProcess())
     monkeypatch.setattr(office_module, "detect_office", lambda _application: detection)
-    monkeypatch.setattr(office_module, "_terminate_tree", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda _pid: {
+            "descendants_cleaned": False,
+            "cleanup_category": "taskkill-incomplete",
+        },
+    )
 
     report = qualify_artifact(
         format_id="docx",
@@ -426,6 +547,109 @@ def test_timeout_without_trusted_version_is_explicitly_redacted(
     assert report["office"]["evidence"]["version_status"] == "unknown-redacted"
     assert "16.TOPSECRET" not in serialized
     assert "TOPSECRET" not in serialized
+
+
+@pytest.mark.parametrize(
+    ("detection", "expected_version", "expected_status"),
+    [
+        (
+            {"available": True, "application": "word", "version": "16.0"},
+            "16.0",
+            "trusted-detection",
+        ),
+        (
+            {"available": True, "application": "word"},
+            "unknown",
+            "unknown-redacted",
+        ),
+    ],
+)
+def test_timeout_projection_is_platform_neutral_and_child_identity_free(
+    detection: dict[str, Any],
+    expected_version: str,
+    expected_status: str,
+) -> None:
+    child_output = b'{"event":"identity","application":"excel","version":"TOPSECRET"}\n'
+
+    evidence = office_module.project_timeout_evidence(
+        application="word",
+        detection=detection,
+        termination={
+            "descendants_cleaned": False,
+            "cleanup_category": "taskkill-timeout",
+        },
+        drain_status="timeout",
+        stdout=child_output,
+        stderr=b"bounded-stderr",
+    )
+
+    serialized = json.dumps(evidence, sort_keys=True)
+    assert evidence["application"] == "word"
+    assert evidence["version"] == expected_version
+    assert evidence["version_status"] == expected_status
+    assert evidence["descendants_cleaned"] is False
+    assert evidence["cleanup_category"] == "taskkill-timeout"
+    assert evidence["post_termination_drain"] == "timeout"
+    assert "excel" not in serialized
+    assert "TOPSECRET" not in serialized
+
+
+@pytest.mark.skipif(os.name != "nt", reason="taskkill escalation is Windows-only")
+@pytest.mark.parametrize(
+    ("failure_kind", "expected_category"),
+    [("timeout", "taskkill-timeout"), ("error", "taskkill-error")],
+)
+def test_taskkill_failure_returns_schema_valid_bounded_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_kind: str,
+    expected_category: str,
+) -> None:
+    artifact = tmp_path / "taskkill-timeout.docx"
+    _write_docx(artifact, "Taskkill timeout")
+
+    class UnresponsiveProcess:
+        pid = 4242
+        returncode = None
+
+        def communicate(self, timeout: float) -> tuple[bytes, bytes]:
+            raise subprocess.TimeoutExpired(
+                cmd="powershell.exe",
+                timeout=timeout,
+                output=b"bounded-child-output",
+                stderr=b"bounded-child-error",
+            )
+
+    trusted = {"available": True, "application": "word", "version": "16.0"}
+
+    def taskkill_failure(*args: Any, **kwargs: Any) -> Any:
+        if failure_kind == "timeout":
+            raise subprocess.TimeoutExpired(cmd="taskkill.exe", timeout=10)
+        raise OSError("bounded-taskkill-error")
+
+    monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: UnresponsiveProcess())
+    monkeypatch.setattr(office_module.subprocess, "run", taskkill_failure)
+    monkeypatch.setattr(office_module, "detect_office", lambda _application: trusted)
+    monkeypatch.setattr(office_module, "_open_descendant_handles", lambda _pid: [])
+
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=artifact,
+        expectations={"text": ["Taskkill timeout"]},
+        office_policy="auto",
+        office_detector=lambda _application: trusted,
+        office_runner=office_module.open_with_office,
+        timeout_seconds=0.01,
+    )
+
+    validate_consumer_report(report)
+    evidence = report["office"]["evidence"]
+    assert report["status"] == "fail"
+    assert evidence["category"] == "timeout"
+    assert evidence["cleanup_category"] == expected_category
+    assert evidence["descendants_cleaned"] is False
+    assert evidence["post_termination_drain"] == "timeout"
 
 
 def test_ordinary_office_result_keeps_truthful_completed_evidence(tmp_path: Path) -> None:
@@ -485,6 +709,26 @@ def test_nullable_digest_is_only_valid_for_pdf_artifact_byte_limit_failure() -> 
     string_with_null_status = deepcopy(intended)
     string_with_null_status["artifact"]["sha256"] = "a" * 64
     invalid_reports.append(string_with_null_status)
+
+    at_limit = deepcopy(intended)
+    at_limit["artifact"]["bytes"] = 64
+    at_limit["portable"]["assertions"][0]["evidence"]["actual"] = 64
+    invalid_reports.append(at_limit)
+
+    below_limit = deepcopy(intended)
+    below_limit["artifact"]["bytes"] = 63
+    below_limit["portable"]["assertions"][0]["evidence"]["actual"] = 63
+    invalid_reports.append(below_limit)
+
+    contradictory_bytes = deepcopy(intended)
+    contradictory_bytes["artifact"]["bytes"] = 66
+    invalid_reports.append(contradictory_bytes)
+
+    duplicate_resource_assertion = deepcopy(intended)
+    duplicate_resource_assertion["portable"]["assertions"].append(
+        deepcopy(duplicate_resource_assertion["portable"]["assertions"][0])
+    )
+    invalid_reports.append(duplicate_resource_assertion)
 
     for report in invalid_reports:
         with pytest.raises(ValidationError):

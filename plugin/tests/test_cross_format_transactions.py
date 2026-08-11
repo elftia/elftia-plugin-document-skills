@@ -1090,7 +1090,20 @@ def test_destination_parent_swap_during_committed_residue_observation_is_safe(
         reported = {
             Path(path) for path in failure.details["transaction_residue_paths"]
         }
-        assert reported == set(_transaction_residue(displaced))
+        displaced_output = displaced / "output.bin"
+        expected = set(_transaction_residue(displaced)) | {displaced_output}
+        assert reported == expected
+        _assert_exact_inventory(
+            failure.details["transaction_residues"],
+            sorted(expected),
+        )
+        installed_entry = next(
+            item
+            for item in failure.details["transaction_residues"]
+            if item["role"] == "displaced_installed_output"
+        )
+        assert Path(installed_entry["path"]) == displaced_output
+        assert installed_entry["identity_matches_expected"] is True
         assert {path.read_bytes() for path in reported} == {b"initial", b"validated"}
 
 

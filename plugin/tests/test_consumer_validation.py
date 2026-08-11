@@ -523,6 +523,7 @@ def test_office_timeout_preserves_artifact_and_reports_cleanup(tmp_path: Path) -
     assert _sha256(artifact) == before
 
 
+@pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")
 def test_office_second_timeout_returns_identified_schema_valid_failure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -561,7 +562,14 @@ def test_office_second_timeout_returns_identified_schema_valid_failure(
             "version": "16.0",
         },
     )
-    monkeypatch.setattr(office_module, "_terminate_tree", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda _pid: {
+            "descendants_cleaned": False,
+            "cleanup_category": "taskkill-incomplete",
+        },
+    )
 
     report = qualify_artifact(
         format_id="docx",
@@ -586,6 +594,7 @@ def test_office_second_timeout_returns_identified_schema_valid_failure(
     assert evidence["version"] == "16.0"
     assert evidence["category"] == "timeout"
     assert evidence["descendants_cleaned"] is False
+    assert evidence["cleanup_category"] == "taskkill-incomplete"
     assert evidence["post_termination_drain"] == "timeout"
     assert evidence["stdout_bytes"] == len(timeout_output)
     assert evidence["stdout_truncated"] is False
