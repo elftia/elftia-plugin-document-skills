@@ -120,18 +120,25 @@ def open_with_office(application: str, artifact: Path, timeout_seconds: float) -
     )
     try:
         stdout, stderr = process.communicate(timeout=max(float(timeout_seconds), 0.1))
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as primary_timeout:
         cleaned = _terminate_tree(process.pid)
-        stdout, stderr = process.communicate(timeout=5)
-        payload = _parse_probe_output(stdout)
+        drain_status = "complete"
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired as drain_timeout:
+            drain_status = "timeout"
+            stdout = _timeout_stream(drain_timeout.output, primary_timeout.output)
+            stderr = _timeout_stream(drain_timeout.stderr, primary_timeout.stderr)
+        payload = _safe_timeout_payload(stdout)
         return {
             **identity,
             **payload,
             "outcome": "fail",
             "category": "timeout",
             "descendants_cleaned": cleaned,
-            "stdout_bytes": len(stdout[:4096]),
-            "stderr_bytes": len(stderr[:4096]),
+            "post_termination_drain": drain_status,
+            **_stream_metadata("stdout", stdout),
+            **_stream_metadata("stderr", stderr),
         }
     try:
         payload = _parse_probe_output(stdout, require_result=True)
@@ -207,6 +214,33 @@ def _parse_probe_output(payload: bytes, *, require_result: bool = False) -> dict
     if require_result and not result_seen:
         raise ValueError("probe-result-missing")
     return merged
+
+
+def _safe_timeout_payload(payload: bytes) -> dict[str, Any]:
+    try:
+        return _parse_probe_output(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return {"probe_output_category": "invalid-probe-output"}
+
+
+def _timeout_stream(preferred: Any, fallback: Any) -> bytes:
+    value = preferred if preferred is not None else fallback
+    if value is None:
+        return b""
+    if isinstance(value, bytes):
+        return value
+    if isinstance(value, str):
+        return value.encode("utf-8", errors="replace")
+    return b""
+
+
+def _stream_metadata(prefix: str, payload: bytes) -> dict[str, Any]:
+    bounded = payload[:4096]
+    return {
+        f"{prefix}_bytes": len(bounded),
+        f"{prefix}_sha256": _payload_hash(bounded),
+        f"{prefix}_truncated": len(payload) > len(bounded),
+    }
 
 
 def _terminate_tree(pid: int) -> bool:

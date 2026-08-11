@@ -164,6 +164,49 @@ def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> N
         assert not out.exists()
 
 
+def test_public_create_null_image_fails_before_candidate_and_preserves_destination(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "existing-null-image.pdf"
+    output.write_bytes(b"existing-destination")
+    document = _document()
+    pages = document["pages"]
+    assert isinstance(pages, list)
+    second_page = pages[1]
+    assert isinstance(second_page, dict)
+    blocks = second_page["blocks"]
+    assert isinstance(blocks, list)
+    image_block = next(block for block in blocks if block["type"] == "image")
+    image_block["image"] = None
+    request = _request(
+        tmp_path,
+        "create-null-image.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.create",
+            "output": str(output),
+            "arguments": {"document": document},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["code"] == "DS_ENHANCEMENT_REQUIRED"
+    assert result["errors"][0]["details"]["capability"] == "pdf.real-image"
+    assert result["validation"]["status"] == "fail"
+    assert not any(item["role"] == "output" for item in result["artifacts"])
+    assert output.read_bytes() == b"existing-destination"
+
+
 # ---------------------------------------------------------------------------
 # Inspect
 # ---------------------------------------------------------------------------

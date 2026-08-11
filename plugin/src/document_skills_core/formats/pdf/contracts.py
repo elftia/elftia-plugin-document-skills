@@ -289,18 +289,42 @@ def _parse_block_table(table: Any, field_prefix: str) -> dict[str, Any] | None:
 
 def _parse_block_image(image: Any, field_prefix: str) -> dict[str, Any] | None:
     if image is None:
-        return None
+        _enhancement(
+            "Core PDF cannot embed requested image bytes and would emit a placeholder.",
+            field=f"{field_prefix}.image",
+            capability="pdf.real-image",
+        )
     if type(image) is not dict:
         _invalid("image must be an object.", field=f"{field_prefix}.image")
+    if not image:
+        _invalid(
+            "image must be a non-empty bounded request.",
+            field=f"{field_prefix}.image",
+        )
     _exact_keys(image, {"filename", "content_type"})
+    if set(image) != {"filename", "content_type"}:
+        _invalid(
+            "image must include filename and content_type.",
+            field=f"{field_prefix}.image",
+        )
+    filename = _text(
+        image.get("filename"),
+        f"{field_prefix}.image.filename",
+        allow_empty=False,
+    )
+    content_type = _text(
+        image.get("content_type"),
+        f"{field_prefix}.image.content_type",
+        allow_empty=False,
+    )
     _enhancement(
         "Core PDF cannot embed requested image bytes and would emit a placeholder.",
         field=f"{field_prefix}.image",
         capability="pdf.real-image",
     )
     return {
-        "filename": _text(image.get("filename", "image.png"), f"{field_prefix}.image.filename"),
-        "content_type": _text(image.get("content_type", "image/png"), f"{field_prefix}.image.content_type"),
+        "filename": filename,
+        "content_type": content_type,
     }
 
 

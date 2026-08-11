@@ -8,6 +8,7 @@ from typing import Any
 
 
 _MAX_PAGES = 32
+_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 _MAX_RENDER_SAMPLES = 64 * 1024 * 1024
 
 
@@ -17,11 +18,47 @@ def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
     try:
         import fitz
 
+        artifact_bytes = _artifact_size(artifact)
+        if artifact_bytes > _MAX_ARTIFACT_BYTES:
+            _record(
+                assertions,
+                "pdf.resource-bounds",
+                False,
+                {
+                    "actual": artifact_bytes,
+                    "category": "artifact-byte-limit",
+                    "maximum": _MAX_ARTIFACT_BYTES,
+                },
+            )
+            return _gate(assertions, evidence)
         document = fitz.open(artifact)
         try:
             if document.page_count <= 0:
                 raise ValueError("pdf-has-no-pages")
-            has_eof = artifact.read_bytes()[-1024:].rstrip().endswith(b"%%EOF")
+            if document.page_count > _MAX_PAGES:
+                _record(
+                    assertions,
+                    "pdf.resource-bounds",
+                    False,
+                    {
+                        "actual": document.page_count,
+                        "category": "artifact-page-limit",
+                        "maximum": _MAX_PAGES,
+                    },
+                )
+                return _gate(assertions, evidence)
+            _record(
+                assertions,
+                "pdf.resource-bounds",
+                True,
+                {
+                    "artifact_bytes": artifact_bytes,
+                    "maximum_artifact_bytes": _MAX_ARTIFACT_BYTES,
+                    "maximum_pages": _MAX_PAGES,
+                    "pages": document.page_count,
+                },
+            )
+            has_eof = _has_eof_marker(artifact, artifact_bytes)
             repaired = bool(getattr(document, "is_repaired", False))
             _record(
                 assertions,
@@ -72,6 +109,13 @@ def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
             False,
             {"category": type(error).__name__, "message": str(error)[:256]},
         )
+    return _gate(assertions, evidence)
+
+
+def _gate(
+    assertions: list[dict[str, Any]],
+    evidence: dict[str, Any],
+) -> dict[str, Any]:
     failed = any(item["outcome"] == "fail" for item in assertions)
     return {
         "consumer": "PyMuPDF-independent/2",
@@ -81,6 +125,30 @@ def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
         "warnings": [],
         "evidence": evidence,
     }
+
+
+def _artifact_size(path: Path) -> int:
+    if not path.is_file():
+        raise ValueError("artifact-missing")
+    size = path.stat().st_size
+    if size <= 0:
+        raise ValueError("artifact-empty")
+    return size
+
+
+def _has_eof_marker(path: Path, size: int) -> bool:
+    with path.open("rb") as handle:
+        handle.seek(max(0, size - 1024))
+        tail = handle.read(1024)
+    return tail.rstrip().endswith(b"%%EOF")
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _validate_render_delta(
@@ -123,8 +191,35 @@ def _validate_render_delta(
             raise ValueError("render-reference-missing-or-empty")
         if reference.samefile(artifact):
             raise ValueError("render-reference-is-candidate")
+        reference_bytes = _artifact_size(reference)
+        if reference_bytes > _MAX_ARTIFACT_BYTES:
+            _record(
+                assertions,
+                "pdf.render-delta",
+                False,
+                {
+                    "actual": reference_bytes,
+                    "category": "reference-artifact-byte-limit",
+                    "maximum": _MAX_ARTIFACT_BYTES,
+                },
+            )
+            return
         reference_document = fitz.open(reference)
         try:
+            if reference_document.page_count <= 0:
+                raise ValueError("reference-pdf-has-no-pages")
+            if reference_document.page_count > _MAX_PAGES:
+                _record(
+                    assertions,
+                    "pdf.render-delta",
+                    False,
+                    {
+                        "actual": reference_document.page_count,
+                        "category": "reference-artifact-page-limit",
+                        "maximum": _MAX_PAGES,
+                    },
+                )
+                return
             comparison = _compare_rendered_pages(document, reference_document, fitz)
         finally:
             reference_document.close()
@@ -147,7 +242,7 @@ def _validate_render_delta(
                 "mode": mode,
                 "reference_kind": reference_kind,
                 "reference_path": str(reference),
-                "reference_sha256": hashlib.sha256(reference.read_bytes()).hexdigest(),
+                "reference_sha256": _sha256_file(reference),
                 "threshold": threshold,
             },
         )

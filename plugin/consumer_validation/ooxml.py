@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path, PurePosixPath
 import posixpath
 from typing import Any
@@ -10,6 +11,8 @@ from urllib.parse import unquote, urlsplit
 import zipfile
 
 from defusedxml.ElementTree import fromstring
+
+from .docx import append_docx_assertions
 
 
 _MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
@@ -76,6 +79,7 @@ class Relationship:
 class PackageSnapshot:
     names: frozenset[str]
     xml: dict[str, Any]
+    part_sha256: dict[str, str]
     total_bytes: int
 
 
@@ -105,7 +109,14 @@ def qualify_ooxml(
         _validate_relationship_references(snapshot, graph, assertions)
         _validate_critical_relationships(snapshot, graph, format_id, assertions)
         if format_id == "docx":
-            _docx_assertions(snapshot, expectations, assertions)
+            append_docx_assertions(
+                snapshot.xml["word/document.xml"],
+                snapshot.xml["word/styles.xml"],
+                graph.get("word/document.xml", {}),
+                snapshot.part_sha256,
+                expectations,
+                assertions,
+            )
         elif format_id == "xlsx":
             _xlsx_assertions(snapshot, graph, expectations, assertions)
         else:
@@ -127,6 +138,7 @@ def _read_package(path: Path) -> PackageSnapshot:
     if path.stat().st_size > _MAX_ARCHIVE_BYTES:
         raise ValueError("artifact-size-limit")
     xml: dict[str, Any] = {}
+    part_sha256: dict[str, str] = {}
     with zipfile.ZipFile(path) as archive:
         infos = archive.infolist()
         if not infos or len(infos) > _MAX_ENTRIES:
@@ -144,9 +156,11 @@ def _read_package(path: Path) -> PackageSnapshot:
             if total > _MAX_ARCHIVE_BYTES:
                 raise ValueError("archive-uncompressed-size-limit")
             names.add(name)
+            payload = archive.read(info)
+            part_sha256[name] = hashlib.sha256(payload).hexdigest()
             if name.endswith((".xml", ".rels")):
-                xml[name] = fromstring(archive.read(info))
-    return PackageSnapshot(frozenset(names), xml, total)
+                xml[name] = fromstring(payload)
+    return PackageSnapshot(frozenset(names), xml, part_sha256, total)
 
 
 def _validate_relationship_graph(
@@ -464,26 +478,6 @@ def _validate_content_types(
         "ooxml.content-types",
         not missing and not active,
         {"missing_overrides": missing, "active_or_external": active},
-    )
-
-
-def _docx_assertions(
-    snapshot: PackageSnapshot,
-    expectations: dict[str, Any],
-    assertions: list[dict[str, Any]],
-) -> None:
-    document = snapshot.xml["word/document.xml"]
-    text = "".join(node.text or "" for node in document.findall(".//w:t", _NS))
-    requested = [str(value) for value in expectations.get("text", [])]
-    missing = [value for value in requested if value not in text]
-    _record(assertions, "docx.requested-text", not missing, {"missing": missing})
-    expected_tables = int(expectations.get("tables", 0))
-    actual_tables = len(document.findall(".//w:tbl", _NS))
-    _record(
-        assertions,
-        "docx.tables",
-        actual_tables >= expected_tables,
-        {"expected_minimum": expected_tables, "actual": actual_tables},
     )
 
 

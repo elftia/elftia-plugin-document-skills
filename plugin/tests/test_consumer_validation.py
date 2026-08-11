@@ -20,6 +20,7 @@ from consumer_validation.contracts import validate_consumer_report
 from consumer_validation.harness import qualify_artifact
 from consumer_validation.office import _parse_probe_output, detect_office, open_with_office
 import consumer_validation.office as office_module
+import consumer_validation.pdf as pdf_module
 
 
 _PNG = base64.b64decode(
@@ -267,6 +268,121 @@ def test_pdf_visible_mutation_fails_source_render_delta_with_same_page_count(
     assert assertion["evidence"]["changed_samples"] > 0
 
 
+def test_pdf_no_render_page_limit_fails_closed_with_bounded_evidence(
+    tmp_path: Path,
+) -> None:
+    import fitz
+
+    artifact = tmp_path / "thirty-three-pages.pdf"
+    document = fitz.open()
+    for _index in range(33):
+        document.new_page()
+    document.save(artifact)
+    document.close()
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        expectations={},
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _assertions(report)["pdf.resource-bounds"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"] == {
+        "actual": 33,
+        "category": "artifact-page-limit",
+        "maximum": 32,
+    }
+
+
+def test_pdf_oversized_artifact_fails_before_full_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "oversized-relative-to-policy.pdf"
+    _write_pdf(artifact, "Bounded artifact")
+    policy_limit = artifact.stat().st_size - 1
+    monkeypatch.setattr(
+        pdf_module,
+        "_MAX_ARTIFACT_BYTES",
+        policy_limit,
+        raising=False,
+    )
+    original_read_bytes = Path.read_bytes
+
+    def reject_candidate_full_read(path: Path) -> bytes:
+        if path == artifact:
+            raise AssertionError("oversized candidate must not be read in full")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", reject_candidate_full_read)
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        expectations={},
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _assertions(report)["pdf.resource-bounds"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"] == {
+        "actual": artifact.stat().st_size,
+        "category": "artifact-byte-limit",
+        "maximum": policy_limit,
+    }
+
+
+def test_pdf_oversized_render_reference_fails_before_reference_read(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "candidate.pdf"
+    reference = tmp_path / "oversized-reference.pdf"
+    _write_pdf(artifact, "Stable render")
+    _write_pdf(reference, "Stable render")
+    reference.write_bytes(reference.read_bytes() + b" " * 128)
+    policy_limit = max(artifact.stat().st_size, reference.stat().st_size - 1)
+    monkeypatch.setattr(
+        pdf_module,
+        "_MAX_ARTIFACT_BYTES",
+        policy_limit,
+        raising=False,
+    )
+
+    report = qualify_artifact(
+        format_id="pdf",
+        operation="pdf.create",
+        artifact=artifact,
+        expectations={
+            "text": ["Stable render"],
+            "render": {
+                "reference": str(reference),
+                "reference_kind": "expected",
+                "mode": "match",
+            },
+        },
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _assertions(report)["pdf.render-delta"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"] == {
+        "actual": reference.stat().st_size,
+        "category": "reference-artifact-byte-limit",
+        "maximum": policy_limit,
+    }
+
+
 def test_absent_office_is_unavailable_not_pass(tmp_path: Path) -> None:
     artifact, expectations = _known_good(tmp_path, "docx")
     report = qualify_artifact(
@@ -348,6 +464,75 @@ def test_office_timeout_preserves_artifact_and_reports_cleanup(tmp_path: Path) -
     assert _sha256(artifact) == before
 
 
+def test_office_second_timeout_returns_identified_schema_valid_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact, expectations = _known_good(tmp_path, "docx")
+    identity = b'{"event":"identity","application":"word","version":"16.0"}\n'
+
+    class UnresponsiveProcess:
+        pid = 4242
+        returncode = None
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def communicate(self, timeout: float) -> tuple[bytes, bytes]:
+            self.calls += 1
+            raise subprocess.TimeoutExpired(
+                cmd="powershell.exe",
+                timeout=timeout,
+                output=identity,
+                stderr=b"x" * 5000,
+            )
+
+    process = UnresponsiveProcess()
+    monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(
+        office_module,
+        "detect_office",
+        lambda _application: {
+            "available": True,
+            "application": "word",
+            "version": "16.0",
+        },
+    )
+    monkeypatch.setattr(office_module, "_terminate_tree", lambda _pid: False)
+
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=artifact,
+        expectations=expectations,
+        office_policy="auto",
+        office_detector=lambda _application: {
+            "available": True,
+            "application": "word",
+            "version": "16.0",
+        },
+        office_runner=office_module.open_with_office,
+        timeout_seconds=0.01,
+    )
+
+    validate_consumer_report(report)
+    evidence = report["office"]["evidence"]
+    assert report["status"] == "fail"
+    assert report["office"]["outcome"] == "fail"
+    assert evidence["application"] == "word"
+    assert evidence["version"] == "16.0"
+    assert evidence["category"] == "timeout"
+    assert evidence["descendants_cleaned"] is False
+    assert evidence["post_termination_drain"] == "timeout"
+    assert evidence["stdout_bytes"] == len(identity)
+    assert evidence["stdout_truncated"] is False
+    assert evidence["stderr_bytes"] == 4096
+    assert evidence["stderr_truncated"] is True
+    assert "stdout" not in evidence
+    assert "stderr" not in evidence
+    assert process.calls == 2
+
+
 def test_nonzero_office_child_json_retains_identity() -> None:
     payload = (
         b'{"event":"identity","application":"word","version":"16.0"}\r\n'
@@ -375,6 +560,101 @@ def test_consumer_module_does_not_import_core_format_or_validation_modules(
     sources = [path.read_text(encoding="utf-8") for path in root.glob("*.py")]
     assert sources
     assert not any(token in source for source in sources for token in forbidden)
+
+
+def test_docx_unknown_expectation_key_fails_closed(tmp_path: Path) -> None:
+    artifact, expectations = _known_good(tmp_path, "docx")
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=artifact,
+        expectations={**expectations, "unknown_semantic": True},
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertion = _assertions(report)["docx.expectations-schema"]
+    assert report["status"] == "fail"
+    assert assertion["outcome"] == "fail"
+    assert assertion["evidence"] == {
+        "category": "unknown-expectation-keys",
+        "unknown": ["unknown_semantic"],
+    }
+
+
+def test_docx_missing_requested_image_fails_with_other_semantics_intact(
+    tmp_path: Path,
+) -> None:
+    artifact, expectations = _known_good(tmp_path, "docx")
+
+    def remove_image(root: ElementTree.Element) -> None:
+        body = root.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}body")
+        assert body is not None
+        for paragraph in list(body):
+            if paragraph.find(
+                ".//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}drawing"
+            ) is not None:
+                body.remove(paragraph)
+
+    mutated = _mutate_xml_part(
+        tmp_path,
+        artifact,
+        "word/document.xml",
+        remove_image,
+        "without-image",
+    )
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=mutated,
+        expectations=expectations,
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertions = _assertions(report)
+    assert report["status"] == "fail"
+    assert assertions["ooxml.relationship-graph"]["outcome"] == "pass"
+    assert assertions["docx.requested-text"]["outcome"] == "pass"
+    assert assertions["docx.tables"]["outcome"] == "pass"
+    assert assertions["docx.paragraph-styles"]["outcome"] == "pass"
+    assert assertions["docx.images"]["outcome"] == "fail"
+
+
+def test_docx_replaced_requested_registered_style_fails_with_content_intact(
+    tmp_path: Path,
+) -> None:
+    artifact, expectations = _known_good(tmp_path, "docx")
+    word_namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+    def replace_heading_style(root: ElementTree.Element) -> None:
+        style = root.find(f".//{{{word_namespace}}}pStyle")
+        assert style is not None
+        style.set(f"{{{word_namespace}}}val", "Heading2")
+
+    mutated = _mutate_xml_part(
+        tmp_path,
+        artifact,
+        "word/document.xml",
+        replace_heading_style,
+        "wrong-style",
+    )
+    report = qualify_artifact(
+        format_id="docx",
+        operation="docx.create",
+        artifact=mutated,
+        expectations=expectations,
+        office_policy="off",
+    )
+
+    validate_consumer_report(report)
+    assertions = _assertions(report)
+    assert report["status"] == "fail"
+    assert assertions["ooxml.relationship-graph"]["outcome"] == "pass"
+    assert assertions["docx.requested-text"]["outcome"] == "pass"
+    assert assertions["docx.tables"]["outcome"] == "pass"
+    assert assertions["docx.images"]["outcome"] == "pass"
+    assert assertions["docx.paragraph-styles"]["outcome"] == "fail"
 
 
 def test_consumer_cli_emits_schema_valid_machine_report(
@@ -572,8 +852,24 @@ def _known_good(tmp_path: Path, format_id: str) -> tuple[Path, dict[str, Any]]:
         table = document.add_table(rows=1, cols=2)
         table.cell(0, 0).text = "A"
         table.cell(0, 1).text = "B"
+        image_path = tmp_path / "independent.png"
+        image_path.write_bytes(_PNG)
+        inline_shape = document.add_picture(str(image_path))
+        inline_shape._inline.docPr.set("descr", "Independent pixel")
         document.save(artifact)
-        return artifact, {"text": ["Independent DOCX"], "tables": 1}
+        return artifact, {
+            "text": ["Independent DOCX"],
+            "tables": 1,
+            "images": [
+                {
+                    "alt_text": "Independent pixel",
+                    "sha256": hashlib.sha256(_PNG).hexdigest(),
+                }
+            ],
+            "paragraph_styles": [
+                {"text": "Independent DOCX", "style": "Heading1"}
+            ],
+        }
     if format_id == "xlsx":
         from openpyxl import Workbook
 
@@ -645,6 +941,33 @@ def _mutate_relationships(
                 root = ElementTree.fromstring(payload)
                 mutation(root)
                 payload = ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+            target.writestr(info, payload)
+    return mutated
+
+
+def _mutate_xml_part(
+    tmp_path: Path,
+    artifact: Path,
+    part: str,
+    mutation: Any,
+    suffix: str,
+) -> Path:
+    mutated = tmp_path / f"{artifact.stem}-{suffix}{artifact.suffix}"
+    with zipfile.ZipFile(artifact) as source, zipfile.ZipFile(
+        mutated,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as target:
+        for info in source.infolist():
+            payload = source.read(info.filename)
+            if info.filename == part:
+                root = ElementTree.fromstring(payload)
+                mutation(root)
+                payload = ElementTree.tostring(
+                    root,
+                    encoding="utf-8",
+                    xml_declaration=True,
+                )
             target.writestr(info, payload)
     return mutated
 
