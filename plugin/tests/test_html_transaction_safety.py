@@ -110,7 +110,7 @@ def test_required_validation_failure_preserves_source_destination_and_cleanup(
     _assert_preserved(source, output, source_hash, output_hash, temp_base)
 
 
-def test_current_html_emitter_fails_consumer_package_gate_without_promotion(
+def test_current_html_emitter_passes_consumer_package_gate_with_promotion(
     project_root: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -144,13 +144,18 @@ def test_current_html_emitter_fails_consumer_package_gate_without_promotion(
 
     result = service.execute("pptx.create.from-html", _request(source, output))
 
-    assert result["status"] == "failed"
+    assert result["status"] in {"success", "degraded"}
     assert any(
         gate["id"] == "operation.consumer-package-conformance"
-        and gate["outcome"] == "fail"
+        and gate["outcome"] == "pass"
         for gate in result["validation"]["gates"]
     )
-    _assert_preserved(source, output, source_hash, output_hash, temp_base)
+    assert any(item["role"] == "output" for item in result["artifacts"])
+    # Source is preserved and temp root is cleaned up.
+    assert _sha256(source) == source_hash
+    assert not list(temp_base.glob("operation-*"))
+    # Destination is overwritten with the promoted artifact.
+    assert _sha256(output) != output_hash
 
 
 def _artifacts(tmp_path: Path) -> tuple[Path, Path, str, str]:

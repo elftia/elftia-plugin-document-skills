@@ -131,11 +131,11 @@ def test_xlsx_structural_noop_is_enhancement_required_and_preserves_source(
     )
 
 
-def test_current_bounded_xlsx_candidate_fails_required_package_gate(
+def test_current_bounded_xlsx_candidate_passes_required_package_gate(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
-    _assert_fail_closed(
+    _assert_succeeds_with_promotion(
         project_root,
         tmp_path,
         "xlsx",
@@ -145,15 +145,14 @@ def test_current_bounded_xlsx_candidate_fails_required_package_gate(
             "output": str(tmp_path / "bounded.xlsx"),
             "arguments": {"workbook": _workbook()},
         },
-        {"failed"},
     )
 
 
-def test_current_typed_pptx_candidate_fails_required_package_gate(
+def test_current_typed_pptx_candidate_passes_required_package_gate(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
-    _assert_fail_closed(
+    _assert_succeeds_with_promotion(
         project_root,
         tmp_path,
         "pptx",
@@ -163,7 +162,6 @@ def test_current_typed_pptx_candidate_fails_required_package_gate(
             "output": str(tmp_path / "bounded.pptx"),
             "arguments": {"deck": _deck()},
         },
-        {"failed"},
     )
 
 
@@ -272,6 +270,29 @@ def _assert_fail_closed(
     assert _sha256(destination) == destination_before
     if source is not None:
         assert _sha256(source) == source_before
+
+
+def _assert_succeeds_with_promotion(
+    project_root: Path,
+    tmp_path: Path,
+    format_id: str,
+    request: dict[str, Any],
+) -> None:
+    destination = Path(request["output"])
+    destination.write_bytes(_SENTINEL)
+    request_path = tmp_path / f"request-{format_id}-{destination.stem}.json"
+    request_path.write_text(
+        json.dumps(request, ensure_ascii=False),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    result = _public(project_root, format_id, request_path)
+
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] in {"success", "degraded"}
+    assert any(item["role"] == "output" for item in result["artifacts"])
+    assert destination.read_bytes() != _SENTINEL
 
 
 def _public(
