@@ -7,7 +7,7 @@ from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from .constants import NS
-from .create import (
+from .scaffold import (
     _build_app_props,
     _build_core_props,
     _build_root_rels,
@@ -52,9 +52,9 @@ def emit_scene_pptx(
         "ppt/presentation.xml": _presentation(len(scene.slides)),
         "ppt/_rels/presentation.xml.rels": _presentation_rels(len(scene.slides)),
         "ppt/theme/theme1.xml": _build_theme(),
-        "ppt/slideMasters/slideMaster1.xml": _build_slide_master(1),
+        "ppt/slideMasters/slideMaster1.xml": _build_slide_master(1, SLIDE_CX, SLIDE_CY),
         "ppt/slideMasters/_rels/slideMaster1.xml.rels": _build_slide_master_rels(1),
-        "ppt/slideLayouts/slideLayout1.xml": _build_slide_layout(1),
+        "ppt/slideLayouts/slideLayout1.xml": _build_slide_layout(1, SLIDE_CX, SLIDE_CY),
         "ppt/slideLayouts/_rels/slideLayout1.xml.rels": _build_slide_layout_rels(1),
         "docProps/core.xml": _build_core_props(metadata),
         "docProps/app.xml": _build_app_props([{} for _ in scene.slides]),
@@ -130,7 +130,7 @@ def _slide(
                 "cy": _emu(item["height"]),
             },
         })
-    SubElement(root, f"{{{_P}}}clrMapOvr")
+    SubElement(SubElement(root, f"{{{_P}}}clrMapOvr"), f"{{{_A}}}masterClrMapping")
     return _xml(root), manifest, relationships
 
 

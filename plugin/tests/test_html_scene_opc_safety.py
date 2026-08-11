@@ -142,12 +142,9 @@ def _candidate(tmp_path: Path) -> tuple[Path, NormalizedScene, dict[str, object]
     )
     candidate = tmp_path / "candidate.pptx"
     manifest = emit_scene_pptx(candidate, scene, {})
-    with pytest.raises(DocumentSkillsError) as captured:
-        validate_scene_created(candidate, scene, manifest)
-    validation = captured.value.validation
-    assert validation is not None
-    assert _outcome(validation, "operation.consumer-package-conformance") == "fail"
-    assert _outcome(validation, "operation.scene-package-correspondence") == "pass"
+    # After scaffold repair, the clean candidate passes both consumer-package
+    # conformance and scene-package correspondence.  The safety tests below
+    # tamper with the candidate and assert the tampered version is rejected.
     return candidate, scene, manifest
 
 

@@ -140,14 +140,14 @@ def test_public_html_conversion_creates_native_editable_shapes(project_root: Pat
         str(request),
         check=False,
     )
-    assert result["status"] == "failed"
-    assert not result["artifacts"]
+    assert result["status"] == "success"
+    assert result["artifacts"]
     assert result["provider_chain"] == ["html-browser"]
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
-    assert gates["operation.consumer-package-conformance"]["outcome"] == "fail"
+    assert gates["operation.consumer-package-conformance"]["outcome"] == "pass"
     assert gates["operation.scene-package-correspondence"]["outcome"] == "pass"
     assert gates["operation.scene-package-correspondence"]["evidence"]["objects"] == 2
-    assert not output.exists()
+    assert output.exists()
     assert source.is_file()
 
 
@@ -193,9 +193,9 @@ def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
             )
         )
 
-    assert all(result["status"] == "failed" for result in results)
-    assert all(not result["artifacts"] for result in results)
-    assert all(not output.exists() for output in outputs)
+    assert all(result["status"] == "success" for result in results)
+    assert all(result["artifacts"] for result in results)
+    assert all(output.exists() for output in outputs)
     identities = [
         next(
             gate["evidence"]["sha256"]
@@ -209,7 +209,7 @@ def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
         next(
             gate for gate in result["validation"]["gates"]
             if gate["id"] == "operation.consumer-package-conformance"
-        )["outcome"] == "fail"
+        )["outcome"] == "pass"
         for result in results
     )
 
@@ -273,10 +273,10 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
         str(request),
         check=False,
     )
-    assert result["status"] == "failed"
-    assert not result["artifacts"]
+    assert result["status"] == "success"
+    assert result["artifacts"]
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
-    assert gates["operation.consumer-package-conformance"]["outcome"] == "fail"
+    assert gates["operation.consumer-package-conformance"]["outcome"] == "pass"
     assert gates["operation.scene-package-correspondence"]["outcome"] == "pass"
     assert gates["operation.scene-package-correspondence"]["evidence"] == {
         "slides": 1,
@@ -286,7 +286,7 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
         "finite_in_bounds_geometry": True,
         "deterministic_ids": True,
     }
-    assert not output.exists()
+    assert output.exists()
 
 
 def _public_run_request(

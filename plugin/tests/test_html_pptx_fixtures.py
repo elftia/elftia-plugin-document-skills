@@ -12,7 +12,6 @@ import zipfile
 from defusedxml.ElementTree import fromstring
 import pytest
 
-from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 from document_skills_core.formats.pptx.html_capture import HtmlDeckCapture
 from document_skills_core.formats.pptx.constants import NS
@@ -89,13 +88,8 @@ def test_native_scene_fixture_emits_exact_deterministic_reopenable_pptx(
         "slide-2-shape",
         "slide-2-title",
     ]
-    with pytest.raises(DocumentSkillsError) as captured:
-        validate_scene_created(expected, scene, manifest)
-    assert any(
-        gate["id"] == "operation.consumer-package-conformance"
-        and gate["outcome"] == "fail"
-        for gate in captured.value.validation["gates"]
-    )
+    report = validate_scene_created(expected, scene, manifest)
+    assert report["status"] == "pass"
     title = scene.slides[0][2]
     image = scene.slides[0][3]
     assert image["outcome"] == "native"

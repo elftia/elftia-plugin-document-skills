@@ -11,6 +11,7 @@ NS = {
     "vt": "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes",
     "xsi": "http://www.w3.org/2001/XMLSchema-instance",
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "c": "http://schemas.openxmlformats.org/drawingml/2006/chart",
     "p": "http://schemas.openxmlformats.org/presentationml/2006/main",
     "r14": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",

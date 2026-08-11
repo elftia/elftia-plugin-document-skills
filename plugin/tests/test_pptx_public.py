@@ -240,9 +240,9 @@ def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> N
         results.append(
             _public(project_root, "run", "--request", str(req), check=False)
         )
-    assert all(result["status"] == "failed" for result in results)
-    assert all(not result["artifacts"] for result in results)
-    assert not output1.exists() and not output2.exists()
+    assert all(result["status"] == "success" for result in results)
+    assert all(result["artifacts"] for result in results)
+    assert output1.exists() and output2.exists()
     candidate_hashes = [
         next(
             gate["evidence"]["sha256"]
