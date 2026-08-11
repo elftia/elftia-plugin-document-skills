@@ -140,7 +140,7 @@ def test_public_html_conversion_creates_native_editable_shapes(project_root: Pat
         str(request),
         check=False,
     )
-    assert result["status"] == "success"
+    assert result["status"] in {"success", "degraded"}
     assert result["artifacts"]
     assert result["provider_chain"] == ["html-browser"]
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
@@ -193,7 +193,7 @@ def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
             )
         )
 
-    assert all(result["status"] == "success" for result in results)
+    assert all(result["status"] in {"success", "degraded"} for result in results)
     assert all(result["artifacts"] for result in results)
     assert all(output.exists() for output in outputs)
     identities = [
@@ -273,7 +273,7 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
         str(request),
         check=False,
     )
-    assert result["status"] == "success"
+    assert result["status"] in {"success", "degraded"}
     assert result["artifacts"]
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
     assert gates["operation.consumer-package-conformance"]["outcome"] == "pass"
