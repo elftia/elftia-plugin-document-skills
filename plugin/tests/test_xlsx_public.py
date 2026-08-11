@@ -1,12 +1,33 @@
 """XLSX public command surface tests — frozen uv subprocess boundary."""
 
+import hashlib
+import io
 import json
 from pathlib import Path
 import subprocess
+import zipfile
 
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.formats.xlsx.create import create_xlsx
+
+
+def _strip_style_children(path: Path) -> None:
+    """Replace styles.xml with an empty-container form that fails the style gate."""
+
+    with zipfile.ZipFile(path, "r") as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["xl/styles.xml"] = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b'<fonts count="1"/><fills count="2"/><borders count="1"/>'
+        b'<cellStyleXfs count="1"/><cellXfs count="1"/>'
+        b'<cellStyles count="1"/><dxfs count="0"/></styleSheet>'
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(parts.items()):
+            archive.writestr(name, data)
 
 
 def _public(
@@ -81,10 +102,27 @@ def _workbook() -> dict[str, object]:
 
 @pytest.fixture
 def public_created(project_root: Path, tmp_path: Path) -> Path:
+    from openpyxl import Workbook
+
     output = tmp_path / "public-created.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Sheet1"
+    sheet["A1"] = "Name"
+    sheet["B1"] = 10
+    sheet["B2"] = "=B1*2"
+    workbook.save(output)
+    return output
+
+
+def test_public_create_is_truthful_and_promotes_bounded_artifact(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "bounded.xlsx"
     request = _request(
         tmp_path,
-        "create.json",
+        "create-bounded.json",
         {
             "schema_version": "1.0",
             "operation": "xlsx.create",
@@ -93,9 +131,18 @@ def public_created(project_root: Path, tmp_path: Path) -> Path:
         },
     )
     result = _public(project_root, "run", "--request", str(request))
-    assert result["status"] in {"success", "degraded"}
     SchemaCatalog(project_root).validate("operation-result", result)
-    return output
+    assert result["status"] in {"success", "degraded"}
+    assert output.is_file()
+    assert any(
+        item["path"] == str(output.resolve())
+        for item in result["artifacts"]
+    )
+    assert any(
+        gate["id"] == "operation.consumer-package-conformance"
+        and gate["outcome"] == "pass"
+        for gate in result["validation"]["gates"]
+    )
 
 
 def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
@@ -157,7 +204,7 @@ def test_public_edit_produces_distinct_output(project_root: Path, public_created
             "output": str(output),
             "arguments": {
                 "edits": [
-                    {"sheet": "Sheet1", "type": "cell_value", "ref": "A1", "value": "Modified"},
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "B1", "value": "42"},
                 ],
             },
         },
@@ -167,6 +214,54 @@ def test_public_edit_produces_distinct_output(project_root: Path, public_created
     assert output.is_file()
     assert public_created.is_file()
     assert any(item["path"] == str(output.resolve()) for item in result["artifacts"])
+    assert any(
+        gate["id"] == "operation.consumer-package-conformance"
+        and gate["outcome"] == "pass"
+        for gate in result["validation"]["gates"]
+    )
+
+
+def test_public_edit_rejects_consumer_invalid_package_and_preserves_paths(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "core-invalid.xlsx"
+    create_xlsx(source, _workbook())
+    _strip_style_children(source)
+    source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "existing.xlsx"
+    existing = b"existing-public-destination"
+    output.write_bytes(existing)
+    edit_request = _request(
+        tmp_path,
+        "invalid-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "B1", "value": "42"}
+                ]
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(edit_request), check=False)
+
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] == "failed"
+    assert result["validation"]["status"] == "fail"
+    assert any(
+        gate["id"] == "operation.consumer-package-conformance"
+        and gate["required"] is True
+        and gate["outcome"] == "fail"
+        for gate in result["validation"]["gates"]
+    )
+    assert result["artifacts"] == []
+    assert output.read_bytes() == existing
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha256
 
 
 def test_public_validate_reopens_valid_xlsx(project_root: Path, public_created: Path) -> None:

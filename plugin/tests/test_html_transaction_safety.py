@@ -110,6 +110,54 @@ def test_required_validation_failure_preserves_source_destination_and_cleanup(
     _assert_preserved(source, output, source_hash, output_hash, temp_base)
 
 
+def test_current_html_emitter_passes_consumer_package_gate_with_promotion(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    source, output, source_hash, output_hash = _artifacts(tmp_path)
+    temp_base = tmp_path / "document-skills-operations"
+
+    class _Captured:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def capture(self, *_args, **_kwargs) -> object:
+            return object()
+
+    scene = NormalizedScene(
+        slides=((_item(),),),
+        assets={},
+        diagnostics={"outcomes": {"native": 1}},
+    )
+    monkeypatch.setattr(pptx_service, "HtmlDeckCapture", _Captured)
+    monkeypatch.setattr(pptx_service, "normalize_scene", lambda _capture: scene)
+    monkeypatch.setattr(
+        pptx_service,
+        "OperationTempRoot",
+        lambda base=None: OperationTempRoot(base=temp_base),
+    )
+    service = pptx_service.PptxService(
+        project_root,
+        html_browser_detector=object(),
+    )
+
+    result = service.execute("pptx.create.from-html", _request(source, output))
+
+    assert result["status"] in {"success", "degraded"}
+    assert any(
+        gate["id"] == "operation.consumer-package-conformance"
+        and gate["outcome"] == "pass"
+        for gate in result["validation"]["gates"]
+    )
+    assert any(item["role"] == "output" for item in result["artifacts"])
+    # Source is preserved and temp root is cleaned up.
+    assert _sha256(source) == source_hash
+    assert not list(temp_base.glob("operation-*"))
+    # Destination is overwritten with the promoted artifact.
+    assert _sha256(output) != output_hash
+
+
 def _artifacts(tmp_path: Path) -> tuple[Path, Path, str, str]:
     source = tmp_path / "deck.html"
     source.write_text(

@@ -246,6 +246,47 @@ def test_safe_quoted_unicode_uv_control_stays_authorized():
     assert FrozenUvGrammar().authorize(discovered) is True
 
 
+def test_consumer_gate_provenance_uses_current_direct_evidence(project_root):
+    manifest, _digest = regenerate(project_root)
+    records = {record["module"]: record for record in manifest["modules"]}
+    expected_tests = [
+        "tests/test_consumer_validation.py",
+        "tests/test_consumer_validation_strategy3.py",
+        "tests/test_cross_format_transactions.py",
+    ]
+    for path in (
+        "consumer_validation/office.py",
+        "consumer_validation/pdf_evidence.py",
+        "tests/test_consumer_validation.py",
+        "tests/test_consumer_validation_strategy3.py",
+        "tests/test_cross_format_transactions.py",
+    ):
+        record = records[path]
+        assert record["requirement_source"] == (
+            "Rasen document-skills-consumer-gates-and-truthful-contracts"
+        )
+        assert "Strategy-4" in record["modifications"]
+        assert record["artifact_tests"] == expected_tests
+
+    for path in (
+        "tests/fixtures/recipes/docx_fixtures.py",
+        "tests/test_docx_fixtures.py",
+    ):
+        record = records[path]
+        assert "document-skills-consumer-gates-and-truthful-contracts" in (
+            record["requirement_source"]
+        )
+        assert "nested frozen-uv" in record["modifications"]
+        assert "tests/test_docx_fixtures.py" in record["artifact_tests"]
+
+    generator = records["tools/regenerate_provenance.py"]
+    assert "document-skills-consumer-gates-and-truthful-contracts" in (
+        generator["requirement_source"]
+    )
+    assert "Strategy-4" in generator["modifications"]
+    assert "tests/test_strategy3.py" in generator["artifact_tests"]
+
+
 @pytest.mark.parametrize("relative", PORTABLE_HELPER_CASES)
 def test_portable_path_helper_rejects_all_aliases(relative):
     with pytest.raises(ValueError):

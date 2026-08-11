@@ -306,6 +306,7 @@ def _required_report(
             ErrorCode.VALIDATION_FAILED,
             "Staged DOCX failed required validation gates.",
             details={"failed_gates": failed},
+            validation=report,
         )
     return report
 

@@ -98,14 +98,18 @@ def resolve_internal_target(source_part: str, target: str) -> str:
     normalized = target.replace("\\", "/")
     if (
         not normalized
-        or normalized.startswith(("/", "//"))
+        or normalized.startswith("//")
         or _DRIVE.match(normalized)
         or "?" in normalized
         or "#" in normalized
     ):
         _unsafe("Relationship target is not a contained package path.", target=target)
     base = posixpath.dirname(source_part)
-    resolved = posixpath.normpath(posixpath.join(base, normalized))
+    resolved = posixpath.normpath(
+        normalized.lstrip("/")
+        if normalized.startswith("/")
+        else posixpath.join(base, normalized)
+    )
     try:
         identity = PORTABLE_PATH_POLICY.parse_relative(resolved)
     except (TypeError, UnicodeError, ValueError) as error:

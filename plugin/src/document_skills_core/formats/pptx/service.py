@@ -11,6 +11,7 @@ from document_skills_core.core.io.paths import (
     assert_source_preserved,
     destination_snapshot,
     file_record,
+    merge_source_preservation_failure,
 )
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
@@ -21,7 +22,7 @@ from .edit import edit_pptx
 from .inspect import inspect_pptx
 from .read import read_pptx
 from .html_capture import HtmlDeckCapture
-from .results import mutation_validation, read_validation, success_result
+from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
 from .transaction import promote_candidate, write_candidate_result
@@ -103,12 +104,11 @@ class PptxService:
             creation = create_pptx(staged, deck)
             validation = validate_created(staged, deck)
             operation_result = {"creation": creation}
-            validation_gates = mutation_validation("create-semantics", operation_result)
             result = write_candidate_result(
                 self.schemas,
                 request,
                 staged,
-                validation_gates,
+                validation,
                 operation_result,
                 warnings=[],
                 source=None,
@@ -149,12 +149,11 @@ class PptxService:
                     manifest=manifest,
                     assertion=assertion,
                 )
-                validation_gates = mutation_validation("edit-semantics", operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,
@@ -166,8 +165,11 @@ class PptxService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
-            assert_source_preserved(source_record.path, source_record.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(
+                error, source_record.path, source_record.sha256
+            )
+            raise
 
     def _create_from_html(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -297,8 +299,9 @@ class PptxService:
                     source=source,
                     destination=destination,
                 )
-        finally:
-            assert_source_preserved(source.path, source.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(error, source.path, source.sha256)
+            raise
 
 
 def build_pptx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:

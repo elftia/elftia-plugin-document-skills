@@ -88,7 +88,8 @@ def test_native_scene_fixture_emits_exact_deterministic_reopenable_pptx(
         "slide-2-shape",
         "slide-2-title",
     ]
-    assert validate_scene_created(expected, scene, manifest)["status"] == "pass"
+    report = validate_scene_created(expected, scene, manifest)
+    assert report["status"] == "pass"
     title = scene.slides[0][2]
     image = scene.slides[0][3]
     assert image["outcome"] == "native"

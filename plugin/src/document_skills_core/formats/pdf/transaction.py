@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.core.contracts.models import apply_committed_promotion
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.core.validation.promotion import assert_promotable
 from document_skills_core.core.io.paths import (
     ArtifactRecord,
     DestinationSnapshot,
     assert_source_preserved,
     atomic_promote,
-    file_record,
 )
 
 from .contracts import ParsedPdfRequest
@@ -35,7 +36,7 @@ def write_candidate_result(
     achieved_fidelity: str = "core",
 ) -> dict[str, Any]:
     assert request.output_path is not None
-    staged_record = file_record(staged, "output")
+    staged_record = assert_promotable(status, validation, staged)
     output_record = ArtifactRecord(
         "output",
         str(request.output_path),
@@ -69,10 +70,15 @@ def promote_candidate(
     destination: DestinationSnapshot,
 ) -> dict[str, Any]:
     assert request.output_path is not None
+    identity = assert_promotable(result["status"], result["validation"], staged)
+    if source is not None:
+        assert_source_preserved(source.path, source.sha256)
     promoted = atomic_promote(
         staged,
         request.output_path,
         expected_destination=destination,
+        expected_source_sha256=identity.sha256,
+        expected_source_bytes=identity.bytes,
     )
     expected = result["artifacts"][-1]
     if promoted.sha256 != expected["sha256"] or promoted.bytes != expected["bytes"]:
@@ -80,6 +86,14 @@ def promote_candidate(
             ErrorCode.VALIDATION_FAILED,
             "Promoted PDF differs from the validated candidate.",
         )
+    source_error = None
     if source is not None:
-        assert_source_preserved(source.path, source.sha256)
-    return result
+        try:
+            assert_source_preserved(source.path, source.sha256)
+        except DocumentSkillsError as error:
+            source_error = error
+    return apply_committed_promotion(
+        result,
+        promoted,
+        source_error=source_error,
+    )

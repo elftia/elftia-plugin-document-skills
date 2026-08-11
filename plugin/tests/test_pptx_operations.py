@@ -76,7 +76,7 @@ class TestCreate:
         assert creation["has_table"] is True
         assert creation["has_notes"] is True
 
-    def test_created_deck_validates(self, tmp_path: Path):
+    def test_created_deck_passes_consumer_package_validation(self, tmp_path: Path):
         destination = tmp_path / "test.pptx"
         create_pptx(destination, _deck())
         report = validate_created(destination, _deck())
@@ -274,7 +274,7 @@ class TestReorderValidationGaps:
         notes_part = "ppt/notesSlides/notesSlide2.xml"
         parts = _read_parts(reordered)
         notes_xml = parts[notes_part].decode("utf-8")
-        corrupted = notes_xml.replace("Notes for slide 2", "CORRUPTED_NOTES").encode("utf-8")
+        corrupted = notes_xml.replace("Content notes", "CORRUPTED_NOTES").encode("utf-8")
         corrupted_path = tmp_path / "corrupted.pptx"
         _rewrite_part(reordered, corrupted_path, notes_part, corrupted)
         with pytest.raises(DocumentSkillsError) as exc_info:

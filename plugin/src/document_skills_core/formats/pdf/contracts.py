@@ -172,6 +172,11 @@ def _parse_rewrite(value: dict[str, Any]) -> dict[str, Any]:
         _exact_keys(rewrite, {"block_index", "text"})
         block_index = _integer(rewrite.get("block_index"), 0, len(blocks) - 1)
         rewrite_text = _text(rewrite.get("text", ""), f"rewrites.{index}.text")
+        _require_lossless_text(
+            rewrite_text,
+            f"rewrites.{index}.text",
+            encoding="latin-1",
+        )
         parsed_rewrites.append({"block_index": block_index, "text": rewrite_text})
     expected = value.get("expected_edits")
     if expected is not None:
@@ -190,6 +195,8 @@ def _parse_document(document: dict[str, Any]) -> dict[str, Any]:
         "author": _text(metadata.get("author", "Elftia Document Skills"), "metadata.author"),
         "subject": _text(metadata.get("subject", ""), "metadata.subject"),
     }
+    for field, text in parsed_meta.items():
+        _require_lossless_text(text, f"metadata.{field}", encoding="ascii")
     page_size = document.get("page_size", "A4")
     if type(page_size) is str:
         if page_size not in {"A4", "Letter", "Legal"}:
@@ -222,9 +229,21 @@ def _parse_document(document: dict[str, Any]) -> dict[str, Any]:
             if block_type not in {"heading", "paragraph", "table", "image", "vector_shape"}:
                 _invalid("Unknown block type.", field=f"pages.{idx}.blocks.{b_idx}.type")
             block_text = _optional_text(block.get("text"), f"pages.{idx}.blocks.{b_idx}.text")
+            if block_text is not None:
+                _require_lossless_text(
+                    block_text,
+                    f"pages.{idx}.blocks.{b_idx}.text",
+                    encoding="latin-1",
+                )
             style = block.get("style")
             if style is not None and type(style) is not dict:
                 _invalid("Style must be an object.", field=f"pages.{idx}.blocks.{b_idx}.style")
+            if style is not None:
+                _enhancement(
+                    "PDF block styles and colors are not implemented.",
+                    field=f"pages.{idx}.blocks.{b_idx}.style",
+                    capability="pdf.block-style",
+                )
             table = _parse_block_table(block.get("table"), f"pages.{idx}.blocks.{b_idx}") if block_type == "table" else None
             image = _parse_block_image(block.get("image"), f"pages.{idx}.blocks.{b_idx}") if block_type == "image" else None
             shape = _parse_block_shape(block.get("shape"), f"pages.{idx}.blocks.{b_idx}") if block_type == "vector_shape" else None
@@ -257,19 +276,55 @@ def _parse_block_table(table: Any, field_prefix: str) -> dict[str, Any] | None:
         if type(cells) is not list or len(cells) > MAX_TABLE_COLS:
             _invalid("row.cells must be a bounded array.", field=f"{field_prefix}.table.rows.{r_idx}.cells")
         parsed_cells = [_optional_text(c, f"cells.{c_idx}") if c is not None else None for c_idx, c in enumerate(cells)]
+        for c_idx, cell in enumerate(parsed_cells):
+            if cell is not None:
+                _require_lossless_text(
+                    cell,
+                    f"{field_prefix}.table.rows.{r_idx}.cells.{c_idx}",
+                    encoding="latin-1",
+                )
         parsed_rows.append({"cells": parsed_cells})
     return {"rows": parsed_rows}
 
 
 def _parse_block_image(image: Any, field_prefix: str) -> dict[str, Any] | None:
     if image is None:
-        return None
+        _enhancement(
+            "Core PDF cannot embed requested image bytes and would emit a placeholder.",
+            field=f"{field_prefix}.image",
+            capability="pdf.real-image",
+        )
     if type(image) is not dict:
         _invalid("image must be an object.", field=f"{field_prefix}.image")
+    if not image:
+        _invalid(
+            "image must be a non-empty bounded request.",
+            field=f"{field_prefix}.image",
+        )
     _exact_keys(image, {"filename", "content_type"})
+    if set(image) != {"filename", "content_type"}:
+        _invalid(
+            "image must include filename and content_type.",
+            field=f"{field_prefix}.image",
+        )
+    filename = _text(
+        image.get("filename"),
+        f"{field_prefix}.image.filename",
+        allow_empty=False,
+    )
+    content_type = _text(
+        image.get("content_type"),
+        f"{field_prefix}.image.content_type",
+        allow_empty=False,
+    )
+    _enhancement(
+        "Core PDF cannot embed requested image bytes and would emit a placeholder.",
+        field=f"{field_prefix}.image",
+        capability="pdf.real-image",
+    )
     return {
-        "filename": _text(image.get("filename", "image.png"), f"{field_prefix}.image.filename"),
-        "content_type": _text(image.get("content_type", "image/png"), f"{field_prefix}.image.content_type"),
+        "filename": filename,
+        "content_type": content_type,
     }
 
 
@@ -282,6 +337,12 @@ def _parse_block_shape(shape: Any, field_prefix: str) -> dict[str, Any] | None:
     kind = shape.get("kind")
     if kind not in {"line", "rectangle", "ellipse"}:
         _invalid("shape.kind must be line, rectangle, or ellipse.", field=f"{field_prefix}.shape.kind")
+    if shape.get("stroke") is not None or shape.get("fill") is not None:
+        _enhancement(
+            "PDF vector stroke and fill colors are not implemented.",
+            field=f"{field_prefix}.shape",
+            capability="pdf.shape-color",
+        )
     return {
         "kind": kind,
         "x": _number(shape.get("x", 0.0), f"{field_prefix}.shape.x"),
@@ -323,6 +384,11 @@ def _parse_primitive(primitive: dict[str, Any], prim_type: str, index: int) -> d
     if prim_type == "watermark":
         _exact_keys(primitive, {"type", "text", "pages", "opacity"})
         text = _text(primitive.get("text", ""), f"primitives.{index}.text")
+        _require_lossless_text(
+            text,
+            f"primitives.{index}.text",
+            encoding="latin-1",
+        )
         pages = primitive.get("pages")
         if type(pages) is not list or not pages:
             _invalid("watermark.pages must be a non-empty array.", field=f"primitives.{index}.pages")
@@ -393,3 +459,25 @@ def _invalid(message: str, **details: Any) -> None:
         status="invalid_request",
         details=details,
     )
+
+
+def _enhancement(message: str, **details: Any) -> None:
+    raise DocumentSkillsError(
+        ErrorCode.ENHANCEMENT_REQUIRED,
+        message,
+        status="enhancement_required",
+        details=details,
+    )
+
+
+def _require_lossless_text(text: str, field: str, *, encoding: str) -> None:
+    try:
+        text.encode(encoding, errors="strict")
+    except UnicodeEncodeError as error:
+        _enhancement(
+            "Requested PDF text is not representable by the active Core font path.",
+            field=field,
+            capability="pdf.lossless-text",
+            encoding=encoding,
+            codepoint=f"U+{ord(text[error.start]):04X}",
+        )

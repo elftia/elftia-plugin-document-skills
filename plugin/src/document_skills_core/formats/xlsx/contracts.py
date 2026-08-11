@@ -121,11 +121,23 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         edit_type = edit.get("type")
         if edit_type not in {"cell_value", "cell_formula", "row_insert", "row_delete", "column_insert", "column_delete", "sheet_rename"}:
             _invalid("Unknown edit type.", field=f"edits.{index}.type")
+        if edit_type in {"row_insert", "row_delete", "column_insert", "column_delete"}:
+            _enhancement(
+                "Structural row and column edits are not implemented.",
+                field=f"edits.{index}.type",
+                capability="xlsx.structural-edit",
+            )
         ref = _text(edit.get("ref", ""), f"edits.{index}.ref", allow_empty=False)
         cell_value = _optional_text(edit.get("value"), f"edits.{index}.value")
         style = edit.get("style")
         if style is not None and type(style) is not dict:
             _invalid("Style must be an object.", field=f"edits.{index}.style")
+        if style:
+            _enhancement(
+                "XLSX edit styles are not connected to the emitter.",
+                field=f"edits.{index}.style",
+                capability="xlsx.cell-style",
+            )
         parsed_edits.append(
             {"sheet": sheet, "type": edit_type, "ref": ref, "value": cell_value, "style": style}
         )
@@ -181,16 +193,34 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 cell_style = cell.get("style")
                 if cell_style is not None and type(cell_style) is not dict:
                     _invalid("Cell style must be an object.", field="cell.style")
+                if cell_style:
+                    _enhancement(
+                        "XLSX cell styles are not independently accepted.",
+                        field=f"sheets.{idx}.rows.{row_idx}.cells.{cell_idx}.style",
+                        capability="xlsx.cell-style",
+                    )
                 parsed_cells.append(
                     {"ref": ref, "value": val, "formula": formula, "type": cell_type, "style": cell_style, "cached_value": cached}
                 )
             row_style = row.get("style")
             if row_style is not None and type(row_style) is not dict:
                 _invalid("Row style must be an object.", field=f"sheets.{idx}.rows.{row_idx}.style")
+            if row_style:
+                _enhancement(
+                    "XLSX row styles are not independently accepted.",
+                    field=f"sheets.{idx}.rows.{row_idx}.style",
+                    capability="xlsx.row-style",
+                )
             parsed_rows.append({"cells": parsed_cells, "style": row_style})
         number_formats = sheet.get("number_formats", [])
         if type(number_formats) is not list:
             _invalid("number_formats must be an array.", field=f"sheets.{idx}.number_formats")
+        if number_formats:
+            _enhancement(
+                "Custom number formats are not independently accepted.",
+                field=f"sheets.{idx}.number_formats",
+                capability="xlsx.number-format",
+            )
         parsed_formats = []
         for nf_idx, nf in enumerate(number_formats):
             if type(nf) is not dict:
@@ -220,6 +250,12 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     tables = workbook.get("tables", [])
     if type(tables) is not list:
         _invalid("tables must be an array.", field="tables")
+    if tables:
+        _enhancement(
+            "XLSX tables are not connected to a consumer-accepted package.",
+            field="tables",
+            capability="xlsx.table",
+        )
     parsed_tables = []
     for tbl_idx, tbl in enumerate(tables):
         if type(tbl) is not dict:
@@ -237,6 +273,11 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     if chart_ref is not None:
         if type(chart_ref) is not dict:
             _invalid("chart_reference must be an object.", field="chart_reference")
+        _enhancement(
+            "XLSX chart references are not connected to a consumer-accepted package.",
+            field="chart_reference",
+            capability="xlsx.chart",
+        )
         _exact_keys(chart_ref, {"title", "data_ref", "sheet"})
         chart_ref = {
             "title": _text(chart_ref.get("title", ""), "chart_reference.title"),
@@ -247,6 +288,11 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     if page_setup is not None:
         if type(page_setup) is not dict:
             _invalid("page_setup must be an object.", field="page_setup")
+        _enhancement(
+            "XLSX page setup is not connected to worksheet output.",
+            field="page_setup",
+            capability="xlsx.page-setup",
+        )
         _exact_keys(page_setup, {"orientation", "header", "footer"})
         page_setup = {
             "orientation": _text(page_setup.get("orientation", "portrait"), "page_setup.orientation"),
@@ -306,5 +352,14 @@ def _invalid(message: str, **details: Any) -> None:
         ErrorCode.REQUEST_INVALID,
         message,
         status="invalid_request",
+        details=details,
+    )
+
+
+def _enhancement(message: str, **details: Any) -> None:
+    raise DocumentSkillsError(
+        ErrorCode.ENHANCEMENT_REQUIRED,
+        message,
+        status="enhancement_required",
         details=details,
     )

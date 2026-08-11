@@ -8,7 +8,6 @@ mirror the XLSX/PPTX public tests.
 Module provenance: original Elftia-authored test suite.
 """
 
-import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -16,6 +15,7 @@ import subprocess
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.formats.pdf.create import create_pdf
 
 
 def _public(
@@ -88,21 +88,9 @@ def _document() -> dict[str, object]:
 
 
 @pytest.fixture
-def public_created(project_root: Path, tmp_path: Path) -> Path:
+def public_created(tmp_path: Path) -> Path:
     output = tmp_path / "public-created.pdf"
-    request = _request(
-        tmp_path,
-        "create.json",
-        {
-            "schema_version": "1.0",
-            "operation": "pdf.create",
-            "output": str(output),
-            "arguments": {"document": _document()},
-        },
-    )
-    result = _public(project_root, "run", "--request", str(request))
-    assert result["status"] == "success"
-    SchemaCatalog(project_root).validate("operation-result", result)
+    create_pdf(output, _document())
     return output
 
 
@@ -162,8 +150,61 @@ def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> N
                 "arguments": {"document": _document()},
             },
         )
-        _public(project_root, "run", "--request", str(req))
-    assert hashlib.sha256(output1.read_bytes()).hexdigest() == hashlib.sha256(output2.read_bytes()).hexdigest()
+        result = _public(
+            project_root,
+            "run",
+            "--request",
+            str(req),
+            check=False,
+        )
+        SchemaCatalog(project_root).validate("operation-result", result)
+        assert result["status"] == "enhancement_required"
+        assert not any(item["role"] == "output" for item in result["artifacts"])
+        assert result["validation"]["status"] != "pass"
+        assert not out.exists()
+
+
+def test_public_create_null_image_fails_before_candidate_and_preserves_destination(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "existing-null-image.pdf"
+    output.write_bytes(b"existing-destination")
+    document = _document()
+    pages = document["pages"]
+    assert isinstance(pages, list)
+    second_page = pages[1]
+    assert isinstance(second_page, dict)
+    blocks = second_page["blocks"]
+    assert isinstance(blocks, list)
+    image_block = next(block for block in blocks if block["type"] == "image")
+    image_block["image"] = None
+    request = _request(
+        tmp_path,
+        "create-null-image.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.create",
+            "output": str(output),
+            "arguments": {"document": document},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["code"] == "DS_ENHANCEMENT_REQUIRED"
+    assert result["errors"][0]["details"]["capability"] == "pdf.real-image"
+    assert result["validation"]["status"] == "fail"
+    assert not any(item["role"] == "output" for item in result["artifacts"])
+    assert output.read_bytes() == b"existing-destination"
 
 
 # ---------------------------------------------------------------------------
@@ -221,17 +262,7 @@ def test_public_edit_rotate(project_root: Path, public_created: Path, tmp_path: 
 def test_public_edit_merge(project_root: Path, public_created: Path, tmp_path: Path) -> None:
     # Create a second PDF to merge
     second = tmp_path / "second.pdf"
-    create_req = _request(
-        tmp_path,
-        "create_second.json",
-        {
-            "schema_version": "1.0",
-            "operation": "pdf.create",
-            "output": str(second),
-            "arguments": {"document": _document()},
-        },
-    )
-    _public(project_root, "run", "--request", str(create_req))
+    create_pdf(second, _document())
 
     output = tmp_path / "public-merged.pdf"
     merge_request = _request(
@@ -318,7 +349,7 @@ def test_public_rewrite(project_root: Path, public_created: Path, tmp_path: Path
     assert op_result["rewrite"]["blocks_processed"] == 1
 
 
-def test_public_rewrite_cjk_degradation(project_root: Path, public_created: Path, tmp_path: Path) -> None:
+def test_public_rewrite_cjk_fails_closed(project_root: Path, public_created: Path, tmp_path: Path) -> None:
     output = tmp_path / "public-cjk.pdf"
     rewrite_request = _request(
         tmp_path,
@@ -338,10 +369,18 @@ def test_public_rewrite_cjk_degradation(project_root: Path, public_created: Path
             },
         },
     )
-    result = _public(project_root, "run", "--request", str(rewrite_request))
-    assert result["status"] == "degraded"
-    op_result = result["diagnostics"]["operation_result"]
-    assert len(op_result["rewrite"]["glyph_degradation"]) > 0
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(rewrite_request),
+        check=False,
+    )
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] == "enhancement_required"
+    assert not any(item["role"] == "output" for item in result["artifacts"])
+    assert result["validation"]["status"] != "pass"
+    assert not output.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -424,9 +463,19 @@ def test_public_unicode_invocation_directory(project_root: Path, tmp_path: Path)
         encoding="utf-8",
         newline="\n",
     )
-    result = _public(project_root, "run", "--request", str(request_path), cwd=unicode_dir)
-    assert result["status"] == "success"
-    assert output.is_file()
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request_path),
+        cwd=unicode_dir,
+        check=False,
+    )
+    SchemaCatalog(project_root).validate("operation-result", result)
+    assert result["status"] == "enhancement_required"
+    assert not any(item["role"] == "output" for item in result["artifacts"])
+    assert result["validation"]["status"] != "pass"
+    assert not output.exists()
 
 
 # ---------------------------------------------------------------------------

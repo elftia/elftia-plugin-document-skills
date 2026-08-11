@@ -1,7 +1,7 @@
 import { copyFile, lstat, mkdir, realpath, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 
-import { inventoriesEqual, inventoryRegularTree, inventorySelectedPaths } from './inventory.mjs';
+import { assertInventoriesEqual, inventoryRegularTree, inventorySelectedPaths } from './inventory.mjs';
 import { artifactRoot, distRoot, pluginRoot, repositoryRoot } from './paths.mjs';
 import { runUv } from './process.mjs';
 
@@ -65,7 +65,7 @@ export async function validateArtifact() {
   const paths = releasePaths();
   const source = await inventorySelectedPaths(pluginRoot, paths);
   const artifact = await inventoryRegularTree(artifactRoot);
-  assert(inventoriesEqual(source, artifact), 'artifact inventory differs from plugin release input');
+  assertInventoriesEqual(source, artifact, 'artifact inventory differs from plugin release input');
   return { source, artifact };
 }
 
@@ -78,9 +78,8 @@ export async function buildArtifact() {
   await mkdir(stage);
   await copyInventory(paths, stage);
   const staged = await inventoryRegularTree(stage);
-  assert(inventoriesEqual(source, staged), 'staged artifact inventory differs from release input');
+  assertInventoriesEqual(source, staged, 'staged artifact inventory differs from release input');
   await rename(stage, artifactRoot);
   const result = await validateArtifact();
   return result.artifact;
 }
-

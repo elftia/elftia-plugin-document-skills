@@ -79,7 +79,7 @@ class ValidationRunner:
 
     def report(self) -> dict[str, Any]:
         required_fail = any(
-            gate["required"] and gate["outcome"] in {"fail", "unavailable"}
+            gate["required"] and gate["outcome"] != "pass"
             for gate in self.gates
         )
         return {
@@ -162,7 +162,7 @@ def validate_artifact(
 def _existence(path: Path) -> dict[str, Any]:
     if not path.is_file() or path.stat().st_size <= 0:
         raise ValueError("Artifact is missing or empty.")
-    return {"bytes": path.stat().st_size}
+    return {"sha256": sha256_file(path), "bytes": path.stat().st_size}
 
 
 def _magic(path: Path, format_id: str) -> dict[str, Any]:

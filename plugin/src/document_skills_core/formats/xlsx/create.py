@@ -89,10 +89,6 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     parts["docProps/core.xml"] = _build_core_props(metadata)
     parts["docProps/app.xml"] = _build_app_props(sheets_data)
 
-    # Calc chain (when formulas exist)
-    if formula_cells:
-        parts["xl/calcChain.xml"] = _build_calc_chain(formula_cells, sheets_data)
-
     write_deterministic_zip(destination, parts)
 
     # Apply formula state for created formulas
@@ -238,7 +234,12 @@ def _build_worksheet(
     sheet_data = SubElement(root, f"{{{_MAIN_NS}}}sheetData")
     rows = sheet.get("rows", [])
     for row_idx, row in enumerate(rows):
-        row_num = str(row_idx + 1)
+        first_ref = next(
+            (c.get("ref", "") for c in row.get("cells", []) if c.get("ref")),
+            "",
+        )
+        ref_row = _a1_row(first_ref)
+        row_num = str(ref_row if ref_row > 0 else row_idx + 1)
         row_elem = SubElement(sheet_data, f"{{{_MAIN_NS}}}row", attrib={"r": row_num})
         cells = row.get("cells", [])
         for cell in cells:
@@ -263,7 +264,7 @@ def _build_worksheet(
                     "formula": formula,
                     "cached_value": cached,
                 }
-                if cached:
+                if cached is not None:
                     v_elem = SubElement(cell_elem, f"{{{_MAIN_NS}}}v")
                     v_elem.text = cached
             elif value is not None:
@@ -309,12 +310,47 @@ def _build_styles(
                 "numFmtId": str(fmt_id),
                 "formatCode": code,
             })
-    SubElement(root, f"{{{_MAIN_NS}}}fonts", attrib={"count": str(len(fonts))})
-    SubElement(root, f"{{{_MAIN_NS}}}fills", attrib={"count": str(len(fills))})
-    SubElement(root, f"{{{_MAIN_NS}}}borders", attrib={"count": str(len(borders))})
-    SubElement(root, f"{{{_MAIN_NS}}}cellStyleXfs", attrib={"count": "1"})
-    SubElement(root, f"{{{_MAIN_NS}}}cellXfs", attrib={"count": str(len(cell_xfs))})
-    SubElement(root, f"{{{_MAIN_NS}}}cellStyles", attrib={"count": "1"})
+    fonts_elem = SubElement(root, f"{{{_MAIN_NS}}}fonts", attrib={"count": str(len(fonts))})
+    for font in fonts:
+        font_elem = SubElement(fonts_elem, f"{{{_MAIN_NS}}}font")
+        SubElement(font_elem, f"{{{_MAIN_NS}}}sz", attrib={"val": font.get("size", "11")})
+        SubElement(font_elem, f"{{{_MAIN_NS}}}name", attrib={"val": font.get("name", "Calibri")})
+        if font.get("bold"):
+            SubElement(font_elem, f"{{{_MAIN_NS}}}b")
+        if font.get("italic"):
+            SubElement(font_elem, f"{{{_MAIN_NS}}}i")
+    fills_elem = SubElement(root, f"{{{_MAIN_NS}}}fills", attrib={"count": str(len(fills))})
+    for fill in fills:
+        fill_elem = SubElement(fills_elem, f"{{{_MAIN_NS}}}fill")
+        SubElement(fill_elem, f"{{{_MAIN_NS}}}patternFill", attrib={
+            "patternType": fill.get("pattern_type", "none"),
+        })
+    borders_elem = SubElement(root, f"{{{_MAIN_NS}}}borders", attrib={"count": str(len(borders))})
+    for _border in borders:
+        border_elem = SubElement(borders_elem, f"{{{_MAIN_NS}}}border")
+        for side in ("left", "right", "top", "bottom"):
+            SubElement(border_elem, f"{{{_MAIN_NS}}}{side}")
+    csxfs_elem = SubElement(root, f"{{{_MAIN_NS}}}cellStyleXfs", attrib={"count": "1"})
+    SubElement(csxfs_elem, f"{{{_MAIN_NS}}}xf", attrib={
+        "numFmtId": "0",
+        "fontId": "0",
+        "fillId": "0",
+        "borderId": "0",
+    })
+    cxfs_elem = SubElement(root, f"{{{_MAIN_NS}}}cellXfs", attrib={"count": str(len(cell_xfs))})
+    for xf in cell_xfs:
+        SubElement(cxfs_elem, f"{{{_MAIN_NS}}}xf", attrib={
+            "numFmtId": str(xf.get("num_fmt_id", 0)),
+            "fontId": str(xf.get("font_id", 0)),
+            "fillId": str(xf.get("fill_id", 0)),
+            "borderId": str(xf.get("border_id", 0)),
+        })
+    cstyles_elem = SubElement(root, f"{{{_MAIN_NS}}}cellStyles", attrib={"count": "1"})
+    SubElement(cstyles_elem, f"{{{_MAIN_NS}}}cellStyle", attrib={
+        "name": "Normal",
+        "xfId": "0",
+        "builtinId": "0",
+    })
     SubElement(root, f"{{{_MAIN_NS}}}dxfs", attrib={"count": "0"})
     return _to_xml_bytes(root)
 
@@ -398,3 +434,15 @@ def _num_to_col(num: int) -> str:
         num, rem = divmod(num - 1, 26)
         result = chr(ord("A") + rem) + result
     return result
+
+
+def _a1_row(ref: str) -> int:
+    """Extract the numeric row from an A1 reference like 'B5' -> 5."""
+
+    digits = ""
+    for char in reversed(ref):
+        if char.isdigit():
+            digits = char + digits
+        else:
+            break
+    return int(digits) if digits else 0

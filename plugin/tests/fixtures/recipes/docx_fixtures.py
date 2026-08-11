@@ -8,7 +8,10 @@ Run through the frozen project Python:
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 from typing import Any, Callable
@@ -67,6 +70,26 @@ def generate(output: Path) -> list[dict[str, object]]:
         create_docx(rich, report_model(image))
         enrich_rich(rich)
     records.append(_record(rich, "Rich read/create/template/replace fixture", "benign"))
+
+    rejected = output / "docx-rich-word16-rejected.docx"
+    shutil.copyfile(rich, rejected)
+    records.append(
+        _record(
+            rejected,
+            "Explicit Word 16 rejection regression preserving the prior docx-rich bytes",
+            "consumer-negative",
+        )
+    )
+
+    public_bounded = output / "docx-public-bounded-word16-accepted.docx"
+    _create_public_bounded_fixture(public_bounded)
+    records.append(
+        _record(
+            public_bounded,
+            "Bounded public frozen-uv DOCX accepted by Word 16",
+            "consumer-positive",
+        )
+    )
 
     preservation = output / "docx-preservation.docx"
     copy_with_additions(
@@ -245,6 +268,75 @@ def _call_builder(
         raise TypeError("DOCX fixture builder must be callable")
     typed_builder: Callable[[Path, Path], None] = builder
     typed_builder(source, destination)
+
+
+def _create_public_bounded_fixture(destination: Path) -> None:
+    with tempfile.TemporaryDirectory(prefix="elftia-public-docx-fixture-") as temporary:
+        request_path = Path(temporary) / "request.json"
+        _write_json(
+            request_path,
+            {
+                "schema_version": "1.0",
+                "operation": "docx.create",
+                "output": str(destination),
+                "arguments": {
+                    "report": {
+                        "metadata": {
+                            "title": "Bounded public DOCX",
+                            "creator": "Elftia",
+                        },
+                        "blocks": [
+                            {
+                                "type": "heading",
+                                "text": "Bounded public DOCX",
+                                "level": 1,
+                            },
+                            {
+                                "type": "paragraph",
+                                "text": "Public frozen-uv consumer qualification fixture.",
+                            },
+                            {
+                                "type": "table",
+                                "rows": [["Gate", "Expected"], ["Word", "Accepted"]],
+                            },
+                        ],
+                    }
+                },
+            },
+        )
+        environment = os.environ.copy()
+        environment.pop("UV_PROJECT_ENVIRONMENT", None)
+        environment.pop("VIRTUAL_ENV", None)
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        process = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--project",
+                str(PROJECT_ROOT),
+                "--frozen",
+                "python",
+                str(PROJECT_ROOT / "skills/document-docx/scripts/run.py"),
+                "run",
+                "--request",
+                str(request_path),
+            ],
+            cwd=PROJECT_ROOT,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=False,
+            shell=False,
+            timeout=60,
+        )
+        if process.returncode != 0 or process.stderr:
+            raise RuntimeError(
+                "Public DOCX fixture creation failed: "
+                + process.stderr[:4096].decode("utf-8", errors="replace")
+            )
+        result = json.loads(process.stdout.decode("utf-8", errors="strict"))
+        if result.get("status") != "success" or not destination.is_file():
+            raise RuntimeError("Public DOCX fixture creation did not publish a success artifact.")
 
 
 def _record(path: Path, purpose: str, classification: str) -> dict[str, object]:

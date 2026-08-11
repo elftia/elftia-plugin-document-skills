@@ -327,7 +327,7 @@ def test_scene_validation_rejects_run_redistribution_with_same_aggregate_text(tm
     scene = NormalizedScene(slides=((text_box,),), assets={}, diagnostics={})
     clean = tmp_path / "clean.pptx"
     manifest = emit_scene_pptx(clean, scene, {})
-    assert validate_scene_created(clean, scene, manifest)["status"] == "pass"
+    assert _scene_correspondence_gate(clean, scene, manifest)["outcome"] == "pass"
 
     with zipfile.ZipFile(clean) as archive:
         parts = {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
@@ -340,8 +340,7 @@ def test_scene_validation_rejects_run_redistribution_with_same_aggregate_text(tm
     tampered = tmp_path / "tampered-runs.pptx"
     write_deterministic_zip(tampered, parts)
 
-    with pytest.raises(DocumentSkillsError):
-        validate_scene_created(tampered, scene, manifest)
+    assert _scene_correspondence_gate(tampered, scene, manifest)["outcome"] == "fail"
 
 
 def test_scene_validation_rejects_picture_relationship_swap_with_same_media_set(tmp_path: Path):
@@ -370,7 +369,7 @@ def test_scene_validation_rejects_picture_relationship_swap_with_same_media_set(
     scene = NormalizedScene(slides=(tuple(items),), assets=assets, diagnostics={})
     clean = tmp_path / "clean-images.pptx"
     manifest = emit_scene_pptx(clean, scene, {})
-    assert validate_scene_created(clean, scene, manifest)["status"] == "pass"
+    assert _scene_correspondence_gate(clean, scene, manifest)["outcome"] == "pass"
 
     with zipfile.ZipFile(clean) as archive:
         parts = {name: archive.read(name) for name in archive.namelist() if not name.endswith("/")}
@@ -384,8 +383,24 @@ def test_scene_validation_rejects_picture_relationship_swap_with_same_media_set(
     tampered = tmp_path / "tampered-images.pptx"
     write_deterministic_zip(tampered, parts)
 
-    with pytest.raises(DocumentSkillsError):
-        validate_scene_created(tampered, scene, manifest)
+    assert _scene_correspondence_gate(tampered, scene, manifest)["outcome"] == "fail"
+
+
+def _scene_correspondence_gate(
+    path: Path,
+    scene: NormalizedScene,
+    manifest: dict[str, object],
+) -> dict[str, object]:
+    try:
+        report = validate_scene_created(path, scene, manifest)
+    except DocumentSkillsError as error:
+        report = error.validation
+    assert report is not None
+    return next(
+        gate
+        for gate in report["gates"]
+        if gate["id"] == "operation.scene-package-correspondence"
+    )
 
 
 def _item(

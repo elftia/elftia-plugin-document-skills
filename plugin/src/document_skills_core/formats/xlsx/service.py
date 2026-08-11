@@ -10,6 +10,7 @@ from document_skills_core.core.io.paths import (
     assert_source_preserved,
     destination_snapshot,
     file_record,
+    merge_source_preservation_failure,
 )
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
@@ -26,7 +27,7 @@ from .formula_state import (
 )
 from .inspect import inspect_xlsx
 from .read import read_xlsx
-from .results import mutation_validation, read_validation, success_result
+from .results import read_validation, success_result, with_formula_gate
 from .transaction import promote_candidate, write_candidate_result
 from .validation import validate_created, validate_mutation
 
@@ -177,12 +178,12 @@ class XlsxService:
                     "missing_capabilities": ["recalculation"],
                     "recommended_providers": ["libreoffice"],
                 })
-            validation_gates = mutation_validation("create-semantics", operation_result)
+            validation = with_formula_gate(validation, operation_result)
             result = write_candidate_result(
                 self.schemas,
                 request,
                 staged,
-                validation_gates,
+                validation,
                 operation_result,
                 warnings=[],
                 source=None,
@@ -234,12 +235,12 @@ class XlsxService:
                         "missing_capabilities": ["recalculation"],
                         "recommended_providers": ["libreoffice"],
                     })
-                validation_gates = mutation_validation("edit-semantics", operation_result)
+                validation = with_formula_gate(validation, operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,
@@ -254,8 +255,11 @@ class XlsxService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
-            assert_source_preserved(source_record.path, source_record.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(
+                error, source_record.path, source_record.sha256
+            )
+            raise
 
 
 def build_xlsx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:

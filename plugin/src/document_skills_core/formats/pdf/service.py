@@ -16,6 +16,7 @@ from document_skills_core.core.io.paths import (
     assert_source_preserved,
     destination_snapshot,
     file_record,
+    merge_source_preservation_failure,
 )
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
@@ -24,7 +25,7 @@ from .create import create_pdf
 from .edit import edit_pdf
 from .inspect import inspect_pdf
 from .read import read_pdf
-from .results import mutation_validation, read_validation, success_result
+from .results import read_validation, success_result
 from .rewrite import rewrite_apply_pdf
 from .transaction import promote_candidate, write_candidate_result
 from .validation import (
@@ -109,12 +110,11 @@ class PdfService:
             creation = create_pdf(staged, document)
             validation = validate_created(staged, document)
             operation_result = {"creation": creation}
-            validation_gates = mutation_validation("create-semantics", operation_result)
             result = write_candidate_result(
                 self.schemas,
                 request,
                 staged,
-                validation_gates,
+                validation,
                 operation_result,
                 warnings=[],
                 source=None,
@@ -149,12 +149,11 @@ class PdfService:
                     source_sha256=source_record.sha256,
                     manifest=manifest,
                 )
-                validation_gates = mutation_validation("edit-semantics", operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,
@@ -166,8 +165,11 @@ class PdfService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
-            assert_source_preserved(source_record.path, source_record.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(
+                error, source_record.path, source_record.sha256
+            )
+            raise
 
     def _rewrite_apply(self, request: ParsedPdfRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -205,12 +207,11 @@ class PdfService:
                     manifest=manifest,
                     layout_evidence=layout_evidence,
                 )
-                validation_gates = mutation_validation("rewrite-semantics", operation_result)
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
-                    validation_gates,
+                    validation,
                     operation_result,
                     warnings=[],
                     source=source_record,
@@ -225,8 +226,11 @@ class PdfService:
                     source=source_record,
                     destination=destination,
                 )
-        finally:
-            assert_source_preserved(source_record.path, source_record.sha256)
+        except Exception as error:
+            merge_source_preservation_failure(
+                error, source_record.path, source_record.sha256
+            )
+            raise
 
 
 def build_pdf_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:

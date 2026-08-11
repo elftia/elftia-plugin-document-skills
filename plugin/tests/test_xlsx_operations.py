@@ -1,19 +1,40 @@
 """XLSX operation tests — create, read, inspect, edit through the real service."""
 
+import hashlib
 from pathlib import Path
+import zipfile
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
+from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.xlsx.constants import (
     FORMULA_STATE_RECALCULATION_REQUIRED,
     FORMULA_STATE_STALE,
 )
+from document_skills_core.formats.xlsx.create import create_xlsx
 from document_skills_core.formats.xlsx.service import XlsxService
 
 
 def _service(project_root: Path) -> XlsxService:
     return XlsxService(project_root)
+
+
+def _strip_style_children(path: Path) -> None:
+    """Replace styles.xml with an empty-container form that fails the style gate."""
+
+    with zipfile.ZipFile(path, "r") as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    parts["xl/styles.xml"] = (
+        b'<?xml version="1.0" encoding="UTF-8"?>\n'
+        b'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b'<fonts count="1"/><fills count="2"/><borders count="1"/>'
+        b'<cellStyleXfs count="1"/><cellXfs count="1"/>'
+        b'<cellStyles count="1"/><dxfs count="0"/></styleSheet>'
+    )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(parts.items()):
+            archive.writestr(name, data)
 
 
 def _sample_workbook() -> dict:
@@ -74,23 +95,55 @@ def _sample_workbook() -> dict:
     }
 
 
+def _bounded_workbook() -> dict:
+    return {
+        "metadata": {"title": "Bounded", "creator": "Test", "subject": ""},
+        "sheets": [
+            {
+                "name": "Sheet1",
+                "rows": [
+                    {
+                        "cells": [
+                            {"ref": "A1", "value": "Name", "type": "s"},
+                            {"ref": "B1", "value": "10", "type": "n"},
+                        ]
+                    }
+                ],
+                "number_formats": [],
+            }
+        ],
+        "defined_names": [],
+        "tables": [],
+        "chart_reference": None,
+        "page_setup": None,
+    }
+
+
 @pytest.fixture
 def created_xlsx(project_root: Path, tmp_path: Path) -> Path:
+    from openpyxl import Workbook
+
     output = tmp_path / "created.xlsx"
-    service = _service(project_root)
-    result = service.execute("xlsx.create", {
-        "schema_version": "1.0",
-        "operation": "xlsx.create",
-        "output": str(output),
-        "arguments": {"workbook": _sample_workbook()},
-    })
-    assert result["status"] in {"success", "degraded"}
-    assert output.is_file()
+    workbook = Workbook()
+    data = workbook.active
+    data.title = "Data"
+    data["A1"] = "Name"
+    data["B1"] = "Value"
+    data["A2"] = "Alpha"
+    data["B2"] = 10
+    data["A3"] = "Beta"
+    data["B3"] = 20
+    data["A5"] = "Total"
+    data["B5"] = "=SUM(B2:B3)"
+    summary = workbook.create_sheet("Summary")
+    summary["A1"] = "Result"
+    summary["B1"] = "=Data!B5*2"
+    workbook.save(output)
     return output
 
 
 class TestCreateOperation:
-    def test_create_produces_valid_workbook(self, project_root: Path, tmp_path: Path):
+    def test_disconnected_create_request_fails_before_output(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "test.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -99,12 +152,12 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        assert result["status"] in {"success", "degraded"}
+        assert result["status"] == "enhancement_required"
         assert result["provider_chain"] == []
-        assert output.is_file()
-        assert result["artifacts"][-1]["sha256"]
+        assert not output.exists()
+        assert not result["artifacts"]
 
-    def test_created_formulas_report_recalculation_required(self, project_root: Path, tmp_path: Path):
+    def test_disconnected_create_does_not_report_formula_success(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "formulas.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -113,13 +166,11 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        formula_state = result["diagnostics"]["operation_result"]["formula_state"]
-        for ref, cell_state in formula_state["cells"].items():
-            assert cell_state["state"] != "recalculated", f"Cell {ref} falsely reports recalculated"
-            assert cell_state["state"] in {"recalculation_required", "stale"}
+        assert result["status"] == "enhancement_required"
+        assert "operation_result" not in result["diagnostics"]
+        assert not output.exists()
 
-    def test_create_with_formulas_is_degraded(self, project_root: Path, tmp_path: Path):
-        """A workbook with formulas must report degraded status when recalculation is outstanding."""
+    def test_create_with_disconnected_features_is_not_degraded(self, project_root: Path, tmp_path: Path):
         output = tmp_path / "degraded.xlsx"
         service = _service(project_root)
         result = service.execute("xlsx.create", {
@@ -128,9 +179,10 @@ class TestCreateOperation:
             "output": str(output),
             "arguments": {"workbook": _sample_workbook()},
         })
-        assert result["status"] == "degraded"
-        assert result["degraded"] is True
-        assert any(d["code"] == "outstanding-formula-recalculation" for d in result["degradations"])
+        assert result["status"] == "enhancement_required"
+        assert result["degraded"] is False
+        assert not result["degradations"]
+        assert not output.exists()
 
 
 class TestReadOperation:
@@ -222,6 +274,58 @@ class TestEditOperation:
         assert result["status"] in {"success", "degraded"}
         assert output.is_file()
         assert created_xlsx.is_file()  # source preserved
+        assert any(
+            gate["id"] == "operation.consumer-package-conformance"
+            and gate["outcome"] == "pass"
+            for gate in result["validation"]["gates"]
+        )
+
+    def test_edit_rejects_consumer_invalid_package_without_promotion(
+        self,
+        project_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        source = tmp_path / "core-invalid.xlsx"
+        create_xlsx(source, _bounded_workbook())
+        _strip_style_children(source)
+        source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+        output = tmp_path / "existing.xlsx"
+        existing = b"existing-destination-must-survive"
+        output.write_bytes(existing)
+        service = _service(project_root)
+
+        result = service.execute(
+            "xlsx.edit",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.edit",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {
+                    "edits": [
+                        {
+                            "sheet": "Sheet1",
+                            "type": "cell_value",
+                            "ref": "B1",
+                            "value": "42",
+                        }
+                    ]
+                },
+            },
+        )
+
+        SchemaCatalog(project_root).validate("operation-result", result)
+        assert result["status"] == "failed"
+        assert result["validation"]["status"] == "fail"
+        assert any(
+            gate["id"] == "operation.consumer-package-conformance"
+            and gate["required"] is True
+            and gate["outcome"] == "fail"
+            for gate in result["validation"]["gates"]
+        )
+        assert result["artifacts"] == []
+        assert output.read_bytes() == existing
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha256
 
     def test_edit_preserves_source(self, project_root: Path, created_xlsx: Path, tmp_path: Path):
         import hashlib
@@ -235,7 +339,7 @@ class TestEditOperation:
             "output": str(output),
             "arguments": {
                 "edits": [
-                    {"sheet": "Data", "type": "cell_value", "ref": "A2", "value": "Modified"},
+                    {"sheet": "Data", "type": "cell_value", "ref": "B3", "value": "21"},
                 ],
             },
         })

@@ -32,6 +32,38 @@
       "format": "docx",
       "license": "GPL-3.0",
       "origin": "generated",
+      "path": "docx-rich-word16-rejected.docx",
+      "purpose": "Explicit Word 16 rejection regression preserving the prior docx-rich bytes",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "consumer-negative",
+      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-public-bounded-word16-accepted.docx",
+      "purpose": "Bounded public frozen-uv DOCX accepted by Word 16",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "consumer-positive",
+      "sha256": "3f41412fa24ea0561bf655e85448d5facad36d9d1f4bda302078836507eb62f5"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
       "path": "docx-preservation.docx",
       "purpose": "Copy-through fixture with custom XML, unknown safe data, and unrelated media",
       "recipe": "tests/fixtures/recipes/docx_fixtures.py",
@@ -330,7 +362,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "1790a2d1aa8836b091a36c02297e86c392e8aefce50fb1936bd5be8eac788392"
+      "sha256": "0a130ade45102b91c4f11067a0a8ddf9bbe0d7a6dfcc8f22317e87803a90544b"
     },
     {
       "authorship": "original-elftia",

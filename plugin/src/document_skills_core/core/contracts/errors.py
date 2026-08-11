@@ -30,12 +30,13 @@ class DocumentSkillsError(Exception):
         *,
         status: str = "failed",
         details: dict[str, Any] | None = None,
+        validation: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
         self.status = status
         self.details = details or {}
+        self.validation = validation
 
     def record(self) -> dict[str, Any]:
         return {"code": self.code.value, "message": str(self), "details": self.details}
-
