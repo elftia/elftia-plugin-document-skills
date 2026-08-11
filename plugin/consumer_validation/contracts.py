@@ -107,6 +107,54 @@ CONSUMER_REPORT_SCHEMA: dict[str, Any] = {
         "office_acceptance": {"type": "boolean"},
         "warnings": {"type": "array", "items": {"type": "string"}},
     },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "artifact": {
+                        "properties": {"sha256": {"type": "null"}},
+                        "required": ["sha256"],
+                    }
+                },
+                "required": ["artifact"],
+            },
+            "then": {
+                "properties": {
+                    "format": {"const": "pdf"},
+                    "status": {"const": "fail"},
+                    "portable": {
+                        "type": "object",
+                        "properties": {
+                            "outcome": {"const": "fail"},
+                            "assertions": {
+                                "type": "array",
+                                "contains": {
+                                    "type": "object",
+                                    "required": ["id", "outcome", "evidence"],
+                                    "properties": {
+                                        "id": {"const": "pdf.resource-bounds"},
+                                        "outcome": {"const": "fail"},
+                                        "evidence": {
+                                            "type": "object",
+                                            "required": ["actual", "category", "maximum"],
+                                            "properties": {
+                                                "actual": {"type": "integer", "minimum": 1},
+                                                "category": {"const": "artifact-byte-limit"},
+                                                "maximum": {"type": "integer", "minimum": 1},
+                                            },
+                                        },
+                                    },
+                                },
+                                "minContains": 1,
+                            },
+                        },
+                        "required": ["outcome", "assertions"],
+                    },
+                },
+                "required": ["format", "status", "portable"],
+            },
+        }
+    ],
     "additionalProperties": False,
 }
 _VALIDATOR = Draft202012Validator(CONSUMER_REPORT_SCHEMA)

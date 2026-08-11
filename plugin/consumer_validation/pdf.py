@@ -6,43 +6,43 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from .pdf_evidence import PdfArtifactEvidence, read_bounded_pdf_evidence
+
 
 _MAX_PAGES = 32
 _MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 _MAX_RENDER_SAMPLES = 64 * 1024 * 1024
+_EVIDENCE_CHUNK_BYTES = 64 * 1024
 
 
-def preflight_pdf_resource_bounds(artifact: Path) -> dict[str, Any] | None:
-    """Reject an oversized candidate before any aggregate read or hash."""
+def observe_pdf_artifact(artifact: Path) -> PdfArtifactEvidence:
+    """Return exact bounded bytes or a typed resource/mutation observation."""
 
-    artifact_bytes = _artifact_size(artifact)
-    if artifact_bytes <= _MAX_ARTIFACT_BYTES:
-        return None
-    assertions: list[dict[str, Any]] = []
-    _record(
-        assertions,
-        "pdf.resource-bounds",
-        False,
-        {
-            "actual": artifact_bytes,
-            "category": "artifact-byte-limit",
-            "maximum": _MAX_ARTIFACT_BYTES,
-        },
+    return read_bounded_pdf_evidence(
+        artifact,
+        maximum_bytes=_MAX_ARTIFACT_BYTES,
+        chunk_bytes=_EVIDENCE_CHUNK_BYTES,
     )
-    return _gate(assertions, {})
 
 
-def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
+def qualify_pdf(
+    artifact: Path,
+    expectations: dict[str, Any],
+    *,
+    artifact_evidence: PdfArtifactEvidence | None = None,
+) -> dict[str, Any]:
     assertions: list[dict[str, Any]] = []
     evidence: dict[str, Any] = {}
     try:
         import fitz
 
-        resource_rejection = preflight_pdf_resource_bounds(artifact)
-        if resource_rejection is not None:
-            return resource_rejection
-        artifact_bytes = _artifact_size(artifact)
-        document = fitz.open(artifact)
+        observation = artifact_evidence or observe_pdf_artifact(artifact)
+        if observation.outcome != "exact":
+            return evidence_failure_gate(observation, phase="portable")
+        if observation.content is None or observation.sha256 is None:
+            raise ValueError("pdf-exact-evidence-incomplete")
+        artifact_bytes = observation.artifact_bytes
+        document = fitz.open(stream=observation.content, filetype="pdf")
         try:
             if document.page_count <= 0:
                 raise ValueError("pdf-has-no-pages")
@@ -69,7 +69,7 @@ def qualify_pdf(artifact: Path, expectations: dict[str, Any]) -> dict[str, Any]:
                     "pages": document.page_count,
                 },
             )
-            has_eof = _has_eof_marker(artifact, artifact_bytes)
+            has_eof = _has_eof_marker(observation.content)
             repaired = bool(getattr(document, "is_repaired", False))
             _record(
                 assertions,
@@ -138,28 +138,70 @@ def _gate(
     }
 
 
-def _artifact_size(path: Path) -> int:
-    if not path.is_file():
-        raise ValueError("artifact-missing")
-    size = path.stat().st_size
-    if size <= 0:
-        raise ValueError("artifact-empty")
-    return size
+def evidence_failure_gate(
+    observation: PdfArtifactEvidence,
+    *,
+    phase: str,
+    before_sha256: str | None = None,
+) -> dict[str, Any]:
+    """Project a non-exact byte observation into portable typed evidence."""
+
+    if observation.outcome == "exact":
+        raise ValueError("exact-pdf-evidence-is-not-a-failure")
+    assertion_id = (
+        "pdf.resource-bounds"
+        if observation.outcome == "resource-limit"
+        else "consumer.source-preservation"
+    )
+    details = (
+        {
+            "actual": observation.evidence["actual"],
+            "category": "artifact-byte-limit",
+            "maximum": observation.evidence["maximum"],
+        }
+        if observation.outcome == "resource-limit"
+        else {**observation.evidence, "phase": phase}
+    )
+    if before_sha256 is not None:
+        details["before_sha256"] = before_sha256
+    assertions: list[dict[str, Any]] = []
+    _record(assertions, assertion_id, False, details)
+    return _gate(assertions, {})
 
 
-def _has_eof_marker(path: Path, size: int) -> bool:
-    with path.open("rb") as handle:
-        handle.seek(max(0, size - 1024))
-        tail = handle.read(1024)
-    return tail.rstrip().endswith(b"%%EOF")
+def source_change_gate(before: PdfArtifactEvidence, after: PdfArtifactEvidence) -> dict[str, Any]:
+    """Return a typed failure when two exact bounded observations differ."""
+
+    if before.sha256 is None or after.sha256 is None:
+        raise ValueError("source-change-requires-exact-digests")
+    assertions: list[dict[str, Any]] = []
+    _record(
+        assertions,
+        "consumer.source-preservation",
+        False,
+        {
+            "before_bytes": before.artifact_bytes,
+            "before_sha256": before.sha256,
+            "after_bytes": after.artifact_bytes,
+            "after_sha256": after.sha256,
+            "category": "artifact-changed-between-evidence-points",
+            "phase": "post-consumer",
+        },
+    )
+    return _gate(assertions, {})
+
+
+def _has_eof_marker(content: bytes) -> bool:
+    return content[-1024:].rstrip().endswith(b"%%EOF")
 
 
 def _sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    """Retain the legacy private test seam without an unbounded file read."""
+
+    observation = observe_pdf_artifact(path)
+    if observation.outcome != "exact" or observation.sha256 is None:
+        raise ValueError("pdf-hash-evidence-not-exact")
+    return observation.sha256
 
 
 def _validate_render_delta(
@@ -202,20 +244,36 @@ def _validate_render_delta(
             raise ValueError("render-reference-missing-or-empty")
         if reference.samefile(artifact):
             raise ValueError("render-reference-is-candidate")
-        reference_bytes = _artifact_size(reference)
-        if reference_bytes > _MAX_ARTIFACT_BYTES:
+        reference_observation = observe_pdf_artifact(reference)
+        if reference_observation.outcome == "resource-limit":
             _record(
                 assertions,
                 "pdf.render-delta",
                 False,
                 {
-                    "actual": reference_bytes,
+                    "actual": reference_observation.evidence["actual"],
                     "category": "reference-artifact-byte-limit",
-                    "maximum": _MAX_ARTIFACT_BYTES,
+                    "maximum": reference_observation.evidence["maximum"],
                 },
             )
             return
-        reference_document = fitz.open(reference)
+        if reference_observation.outcome == "mutation":
+            _record(
+                assertions,
+                "pdf.render-delta",
+                False,
+                {
+                    **reference_observation.evidence,
+                    "category": "reference-artifact-mutated-during-evidence",
+                },
+            )
+            return
+        if reference_observation.content is None or reference_observation.sha256 is None:
+            raise ValueError("reference-pdf-exact-evidence-incomplete")
+        reference_document = fitz.open(
+            stream=reference_observation.content,
+            filetype="pdf",
+        )
         try:
             if reference_document.page_count <= 0:
                 raise ValueError("reference-pdf-has-no-pages")
@@ -253,7 +311,7 @@ def _validate_render_delta(
                 "mode": mode,
                 "reference_kind": reference_kind,
                 "reference_path": str(reference),
-                "reference_sha256": _sha256_file(reference),
+                "reference_sha256": reference_observation.sha256,
                 "threshold": threshold,
             },
         )
