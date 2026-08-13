@@ -104,11 +104,25 @@ def public_created(project_root: Path, tmp_path: Path) -> Path:
 def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
     report = _public(project_root, "capabilities", "--json")
     operations = {item["operation"]: item for item in report["operations"]}
-    assert "pptx.read" in operations
-    assert "pptx.inspect.structure" in operations
-    assert "pptx.create" in operations
-    assert "pptx.edit" in operations
-    assert all(item["available"] for item in operations.values() if "pptx" in item["operation"])
+    core = ("pptx.read", "pptx.inspect.structure", "pptx.create", "pptx.edit")
+    for operation in core:
+        assert operation in operations
+        assert operations[operation]["available"], operations[operation]
+
+    # Provider-backed operations are environment-dependent by design:
+    # `pptx.create.from-html` is served by `html-browser` and is genuinely
+    # unavailable where no browser is installed. Demanding that every pptx
+    # operation be available asserted the opposite of what capability discovery
+    # exists for, and it failed on all six CI legs while passing on a developer
+    # machine that happened to have a browser.
+    #
+    # Truthfulness is asserted instead, which is the actual contract: an
+    # operation reporting itself unavailable must say why, so a missing provider
+    # can never be published as a silent, reasonless absence.
+    for operation, item in operations.items():
+        if "pptx" not in operation or operation in core:
+            continue
+        assert item["available"] or item["reason"], item
 
 
 def test_public_doctor_succeeds(project_root: Path) -> None:
