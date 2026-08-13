@@ -110,15 +110,23 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
         assert operations[operation]["available"], operations[operation]
 
     # Provider-backed operations are environment-dependent by design:
-    # `pptx.create.from-html` is served by `html-browser` and is genuinely
-    # unavailable where no browser is installed. Demanding that every pptx
-    # operation be available asserted the opposite of what capability discovery
-    # exists for, and it failed on all six CI legs while passing on a developer
-    # machine that happened to have a browser.
+    # `pptx.create.from-html` is served solely by `html-browser`, which is
+    # optional (`required=False`) and needs Node, the locked Playwright library
+    # and a launchable Chromium-family browser. It is genuinely unavailable
+    # without one. `tests/test_runtime.py` asserts that sole-provider binding.
     #
-    # Truthfulness is asserted instead, which is the actual contract: an
-    # operation reporting itself unavailable must say why, so a missing provider
-    # can never be published as a silent, reasonless absence.
+    # The blanket "every pptx operation is available" assertion this replaces
+    # asserted the opposite of what capability discovery exists for. Scope of
+    # that failure, from run 31529508680: the two ubuntu legs failed here
+    # (1 failed, 1026 passed, 26 skipped); the windows legs failed a different
+    # test and the macos legs failed 86. This repair addresses the ubuntu
+    # failure only.
+    #
+    # The check below is a regression guard over `reports.py`, not an exercised
+    # negative path: that module sets a constant non-empty reason whenever
+    # `available` is false, so today's production output cannot reach the
+    # failure branch. It exists so a later change cannot publish a missing
+    # provider as a silent, reasonless absence.
     for operation, item in operations.items():
         if "pptx" not in operation or operation in core:
             continue
