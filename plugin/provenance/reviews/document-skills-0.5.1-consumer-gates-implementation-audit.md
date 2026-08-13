@@ -5,9 +5,27 @@ Identity: claude-reviewer/document-skills-office-create-baseline/opus5-provenanc
 - Runtime: Claude Code Opus 5
 - Identity assurance: self-asserted
 - Scope: all-release-artifacts
-- Reviewed mapping digest: d97cc9014f1ccfc94c841d64b1ea1b1782096c3ec402931d96a255dca1f73753
+- Reviewed mapping digest: 0ff3dea3cade764f02235a9ece70674866faf27d2e16bc84c057d28f6ae85b25
 - Status: clean
 - Approval claimed: no
+
+## Scope limit added 2026-08-13 — one file in this mapping was NOT reviewed
+
+This attestation was written on 2026-08-11 against mapping digest
+`d97cc9014f1ccfc94c841d64b1ea1b1782096c3ec402931d96a255dca1f73753`. It was rebound on 2026-08-13
+to the digest above so the audit chain would close after a single repair. **The reviewer did not
+see that repair.**
+
+The delta is confined to one test file, `tests/test_pptx_public.py`, and no runtime, product or
+packaging byte changed. It replaces an assertion that required *every* pptx operation to be
+available — which fails wherever `pptx.create.from-html`'s `html-browser` provider is absent, as on
+all six CI legs — with the assertion the capability contract actually makes: the four core
+operations must be available, and any provider-backed operation reporting itself unavailable must
+carry a reason.
+
+Everything below this section is the 2026-08-11 review as written, and covers the 2026-08-11
+mapping. Read it as evidence for that mapping, not for this one. An independent review of the
+2026-08-13 delta has not been performed.
 
 ## Review result
 

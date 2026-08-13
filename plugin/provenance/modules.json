@@ -5468,7 +5468,7 @@
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md"
       ],
       "reviewer": "Claude Code Opus 5 provenance reviewer: office-create-baseline/2026-08-11",
-      "sha256": "6ba05f84c4129b21e3a536495662cbc8e16aca23a1df96a6bc3ed3fb6fcf6598",
+      "sha256": "bab3ad7ac790a35776672c9a879284dafbc1a23349729be7906de58352883ce4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -6208,8 +6208,8 @@
       "identity_limitations": "This self-asserted review cannot cryptographically establish the backing model identity and does not claim release approval or replace final source and Host review.",
       "report_evidence": "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
       "report_name": "document-skills-0.5.1-consumer-gates-implementation-audit.md",
-      "report_sha256": "886a5a2c05bf79fdf2a0ee69425d4877c8bca22f4142ee2a5e2a21fd806681e6",
-      "reviewed_mapping_sha256": "d97cc9014f1ccfc94c841d64b1ea1b1782096c3ec402931d96a255dca1f73753",
+      "report_sha256": "23f258e0fe837ccf2fccc4d0fe755645d551728a4b8d46cd9a321a1038864842",
+      "reviewed_mapping_sha256": "0ff3dea3cade764f02235a9ece70674866faf27d2e16bc84c057d28f6ae85b25",
       "reviewer": "Claude Code Opus 5 provenance reviewer: office-create-baseline/2026-08-11",
       "role": "reviewer",
       "runtime": "claude",
