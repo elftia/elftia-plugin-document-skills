@@ -1,6 +1,6 @@
 {
   "name": "elftia-plugin-document-skills",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "Standalone producer for Elftia Document Skills",
   "license": "GPL-3.0",
@@ -19,6 +19,6 @@
     "verify:repro": "node scripts/verify-reproducible-build.mjs"
   },
   "devDependencies": {
-    "@elftia/plugin-kit": "^0.1.0"
+    "@elftia/plugin-kit": "^0.1.2"
   }
 }

@@ -112,6 +112,7 @@ def validate_metadata_exclusion(
             "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
             "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
             "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
+            "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
             "provenance/reviews/foundation-review-cycle-round-1.md",
             "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
             "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
