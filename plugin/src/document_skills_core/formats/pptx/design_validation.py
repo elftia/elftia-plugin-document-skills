@@ -9,6 +9,7 @@ from .design_contracts import DEFAULT_THEME, LAYOUT_RECIPES
 from .mapping import map_slides
 from .package import OpcPackage
 from .projection import project_layout_recipes, project_theme
+from .template_create import open_template_package
 
 
 def assert_typed_design(
@@ -77,7 +78,7 @@ def _assert_template_parts(
     evidence: dict[str, Any],
 ) -> None:
     source_path = Path(evidence["template"])
-    source = OpcPackage.open(source_path)
+    source = open_template_package(source_path)
     failures = []
     for part in (
         source.slide_master_parts()

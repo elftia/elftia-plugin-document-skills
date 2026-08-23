@@ -29,7 +29,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.convert.pdf` | yes (distinct `.pdf` output) | LibreOffice-gated PDF conversion with source-slide/output-page correspondence |
 | `pptx.validate.schema` | no | Provider-gated OpenXML SDK schema report for an existing `.pptx` |
 | `pptx.outline.create` | yes (distinct `.json` output) | Versioned planning JSON that explicitly does not claim to be a presentation |
-| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx` template reuse |
+| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.edit` | yes (distinct output) | Transactional slide CRUD/copy/reorder plus native shape/text/image/table/chart/notes/link/action edits |
@@ -65,7 +65,7 @@ types are bar, column, line, pie, and scatter.
 
 For a custom palette/font system, recipe-driven layout, or template-as-base
 request, read `references/typed-design.md`. Theme and layout tokens are closed
-contracts: unsupported properties fail closed. A local `.pptx` template reuses
+contracts: unsupported properties fail closed. A local `.pptx` or `.potx` template reuses
 its master/layout/theme graph byte-for-byte and cannot be combined with new
 `deck.theme` tokens or a different slide size.
 

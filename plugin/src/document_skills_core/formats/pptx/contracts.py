@@ -171,8 +171,8 @@ def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
         _invalid("create requires a deck object.", field="deck")
     template = _optional_path(value.get("template"), "template")
     if template is not None:
-        if template.suffix.casefold() != ".pptx":
-            _invalid("PPTX template-as-base requires a .pptx file.", field="template")
+        if template.suffix.casefold() not in {".potx", ".pptx"}:
+            _invalid("PPTX template-as-base requires a .pptx or .potx file.", field="template")
         if "theme" in deck:
             _invalid(
                 "Template-as-base reuses the template theme and does not accept deck.theme.",

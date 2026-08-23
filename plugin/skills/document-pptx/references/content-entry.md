@@ -66,7 +66,7 @@ images on one slide, unsupported heading depths, malformed metadata, unclosed
 code/notes blocks, and conflicting notes fail without output.
 
 Optional `theme` and `layout_tokens` use the typed design contracts. A local
-`.pptx` template may be supplied instead; template reuse and new `theme` tokens
+`.pptx` or `.potx` template may be supplied instead; template reuse and new `theme` tokens
 are mutually exclusive. The result records source hash/bytes, slide source-line
 ranges, recipes, tags, native-object counts, and the explicit facts
 `semantic_reconstruction: true` and `visual_preservation_claimed: false` under

@@ -69,7 +69,7 @@ recipe is supplied. The result reports the selected layout part and recipe in
 
 ## Template as base
 
-Set `arguments.template` to a bounded local `.pptx` file. Creation preserves
+Set `arguments.template` to a bounded local `.pptx` or `.potx` file. Creation preserves
 the template's master, layout, and theme parts byte-for-byte, removes its old
 slides in the private staging package, and adds the requested typed slides
 using compatible layouts. The source template is hash-checked before and after
@@ -81,5 +81,8 @@ Changing the template slide size is also rejected. The result records the
 template SHA-256 and preserved design parts under
 `diagnostics.operation_result.creation.template_reuse`.
 
-This route currently accepts `.pptx` template bases. `.potx` input is not yet
-part of this contract and must not be renamed or claimed as supported.
+For `.potx`, the emitted `.pptx` changes only the package presentation-main
+content type from the template identity to
+`presentationml.presentation.main+xml`; it does not rename the source or leave
+template identity in the output. The result reports `source_extension`,
+`presentation_content_type`, and `template_main_type_normalized`.
