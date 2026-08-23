@@ -13,6 +13,7 @@ import pytest
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.xlsx.constants import NS
 from document_skills_core.formats.xlsx.create import create_xlsx
+from document_skills_core.formats.xlsx.mapping import map_workbook
 from document_skills_core.formats.xlsx.package import OpcPackage
 
 
@@ -379,6 +380,27 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                 ],
                 "unavailable_without": [
                     "libreoffice_for_formula_workbooks",
+                ],
+            },
+            "xlsx.convert": {
+                "available": [
+                    "xlsx_csv_tsv_json",
+                    "encoding_bom_delimiter_quote_line_ending",
+                    "typed_null_empty_boolean_number_date_time_timezone",
+                    "leading_zero_and_large_integer_policy",
+                    "formula_preserve_text_evaluated_reject_policy",
+                    "stable_multisheet_typed_json",
+                    "csv_injection_default_escape",
+                    "bounded_streaming_and_resource_limits",
+                    "semantic_loss_reporting",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "limitations": [
+                    "delimited_output_is_single_sheet",
+                    "xlsx_objects_and_styles_are_not_tabular",
+                    "evaluated_formula_cache_is_not_recalculated",
+                    "shared_array_data_table_formula_conversion_fails_closed",
                 ],
             },
         },
@@ -1083,7 +1105,149 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.create" in operations
     assert "xlsx.edit" in operations
     assert "xlsx.recalculate" in operations
+    assert "xlsx.convert" in operations
     assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
+
+
+def test_public_convert_csv_to_canonical_json(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "public.csv"
+    source.write_text("code,value\n00123,12.5\n", encoding="utf-8", newline="\n")
+    output = tmp_path / "public.json"
+    request = _request(
+        tmp_path,
+        "public-convert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.convert",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"source_format": "csv", "target_format": "json"},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+    document = json.loads(output.read_text(encoding="utf-8"))
+
+    assert result["status"] == "degraded"
+    assert result["provider_chain"] == ["core-python"]
+    assert document["format"] == "document-skills-tabular"
+    assert document["sheets"][0]["rows"][1] == [
+        {"type": "string", "value": "00123"},
+        {"type": "number", "value": "12.5"},
+    ]
+    assert result["diagnostics"]["promotion"]["filesystem_state"].startswith(
+        "committed"
+    )
+
+
+def test_public_convert_tsv_to_csv_uses_default_dialects(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "public.tsv"
+    source.write_text("a\tb\r\n1\t2\r\n", encoding="utf-8", newline="")
+    output = tmp_path / "public.csv"
+    request = _request(
+        tmp_path,
+        "public-tsv-convert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.convert",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "source_format": "tsv",
+                "target_format": "csv",
+                "values": {"infer_types": False},
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    assert output.read_text(encoding="utf-8") == "a,b\n1,2\n"
+
+
+def test_public_convert_json_to_xlsx_reopens_typed_output(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "public-source.json"
+    source.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "format": "document-skills-tabular",
+                "sheets": [
+                    {
+                        "name": "Data",
+                        "rows": [[
+                            {"type": "string", "value": "Name"},
+                            {"type": "number", "value": "12.5"},
+                        ]],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "public-output.xlsx"
+    request = _request(
+        tmp_path,
+        "public-json-xlsx-convert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.convert",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"source_format": "json", "target_format": "xlsx"},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+    mapped = map_workbook(OpcPackage.open(output))
+
+    assert result["status"] == "success"
+    assert mapped["sheets"][0]["rows"][0]["cells"][0]["value"] == "Name"
+    assert mapped["sheets"][0]["rows"][0]["cells"][1]["value"] == "12.5"
+
+
+def test_public_convert_xlsx_to_json_reports_formula_text_loss(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "public-source.xlsx"
+    create_xlsx(source, _workbook())
+    output = tmp_path / "public-output.json"
+    request = _request(
+        tmp_path,
+        "public-xlsx-json-convert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.convert",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"source_format": "xlsx", "target_format": "json"},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+    document = json.loads(output.read_text(encoding="utf-8"))
+    losses = {
+        item["code"]
+        for item in result["diagnostics"]["operation_result"]["semantic_losses"]
+    }
+
+    assert result["status"] == "degraded"
+    assert document["sheets"][0]["rows"][1][1] == {
+        "type": "string",
+        "value": "=B1*2",
+    }
+    assert "formulas-preserved-as-text" in losses
 
 
 def test_public_recalculate_without_formulas_is_not_applicable_success(

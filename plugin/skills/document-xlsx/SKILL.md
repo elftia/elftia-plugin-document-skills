@@ -1,13 +1,13 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, edit, and recalculate XLSX spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx` requests. The Core XLSX capability supports five operations:
+Use this Skill for `.xlsx` and bounded tabular conversion requests. The Core capability supports six operations:
 `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
-`xlsx.recalculate`. The public contract and package validation run through the frozen
+`xlsx.recalculate`, plus `xlsx.convert`. The public contract and validation run through the frozen
 uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
 required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas.
 
@@ -140,6 +140,24 @@ as `not_applicable` without invoking LibreOffice.
 Shared, array, and data-table formula workbooks are currently classified and rejected as
 `enhancement_required` for provider value harvesting instead of being falsely marked recalculated.
 
+### xlsx.convert
+
+Converts among XLSX, CSV, TSV, and canonical typed JSON with explicit `source_format` and
+`target_format`. Text inputs and outputs have closed encoding, BOM, delimiter, quote, and line-
+ending options. Value policy distinguishes null from empty text, parses configurable boolean and
+locale-decimal tokens, preserves leading-zero and longer-than-15-digit integers as text by
+default, and handles ISO date/time/timezone values explicitly. Formula policy is one of
+`preserve-text`, `evaluated`, or `reject`; evaluated mode requires a cached value and never claims
+that the cache was recalculated. CSV/TSV injection safety defaults to apostrophe escaping and can
+be changed only explicitly. See [`references/conversion.md`](references/conversion.md) for the
+canonical JSON shape, request fields, bounded streaming strategy, and loss codes.
+
+Delimited output contains one selected sheet. Canonical JSON keeps multiple sheets and typed cell
+envelopes. Every loss—such as dropped XLSX styles/objects, extra sheets, formula expressions,
+typed metadata, null representation, timezone typing, or injection escaping—is reported in
+`diagnostics.operation_result.semantic_losses`, canonical degradations, and warnings. Any loss
+makes the promoted result `degraded`; it is never presented as lossless conversion.
+
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression
 tests execute every feature marked `available` through this Skill's `scripts/run.py` and reopen
@@ -150,7 +168,7 @@ the promoted artifact with an independent consumer.
 | Status | Meaning |
 | --- | --- |
 | `success` | All required gates pass; no formulas require recalculation. |
-| `degraded` | Required gates pass but formulas require recalculation (provider unavailable). |
+| `degraded` | Required gates pass, but formula recalculation remains outstanding or conversion reports explicit semantic loss. |
 | `enhancement_required` | The request requires an unimplemented optional provider. |
 | `unavailable` | A required provider, such as LibreOffice for explicit formula recalculation, is unavailable; no output is promoted. |
 | `invalid_request` | Request arguments are invalid; no file is mutated. |
@@ -158,5 +176,5 @@ the promoted artifact with an independent consumer.
 
 ## Distinct output rule
 
-Mutations require an explicit output path. For `xlsx.edit` and `xlsx.recalculate`, output
+Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, and `xlsx.convert`, output
 resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.

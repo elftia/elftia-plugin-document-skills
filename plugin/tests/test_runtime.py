@@ -76,6 +76,7 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "pptx.read",
         "xlsx.create",
         "xlsx.edit",
+        "xlsx.convert",
         "xlsx.inspect.structure",
         "xlsx.read",
     }

@@ -65,6 +65,7 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
                 Capability("xlsx.create", "core", validation_strength=2),
                 Capability("xlsx.edit", "core", validation_strength=2),
                 Capability("xlsx.recalculate", "core", validation_strength=2),
+                Capability("xlsx.convert", "core", validation_strength=2),
                 Capability("pptx.read", "core", validation_strength=2),
                 Capability("pptx.inspect.structure", "core", validation_strength=2),
                 Capability("pptx.create", "core", validation_strength=2),

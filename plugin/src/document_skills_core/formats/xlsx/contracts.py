@@ -16,6 +16,7 @@ from .constants import (
     MAX_HYPERLINKS,
     MAX_SHEETS,
 )
+from .conversion_contract import assert_format_suffix, parse_conversion_arguments
 from .style_contract import (
     custom_number_format_id,
     parse_color,
@@ -32,6 +33,7 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.create",
         "xlsx.edit",
         "xlsx.recalculate",
+        "xlsx.convert",
     }
 )
 
@@ -107,11 +109,21 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
             _invalid("XLSX creation does not accept input.", field="input")
     elif input_path is None or output_path is None:
         _invalid("XLSX mutation requires distinct input and output paths.")
-    if input_path is not None and input_path.suffix.casefold() != ".xlsx":
-        _invalid("XLSX input path must use the .xlsx extension.", field="input")
-    if output_path is not None and output_path.suffix.casefold() != ".xlsx":
-        _invalid("XLSX output path must use the .xlsx extension.", field="output")
-    if operation in {"xlsx.edit", "xlsx.recalculate"}:
+    parsed_conversion = (
+        parse_conversion_arguments(arguments)
+        if operation == "xlsx.convert"
+        else None
+    )
+    if parsed_conversion is not None:
+        assert input_path is not None and output_path is not None
+        assert_format_suffix(input_path.suffix, parsed_conversion["source_format"], "input")
+        assert_format_suffix(output_path.suffix, parsed_conversion["target_format"], "output")
+    else:
+        if input_path is not None and input_path.suffix.casefold() != ".xlsx":
+            _invalid("XLSX input path must use the .xlsx extension.", field="input")
+        if output_path is not None and output_path.suffix.casefold() != ".xlsx":
+            _invalid("XLSX output path must use the .xlsx extension.", field="output")
+    if operation in {"xlsx.edit", "xlsx.recalculate", "xlsx.convert"}:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -121,7 +133,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
             )
     elif in_place:
         _invalid("in_place is not meaningful for this XLSX operation.", field="options.in_place")
-    parsed = {
+    parsed = parsed_conversion or {
         "xlsx.read": _parse_read,
         "xlsx.inspect.structure": _parse_inspect,
         "xlsx.create": _parse_create,

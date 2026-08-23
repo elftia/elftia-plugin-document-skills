@@ -16,6 +16,7 @@ from document_skills_core.core.io.paths import (
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedXlsxRequest, parse_xlsx_request
+from .conversion_operation import execute_conversion
 from .create import create_xlsx
 from .edit import edit_xlsx
 from .formula_analysis import validate_formula_analysis
@@ -83,6 +84,8 @@ class XlsxService:
             return self._create(parsed)
         if operation == "xlsx.edit":
             return self._edit(parsed)
+        if operation == "xlsx.convert":
+            return execute_conversion(parsed, schemas=self.schemas)
         return execute_recalculation(
             parsed,
             schemas=self.schemas,

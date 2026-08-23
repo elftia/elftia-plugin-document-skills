@@ -11,7 +11,7 @@ from document_skills_core.formats.xlsx.contracts import (
 )
 
 
-def test_xlsx_operations_set_includes_recalculation():
+def test_xlsx_operations_set_is_complete():
     assert XLSX_OPERATIONS == frozenset(
         {
             "xlsx.read",
@@ -19,6 +19,7 @@ def test_xlsx_operations_set_includes_recalculation():
             "xlsx.create",
             "xlsx.edit",
             "xlsx.recalculate",
+            "xlsx.convert",
         }
     )
 

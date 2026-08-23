@@ -83,7 +83,7 @@ def promote_candidate(
     if promoted.sha256 != expected["sha256"] or promoted.bytes != expected["bytes"]:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
-            "Promoted XLSX differs from the validated candidate.",
+            "Promoted output differs from the validated candidate.",
         )
     source_error = None
     if source is not None:

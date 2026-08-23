@@ -120,6 +120,27 @@
       "unavailable_without": [
         "libreoffice_for_formula_workbooks"
       ]
+    },
+    "xlsx.convert": {
+      "available": [
+        "xlsx_csv_tsv_json",
+        "encoding_bom_delimiter_quote_line_ending",
+        "typed_null_empty_boolean_number_date_time_timezone",
+        "leading_zero_and_large_integer_policy",
+        "formula_preserve_text_evaluated_reject_policy",
+        "stable_multisheet_typed_json",
+        "csv_injection_default_escape",
+        "bounded_streaming_and_resource_limits",
+        "semantic_loss_reporting",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "delimited_output_is_single_sheet",
+        "xlsx_objects_and_styles_are_not_tabular",
+        "evaluated_formula_cache_is_not_recalculated",
+        "shared_array_data_table_formula_conversion_fails_closed"
+      ]
     }
   }
 }
