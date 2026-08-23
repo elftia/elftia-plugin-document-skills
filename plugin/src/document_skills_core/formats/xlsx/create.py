@@ -7,6 +7,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from .constants import NS
 from .formula_state import derive_create_state, build_formula_cell_state
 from .package import write_deterministic_zip
+from .styles import StyleRegistry, merge_styles
 
 _MAIN_NS = NS["main"]
 _R_NS = NS["r"]
@@ -30,14 +31,17 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     shared_strings: list[str] = []
     string_index: dict[str, int] = {}
 
-    # Build styles
-    num_fmts: dict[str, int] = {}
-    next_num_fmt_id = 164  # Custom formats start at 164
-    styles_map: dict[str, int] = {}  # style_signature -> xf index
-    fonts_list: list[dict[str, Any]] = [{"bold": False, "italic": False, "size": "11", "name": "Calibri"}]
-    fills_list: list[dict[str, Any]] = [{"pattern_type": "none"}, {"pattern_type": "gray125"}]
-    borders_list: list[dict[str, Any]] = [{}]
-    cell_xfs: list[dict[str, Any]] = [{"num_fmt_id": 0, "font_id": 0, "fill_id": 0, "border_id": 0}]
+    format_definitions = [
+        definition
+        for sheet in sheets_data
+        for definition in sheet.get("number_formats", [])
+    ]
+    style_registry = StyleRegistry(format_definitions)
+    style_assignments: dict[str, dict[str, int]] = {
+        "cells": {},
+        "rows": {},
+        "columns": {},
+    }
 
     # Build parts
     parts: dict[str, bytes] = {}
@@ -63,15 +67,14 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         sheet_part = f"xl/worksheets/sheet{idx + 1}.xml"
         parts[sheet_part] = _build_worksheet(
             sheet, idx, shared_strings, string_index, formula_cells,
-            num_fmts, styles_map, cell_xfs, fonts_list, fills_list, borders_list,
-            lambda: next_num_fmt_id,
+            style_registry, style_assignments,
         )
 
     # Shared strings
     parts["xl/sharedStrings.xml"] = _build_shared_strings(shared_strings)
 
     # Styles
-    parts["xl/styles.xml"] = _build_styles(num_fmts, fonts_list, fills_list, borders_list, cell_xfs)
+    parts["xl/styles.xml"] = style_registry.build_xml()
 
     # Tables
     for tbl_idx, tbl in enumerate(tables):
@@ -110,6 +113,10 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         "formula_cells": formula_cells,
         "shared_strings_count": len(shared_strings),
         "metadata": metadata,
+        "styles": {
+            **style_registry.manifest(),
+            "assignments": style_assignments,
+        },
     }
 
 
@@ -222,36 +229,78 @@ def _build_worksheet(
     shared_strings: list[str],
     string_index: dict[str, int],
     formula_cells: dict[str, dict[str, Any]],
-    num_fmts: dict[str, int],
-    styles_map: dict[str, int],
-    cell_xfs: list[dict[str, Any]],
-    fonts_list: list[dict[str, Any]],
-    fills_list: list[dict[str, Any]],
-    borders_list: list[dict[str, Any]],
-    next_fmt_id: Any,
+    style_registry: StyleRegistry,
+    style_assignments: dict[str, dict[str, int]],
 ) -> bytes:
     root = Element(f"{{{_MAIN_NS}}}worksheet")
+    columns = sheet.get("columns", [])
+    if columns:
+        columns_element = SubElement(root, f"{{{_MAIN_NS}}}cols")
+        for column in columns:
+            attributes = {
+                "min": str(column["min"]),
+                "max": str(column["max"]),
+            }
+            if column.get("width") is not None:
+                attributes["width"] = str(column["width"])
+                attributes["customWidth"] = "1"
+            if column.get("hidden"):
+                attributes["hidden"] = "1"
+            style_id = style_registry.register(column.get("style"))
+            if style_id:
+                attributes["style"] = str(style_id)
+            SubElement(columns_element, f"{{{_MAIN_NS}}}col", attrib=attributes)
+            style_assignments["columns"][f"{sheet['name']}!{column['ref']}"] = style_id
     sheet_data = SubElement(root, f"{{{_MAIN_NS}}}sheetData")
     rows = sheet.get("rows", [])
+    row_buckets: dict[int, list[tuple[dict[str, Any], dict[str, Any] | None]]] = {}
+    row_properties: dict[int, dict[str, Any]] = {}
     for row_idx, row in enumerate(rows):
         first_ref = next(
             (c.get("ref", "") for c in row.get("cells", []) if c.get("ref")),
             "",
         )
         ref_row = _a1_row(first_ref)
-        row_num = str(ref_row if ref_row > 0 else row_idx + 1)
-        row_elem = SubElement(sheet_data, f"{{{_MAIN_NS}}}row", attrib={"r": row_num})
-        cells = row.get("cells", [])
-        for cell in cells:
-            ref = cell.get("ref", "")
-            if not ref:
-                col_letter = _num_to_col(cell.get("_col_offset", row_idx) + 1)
-                ref = f"{col_letter}{row_num}"
+        row_number = ref_row if ref_row > 0 else row_idx + 1
+        row_properties.setdefault(row_number, row)
+        row_buckets.setdefault(row_number, [])
+        for cell in row.get("cells", []):
+            cell_row = _a1_row(cell["ref"])
+            row_buckets.setdefault(cell_row, []).append((cell, row.get("style")))
+    for row_number in sorted(row_buckets):
+        row = row_properties.get(row_number, {})
+        row_attributes = {"r": str(row_number)}
+        row_style_id = style_registry.register(row.get("style"))
+        if row_style_id:
+            row_attributes["s"] = str(row_style_id)
+            row_attributes["customFormat"] = "1"
+        if row.get("height") is not None:
+            row_attributes["ht"] = str(row["height"])
+            row_attributes["customHeight"] = "1"
+        if row.get("hidden"):
+            row_attributes["hidden"] = "1"
+        style_assignments["rows"][f"{sheet['name']}!{row_number}"] = row_style_id
+        row_elem = SubElement(sheet_data, f"{{{_MAIN_NS}}}row", attrib=row_attributes)
+        for cell, requested_row_style in sorted(
+            row_buckets[row_number],
+            key=lambda item: _a1_col(item[0]["ref"]),
+        ):
+            ref = cell["ref"]
             cell_type = cell.get("type", "n")
             formula = cell.get("formula")
             value = cell.get("value")
             cached = cell.get("cached_value")
             cell_attribs: dict[str, str] = {"r": ref}
+            column_style = _column_style(columns, _a1_col(ref))
+            resolved_style = merge_styles(
+                column_style,
+                requested_row_style,
+                cell.get("style"),
+            )
+            style_id = style_registry.register(resolved_style)
+            if style_id:
+                cell_attribs["s"] = str(style_id)
+            style_assignments["cells"][f"{sheet['name']}!{ref}"] = style_id
             if cell_type != "n":
                 cell_attribs["t"] = cell_type
 
@@ -292,66 +341,6 @@ def _build_shared_strings(strings: list[str]) -> bytes:
         si = SubElement(root, f"{{{_MAIN_NS}}}si")
         t = SubElement(si, f"{{{_MAIN_NS}}}t")
         t.text = text
-    return _to_xml_bytes(root)
-
-
-def _build_styles(
-    num_fmts: dict[str, int],
-    fonts: list[dict[str, Any]],
-    fills: list[dict[str, Any]],
-    borders: list[dict[str, Any]],
-    cell_xfs: list[dict[str, Any]],
-) -> bytes:
-    root = Element(f"{{{_MAIN_NS}}}styleSheet")
-    if num_fmts:
-        nfs = SubElement(root, f"{{{_MAIN_NS}}}numFmts", attrib={"count": str(len(num_fmts))})
-        for code, fmt_id in sorted(num_fmts.items(), key=lambda x: x[1]):
-            SubElement(nfs, f"{{{_MAIN_NS}}}numFmt", attrib={
-                "numFmtId": str(fmt_id),
-                "formatCode": code,
-            })
-    fonts_elem = SubElement(root, f"{{{_MAIN_NS}}}fonts", attrib={"count": str(len(fonts))})
-    for font in fonts:
-        font_elem = SubElement(fonts_elem, f"{{{_MAIN_NS}}}font")
-        SubElement(font_elem, f"{{{_MAIN_NS}}}sz", attrib={"val": font.get("size", "11")})
-        SubElement(font_elem, f"{{{_MAIN_NS}}}name", attrib={"val": font.get("name", "Calibri")})
-        if font.get("bold"):
-            SubElement(font_elem, f"{{{_MAIN_NS}}}b")
-        if font.get("italic"):
-            SubElement(font_elem, f"{{{_MAIN_NS}}}i")
-    fills_elem = SubElement(root, f"{{{_MAIN_NS}}}fills", attrib={"count": str(len(fills))})
-    for fill in fills:
-        fill_elem = SubElement(fills_elem, f"{{{_MAIN_NS}}}fill")
-        SubElement(fill_elem, f"{{{_MAIN_NS}}}patternFill", attrib={
-            "patternType": fill.get("pattern_type", "none"),
-        })
-    borders_elem = SubElement(root, f"{{{_MAIN_NS}}}borders", attrib={"count": str(len(borders))})
-    for _border in borders:
-        border_elem = SubElement(borders_elem, f"{{{_MAIN_NS}}}border")
-        for side in ("left", "right", "top", "bottom"):
-            SubElement(border_elem, f"{{{_MAIN_NS}}}{side}")
-    csxfs_elem = SubElement(root, f"{{{_MAIN_NS}}}cellStyleXfs", attrib={"count": "1"})
-    SubElement(csxfs_elem, f"{{{_MAIN_NS}}}xf", attrib={
-        "numFmtId": "0",
-        "fontId": "0",
-        "fillId": "0",
-        "borderId": "0",
-    })
-    cxfs_elem = SubElement(root, f"{{{_MAIN_NS}}}cellXfs", attrib={"count": str(len(cell_xfs))})
-    for xf in cell_xfs:
-        SubElement(cxfs_elem, f"{{{_MAIN_NS}}}xf", attrib={
-            "numFmtId": str(xf.get("num_fmt_id", 0)),
-            "fontId": str(xf.get("font_id", 0)),
-            "fillId": str(xf.get("fill_id", 0)),
-            "borderId": str(xf.get("border_id", 0)),
-        })
-    cstyles_elem = SubElement(root, f"{{{_MAIN_NS}}}cellStyles", attrib={"count": "1"})
-    SubElement(cstyles_elem, f"{{{_MAIN_NS}}}cellStyle", attrib={
-        "name": "Normal",
-        "xfId": "0",
-        "builtinId": "0",
-    })
-    SubElement(root, f"{{{_MAIN_NS}}}dxfs", attrib={"count": "0"})
     return _to_xml_bytes(root)
 
 
@@ -428,14 +417,6 @@ def _to_xml_bytes(root: Element) -> bytes:
     return tostring(root, encoding="UTF-8", xml_declaration=True)
 
 
-def _num_to_col(num: int) -> str:
-    result = ""
-    while num > 0:
-        num, rem = divmod(num - 1, 26)
-        result = chr(ord("A") + rem) + result
-    return result
-
-
 def _a1_row(ref: str) -> int:
     """Extract the numeric row from an A1 reference like 'B5' -> 5."""
 
@@ -446,3 +427,22 @@ def _a1_row(ref: str) -> int:
         else:
             break
     return int(digits) if digits else 0
+
+
+def _a1_col(ref: str) -> int:
+    result = 0
+    for char in ref.upper().replace("$", ""):
+        if not char.isalpha():
+            break
+        result = result * 26 + ord(char) - ord("A") + 1
+    return result
+
+
+def _column_style(
+    columns: list[dict[str, Any]],
+    column_number: int,
+) -> dict[str, Any] | None:
+    for column in columns:
+        if column["min"] <= column_number <= column["max"]:
+            return column.get("style")
+    return None

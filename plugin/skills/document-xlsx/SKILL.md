@@ -54,23 +54,28 @@ without executing or dereferencing anything. Never authorizes mutation.
 
 Creates a workbook from bounded typed data (not raw XML). Requires an explicit output path.
 The current public contract supports multiple sheets, typed cell values, formulas with optional
-cached literals, and workbook defined names. Every created formula reports
+cached literals, workbook defined names, cell/row/column styles, custom number formats,
+row height/hiding, and column width/hiding. Style records are deduplicated, and existing cells
+resolve style precedence as column → row → cell override. Every created formula reports
 `recalculation_required` (or `stale` when a cached literal is supplied).
 
-Cell/row/column styles, custom number formats, tables, charts, validation, conditional
-formatting, and page setup are not public create capabilities yet. Requests for the legacy
-placeholder fields fail closed with `enhancement_required` until their complete package and
-consumer-reopen paths are implemented.
+Tables, charts, validation, conditional formatting, and page setup are not public create
+capabilities yet. Requests for the legacy placeholder fields fail closed with
+`enhancement_required` until their complete package and consumer-reopen paths are implemented.
+See [`references/styles.md`](references/styles.md) for the closed style contract and a request
+fragment.
 
 ### xlsx.edit
 
-Performs bounded cell value/formula edits and sheet-label rename with existing cell-style
-preservation. Requires distinct input and output paths. Editing a precedent cell invalidates
-dependents to `recalculation_required`. Preserves all untargeted package parts (pivot caches,
-charts, drawings, external links, custom XML, etc.) at the payload-hash level.
+Performs bounded cell value/formula edits, cell/row/column style edits, custom number-format
+addition, and sheet-label rename. Existing style tables are patched append-only: untargeted
+font/fill/border/xf records, themes, and indexed colors remain intact. Requires distinct input
+and output paths. Editing a precedent cell invalidates dependents to
+`recalculation_required`. Preserves all untargeted package parts (pivot caches, charts,
+drawings, external links, custom XML, etc.) at the payload-hash level.
 
-Row/column structural operations, full sheet CRUD/reorder/copy, and style mutation are not
-public edit capabilities yet and fail closed with `enhancement_required`.
+Row/column structural operations and full sheet CRUD/reorder/copy are not public edit
+capabilities yet and fail closed with `enhancement_required`.
 
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression

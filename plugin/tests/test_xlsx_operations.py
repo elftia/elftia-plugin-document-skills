@@ -13,6 +13,8 @@ from document_skills_core.formats.xlsx.constants import (
     FORMULA_STATE_STALE,
 )
 from document_skills_core.formats.xlsx.create import create_xlsx
+from document_skills_core.formats.xlsx.mapping import map_workbook
+from document_skills_core.formats.xlsx.package import OpcPackage
 from document_skills_core.formats.xlsx.service import XlsxService
 
 
@@ -119,6 +121,32 @@ def _bounded_workbook() -> dict:
     }
 
 
+def _styled_workbook() -> dict:
+    workbook = _bounded_workbook()
+    sheet = workbook["sheets"][0]
+    sheet["columns"] = [
+        {"ref": "A:B", "width": 16, "hidden": False, "style": None},
+    ]
+    sheet["rows"][0]["height"] = 22
+    sheet["rows"][0]["style"] = {
+        "font": {"bold": True},
+        "fill": {"pattern": "solid", "color": "#DDEEFF"},
+    }
+    sheet["rows"][0]["cells"][0]["style"] = {
+        "alignment": {"horizontal": "center", "wrap": True},
+    }
+    repeated_style = {
+        "number_format": {"id": 165},
+        "protection": {"locked": False},
+    }
+    sheet["rows"][0]["cells"][1]["style"] = repeated_style
+    sheet["rows"][0]["cells"].append(
+        {"ref": "C1", "value": "20", "type": "n", "style": repeated_style}
+    )
+    sheet["number_formats"] = [{"id": 165, "code": "0.000"}]
+    return workbook
+
+
 @pytest.fixture
 def created_xlsx(project_root: Path, tmp_path: Path) -> Path:
     from openpyxl import Workbook
@@ -183,6 +211,58 @@ class TestCreateOperation:
         assert result["degraded"] is False
         assert not result["degradations"]
         assert not output.exists()
+
+    def test_create_styles_are_deduplicated_and_deterministic(
+        self,
+        project_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        service = _service(project_root)
+        outputs = [tmp_path / "styled-a.xlsx", tmp_path / "styled-b.xlsx"]
+        results = [
+            service.execute(
+                "xlsx.create",
+                {
+                    "schema_version": "1.0",
+                    "operation": "xlsx.create",
+                    "output": str(output),
+                    "arguments": {"workbook": _styled_workbook()},
+                },
+            )
+            for output in outputs
+        ]
+
+        assert all(result["status"] == "success" for result in results)
+        assert outputs[0].read_bytes() == outputs[1].read_bytes()
+        first_styles = results[0]["diagnostics"]["operation_result"]["creation"]["styles"]
+        assignments = first_styles["assignments"]["cells"]
+        assert assignments["Sheet1!B1"] == assignments["Sheet1!C1"]
+        assert first_styles["cell_xfs"] < len(assignments) + 3
+
+    def test_invalid_style_preserves_existing_destination(
+        self,
+        project_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        output = tmp_path / "existing.xlsx"
+        output.write_bytes(b"existing-style-destination")
+        workbook = _bounded_workbook()
+        workbook["sheets"][0]["rows"][0]["cells"][0]["style"] = {
+            "font": {"color": "invalid"}
+        }
+
+        result = _service(project_root).execute(
+            "xlsx.create",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.create",
+                "output": str(output),
+                "arguments": {"workbook": workbook},
+            },
+        )
+
+        assert result["status"] == "invalid_request"
+        assert output.read_bytes() == b"existing-style-destination"
 
 
 class TestReadOperation:
@@ -384,3 +464,132 @@ class TestEditOperation:
         })
         assert result["status"] == "invalid_request"
         assert result["errors"][0]["code"] == "DS_OUTPUT_EQUALS_INPUT"
+
+    def test_style_edit_appends_records_and_preserves_existing_style_payloads(
+        self,
+        project_root: Path,
+        tmp_path: Path,
+    ) -> None:
+        from defusedxml.ElementTree import fromstring
+        from openpyxl import Workbook, load_workbook
+        from openpyxl.styles import Color, Font, NamedStyle
+        from xml.etree.ElementTree import tostring
+
+        source = tmp_path / "styled-source.xlsx"
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "Sheet1"
+        sheet["A1"] = "Theme font"
+        sheet["B1"] = 3.5
+        sheet["A1"].font = Font(name="Aptos", bold=True, color=Color(theme=1))
+        unused = NamedStyle(name="PreservedNamedStyle", number_format="0.00%")
+        workbook.add_named_style(unused)
+        workbook.save(source)
+        source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+        before = _style_record_payloads(source, fromstring, tostring)
+        output = tmp_path / "styled-output.xlsx"
+
+        result = _service(project_root).execute(
+            "xlsx.edit",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.edit",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {
+                    "edits": [
+                        {
+                            "sheet": "Sheet1",
+                            "type": "cell_style",
+                            "ref": "A1",
+                            "style": {
+                                "font": {"italic": True},
+                                "fill": {"color": "#DDEEFF"},
+                            },
+                        },
+                        {
+                            "sheet": "Sheet1",
+                            "type": "row_style",
+                            "ref": "2",
+                            "style": {"font": {"bold": True}},
+                        },
+                        {
+                            "sheet": "Sheet1",
+                            "type": "column_style",
+                            "ref": "B",
+                            "style": {"number_format": {"code": "0.0000"}},
+                        },
+                    ],
+                    "expected_edits": 3,
+                },
+            },
+        )
+
+        assert result["status"] == "success"
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+        after = _style_record_payloads(output, fromstring, tostring)
+        for container, original_records in before.items():
+            assert after[container][: len(original_records)] == original_records
+        reopened = load_workbook(output)
+        edited = reopened["Sheet1"]["A1"]
+        assert edited.font.bold is True
+        assert edited.font.italic is True
+        assert edited.font.color.type == "theme"
+        assert edited.font.color.theme == 1
+        assert edited.fill.fgColor.rgb == "FFDDEEFF"
+        assert reopened["Sheet1"].row_dimensions[2].style_id > 0
+        assert reopened["Sheet1"].column_dimensions["B"].number_format == "0.0000"
+        mapped = map_workbook(OpcPackage.open(output))
+        mapped_cells = {
+            cell["ref"]: cell
+            for row in mapped["sheets"][0]["rows"]
+            for cell in row["cells"]
+        }
+        assert mapped_cells["B1"]["style_source"] == "column"
+        assert mapped_cells["B1"]["number_format"] == "0.0000"
+
+    def test_missing_custom_number_format_id_preserves_existing_destination(
+        self,
+        project_root: Path,
+        created_xlsx: Path,
+        tmp_path: Path,
+    ) -> None:
+        output = tmp_path / "existing-style-output.xlsx"
+        output.write_bytes(b"existing-style-output")
+        source_hash = hashlib.sha256(created_xlsx.read_bytes()).hexdigest()
+
+        result = _service(project_root).execute(
+            "xlsx.edit",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.edit",
+                "input": str(created_xlsx),
+                "output": str(output),
+                "arguments": {
+                    "edits": [
+                        {
+                            "sheet": "Data",
+                            "type": "cell_style",
+                            "ref": "A1",
+                            "style": {"number_format": {"id": 165}},
+                        }
+                    ]
+                },
+            },
+        )
+
+        assert result["status"] == "invalid_request"
+        assert output.read_bytes() == b"existing-style-output"
+        assert hashlib.sha256(created_xlsx.read_bytes()).hexdigest() == source_hash
+
+
+def _style_record_payloads(path: Path, fromstring, serialize) -> dict[str, list[bytes]]:
+    with zipfile.ZipFile(path, "r") as archive:
+        root = fromstring(archive.read("xl/styles.xml"))
+    namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    result: dict[str, list[bytes]] = {}
+    for container_name in ("fonts", "fills", "borders", "cellXfs"):
+        container = root.find(f"{{{namespace}}}{container_name}")
+        assert container is not None
+        result[container_name] = [serialize(item, encoding="UTF-8") for item in container]
+    return result

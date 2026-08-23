@@ -87,6 +87,7 @@ def _map_sheets(
             "order": idx,
             "state": sheet_state,
             "rows": [],
+            "columns": [],
             "dimension": "",
             "protection": False,
         }
@@ -111,6 +112,8 @@ def _fill_sheet_data(
         sheet_data["dimension"] = dim.attrib.get("ref", "")
     # Sheet protection
     sheet_data["protection"] = root.find(f"{{{main_ns}}}sheetProtection") is not None
+    columns = _map_columns(root, styles)
+    sheet_data["columns"] = columns
     # Rows and cells
     sheet_data_root = root.find(f"{{{main_ns}}}sheetData")
     if sheet_data_root is None:
@@ -120,24 +123,53 @@ def _fill_sheet_data(
         row_ref = row_elem.attrib.get("r", "")
         row_style = int(row_elem.attrib.get("s", "0"))
         hidden = row_elem.attrib.get("hidden") == "1"
+        height = row_elem.attrib.get("ht")
         cells: list[dict[str, Any]] = []
         for c_elem in row_elem.findall(f"{{{main_ns}}}c"):
-            cell = _map_cell(c_elem, shared, styles)
+            column_style = _column_style_index(columns, c_elem.attrib.get("r", ""))
+            cell = _map_cell(
+                c_elem,
+                shared,
+                styles,
+                row_style_index=row_style,
+                column_style_index=column_style,
+            )
             cells.append(cell)
         rows.append({
             "ref": row_ref,
             "style_index": row_style,
+            "style": resolve_style_index(styles, row_style),
             "hidden": hidden,
+            "height": float(height) if height is not None else None,
             "cells": cells,
         })
     sheet_data["rows"] = rows
 
 
-def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[str, Any]:
+def _map_cell(
+    c_elem: Any,
+    shared: list[str],
+    styles: dict[str, Any],
+    *,
+    row_style_index: int = 0,
+    column_style_index: int = 0,
+) -> dict[str, Any]:
     main_ns = _MAIN_NS
     ref = c_elem.attrib.get("r", "")
     cell_type = c_elem.attrib.get("t", "n")
-    style_index = int(c_elem.attrib.get("s", "0"))
+    raw_style_index = int(c_elem.attrib.get("s", "0"))
+    if "s" in c_elem.attrib:
+        resolved_style_index = raw_style_index
+        style_source = "cell"
+    elif row_style_index:
+        resolved_style_index = row_style_index
+        style_source = "row"
+    elif column_style_index:
+        resolved_style_index = column_style_index
+        style_source = "column"
+    else:
+        resolved_style_index = 0
+        style_source = "default"
     formula_elem = c_elem.find(f"{{{main_ns}}}f")
     value_elem = c_elem.find(f"{{{main_ns}}}v")
     inline_str_elem = c_elem.find(f"{{{main_ns}}}is")
@@ -157,12 +189,15 @@ def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[st
     elif value_elem is not None:
         value = value_elem.text
     # Resolve style
-    resolved_style = resolve_style_index(styles, style_index)
+    resolved_style = resolve_style_index(styles, resolved_style_index)
     cell_data: dict[str, Any] = {
         "ref": ref,
         "type": cell_type,
         "value": value,
-        "style_index": style_index,
+        "style_index": raw_style_index,
+        "resolved_style_index": resolved_style_index,
+        "style_source": style_source,
+        "style": resolved_style,
         "number_format": resolved_style.get("num_fmt_code", ""),
         "formula": formula_text if formula_text else None,
         "cached_value": cached_value,
@@ -179,6 +214,45 @@ def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[st
             dependents_count=0,
         )
     return cell_data
+
+
+def _map_columns(root: Any, styles: dict[str, Any]) -> list[dict[str, Any]]:
+    columns: list[dict[str, Any]] = []
+    container = root.find(f"{{{_MAIN_NS}}}cols")
+    if container is None:
+        return columns
+    for column in container.findall(f"{{{_MAIN_NS}}}col"):
+        first = int(column.attrib.get("min", "1"))
+        last = int(column.attrib.get("max", str(first)))
+        style_index = int(column.attrib.get("style", "0"))
+        width = column.attrib.get("width")
+        columns.append(
+            {
+                "min": first,
+                "max": last,
+                "ref": (
+                    num_to_col(first)
+                    if first == last
+                    else f"{num_to_col(first)}:{num_to_col(last)}"
+                ),
+                "width": float(width) if width is not None else None,
+                "hidden": column.attrib.get("hidden") == "1",
+                "style_index": style_index,
+                "style": resolve_style_index(styles, style_index),
+            }
+        )
+    return columns
+
+
+def _column_style_index(columns: list[dict[str, Any]], cell_ref: str) -> int:
+    parsed = parse_ref(cell_ref)
+    if parsed is None:
+        return 0
+    column_number = col_to_num(parsed[0])
+    for column in columns:
+        if column["min"] <= column_number <= column["max"]:
+            return column["style_index"]
+    return 0
 
 
 def _map_defined_names(workbook_root: Any) -> list[dict[str, str]]:

@@ -29,7 +29,7 @@ from .inspect import inspect_xlsx
 from .read import read_xlsx
 from .results import read_validation, success_result, with_formula_gate
 from .transaction import promote_candidate, write_candidate_result
-from .validation import validate_created, validate_mutation
+from .validation import assert_edits_applied, validate_created, validate_mutation
 
 
 class XlsxService:
@@ -113,7 +113,7 @@ class XlsxService:
         When LibreOffice is absent or fails, returns (None, core_cells) so the
         Core formula-state logic is byte-identical.
         """
-        if self.libreoffice is None:
+        if not core_cells or self.libreoffice is None:
             return None, core_cells
         recalculated = self.libreoffice.try_recalc_xlsx(input_path)
         if recalculated is None:
@@ -155,7 +155,7 @@ class XlsxService:
         with OperationTempRoot() as private_root:
             staged = private_root / "created.xlsx"
             creation = create_xlsx(staged, workbook)
-            validation = validate_created(staged, workbook)
+            validation = validate_created(staged, workbook, creation=creation)
             # Build formula state for degradation
             formula_cells = creation.get("formula_cells", {})
             formula_summary = build_formula_state_summary(formula_cells)
@@ -163,6 +163,7 @@ class XlsxService:
                 "creation": {
                     "sheets": creation["sheets"],
                     "shared_strings_count": creation["shared_strings_count"],
+                    "styles": creation["styles"],
                 },
                 "formula_state": {
                     "cells": formula_cells,
@@ -220,6 +221,10 @@ class XlsxService:
                     source=request.input_path,
                     source_sha256=source_record.sha256,
                     manifest=manifest,
+                    assertion=lambda candidate: assert_edits_applied(
+                        candidate,
+                        request.arguments["edits"],
+                    ),
                 )
                 # Build formula state for degradation
                 formula_summary = build_formula_state_summary(

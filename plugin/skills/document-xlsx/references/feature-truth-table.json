@@ -6,13 +6,15 @@
         "multiple_sheets",
         "typed_cell_values",
         "formulas_with_optional_cached_values",
-        "defined_names"
-      ],
-      "enhancement_required": [
+        "defined_names",
         "cell_style",
         "row_style",
         "column_style",
         "custom_number_format",
+        "row_height_and_hidden",
+        "column_width_and_hidden"
+      ],
+      "enhancement_required": [
         "native_table",
         "native_chart",
         "data_validation",
@@ -24,10 +26,13 @@
       "available": [
         "cell_value",
         "cell_formula",
-        "sheet_rename"
+        "sheet_rename",
+        "cell_style",
+        "row_style",
+        "column_style",
+        "custom_number_format"
       ],
       "enhancement_required": [
-        "cell_style",
         "row_insert",
         "row_delete",
         "column_insert",

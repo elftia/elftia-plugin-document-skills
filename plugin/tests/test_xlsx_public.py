@@ -55,7 +55,10 @@ def _public(
         timeout=30,
     )
     if check:
-        assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+        assert process.returncode == 0, (
+            process.stderr.decode("utf-8", errors="replace")
+            or process.stdout.decode("utf-8", errors="replace")
+        )
     assert process.stderr == b""
     text = process.stdout.decode("utf-8", errors="strict")
     decoder = json.JSONDecoder()
@@ -201,12 +204,14 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "typed_cell_values",
                     "formulas_with_optional_cached_values",
                     "defined_names",
-                ],
-                "enhancement_required": [
                     "cell_style",
                     "row_style",
                     "column_style",
                     "custom_number_format",
+                    "row_height_and_hidden",
+                    "column_width_and_hidden",
+                ],
+                "enhancement_required": [
                     "native_table",
                     "native_chart",
                     "data_validation",
@@ -215,9 +220,16 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                 ],
             },
             "xlsx.edit": {
-                "available": ["cell_value", "cell_formula", "sheet_rename"],
-                "enhancement_required": [
+                "available": [
+                    "cell_value",
+                    "cell_formula",
+                    "sheet_rename",
                     "cell_style",
+                    "row_style",
+                    "column_style",
+                    "custom_number_format",
+                ],
+                "enhancement_required": [
                     "row_insert",
                     "row_delete",
                     "column_insert",
@@ -305,6 +317,230 @@ def test_public_edit_claimed_features_reopen(
     assert reopened.sheetnames == ["Renamed"]
     assert reopened["Renamed"]["B1"].value == 42
     assert reopened["Renamed"]["B2"].value == "=B1*3"
+
+
+def test_public_create_styles_and_number_formats_reopen(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    output = tmp_path / "styled.xlsx"
+    workbook = {
+        "metadata": {"title": "Styled XLSX", "creator": "Test", "subject": ""},
+        "sheets": [
+            {
+                "name": "Styled",
+                "columns": [
+                    {
+                        "ref": "A",
+                        "width": 20,
+                        "hidden": False,
+                        "style": {"font": {"color": "#008800"}},
+                    },
+                    {"ref": "C", "hidden": True, "style": None},
+                ],
+                "rows": [
+                    {
+                        "height": 24,
+                        "hidden": True,
+                        "style": {
+                            "font": {"name": "Aptos", "size": 12, "bold": True},
+                            "fill": {"pattern": "solid", "color": "#DDEEFF"},
+                            "border": {
+                                "bottom": {"style": "thin", "color": "#112233"}
+                            },
+                            "alignment": {
+                                "horizontal": "center",
+                                "vertical": "top",
+                                "wrap": True,
+                            },
+                            "protection": {"locked": True, "hidden": False},
+                        },
+                        "cells": [
+                            {
+                                "ref": "A1",
+                                "value": "Header",
+                                "type": "s",
+                                "style": {
+                                    "font": {
+                                        "italic": True,
+                                        "underline": "single",
+                                        "color": "#FF0000",
+                                    },
+                                    "alignment": {"rotation": 45},
+                                },
+                            },
+                            {"ref": "B1", "value": "Amount", "type": "s"},
+                        ],
+                    },
+                    {
+                        "cells": [
+                            {
+                                "ref": "B2",
+                                "value": "1234.5",
+                                "type": "n",
+                                "style": {
+                                    "number_format": {"id": 165},
+                                    "alignment": {"horizontal": "right"},
+                                    "protection": {"locked": False},
+                                },
+                            },
+                            {
+                                "ref": "C2",
+                                "value": "8.25",
+                                "type": "n",
+                                "style": {
+                                    "number_format": {"id": 165},
+                                    "alignment": {"horizontal": "right"},
+                                    "protection": {"locked": False},
+                                },
+                            },
+                        ]
+                    },
+                ],
+                "number_formats": [{"id": 165, "code": "$#,##0.00"}],
+            }
+        ],
+        "defined_names": [],
+        "tables": [],
+        "chart_reference": None,
+        "page_setup": None,
+    }
+    request = _request(
+        tmp_path,
+        "styled.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": str(output),
+            "arguments": {"workbook": workbook},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    reopened = load_workbook(output, data_only=False)
+    sheet = reopened["Styled"]
+    header = sheet["A1"]
+    assert header.font.name == "Aptos"
+    assert header.font.sz == 12
+    assert header.font.bold is True
+    assert header.font.italic is True
+    assert header.font.underline == "single"
+    assert header.font.color.rgb == "FFFF0000"
+    assert header.fill.fill_type == "solid"
+    assert header.fill.fgColor.rgb == "FFDDEEFF"
+    assert header.border.bottom.style == "thin"
+    assert header.border.bottom.color.rgb == "FF112233"
+    assert header.alignment.horizontal == "center"
+    assert header.alignment.vertical == "top"
+    assert header.alignment.wrap_text is True
+    assert header.alignment.text_rotation == 45
+    assert header.protection.locked is True
+    assert sheet["B2"].number_format == "$#,##0.00"
+    assert sheet["B2"].protection.locked is False
+    assert sheet["B2"].style_id == sheet["C2"].style_id
+    assert sheet.row_dimensions[1].height == 24
+    assert sheet.row_dimensions[1].hidden is True
+    assert sheet.column_dimensions["A"].width == 20
+    assert sheet.column_dimensions["C"].hidden is True
+
+    read_request = _request(
+        tmp_path,
+        "styled-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    cells = {
+        cell["ref"]: cell
+        for row in read_result["diagnostics"]["operation_result"]["sheets"][0]["rows"]
+        for cell in row["cells"]
+    }
+    assert cells["A1"]["style_index"] > 0
+    assert cells["A1"]["style"]["font"]["bold"] is True
+    assert cells["A1"]["style"]["font"]["italic"] is True
+    assert cells["A1"]["style"]["alignment"]["rotation"] == 45
+    assert cells["B2"]["number_format"] == "$#,##0.00"
+
+
+def test_public_edit_styles_and_number_format_reopen(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    output = tmp_path / "styled-edit.xlsx"
+    request = _request(
+        tmp_path,
+        "styled-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {
+                        "sheet": "Sheet1",
+                        "type": "cell_style",
+                        "ref": "A1",
+                        "style": {
+                            "font": {"bold": True, "color": "#AA0000"},
+                            "fill": {"color": "#FFFF00"},
+                            "border": {
+                                "right": {"style": "double", "color": "#0000AA"}
+                            },
+                            "alignment": {
+                                "horizontal": "center",
+                                "wrap": True,
+                                "rotation": -30,
+                            },
+                            "protection": {"hidden": True},
+                        },
+                    },
+                    {
+                        "sheet": "Sheet1",
+                        "type": "row_style",
+                        "ref": "2",
+                        "style": {"font": {"italic": True}},
+                    },
+                    {
+                        "sheet": "Sheet1",
+                        "type": "column_style",
+                        "ref": "C",
+                        "style": {"number_format": {"code": "0.000"}},
+                    },
+                ],
+                "expected_edits": 3,
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] in {"success", "degraded"}
+    reopened = load_workbook(output, data_only=False)
+    sheet = reopened["Sheet1"]
+    assert sheet["A1"].font.bold is True
+    assert sheet["A1"].font.color.rgb == "FFAA0000"
+    assert sheet["A1"].fill.fgColor.rgb == "FFFFFF00"
+    assert sheet["A1"].border.right.style == "double"
+    assert sheet["A1"].border.right.color.rgb == "FF0000AA"
+    assert sheet["A1"].alignment.horizontal == "center"
+    assert sheet["A1"].alignment.wrap_text is True
+    assert sheet["A1"].alignment.text_rotation == 120
+    assert sheet["A1"].protection.hidden is True
+    assert sheet.row_dimensions[2].style_id > 0
+    assert sheet.column_dimensions["C"].style_id > 0
+    assert sheet.column_dimensions["C"].number_format == "0.000"
 
 
 def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:

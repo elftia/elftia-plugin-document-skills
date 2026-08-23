@@ -8,6 +8,12 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHEETS
+from .style_contract import (
+    custom_number_format_id,
+    parse_column,
+    parse_number_format_definition,
+    parse_style,
+)
 
 XLSX_OPERATIONS = frozenset(
     {
@@ -119,7 +125,18 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         _exact_keys(edit, {"sheet", "type", "ref", "value", "style"})
         sheet = _text(edit.get("sheet"), f"edits.{index}.sheet", allow_empty=False)
         edit_type = edit.get("type")
-        if edit_type not in {"cell_value", "cell_formula", "row_insert", "row_delete", "column_insert", "column_delete", "sheet_rename"}:
+        if edit_type not in {
+            "cell_value",
+            "cell_formula",
+            "cell_style",
+            "row_style",
+            "column_style",
+            "row_insert",
+            "row_delete",
+            "column_insert",
+            "column_delete",
+            "sheet_rename",
+        }:
             _invalid("Unknown edit type.", field=f"edits.{index}.type")
         if edit_type in {"row_insert", "row_delete", "column_insert", "column_delete"}:
             _enhancement(
@@ -129,14 +146,16 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             )
         ref = _text(edit.get("ref", ""), f"edits.{index}.ref", allow_empty=False)
         cell_value = _optional_text(edit.get("value"), f"edits.{index}.value")
-        style = edit.get("style")
-        if style is not None and type(style) is not dict:
-            _invalid("Style must be an object.", field=f"edits.{index}.style")
-        if style:
-            _enhancement(
-                "XLSX edit styles are not connected to the emitter.",
+        style = parse_style(edit.get("style"), f"edits.{index}.style")
+        if edit_type in {"cell_style", "row_style", "column_style"} and not style:
+            _invalid(
+                "Style edit requires a non-empty style object.",
                 field=f"edits.{index}.style",
-                capability="xlsx.cell-style",
+            )
+        if edit_type == "sheet_rename" and style:
+            _invalid(
+                "sheet_rename does not accept style.",
+                field=f"edits.{index}.style",
             )
         parsed_edits.append(
             {"sheet": sheet, "type": edit_type, "ref": ref, "value": cell_value, "style": style}
@@ -162,11 +181,34 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     if type(sheets) is not list or not sheets or len(sheets) > MAX_SHEETS:
         _invalid("workbook.sheets must be a non-empty bounded array.", field="sheets")
     parsed_sheets = []
+    parsed_styles: list[dict[str, Any]] = []
+    custom_formats: dict[int, str] = {}
+    custom_format_codes: dict[str, int] = {}
     for idx, sheet in enumerate(sheets):
         if type(sheet) is not dict:
             _invalid(f"Sheet {idx} must be an object.", field=f"sheets.{idx}")
-        _exact_keys(sheet, {"name", "rows", "number_formats"})
+        _exact_keys(sheet, {"name", "rows", "columns", "number_formats"})
         name = _text(sheet.get("name", f"Sheet{idx + 1}"), f"sheets.{idx}.name", allow_empty=False)
+        columns = sheet.get("columns", [])
+        if type(columns) is not list:
+            _invalid("Sheet columns must be an array.", field=f"sheets.{idx}.columns")
+        parsed_columns = []
+        occupied_columns: set[int] = set()
+        for column_idx, column in enumerate(columns):
+            parsed_column = parse_column(
+                column,
+                f"sheets.{idx}.columns.{column_idx}",
+            )
+            column_range = set(range(parsed_column["min"], parsed_column["max"] + 1))
+            if occupied_columns.intersection(column_range):
+                _invalid(
+                    "Column definitions must not overlap.",
+                    field=f"sheets.{idx}.columns.{column_idx}.ref",
+                )
+            occupied_columns.update(column_range)
+            if parsed_column["style"]:
+                parsed_styles.append(parsed_column["style"])
+            parsed_columns.append(parsed_column)
         rows = sheet.get("rows", [])
         if type(rows) is not list:
             _invalid(f"Sheet {idx} rows must be an array.", field=f"sheets.{idx}.rows")
@@ -174,7 +216,7 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
         for row_idx, row in enumerate(rows):
             if type(row) is not dict:
                 _invalid(f"Row {row_idx} must be an object.", field=f"sheets.{idx}.rows.{row_idx}")
-            _exact_keys(row, {"cells", "style"})
+            _exact_keys(row, {"cells", "style", "height", "hidden"})
             cells = row.get("cells", [])
             if type(cells) is not list:
                 _invalid(f"Row {row_idx} cells must be an array.", field=f"sheets.{idx}.rows.{row_idx}.cells")
@@ -190,48 +232,80 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 val = _optional_text(cell.get("value"), "cell.value")
                 formula = _optional_text(cell.get("formula"), "cell.formula")
                 cached = _optional_text(cell.get("cached_value"), "cell.cached_value")
-                cell_style = cell.get("style")
-                if cell_style is not None and type(cell_style) is not dict:
-                    _invalid("Cell style must be an object.", field="cell.style")
+                cell_style = parse_style(
+                    cell.get("style"),
+                    f"sheets.{idx}.rows.{row_idx}.cells.{cell_idx}.style",
+                )
                 if cell_style:
-                    _enhancement(
-                        "XLSX cell styles are not independently accepted.",
-                        field=f"sheets.{idx}.rows.{row_idx}.cells.{cell_idx}.style",
-                        capability="xlsx.cell-style",
-                    )
+                    parsed_styles.append(cell_style)
                 parsed_cells.append(
                     {"ref": ref, "value": val, "formula": formula, "type": cell_type, "style": cell_style, "cached_value": cached}
                 )
-            row_style = row.get("style")
-            if row_style is not None and type(row_style) is not dict:
-                _invalid("Row style must be an object.", field=f"sheets.{idx}.rows.{row_idx}.style")
+            row_style = parse_style(
+                row.get("style"),
+                f"sheets.{idx}.rows.{row_idx}.style",
+            )
             if row_style:
-                _enhancement(
-                    "XLSX row styles are not independently accepted.",
-                    field=f"sheets.{idx}.rows.{row_idx}.style",
-                    capability="xlsx.row-style",
-                )
-            parsed_rows.append({"cells": parsed_cells, "style": row_style})
+                parsed_styles.append(row_style)
+            height = row.get("height")
+            if height is not None:
+                if type(height) not in {int, float} or not 0 <= height <= 409:
+                    _invalid(
+                        "Row height must be between 0 and 409 points.",
+                        field=f"sheets.{idx}.rows.{row_idx}.height",
+                    )
+            hidden = _boolean(
+                row.get("hidden", False),
+                f"sheets.{idx}.rows.{row_idx}.hidden",
+            )
+            parsed_rows.append(
+                {
+                    "cells": parsed_cells,
+                    "style": row_style,
+                    "height": height,
+                    "hidden": hidden,
+                }
+            )
         number_formats = sheet.get("number_formats", [])
         if type(number_formats) is not list:
             _invalid("number_formats must be an array.", field=f"sheets.{idx}.number_formats")
-        if number_formats:
-            _enhancement(
-                "Custom number formats are not independently accepted.",
-                field=f"sheets.{idx}.number_formats",
-                capability="xlsx.number-format",
-            )
         parsed_formats = []
         for nf_idx, nf in enumerate(number_formats):
-            if type(nf) is not dict:
-                _invalid("number_format must be an object.", field=f"sheets.{idx}.number_formats.{nf_idx}")
-            _exact_keys(nf, {"id", "code"})
-            parsed_formats.append(
-                {"id": _integer(nf.get("id"), 0, 500), "code": _text(nf.get("code", ""), "number_format.code")}
+            parsed_format = parse_number_format_definition(
+                nf,
+                f"sheets.{idx}.number_formats.{nf_idx}",
             )
+            format_id = parsed_format["id"]
+            code = parsed_format["code"]
+            if format_id in custom_formats and custom_formats[format_id] != code:
+                _invalid(
+                    "Custom number format id maps to multiple codes.",
+                    field=f"sheets.{idx}.number_formats.{nf_idx}.id",
+                )
+            if code in custom_format_codes and custom_format_codes[code] != format_id:
+                _invalid(
+                    "Custom number format code maps to multiple ids.",
+                    field=f"sheets.{idx}.number_formats.{nf_idx}.code",
+                )
+            custom_formats[format_id] = code
+            custom_format_codes[code] = format_id
+            parsed_formats.append(parsed_format)
         parsed_sheets.append(
-            {"name": name, "rows": parsed_rows, "number_formats": parsed_formats}
+            {
+                "name": name,
+                "columns": parsed_columns,
+                "rows": parsed_rows,
+                "number_formats": parsed_formats,
+            }
         )
+    for style in parsed_styles:
+        format_id = custom_number_format_id(style)
+        if format_id is not None and format_id not in custom_formats:
+            _invalid(
+                "Custom number format id must be declared in sheet.number_formats.",
+                field="style.number_format.id",
+                id=format_id,
+            )
     defined_names = workbook.get("defined_names", [])
     if type(defined_names) is not list:
         _invalid("defined_names must be an array.", field="defined_names")
