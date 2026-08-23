@@ -39,6 +39,7 @@ def edit_xlsx(
 
     # Track changed parts
     changed_parts: dict[str, bytes] = {}
+    worksheet_roots: dict[str, Element] = {}
     # Track formula state for all formulas (existing + edited)
     all_formula_cells: dict[str, dict[str, Any]] = dict(workbook.get("formula_cells", {}))
     # Track invalidated dependents
@@ -59,7 +60,7 @@ def edit_xlsx(
         # Find the worksheet part
         sheet_idx = [s["name"] for s in workbook["sheets"]].index(sheet_name)
         sheet_part = f"xl/worksheets/sheet{sheet_idx + 1}.xml"
-        sheet_root = package.xml(sheet_part)
+        sheet_root = worksheet_roots.setdefault(sheet_part, package.xml(sheet_part))
 
         if edit_type == "cell_value":
             _apply_cell_value(sheet_root, ref, value, new_shared, all_formula_cells, invalidated, sheet_name)
@@ -74,9 +75,12 @@ def edit_xlsx(
             # Rename is handled at workbook level
             edit_counts["sheet_rename"] = edit_counts.get("sheet_rename", 0) + 1
 
-        # Rebuild the sheet part XML
-        from xml.etree.ElementTree import tostring as et_tostring
-        changed_parts[sheet_part] = et_tostring(sheet_root, encoding="UTF-8", xml_declaration=True)
+    for sheet_part, sheet_root in worksheet_roots.items():
+        changed_parts[sheet_part] = tostring(
+            sheet_root,
+            encoding="UTF-8",
+            xml_declaration=True,
+        )
 
     # Rebuild shared strings if changed
     if new_shared != shared:
@@ -92,8 +96,11 @@ def edit_xlsx(
             if new_name and _rename_sheet_in_workbook(workbook_root, old_name, new_name):
                 workbook_changed = True
     if workbook_changed:
-        from xml.etree.ElementTree import tostring as et_tostring
-        changed_parts["xl/workbook.xml"] = et_tostring(workbook_root, encoding="UTF-8", xml_declaration=True)
+        changed_parts["xl/workbook.xml"] = tostring(
+            workbook_root,
+            encoding="UTF-8",
+            xml_declaration=True,
+        )
 
     # Update formula state for invalidated dependents
     for ref_key in invalidated:

@@ -52,18 +52,30 @@ without executing or dereferencing anything. Never authorizes mutation.
 
 ### xlsx.create
 
-Creates a styled workbook from bounded typed data (not raw XML). Requires an explicit output
-path. Supports multiple sheets, styled cells, formulas, number formats, tables, chart
-references, defined names, and header/footer/page-setup metadata. Every created formula
-reports `recalculation_required` (or `stale` when a cached literal is supplied).
+Creates a workbook from bounded typed data (not raw XML). Requires an explicit output path.
+The current public contract supports multiple sheets, typed cell values, formulas with optional
+cached literals, and workbook defined names. Every created formula reports
+`recalculation_required` (or `stale` when a cached literal is supplied).
+
+Cell/row/column styles, custom number formats, tables, charts, validation, conditional
+formatting, and page setup are not public create capabilities yet. Requests for the legacy
+placeholder fields fail closed with `enhancement_required` until their complete package and
+consumer-reopen paths are implemented.
 
 ### xlsx.edit
 
-Performs cell value/formula edits, row/column operations, and sheet operations with
-run-aware style preservation. Requires distinct input and output paths. Editing a precedent
-cell invalidates all transitive dependents to `recalculation_required`. Preserves all
-untargeted package parts (pivot caches, charts, drawings, external links, custom XML, etc.)
-at the payload-hash level.
+Performs bounded cell value/formula edits and sheet-label rename with existing cell-style
+preservation. Requires distinct input and output paths. Editing a precedent cell invalidates
+dependents to `recalculation_required`. Preserves all untargeted package parts (pivot caches,
+charts, drawings, external links, custom XML, etc.) at the payload-hash level.
+
+Row/column structural operations, full sheet CRUD/reorder/copy, and style mutation are not
+public edit capabilities yet and fail closed with `enhancement_required`.
+
+The normative operation/feature status is recorded in
+[`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression
+tests execute every feature marked `available` through this Skill's `scripts/run.py` and reopen
+the promoted artifact with an independent consumer.
 
 ## Result status interpretation
 

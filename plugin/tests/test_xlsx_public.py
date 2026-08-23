@@ -100,6 +100,49 @@ def _workbook() -> dict[str, object]:
     }
 
 
+def _claimed_create_features_workbook() -> dict[str, object]:
+    return {
+        "metadata": {"title": "Claimed XLSX features", "creator": "Test", "subject": ""},
+        "sheets": [
+            {
+                "name": "Data",
+                "rows": [
+                    {
+                        "cells": [
+                            {"ref": "A1", "value": "Name", "type": "s"},
+                            {"ref": "B1", "value": "12", "type": "n"},
+                            {
+                                "ref": "B2",
+                                "formula": "B1*2",
+                                "cached_value": "24",
+                                "type": "n",
+                            },
+                        ]
+                    }
+                ],
+                "number_formats": [],
+            },
+            {
+                "name": "Summary",
+                "rows": [
+                    {
+                        "cells": [
+                            {"ref": "A1", "value": "Total", "type": "s"},
+                        ]
+                    }
+                ],
+                "number_formats": [],
+            },
+        ],
+        "defined_names": [
+            {"name": "TotalValue", "ref": "Data!$B$2", "scope": "workbook"},
+        ],
+        "tables": [],
+        "chart_reference": None,
+        "page_setup": None,
+    }
+
+
 @pytest.fixture
 def public_created(project_root: Path, tmp_path: Path) -> Path:
     from openpyxl import Workbook
@@ -143,6 +186,125 @@ def test_public_create_is_truthful_and_promotes_bounded_artifact(
         and gate["outcome"] == "pass"
         for gate in result["validation"]["gates"]
     )
+
+
+def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
+    truth_table_path = project_root / "skills/document-xlsx/references/feature-truth-table.json"
+    truth_table = json.loads(truth_table_path.read_text(encoding="utf-8"))
+
+    assert truth_table == {
+        "schema_version": "1.0",
+        "operations": {
+            "xlsx.create": {
+                "available": [
+                    "multiple_sheets",
+                    "typed_cell_values",
+                    "formulas_with_optional_cached_values",
+                    "defined_names",
+                ],
+                "enhancement_required": [
+                    "cell_style",
+                    "row_style",
+                    "column_style",
+                    "custom_number_format",
+                    "native_table",
+                    "native_chart",
+                    "data_validation",
+                    "conditional_formatting",
+                    "page_setup",
+                ],
+            },
+            "xlsx.edit": {
+                "available": ["cell_value", "cell_formula", "sheet_rename"],
+                "enhancement_required": [
+                    "cell_style",
+                    "row_insert",
+                    "row_delete",
+                    "column_insert",
+                    "column_delete",
+                    "sheet_add",
+                    "sheet_delete",
+                    "sheet_copy",
+                    "sheet_reorder",
+                ],
+            },
+        },
+    }
+
+
+def test_public_create_claimed_features_reopen(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    output = tmp_path / "claimed-create-features.xlsx"
+    request = _request(
+        tmp_path,
+        "claimed-create-features.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": str(output),
+            "arguments": {"workbook": _claimed_create_features_workbook()},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] in {"success", "degraded"}
+    reopened = load_workbook(output, data_only=False)
+    assert reopened.sheetnames == ["Data", "Summary"]
+    assert reopened["Data"]["A1"].value == "Name"
+    assert reopened["Data"]["B1"].value == 12
+    assert reopened["Data"]["B2"].value == "=B1*2"
+    assert reopened.defined_names["TotalValue"].attr_text == "Data!$B$2"
+
+
+def test_public_edit_claimed_features_reopen(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    output = tmp_path / "claimed-edit-features.xlsx"
+    request = _request(
+        tmp_path,
+        "claimed-edit-features.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "B1", "value": "42"},
+                    {
+                        "sheet": "Sheet1",
+                        "type": "cell_formula",
+                        "ref": "B2",
+                        "value": "B1*3",
+                    },
+                    {
+                        "sheet": "Sheet1",
+                        "type": "sheet_rename",
+                        "ref": "A1",
+                        "value": "Renamed",
+                    },
+                ],
+                "expected_edits": 3,
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "degraded"
+    reopened = load_workbook(output, data_only=False)
+    assert reopened.sheetnames == ["Renamed"]
+    assert reopened["Renamed"]["B1"].value == 42
+    assert reopened["Renamed"]["B2"].value == "=B1*3"
 
 
 def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
