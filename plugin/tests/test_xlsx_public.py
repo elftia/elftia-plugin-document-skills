@@ -6,11 +6,14 @@ import json
 from pathlib import Path
 import subprocess
 import zipfile
+from xml.etree.ElementTree import tostring
 
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.formats.xlsx.constants import NS
 from document_skills_core.formats.xlsx.create import create_xlsx
+from document_skills_core.formats.xlsx.package import OpcPackage
 
 
 def _strip_style_children(path: Path) -> None:
@@ -258,6 +261,21 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
     assert truth_table == {
         "schema_version": "1.0",
         "operations": {
+            "xlsx.read": {
+                "available": [
+                    "static_formula_syntax_and_reference_report",
+                    "formula_type_classification",
+                ],
+                "limitations": [
+                    "static_analysis_is_not_a_calculation_engine",
+                ],
+            },
+            "xlsx.inspect.structure": {
+                "available": [
+                    "inert_formula_type_classification",
+                    "external_formula_inventory",
+                ],
+            },
             "xlsx.create": {
                 "available": [
                     "multiple_sheets",
@@ -283,6 +301,8 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "cell_comments",
                     "workbook_properties",
                     "recalculation_policy_auto_required_skip",
+                    "static_formula_syntax_and_reference_validation",
+                    "formula_type_classification",
                 ],
                 "enhancement_required": [
                     "external_hyperlink_authoring",
@@ -333,6 +353,8 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "cell_comment_crud",
                     "workbook_properties",
                     "recalculation_policy_auto_required_skip",
+                    "static_formula_syntax_and_reference_validation",
+                    "formula_type_classification",
                 ],
                 "enhancement_required": [
                     "sheet_copy_with_related_objects",
@@ -349,6 +371,8 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "formula_identity_validation",
                     "formula_error_token_scan",
                     "cached_value_harvest",
+                    "static_formula_syntax_and_reference_validation",
+                    "special_formula_fail_closed",
                     "unknown_part_copy_through",
                     "source_preservation",
                     "atomic_promotion",
@@ -1094,6 +1118,143 @@ def test_public_recalculate_without_formulas_is_not_applicable_success(
         "outcome"
     ] == "not_applicable"
     assert output.is_file()
+
+
+def test_public_static_formula_validation_blocks_invalid_create(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "invalid-formula.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["rows"][0]["cells"][2]["formula"] = "Missing!A1"
+    request = _request(
+        tmp_path,
+        "invalid-formula.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": str(output),
+            "arguments": {"workbook": workbook},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "failed"
+    assert not output.exists()
+    assert any(
+        gate["id"] == "operation.formula-static-analysis"
+        and gate["outcome"] == "fail"
+        for gate in result["validation"]["gates"]
+    )
+
+
+def test_public_external_formula_read_fails_closed_and_inspect_reports(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "external-formula.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["rows"][0]["cells"][2]["formula"] = (
+        "'[Book.xlsx]Sheet 1'!A1"
+    )
+    create_xlsx(source, workbook)
+    read_request = _request(
+        tmp_path,
+        "external-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.read",
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+    inspect_request = _request(
+        tmp_path,
+        "external-inspect.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.inspect.structure",
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+
+    read_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(read_request),
+        check=False,
+    )
+    inspect_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(inspect_request),
+    )
+
+    assert read_result["status"] == "failed"
+    assert read_result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert inspect_result["diagnostics"]["operation_result"]["formula_analysis"][
+        "categories"
+    ]["external_reference"] == 1
+
+
+def test_public_recalculate_special_formula_fails_closed(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    core_source = tmp_path / "normal-formula.xlsx"
+    create_xlsx(core_source, _workbook())
+    package = OpcPackage.open(core_source)
+    root = package.xml("xl/worksheets/sheet1.xml")
+    formula = next(
+        item
+        for item in root.findall(f".//{{{NS['main']}}}f")
+        if item.text == "B1*2"
+    )
+    formula.attrib.update({"t": "array", "ref": "B2"})
+    source = tmp_path / "array-formula.xlsx"
+    package.write_copy(
+        source,
+        changed_parts={
+            "xl/worksheets/sheet1.xml": tostring(
+                root,
+                encoding="UTF-8",
+                xml_declaration=True,
+            )
+        },
+    )
+    output = tmp_path / "must-not-exist.xlsx"
+    request = _request(
+        tmp_path,
+        "recalculate-array.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.recalculate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "enhancement_required"
+    assert not output.exists()
 
 
 def test_public_doctor_succeeds(project_root: Path) -> None:

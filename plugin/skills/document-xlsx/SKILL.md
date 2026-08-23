@@ -30,6 +30,12 @@ stale/never/recalculation-required state. Such outstanding formulas produce `deg
 `outstanding-formula-recalculation` degradation. See
 [`references/recalculation.md`](references/recalculation.md) for policy and gate details.
 
+Every formula-bearing read/create/edit/recalculate candidate also receives conservative static
+analysis. It checks basic token balance, A1 bounds, local sheet/defined-name/table-column
+existence, and classifies normal, shared, array, data-table, dynamic-array, structured, and
+external formulas. This analysis never evaluates a formula and never substitutes for Excel or
+LibreOffice. See [`references/formula-analysis.md`](references/formula-analysis.md).
+
 ## Commands
 
 ```text
@@ -48,6 +54,8 @@ formats, tables, data-validation rules, conditional-format rules and resolved di
 styles, defined names, hyperlinks, native chart types/anchors/series/axes/labels/colors, and
 shared-string metadata. It also projects per-sheet views/print settings, inert internal
 hyperlinks, legacy cell notes, and core/extended workbook properties.
+The `formula_analysis` report records static issues and special formula categories without
+claiming calculated-value correctness.
 Uses the normal reject-mode security policy; active/external content returns `DS_ARCHIVE_UNSAFE`
 and directs the caller to structural inspection.
 
@@ -57,7 +65,8 @@ Inventories package parts, content types, relationships, media, sheets, calc cha
 strings, styles, tables, data validations, conditional formats, pivot caches, external links,
 native charts/drawings, dangerous content, and unknown parts
 without executing or dereferencing anything. Worksheet print metadata, hyperlinks, cell notes,
-and workbook properties are included in the inert projection. Never authorizes mutation.
+and workbook properties are included in the inert projection. Formula categories and external
+formula references are reported inertly. Never authorizes mutation.
 
 ### xlsx.create
 
@@ -72,6 +81,8 @@ differential-style records are deduplicated, and existing cells resolve style pr
 column → row → cell override. Before an accepted provider runs, every created formula reports
 `recalculation_required` (or `stale` when a cached literal is supplied). The request-level
 `recalculation` policy is `auto`, `required`, or `skip`.
+Formula syntax, bounds, local sheet/defined-name/table-column references, and unsupported
+external references are checked before any provider call or promotion.
 
 The legacy workbook-level `page_setup` and `chart_reference` placeholders continue to fail
 closed. Native page settings belong to each sheet, and native charts use the typed `charts`
@@ -106,6 +117,9 @@ mutation and ambiguous/unsafe legacy drawing composition fail closed.
 The request-level `recalculation` policy is `auto`, `required`, or `skip`. A successful accepted
 provider pass updates only formula cached values/result types and workbook calculation metadata
 in the Core candidate; the provider's whole-package rewrite is never published directly.
+Static formula analysis runs on both the Core candidate and accepted final candidate. Existing
+shared/array/data-table formulas are classified; structural edits and provider recalculation
+continue to fail closed where their special semantics cannot be preserved.
 
 Structural edits migrate formulas, defined names, tables, charts, data-validation and
 conditional-format formulas/ranges, internal hyperlinks, merged cells, drawing anchors, print
@@ -123,6 +137,8 @@ are unchanged, rejects formula error tokens, harvests cached values/result types
 Core-patched candidate, proves source/unknown-part preservation, and only then promotes it. If
 LibreOffice is unavailable or fails, no output is promoted. A workbook without formulas succeeds
 as `not_applicable` without invoking LibreOffice.
+Shared, array, and data-table formula workbooks are currently classified and rejected as
+`enhancement_required` for provider value harvesting instead of being falsely marked recalculated.
 
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression

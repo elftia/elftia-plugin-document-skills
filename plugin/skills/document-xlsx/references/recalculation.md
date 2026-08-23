@@ -58,6 +58,8 @@ Use `xlsx.recalculate` to recalculate an existing workbook:
 Input and output must be distinct. Formula workbooks require LibreOffice; provider
 absence, crash, timeout, malformed output, formula identity changes, or detected formula errors
 fail without promotion. Workbooks without formulas succeed without invoking a provider.
+Shared, array, and data-table formulas are statically classified and currently fail as
+`enhancement_required`; their multi-cell semantics are not flattened into ordinary cached values.
 
 ## Acceptance boundary
 

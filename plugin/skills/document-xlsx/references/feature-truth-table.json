@@ -1,6 +1,21 @@
 {
   "schema_version": "1.0",
   "operations": {
+    "xlsx.read": {
+      "available": [
+        "static_formula_syntax_and_reference_report",
+        "formula_type_classification"
+      ],
+      "limitations": [
+        "static_analysis_is_not_a_calculation_engine"
+      ]
+    },
+    "xlsx.inspect.structure": {
+      "available": [
+        "inert_formula_type_classification",
+        "external_formula_inventory"
+      ]
+    },
     "xlsx.create": {
       "available": [
         "multiple_sheets",
@@ -25,7 +40,9 @@
         "internal_hyperlink",
         "cell_comments",
         "workbook_properties",
-        "recalculation_policy_auto_required_skip"
+        "recalculation_policy_auto_required_skip",
+        "static_formula_syntax_and_reference_validation",
+        "formula_type_classification"
       ],
       "enhancement_required": [
         "external_hyperlink_authoring"
@@ -75,7 +92,9 @@
         "internal_hyperlink_crud",
         "cell_comment_crud",
         "workbook_properties",
-        "recalculation_policy_auto_required_skip"
+        "recalculation_policy_auto_required_skip",
+        "static_formula_syntax_and_reference_validation",
+        "formula_type_classification"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",
@@ -92,6 +111,8 @@
         "formula_identity_validation",
         "formula_error_token_scan",
         "cached_value_harvest",
+        "static_formula_syntax_and_reference_validation",
+        "special_formula_fail_closed",
         "unknown_part_copy_through",
         "source_preservation",
         "atomic_promotion"

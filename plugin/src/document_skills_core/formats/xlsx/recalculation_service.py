@@ -8,6 +8,7 @@ from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
+from .formula_analysis import analyze_formulas
 from .formula_state import assert_invariant
 from .package import PreservationManifest
 from .recalculation import apply_provider_recalculation, formula_count
@@ -62,6 +63,39 @@ def recalculate_candidate(
                 "outcome": "not_run",
                 "policy": policy,
                 "reason": "request-policy-skip",
+                "formula_cells": count,
+            },
+            [],
+        )
+    analysis = analyze_formulas(candidate)
+    if analysis["categories"].get("external_reference", 0):
+        raise DocumentSkillsError(
+            ErrorCode.ARCHIVE_UNSAFE,
+            "External-workbook formulas are never sent to a recalculation provider.",
+            details={"formula_analysis": analysis},
+        )
+    unsupported_types = [
+        formula_type
+        for formula_type in ("shared", "array", "data_table")
+        if analysis["categories"].get(formula_type, 0)
+    ]
+    if unsupported_types:
+        if policy == "required":
+            raise DocumentSkillsError(
+                ErrorCode.ENHANCEMENT_REQUIRED,
+                "Provider recalculation does not yet harvest special formula types.",
+                status="enhancement_required",
+                details={"formula_types": unsupported_types},
+            )
+        return RecalculationOutcome(
+            candidate,
+            formula_cells,
+            None,
+            {
+                "outcome": "not_run",
+                "policy": policy,
+                "reason": "unsupported-formula-types",
+                "formula_types": unsupported_types,
                 "formula_cells": count,
             },
             [],

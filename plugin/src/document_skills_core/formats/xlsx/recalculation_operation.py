@@ -13,6 +13,7 @@ from document_skills_core.core.io.paths import (
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedXlsxRequest
+from .formula_analysis import validate_formula_analysis
 from .formula_state import build_formula_state_summary
 from .mapping import map_workbook
 from .package import OpcPackage
@@ -46,6 +47,17 @@ def execute_recalculation(
             )
             formula_cells = map_workbook(OpcPackage.open(staged)).get(
                 "formula_cells", {}
+            )
+            validation = validate_mutation(
+                staged,
+                source=request.input_path,
+                source_sha256=source.sha256,
+                manifest=core_manifest,
+            )
+            formula_analysis, validation = validate_formula_analysis(
+                staged,
+                validation,
+                required=True,
             )
             outcome = recalculate_candidate(
                 staged,
@@ -86,6 +98,12 @@ def execute_recalculation(
                     recalculation_provider=provider,
                 ),
             )
+            formula_analysis, validation = validate_formula_analysis(
+                outcome.candidate,
+                validation,
+                required=True,
+            )
+            operation_result["formula_analysis"] = formula_analysis
             validation = with_formula_gate(validation, operation_result)
             validation = with_recalculation_gate(
                 validation,

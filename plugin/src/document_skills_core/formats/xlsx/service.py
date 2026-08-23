@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.models import make_error_result
+from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.paths import (
     assert_distinct_paths,
     assert_source_preserved,
@@ -12,12 +13,12 @@ from document_skills_core.core.io.paths import (
     file_record,
     merge_source_preservation_failure,
 )
-from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedXlsxRequest, parse_xlsx_request
 from .create import create_xlsx
 from .edit import edit_xlsx
+from .formula_analysis import validate_formula_analysis
 from .formula_state import (
     build_formula_state_summary,
     should_downgrade,
@@ -32,6 +33,11 @@ from .results import (
     success_result,
     with_formula_gate,
     with_recalculation_gate,
+)
+from .service_support import (
+    allowed_removed_parts,
+    formula_degradations,
+    outcome_provider,
 )
 from .transaction import promote_candidate, write_candidate_result
 from .validation import (
@@ -113,7 +119,7 @@ class XlsxService:
                 [],
             )
         formula_cells = outcome.formula_cells
-        recalculation_provider = _recalculation_provider(outcome)
+        recalculation_provider = outcome_provider(outcome)
         operation_result["formula_state"]["cells"] = formula_cells
         formula_summary = build_formula_state_summary(
             formula_cells,
@@ -122,8 +128,20 @@ class XlsxService:
         operation_result["formula_state"]["summary"] = formula_summary
         operation_result["recalculation"] = outcome.evidence
         degraded = should_downgrade(formula_summary)
-        validation = read_validation("operation.structured-read", operation_result)
+        formula_analysis, validation = validate_formula_analysis(
+            request.input_path,
+            read_validation("operation.structured-read", operation_result),
+            required=False,
+        )
+        operation_result["formula_analysis"] = formula_analysis
         validation = with_recalculation_gate(validation, outcome.evidence)
+        if formula_analysis["categories"]["external_reference"]:
+            raise DocumentSkillsError(
+                ErrorCode.ARCHIVE_UNSAFE,
+                "External-workbook formulas require inert structural inspection.",
+                details={"formula_analysis": formula_analysis},
+                validation=validation,
+            )
         return success_result(
             request,
             artifacts=[source.as_dict()],
@@ -132,7 +150,7 @@ class XlsxService:
             validation=validation,
             status="degraded" if degraded else "success",
             degraded=degraded,
-            degradations=_formula_degradations(
+            degradations=formula_degradations(
                 degraded,
                 "Formulas require recalculation by an accepted provider.",
             ),
@@ -145,12 +163,19 @@ class XlsxService:
         source = file_record(request.input_path, "input")
         operation_result, warnings = inspect_xlsx(request.input_path, request.arguments)
         assert_source_preserved(source.path, source.sha256)
+        formula_analysis, validation = validate_formula_analysis(
+            request.input_path,
+            read_validation("operation.inert-inspection", operation_result),
+            required=False,
+            allow_dangerous_inventory=True,
+        )
+        operation_result["formula_analysis"] = formula_analysis
         return success_result(
             request,
             artifacts=[source.as_dict()],
             operation_result=operation_result,
             warnings=warnings,
-            validation=read_validation("operation.inert-inspection", operation_result),
+            validation=validation,
         )
 
     def _create(self, request: ParsedXlsxRequest) -> dict[str, Any]:
@@ -161,6 +186,11 @@ class XlsxService:
             staged = private_root / "created.xlsx"
             creation = create_xlsx(staged, workbook)
             validation = validate_created(staged, workbook, creation=creation)
+            formula_analysis, validation = validate_formula_analysis(
+                staged,
+                validation,
+                required=True,
+            )
             formula_cells = creation.get("formula_cells", {})
             outcome = recalculate_candidate(
                 staged,
@@ -175,10 +205,15 @@ class XlsxService:
                     workbook,
                     creation=creation,
                 )
+                formula_analysis, validation = validate_formula_analysis(
+                    outcome.candidate,
+                    validation,
+                    required=True,
+                )
             formula_cells = outcome.formula_cells
             formula_summary = build_formula_state_summary(
                 formula_cells,
-                recalculation_provider=_recalculation_provider(outcome),
+                recalculation_provider=outcome_provider(outcome),
             )
             operation_result = {
                 "creation": {
@@ -199,6 +234,7 @@ class XlsxService:
                     "summary": formula_summary,
                 },
                 "recalculation": outcome.evidence,
+                "formula_analysis": formula_analysis,
             }
             degraded = should_downgrade(formula_summary)
             validation = with_formula_gate(validation, operation_result)
@@ -220,7 +256,7 @@ class XlsxService:
                 source=None,
                 status="degraded" if degraded else "success",
                 degraded=degraded,
-                degradations=_formula_degradations(
+                degradations=formula_degradations(
                     degraded,
                     "Created formulas require recalculation by an accepted provider.",
                 ),
@@ -256,7 +292,7 @@ class XlsxService:
                     source=request.input_path,
                     source_sha256=source_record.sha256,
                     manifest=manifest,
-                    allowed_removed_parts=_allowed_removed_parts(
+                    allowed_removed_parts=allowed_removed_parts(
                         request.arguments["edits"],
                         manifest.removed,
                     ),
@@ -265,6 +301,11 @@ class XlsxService:
                         request.arguments["edits"],
                         source=request.input_path,
                     ),
+                )
+                formula_analysis, validation = validate_formula_analysis(
+                    staged,
+                    validation,
+                    required=True,
                 )
                 outcome = recalculate_candidate(
                     staged,
@@ -291,7 +332,7 @@ class XlsxService:
                         source=request.input_path,
                         source_sha256=source_record.sha256,
                         manifest=final_manifest,
-                        allowed_removed_parts=_allowed_removed_parts(
+                        allowed_removed_parts=allowed_removed_parts(
                             request.arguments["edits"],
                             final_manifest.removed,
                         ),
@@ -301,12 +342,18 @@ class XlsxService:
                             source=request.input_path,
                         ),
                     )
+                    formula_analysis, validation = validate_formula_analysis(
+                        outcome.candidate,
+                        validation,
+                        required=True,
+                    )
                 operation_result["formula_state"]["cells"] = outcome.formula_cells
                 operation_result["preservation"] = final_manifest.as_dict()
                 operation_result["recalculation"] = outcome.evidence
+                operation_result["formula_analysis"] = formula_analysis
                 formula_summary = build_formula_state_summary(
                     outcome.formula_cells,
-                    recalculation_provider=_recalculation_provider(outcome),
+                    recalculation_provider=outcome_provider(outcome),
                 )
                 operation_result["formula_state"]["summary"] = formula_summary
                 degraded = should_downgrade(formula_summary)
@@ -329,7 +376,7 @@ class XlsxService:
                     source=source_record,
                     status="degraded" if degraded else "success",
                     degraded=degraded,
-                    degradations=_formula_degradations(
+                    degradations=formula_degradations(
                         degraded,
                         "Edited formulas require recalculation by an accepted provider.",
                     ),
@@ -353,33 +400,3 @@ class XlsxService:
 def build_xlsx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
     service = XlsxService(project_root, libreoffice=libreoffice)
     return service.execute
-
-
-def _recalculation_provider(outcome: RecalculationOutcome) -> str | None:
-    return "libreoffice" if outcome.provider_chain else None
-
-
-def _formula_degradations(
-    degraded: bool,
-    semantic_difference: str,
-) -> list[dict[str, Any]]:
-    if not degraded:
-        return []
-    return [{
-        "code": "outstanding-formula-recalculation",
-        "semantic_difference": semantic_difference,
-        "missing_capabilities": ["recalculation"],
-        "recommended_providers": ["libreoffice"],
-    }]
-
-
-def _allowed_removed_parts(
-    edits: list[dict[str, Any]],
-    removed_parts: tuple[str, ...],
-) -> set[str]:
-    removable = {"sheet_delete", "table_delete", "chart_delete", "comment_delete"}
-    return (
-        set(removed_parts)
-        if any(edit["type"] in removable for edit in edits)
-        else set()
-    )
