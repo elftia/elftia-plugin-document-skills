@@ -7,6 +7,7 @@ import subprocess
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 def _public(
@@ -31,10 +32,13 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=60,
     )
     if check:
-        assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+        assert process.returncode == 0, (
+            process.stderr.decode("utf-8", errors="replace")
+            or process.stdout.decode("utf-8", errors="replace")
+        )
     assert process.stderr == b""
     text = process.stdout.decode("utf-8", errors="strict")
     decoder = json.JSONDecoder()
@@ -54,7 +58,7 @@ def _request(tmp_path: Path, name: str, payload: dict[str, object]) -> Path:
     return path
 
 
-def _deck() -> dict[str, object]:
+def _deck(image_path: Path) -> dict[str, object]:
     return {
         "metadata": {"title": "Public PPTX", "creator": "Test", "subject": ""},
         "slide_size": {"cx": "9144000", "cy": "6858000", "type": "screen4x3"},
@@ -77,8 +81,25 @@ def _deck() -> dict[str, object]:
                     {"text": "Content body", "runs": [{"text": "Content", "style": None}]}
                 ],
                 "table": {"rows": [{"cells": ["A", "B"]}]},
-                "chart_reference": {"title": "Chart", "chart_type": "bar"},
-                "image_reference": {"filename": "img.png", "content_type": "image/png"},
+                "chart_reference": {
+                    "title": "Chart",
+                    "chart_type": "column",
+                    "categories": ["North", "South"],
+                    "series": [{"name": "Sales", "values": [4, 7]}],
+                    "legend": {"show": True, "position": "bottom"},
+                    "axes": {
+                        "category": {"title": "Region", "number_format": "General"},
+                        "value": {"title": "Units", "number_format": "0"},
+                    },
+                    "data_labels": {"show_value": True},
+                    "colors": ["3366CC"],
+                },
+                "image_reference": {
+                    "path": str(image_path),
+                    "content_type": "image/png",
+                    "fit": "contain",
+                    "alt_text": "Public embedded image",
+                },
                 "notes": None,
             },
         ],
@@ -251,13 +272,15 @@ def test_public_unknown_operation_rejected(project_root: Path, tmp_path: Path) -
 def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> None:
     output1 = tmp_path / "d1.pptx"
     output2 = tmp_path / "d2.pptx"
+    image = tmp_path / "img.png"
+    image.write_bytes(PNG_1X1)
     results = []
     for out in [output1, output2]:
         req = _request(tmp_path, f"create_{out.stem}.json", {
             "schema_version": "1.0",
             "operation": "pptx.create",
             "output": str(out),
-            "arguments": {"deck": _deck()},
+            "arguments": {"deck": _deck(image)},
         })
         results.append(
             _public(project_root, "run", "--request", str(req), check=False)
@@ -274,3 +297,48 @@ def test_public_create_is_deterministic(project_root: Path, tmp_path: Path) -> N
         for result in results
     ]
     assert candidate_hashes[0] == candidate_hashes[1]
+
+
+def test_public_create_reopens_real_native_objects(project_root: Path, tmp_path: Path) -> None:
+    from pptx import Presentation
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+    image = tmp_path / "native.png"
+    image.write_bytes(PNG_1X1)
+    output = tmp_path / "native-objects.pptx"
+    request = _request(tmp_path, "native-create.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.create",
+        "output": str(output),
+        "arguments": {"deck": _deck(image)},
+    })
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    creation = result["diagnostics"]["operation_result"]["creation"]
+    assert creation["images"][0]["embedded_media_part"] == "ppt/media/image1.png"
+    assert creation["images"][0]["fallback"] == "native"
+    assert creation["charts"][0]["editable"] is True
+    outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}
+    assert outcomes["visual.render"] == "unavailable"
+    presentation = Presentation(output)
+    assert len(presentation.slides) == 2
+    shapes = list(presentation.slides[1].shapes)
+    assert any(shape.shape_type == MSO_SHAPE_TYPE.PICTURE for shape in shapes)
+    chart_shapes = [shape for shape in shapes if getattr(shape, "has_chart", False)]
+    assert len(chart_shapes) == 1
+    assert list(chart_shapes[0].chart.series[0].values) == [4.0, 7.0]
+    assert any(getattr(shape, "has_table", False) for shape in shapes)
+
+
+def test_public_create_missing_image_fails_closed(project_root: Path, tmp_path: Path) -> None:
+    output = tmp_path / "must-not-exist.pptx"
+    request = _request(tmp_path, "missing-image.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.create",
+        "output": str(output),
+        "arguments": {"deck": _deck(tmp_path / "missing.png")},
+    })
+    result = _public(project_root, "run", "--request", str(request), check=False)
+    assert result["status"] == "invalid_request"
+    assert not output.exists()

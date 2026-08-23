@@ -4,7 +4,15 @@ from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement
 
+from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+
+from .chart import build_chart_part, prepare_chart, public_chart_record
 from .constants import NS
+from .image import (
+    MAX_TOTAL_IMAGE_BYTES,
+    load_pptx_image,
+    public_image_record,
+)
 from .package import write_deterministic_zip
 from .scaffold import (
     _CLR_MAP,
@@ -26,32 +34,43 @@ _C_NS = NS["c"]
 _CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 _RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 
-# Minimal valid 1x1 PNG (67 bytes)
-_PLACEHOLDER_PNG = bytes([
-    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00,
-    0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
-    0x00, 0x00, 0x03, 0x00, 0x01, 0x5D, 0xCC, 0xDB, 0x22, 0x41, 0x00, 0x00,
-    0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-])
-
-
 def create_pptx(destination: Path, deck: dict[str, Any]) -> dict[str, Any]:
     """Create a styled PPTX deck from the parsed deck model."""
     metadata = deck.get("metadata", {})
-    slides_data = deck.get("slides", [])
+    slides_data: list[dict[str, Any]] = []
+    images: list[dict[str, Any]] = []
+    charts: list[dict[str, Any]] = []
+    total_image_bytes = 0
+    for source_slide in deck.get("slides", []):
+        slide = dict(source_slide)
+        if source_slide.get("image_reference"):
+            image = load_pptx_image(source_slide["image_reference"], len(images) + 1)
+            total_image_bytes += len(image["bytes"])
+            if total_image_bytes > MAX_TOTAL_IMAGE_BYTES:
+                raise DocumentSkillsError(
+                    ErrorCode.REQUEST_INVALID,
+                    "The presentation images exceed the aggregate byte limit.",
+                    status="invalid_request",
+                    details={"ceiling": MAX_TOTAL_IMAGE_BYTES},
+                )
+            images.append(image)
+            slide["_image"] = image
+        if source_slide.get("chart_reference"):
+            chart = prepare_chart(source_slide["chart_reference"], len(charts) + 1)
+            charts.append(chart)
+            slide["_chart"] = chart
+        slides_data.append(slide)
     slide_size = deck.get("slide_size") or {"cx": "9144000", "cy": "6858000", "type": "screen4x3"}
 
     parts: dict[str, bytes] = {}
-    has_chart = any(s.get("chart_reference") for s in slides_data)
-    has_image = any(s.get("image_reference") for s in slides_data)
+    has_chart = bool(charts)
+    has_image = bool(images)
     has_table = any(s.get("table") for s in slides_data)
     has_notes = any(s.get("notes") for s in slides_data)
     layout_count = 2
 
     parts["[Content_Types].xml"] = _build_content_types(
-        len(slides_data), has_chart, has_image, has_table, has_notes, layout_count
+        len(slides_data), images, charts, has_notes, layout_count
     )
     parts["_rels/.rels"] = _build_root_rels()
     parts["ppt/_rels/presentation.xml.rels"] = _build_presentation_rels(
@@ -80,13 +99,10 @@ def create_pptx(destination: Path, deck: dict[str, Any]) -> dict[str, Any]:
             if slide.get("notes"):
                 parts[f"ppt/notesSlides/notesSlide{slide_num}.xml"] = _build_notes_slide(slide_num, slide["notes"])
                 parts[f"ppt/notesSlides/_rels/notesSlide{slide_num}.xml.rels"] = _build_notes_slide_rels(slide_num)
-    if has_chart:
-        chart_slide = next((s for s in slides_data if s.get("chart_reference")), {})
-        parts["ppt/charts/chart1.xml"] = _build_chart_reference(
-            chart_slide.get("chart_reference") or {}
-        )
-    if has_image:
-        parts["ppt/media/image1.png"] = _PLACEHOLDER_PNG
+    for chart in charts:
+        parts[chart["part"]] = build_chart_part(chart)
+    for image in images:
+        parts[image["part"]] = image["bytes"]
 
     parts["docProps/core.xml"] = _build_core_props(metadata)
     parts["docProps/app.xml"] = _build_app_props(slides_data)
@@ -100,13 +116,19 @@ def create_pptx(destination: Path, deck: dict[str, Any]) -> dict[str, Any]:
         "has_image": has_image,
         "has_table": has_table,
         "has_notes": has_notes,
+        "charts": [public_chart_record(chart) for chart in charts],
+        "images": [public_image_record(image) for image in images],
         "metadata": metadata,
         "slide_size": slide_size,
     }
 
 
 def _build_content_types(
-    slide_count: int, has_chart: bool, has_image: bool, has_table: bool, has_notes: bool, layout_count: int
+    slide_count: int,
+    images: list[dict[str, Any]],
+    charts: list[dict[str, Any]],
+    has_notes: bool,
+    layout_count: int,
 ) -> bytes:
     root = Element(f"{{{_CONTENT_TYPES_NS}}}Types")
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
@@ -117,10 +139,12 @@ def _build_content_types(
         "Extension": "xml",
         "ContentType": "application/xml",
     })
-    if has_image:
+    for extension, content_type in sorted({
+        (image["extension"], image["content_type"]) for image in images
+    }):
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
-            "Extension": "png",
-            "ContentType": "image/png",
+            "Extension": extension,
+            "ContentType": content_type,
         })
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
         "PartName": "/ppt/presentation.xml",
@@ -154,9 +178,9 @@ def _build_content_types(
                 "PartName": f"/ppt/notesSlides/notesSlide{i}.xml",
                 "ContentType": "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",
             })
-    if has_chart:
+    for chart in charts:
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
-            "PartName": "/ppt/charts/chart1.xml",
+            "PartName": f"/{chart['part']}",
             "ContentType": "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
         })
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
@@ -233,12 +257,18 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
     _grp_sp_pr(sp_tree)
 
     shape_id = 2
+    drawables: list[tuple[int, int, Element]] = []
+    ordinal = 0
     title = slide.get("title")
     if title:
-        _build_title_shape(sp_tree, shape_id, title)
+        title_shape = _build_title_shape(sp_tree, shape_id, title)
+        drawables.append((9_000, ordinal, title_shape))
+        ordinal += 1
         shape_id += 1
     for shape in slide.get("shapes", []):
         sp = SubElement(sp_tree, f"{{{_P_NS}}}sp")
+        drawables.append((100 + ordinal, ordinal, sp))
+        ordinal += 1
         nv_sp_pr = SubElement(sp, f"{{{_P_NS}}}nvSpPr")
         SubElement(nv_sp_pr, f"{{{_P_NS}}}cNvPr", attrib={
             "id": str(shape_id),
@@ -272,6 +302,8 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
     table = slide.get("table")
     if table:
         gf = SubElement(sp_tree, f"{{{_P_NS}}}graphicFrame")
+        drawables.append((500, ordinal, gf))
+        ordinal += 1
         nv_gf_pr = SubElement(gf, f"{{{_P_NS}}}nvGraphicFramePr")
         SubElement(nv_gf_pr, f"{{{_P_NS}}}cNvPr", attrib={
             "id": str(shape_id),
@@ -306,9 +338,11 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
                 SubElement(tc, f"{{{_A_NS}}}tcPr")
         shape_id += 1
 
-    chart_ref = slide.get("chart_reference")
-    if chart_ref:
+    chart = slide.get("_chart")
+    if chart:
         gf = SubElement(sp_tree, f"{{{_P_NS}}}graphicFrame")
+        drawables.append((600, ordinal, gf))
+        ordinal += 1
         nv_gf_pr = SubElement(gf, f"{{{_P_NS}}}nvGraphicFramePr")
         SubElement(nv_gf_pr, f"{{{_P_NS}}}cNvPr", attrib={
             "id": str(shape_id),
@@ -322,28 +356,66 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
             "uri": "http://schemas.openxmlformats.org/drawingml/2006/chart",
         })
         SubElement(graphic_data, f"{{{_C_NS}}}chart", attrib={
-            f"{{{_R_NS}}}id": "rIdChart",
+            f"{{{_R_NS}}}id": chart["relationship_id"],
         })
         shape_id += 1
 
-    image_ref = slide.get("image_reference")
-    if image_ref:
+    image = slide.get("_image")
+    if image:
         pic = SubElement(sp_tree, f"{{{_P_NS}}}pic")
+        drawables.append((image["z_order"], ordinal, pic))
+        ordinal += 1
         nv_pic_pr = SubElement(pic, f"{{{_P_NS}}}nvPicPr")
         SubElement(nv_pic_pr, f"{{{_P_NS}}}cNvPr", attrib={
             "id": str(shape_id),
             "name": f"Picture{shape_id}",
+            "descr": image["alt_text"],
         })
-        SubElement(nv_pic_pr, f"{{{_P_NS}}}cNvPicPr")
+        c_nv_pic_pr = SubElement(nv_pic_pr, f"{{{_P_NS}}}cNvPicPr")
+        SubElement(
+            c_nv_pic_pr,
+            f"{{{_A_NS}}}picLocks",
+            attrib={"noChangeAspect": "1" if image["fit"] != "stretch" else "0"},
+        )
         SubElement(nv_pic_pr, f"{{{_P_NS}}}nvPr")
         blip_fill = SubElement(pic, f"{{{_P_NS}}}blipFill")
-        SubElement(blip_fill, f"{{{_A_NS}}}blip", attrib={f"{{{_R_NS}}}embed": "rIdImage"})
+        blip = SubElement(
+            blip_fill,
+            f"{{{_A_NS}}}blip",
+            attrib={f"{{{_R_NS}}}embed": image["relationship_id"]},
+        )
+        if image["opacity"] < 1.0:
+            SubElement(
+                blip,
+                f"{{{_A_NS}}}alphaModFix",
+                attrib={"amt": str(round(image["opacity"] * 100_000))},
+            )
+        if any(image["crop"].values()):
+            SubElement(
+                blip_fill,
+                f"{{{_A_NS}}}srcRect",
+                attrib={side[0]: str(round(value * 100_000)) for side, value in image["crop"].items()},
+            )
         SubElement(SubElement(blip_fill, f"{{{_A_NS}}}stretch"), f"{{{_A_NS}}}fillRect")
         sp_pr = SubElement(pic, f"{{{_P_NS}}}spPr")
-        _frame_xfrm(sp_pr, "457200", "1746250", "4572000", "4572000")
+        frame = image["frame"]
+        xfrm = SubElement(
+            sp_pr,
+            f"{{{_A_NS}}}xfrm",
+            attrib={
+                **({"rot": str(round(image["rotation"] * 60_000))} if image["rotation"] else {}),
+                **({"flipH": "1"} if image["flip_h"] else {}),
+                **({"flipV": "1"} if image["flip_v"] else {}),
+            },
+        )
+        SubElement(xfrm, f"{{{_A_NS}}}off", attrib={"x": str(frame["x"]), "y": str(frame["y"])})
+        SubElement(xfrm, f"{{{_A_NS}}}ext", attrib={"cx": str(frame["cx"]), "cy": str(frame["cy"])})
         SubElement(SubElement(sp_pr, f"{{{_A_NS}}}prstGeom", attrib={"prst": "rect"}), f"{{{_A_NS}}}avLst")
         shape_id += 1
 
+    for _z_order, _ordinal, element in sorted(drawables, key=lambda item: (item[0], item[1])):
+        sp_tree.remove(element)
+        sp_tree.append(element)
     SubElement(SubElement(root, f"{{{_P_NS}}}clrMapOvr"), f"{{{_A_NS}}}masterClrMapping")
     return _to_xml_bytes(root)
 
@@ -377,17 +449,19 @@ def _build_slide_rels(slide: dict[str, Any], slide_num: int, layout_count: int) 
         "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
         "Target": f"../slideLayouts/slideLayout1.xml",
     })
-    if slide.get("chart_reference"):
+    chart = slide.get("_chart")
+    if chart:
         SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-            "Id": "rIdChart",
+            "Id": chart["relationship_id"],
             "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
-            "Target": "../charts/chart1.xml",
+            "Target": chart["target"],
         })
-    if slide.get("image_reference"):
+    image = slide.get("_image")
+    if image:
         SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-            "Id": "rIdImage",
+            "Id": image["relationship_id"],
             "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-            "Target": "../media/image1.png",
+            "Target": image["target"],
         })
     if slide.get("notes"):
         SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
@@ -455,20 +529,6 @@ def _build_notes_slide_rels(slide_num: int) -> bytes:
         "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
         "Target": "../notesMasters/notesMaster1.xml",
     })
-    return _to_xml_bytes(root)
-
-
-def _build_chart_reference(chart_ref: dict[str, Any]) -> bytes:
-    chart_ns = NS["c"]
-    root = Element(f"{{{chart_ns}}}chartSpace")
-    chart = SubElement(root, f"{{{chart_ns}}}chart")
-    plot_area = SubElement(chart, f"{{{chart_ns}}}plotArea")
-    bar_chart = SubElement(plot_area, f"{{{chart_ns}}}barChart")
-    SubElement(bar_chart, f"{{{chart_ns}}}barDir", attrib={"val": "col"})
-    ser = SubElement(bar_chart, f"{{{chart_ns}}}ser")
-    tx = SubElement(ser, f"{{{chart_ns}}}tx")
-    v = SubElement(tx, f"{{{chart_ns}}}v")
-    v.text = chart_ref.get("title", "")
     return _to_xml_bytes(root)
 
 

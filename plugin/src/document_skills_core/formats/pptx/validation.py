@@ -14,15 +14,21 @@ from .package import OpcPackage, PreservationManifest
 from .scene_emitter import EMU_PER_PIXEL, SLIDE_CX, SLIDE_CY
 from .scene_normalizer import NormalizedScene
 from .scene_opc_validation import generated_scene_opc_failures
+from .typed_validation import assert_typed_objects
 
 
 def validate_created(
     path: Path,
     deck: dict[str, Any],
+    creation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assertions = [
         ("consumer-package-conformance", _assert_consumer_package),
         ("create-semantics", lambda candidate: _assert_created(candidate, deck)),
+        (
+            "native-object-correspondence",
+            lambda candidate: assert_typed_objects(OpcPackage.open(candidate), deck, creation),
+        ),
     ]
     return _required_report(path, assertions=assertions)
 

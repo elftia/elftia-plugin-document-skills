@@ -102,7 +102,7 @@ class PptxService:
         with OperationTempRoot() as private_root:
             staged = private_root / "created.pptx"
             creation = create_pptx(staged, deck)
-            validation = validate_created(staged, deck)
+            validation = validate_created(staged, deck, creation)
             operation_result = {"creation": creation}
             result = write_candidate_result(
                 self.schemas,

@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
-from document_skills_core.formats.pptx.create import _PLACEHOLDER_PNG
 from document_skills_core.formats.pptx.scene import parse_scene_deck
 from document_skills_core.formats.pptx.scene_normalizer import normalize_scene
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 LIMITS = {
@@ -132,16 +132,16 @@ def _raw(items, assets=None, blocked=None):
 
 
 def _asset(tmp_path: Path):
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
+    digest = hashlib.sha256(PNG_1X1).hexdigest()
     assets = tmp_path / "assets"
     assets.mkdir()
     filename = f"asset-{digest}.png"
-    (assets / filename).write_bytes(_PLACEHOLDER_PNG)
+    (assets / filename).write_bytes(PNG_1X1)
     return assets, {
         "id": digest,
         "filename": filename,
         "mime": "image/png",
-        "bytes": len(_PLACEHOLDER_PNG),
+        "bytes": len(PNG_1X1),
         "width": 1,
         "height": 1,
         "purpose": "element-fallback",

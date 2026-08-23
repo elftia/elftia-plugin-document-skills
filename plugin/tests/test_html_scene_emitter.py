@@ -12,11 +12,11 @@ import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.constants import NS
-from document_skills_core.formats.pptx.create import _PLACEHOLDER_PNG
 from document_skills_core.formats.pptx.package import write_deterministic_zip
 from document_skills_core.formats.pptx.scene_emitter import emit_scene_pptx
 from document_skills_core.formats.pptx.scene_normalizer import NormalizedScene
 from document_skills_core.formats.pptx.validation import validate_scene_created
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 def test_scene_emitter_builds_deterministic_internal_fixed_canvas_package(tmp_path: Path):
@@ -243,14 +243,14 @@ def test_scene_emitter_marks_boundary_whitespace_for_opc_consumers(tmp_path: Pat
 
 
 def test_scene_emitter_packages_real_deduplicated_internal_images_with_capture_crop(tmp_path: Path):
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
+    digest = hashlib.sha256(PNG_1X1).hexdigest()
     asset_path = tmp_path / f"asset-{digest}.png"
-    asset_path.write_bytes(_PLACEHOLDER_PNG)
+    asset_path.write_bytes(PNG_1X1)
     asset = {
         "id": digest,
         "filename": asset_path.name,
         "mime": "image/png",
-        "bytes": len(_PLACEHOLDER_PNG),
+        "bytes": len(PNG_1X1),
         "width": 1,
         "height": 1,
         "purpose": "source-image",
@@ -280,7 +280,7 @@ def test_scene_emitter_packages_real_deduplicated_internal_images_with_capture_c
     assert manifest["media"] == 1
     assert manifest["media_hashes"] == [digest]
     with zipfile.ZipFile(output) as archive:
-        assert archive.read("ppt/media/image1.png") == _PLACEHOLDER_PNG
+        assert archive.read("ppt/media/image1.png") == PNG_1X1
         content_types = fromstring(archive.read("[Content_Types].xml"))
         png_default = next(
             entry for entry in content_types
@@ -344,8 +344,8 @@ def test_scene_validation_rejects_run_redistribution_with_same_aggregate_text(tm
 
 
 def test_scene_validation_rejects_picture_relationship_swap_with_same_media_set(tmp_path: Path):
-    first_bytes = _PLACEHOLDER_PNG
-    second_bytes = _PLACEHOLDER_PNG + b"distinct"
+    first_bytes = PNG_1X1
+    second_bytes = PNG_1X1 + b"distinct"
     assets = {}
     items = []
     for index, payload in enumerate((first_bytes, second_bytes), 1):

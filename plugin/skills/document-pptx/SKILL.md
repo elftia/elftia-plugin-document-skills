@@ -24,7 +24,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 |---|---|---|
 | `pptx.read` | no | Structured slide/shape/text-frame/table/chart/media/notes/layout projection |
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
-| `pptx.create` | yes (distinct output) | Styled deck from typed data — slides, shapes, table, chart reference, image reference, notes, ≥2 layouts |
+| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, and ≥2 layouts |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.edit` | yes (distinct output) | Slide text, slide reorder/move, notes edits with run-aware preservation |
 
@@ -39,6 +39,15 @@ state that no PPTX was created.
 The fixed-canvas/local-asset contract, exact request, safe fallback policy, and
 diagnostic interpretation are in
 `references/html-to-editable-pptx.md`.
+
+## Typed deck creation
+
+For a `pptx.create` request containing images or charts, read
+`references/typed-create.md`. Use a real bounded local PNG/JPEG/static GIF;
+missing, mismatched, animated, or oversized images fail closed and never turn
+into placeholders. Charts are native DrawingML chart objects with bounded
+literal data caches, not pictures or empty references. The supported chart
+types are bar, column, line, pie, and scatter.
 
 ## Key policies
 
@@ -56,6 +65,12 @@ diagnostic interpretation are in
   (font, size, bold/italic/underline, color, language) unless the request
   explicitly supplies a new style. Notes edits follow the same policy and do
   not affect the parent slide payload.
+- **Typed object evidence:** Successful typed creation reports each source
+  image hash and embedded media part plus each chart part, chart type, native
+  status, and data-storage mode under
+  `diagnostics.operation_result.creation`. Read/inspect project chart series,
+  literal values, axis ids/titles/number formats, and media parts back from the
+  emitted package.
 - **Copy-through preservation:** Every untargeted package part retains an
   identical payload SHA-256. Unknown safe parts, custom XML, media, charts,
   tables, slide masters, slide layouts, themes, notes masters, and notes slides

@@ -9,6 +9,7 @@ from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MAX_SLIDES
 from .html_contracts import parse_html_create_arguments
+from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
 PPTX_OPERATIONS = frozenset(
     {
@@ -223,24 +224,12 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
                 parsed_cells = [_optional_text(c, f"cells.{c_idx}") if c is not None else None for c_idx, c in enumerate(table_cells)]
                 parsed_table_rows.append({"cells": parsed_cells})
             table = {"rows": parsed_table_rows}
-        chart_ref = slide.get("chart_reference")
-        if chart_ref is not None:
-            if type(chart_ref) is not dict:
-                _invalid(f"Slide {idx} chart_reference must be an object.", field=f"slides.{idx}.chart_reference")
-            _exact_keys(chart_ref, {"title", "chart_type"})
-            chart_ref = {
-                "title": _text(chart_ref.get("title", ""), "chart_reference.title"),
-                "chart_type": _text(chart_ref.get("chart_type", "bar"), "chart_reference.chart_type"),
-            }
-        image_ref = slide.get("image_reference")
-        if image_ref is not None:
-            if type(image_ref) is not dict:
-                _invalid(f"Slide {idx} image_reference must be an object.", field=f"slides.{idx}.image_reference")
-            _exact_keys(image_ref, {"filename", "content_type"})
-            image_ref = {
-                "filename": _text(image_ref.get("filename", "image.png"), "image_reference.filename"),
-                "content_type": _text(image_ref.get("content_type", "image/png"), "image_reference.content_type"),
-            }
+        chart_ref = parse_chart_reference(
+            slide.get("chart_reference"), f"slides.{idx}.chart_reference"
+        )
+        image_ref = parse_image_reference(
+            slide.get("image_reference"), f"slides.{idx}.image_reference"
+        )
         notes = slide.get("notes")
         if notes is not None:
             notes = _optional_text(notes, f"slides.{idx}.notes")
