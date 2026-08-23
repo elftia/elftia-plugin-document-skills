@@ -55,9 +55,16 @@ def validate_mutation(
     source_sha256: str,
     manifest: PreservationManifest,
     assertion: Callable[[Path], dict[str, Any]] | None = None,
+    allow_removals: bool = False,
 ) -> dict[str, Any]:
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] = [
-        ("part-preservation", lambda _candidate: _assert_preservation(manifest))
+        (
+            "part-preservation",
+            lambda _candidate: _assert_preservation(
+                manifest,
+                allow_removals=allow_removals,
+            ),
+        )
     ]
     if assertion is not None:
         assertions.append(("mutation-semantics", assertion))
@@ -455,8 +462,12 @@ def _in_bounds_emu_geometry(offset: dict[str, str], extent: dict[str, str]) -> b
     )
 
 
-def _assert_preservation(manifest: PreservationManifest) -> dict[str, Any]:
-    if manifest.removed:
+def _assert_preservation(
+    manifest: PreservationManifest,
+    *,
+    allow_removals: bool = False,
+) -> dict[str, Any]:
+    if manifest.removed and not allow_removals:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
             "A PPTX mutation removed package parts.",

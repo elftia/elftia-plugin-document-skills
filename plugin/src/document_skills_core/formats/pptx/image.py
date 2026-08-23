@@ -107,6 +107,22 @@ def public_image_record(image: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def fit_existing_image(
+    payload: bytes,
+    frame: dict[str, int],
+    fit: str,
+    crop: dict[str, float] | None,
+) -> tuple[dict[str, int], dict[str, float]]:
+    """Apply the same bounded fit calculation to an already embedded image."""
+
+    _extension, _content_type, width, height, orientation = _identify_image(payload)
+    display_width, display_height = (
+        (height, width) if orientation in {5, 6, 7, 8} else (width, height)
+    )
+    geometry, fit_crop = _fit_geometry(frame, display_width, display_height, fit)
+    return geometry, _merge_crop(fit_crop, crop)
+
+
 def _image_path(value: dict[str, Any]) -> Path:
     raw = value.get("path", value.get("filename"))
     if isinstance(raw, Path):

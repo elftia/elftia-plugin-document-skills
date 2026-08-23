@@ -342,3 +342,222 @@ def test_public_create_missing_image_fails_closed(project_root: Path, tmp_path: 
     result = _public(project_root, "run", "--request", str(request), check=False)
     assert result["status"] == "invalid_request"
     assert not output.exists()
+
+
+def test_public_slide_lifecycle_reopens_after_add_duplicate_delete(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    from pptx import Presentation
+
+    output = tmp_path / "public-lifecycle.pptx"
+    request = _request(tmp_path, "public-lifecycle.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.edit",
+        "input": str(public_created),
+        "output": str(output),
+        "arguments": {
+            "edits": [
+                {
+                    "type": "slide_add",
+                    "position": 2,
+                    "slide": {
+                        "layout": "content",
+                        "title": "Added publicly",
+                        "shapes": [{"text": "Native body", "runs": []}],
+                        "table": None,
+                        "chart_reference": None,
+                        "image_reference": None,
+                        "notes": "Added notes",
+                    },
+                },
+                {"type": "slide_duplicate", "slide": 1, "position": 4},
+                {"type": "slide_delete", "slide": 3},
+            ]
+        },
+    })
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success", result
+    assert len(Presentation(output).slides) == 3
+    evidence = result["diagnostics"]["operation_result"]["slide_lifecycle"]
+    assert [item["type"] for item in evidence] == [
+        "slide_add",
+        "slide_duplicate",
+        "slide_delete",
+    ]
+    outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}
+    assert outcomes["operation.mutation-semantics"] == "pass"
+
+
+def test_public_object_edit_batch_covers_every_primitive(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    from pptx import Presentation
+
+    image_a = tmp_path / "public-object-a.png"
+    image_b = tmp_path / "public-object-b.png"
+    image_a.write_bytes(PNG_1X1)
+    image_b.write_bytes(PNG_1X1)
+    frame = {"x": 500_000, "y": 1_500_000, "cx": 2_000_000, "cy": 1_200_000}
+    shape = {
+        "name": "Public shape",
+        "geometry": "rect",
+        "frame": frame,
+        "fill": "336699",
+        "text": "Public text",
+        "z_order": 2,
+    }
+    image = {
+        "name": "Public image",
+        "path": str(image_a),
+        "content_type": "image/png",
+        "frame": frame,
+        "fit": "cover",
+        "alt_text": "Public image",
+    }
+    replacement_image = {
+        **image,
+        "name": "Replaced public image",
+        "path": str(image_b),
+    }
+    table = {
+        "name": "Public table",
+        "frame": frame,
+        "rows": [["A", "B"], ["C", "D"]],
+        "z_order": 3,
+    }
+    chart = {
+        "name": "Public chart",
+        "frame": {**frame, "cx": 4_000_000, "cy": 2_400_000},
+        "chart_type": "column",
+        "title": "Public chart",
+        "categories": ["A", "B"],
+        "series": [{"name": "Values", "values": [1, 2]}],
+        "z_order": 4,
+    }
+    updated_chart = {
+        **chart,
+        "name": "Updated public chart",
+        "chart_type": "line",
+        "series": [{"name": "Values", "values": [3, 4]}],
+    }
+    shape_selector = {"name": "Public shape", "type": "shape"}
+    edits = [
+        {"type": "shape_add", "slide": 1, "object": shape},
+        {
+            "type": "shape_update",
+            "slide": 1,
+            "selector": shape_selector,
+            "properties": {"fill": "AA5500", "rotation": 10},
+        },
+        {
+            "type": "text_update",
+            "slide": 1,
+            "selector": shape_selector,
+            "properties": {"text": "Updated public text"},
+        },
+        {
+            "type": "text_style",
+            "slide": 1,
+            "selector": shape_selector,
+            "properties": {"bold": True, "font_size": 18},
+        },
+        {"type": "action_add", "slide": 1, "selector": shape_selector, "action": "next"},
+        {"type": "action_update", "slide": 1, "selector": shape_selector, "action": "last"},
+        {"type": "action_remove", "slide": 1, "selector": shape_selector},
+        {"type": "hyperlink_add", "slide": 1, "selector": shape_selector, "target_slide": 2},
+        {"type": "hyperlink_update", "slide": 1, "selector": shape_selector, "target_slide": 1},
+        {"type": "hyperlink_remove", "slide": 1, "selector": shape_selector},
+        {"type": "shape_delete", "slide": 1, "selector": shape_selector},
+        {"type": "image_add", "slide": 1, "object": image},
+        {
+            "type": "image_crop",
+            "slide": 1,
+            "selector": {"name": "Public image", "type": "image"},
+            "properties": {"fit": "contain", "opacity": 0.8},
+        },
+        {
+            "type": "image_replace",
+            "slide": 1,
+            "selector": {"name": "Public image", "type": "image"},
+            "object": replacement_image,
+        },
+        {
+            "type": "image_delete",
+            "slide": 1,
+            "selector": {"name": "Replaced public image", "type": "image"},
+        },
+        {"type": "table_add", "slide": 1, "object": table},
+        {
+            "type": "table_update",
+            "slide": 1,
+            "selector": {"name": "Public table", "type": "table"},
+            "properties": {"name": "Updated public table", "rows": [["E", "F"]]},
+        },
+        {
+            "type": "table_delete",
+            "slide": 1,
+            "selector": {"name": "Updated public table", "type": "table"},
+        },
+        {"type": "chart_add", "slide": 1, "object": chart},
+        {
+            "type": "chart_update",
+            "slide": 1,
+            "selector": {"name": "Public chart", "type": "chart"},
+            "object": updated_chart,
+        },
+        {
+            "type": "chart_delete",
+            "slide": 1,
+            "selector": {"name": "Updated public chart", "type": "chart"},
+        },
+        {"type": "notes_update", "slide": 2, "value": "Public notes update"},
+    ]
+    output = tmp_path / "public-object-edits.pptx"
+    request = _request(tmp_path, "public-object-edits.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.edit",
+        "input": str(public_created),
+        "output": str(output),
+        "arguments": {"edits": edits},
+    })
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success", result
+    assert len(Presentation(output).slides) == 2
+    counts = result["diagnostics"]["operation_result"]["edit_counts"]
+    assert set(counts) == {edit["type"] for edit in edits}
+    assert len(result["diagnostics"]["operation_result"]["object_edits"]) == len(edits)
+
+
+def test_public_external_hyperlink_is_rejected(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "external-link-must-not-exist.pptx"
+    request = _request(tmp_path, "external-link.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.edit",
+        "input": str(public_created),
+        "output": str(output),
+        "arguments": {"edits": [{
+            "type": "hyperlink_add",
+            "slide": 1,
+            "selector": {"name": "Title"},
+            "target": "https://example.com",
+        }]},
+    })
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+    assert result["status"] == "invalid_request"
+    assert not output.exists()

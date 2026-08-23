@@ -20,6 +20,9 @@ from .contracts import ParsedPptxRequest, parse_pptx_request
 from .create import create_pptx
 from .edit import edit_pptx
 from .inspect import inspect_pptx
+from .lifecycle_validation import validate_slide_lifecycle
+from .object_contracts import OBJECT_EDIT_TYPES
+from .object_validation import validate_object_edits
 from .read import read_pptx
 from .html_capture import HtmlDeckCapture
 from .results import read_validation, success_result
@@ -137,17 +140,60 @@ class PptxService:
                 operation_result, manifest = edit_pptx(
                     request.input_path, staged, request.arguments
                 )
-                has_reorder = "reorder" in operation_result
+                only_reorder = all(
+                    edit["type"] == "slide_reorder"
+                    for edit in request.arguments["edits"]
+                )
+                lifecycle_types = {
+                    "slide_add",
+                    "slide_copy",
+                    "slide_delete",
+                    "slide_duplicate",
+                }
+                has_lifecycle = any(
+                    edit["type"] in lifecycle_types
+                    for edit in request.arguments["edits"]
+                )
+                has_objects = any(
+                    edit["type"] in OBJECT_EDIT_TYPES
+                    for edit in request.arguments["edits"]
+                )
                 assertion = None
-                if has_reorder:
+                if only_reorder:
                     def assertion(_candidate: Path) -> dict[str, Any]:
                         return validate_reorder(staged, source=request.input_path)
+                if not only_reorder and (has_lifecycle or has_objects):
+                    def assertion(_candidate: Path) -> dict[str, Any]:
+                        evidence: dict[str, Any] = {}
+                        if has_lifecycle:
+                            evidence["slide_lifecycle"] = validate_slide_lifecycle(
+                                staged,
+                                source=request.input_path,
+                                edits=request.arguments["edits"],
+                                operation_result=operation_result,
+                            )
+                        if has_objects:
+                            evidence["object_edits"] = validate_object_edits(
+                                staged,
+                                edits=request.arguments["edits"],
+                                operation_result=operation_result,
+                            )
+                        return evidence
                 validation = validate_mutation(
                     staged,
                     source=request.input_path,
                     source_sha256=source_record.sha256,
                     manifest=manifest,
                     assertion=assertion,
+                    allow_removals=any(
+                        edit["type"] in {
+                            "chart_delete",
+                            "image_delete",
+                            "image_replace",
+                            "slide_delete",
+                        }
+                        for edit in request.arguments["edits"]
+                    ),
                 )
                 result = write_candidate_result(
                     self.schemas,

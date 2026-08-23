@@ -26,7 +26,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, and ≥2 layouts |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
-| `pptx.edit` | yes (distinct output) | Slide text, slide reorder/move, notes edits with run-aware preservation |
+| `pptx.edit` | yes (distinct output) | Transactional slide CRUD/copy/reorder plus native shape/text/image/table/chart/notes/link/action edits |
 
 ## HTML deck conversion
 
@@ -49,6 +49,20 @@ into placeholders. Charts are native DrawingML chart objects with bounded
 literal data caches, not pictures or empty references. The supported chart
 types are bar, column, line, pie, and scatter.
 
+## Transactional editing
+
+For slide or object edits, read `references/typed-edit.md`. Slide lifecycle
+primitives add, delete, duplicate, copy, and move/reorder slides; cross-deck
+copy carries the contained layout/master/theme/media/chart/notes dependency
+graph. Object selectors use slide number plus stable shape id and/or exact name,
+optionally narrowed by native type. `pptx.read` returns a reusable selector and
+`precondition_sha256` for every projected top-level object.
+
+Every edit array is one transaction. All supplied preconditions are checked
+against the original inputs before mutation, and any failure prevents output
+publication. Hyperlinks are internal slide jumps only; actions are the closed
+first/last/next/previous set and never execute external content.
+
 ## Key policies
 
 - **Distinct output:** All mutations require an explicit output path separate
@@ -65,6 +79,10 @@ types are bar, column, line, pie, and scatter.
   (font, size, bold/italic/underline, color, language) unless the request
   explicitly supplies a new style. Notes edits follow the same policy and do
   not affect the parent slide payload.
+- **Object graph editing:** Image/chart add, replace, update, and delete mutate
+  the slide XML, contained relationship, native part, content type, and any
+  newly unreachable dependency graph together. Shape ids remain stable across
+  updates and replacements.
 - **Typed object evidence:** Successful typed creation reports each source
   image hash and embedded media part plus each chart part, chart type, native
   status, and data-storage mode under
@@ -92,5 +110,6 @@ types are bar, column, line, pie, and scatter.
 | `failed` | A required gate failed; no output promoted |
 | `unavailable` | Required provider/capability unavailable; no output created |
 
-Slide-structure evidence, edit counts, preservation manifests, and reorder
-evidence appear under `diagnostics.operation_result`.
+Slide-structure evidence, edit counts, preservation manifests, lifecycle copy
+manifests, reorder evidence, and per-object before/after hashes appear under
+`diagnostics.operation_result`.

@@ -8,6 +8,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MAX_SLIDES
+from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
@@ -132,19 +133,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     for index, edit in enumerate(edits):
         if type(edit) is not dict:
             _invalid("Each edit must be an object.", field=f"edits.{index}")
-        _exact_keys(edit, {"slide", "type", "ref", "value", "style"})
-        slide = _integer(edit.get("slide", 1), 1, MAX_SLIDES)
-        edit_type = edit.get("type")
-        if edit_type not in {"slide_text", "slide_reorder", "notes_text"}:
-            _invalid("Unknown edit type.", field=f"edits.{index}.type")
-        ref = _text(edit.get("ref", ""), f"edits.{index}.ref", allow_empty=True)
-        cell_value = _optional_text(edit.get("value"), f"edits.{index}.value")
-        style = edit.get("style")
-        if style is not None and type(style) is not dict:
-            _invalid("Style must be an object.", field=f"edits.{index}.style")
-        parsed_edits.append(
-            {"slide": slide, "type": edit_type, "ref": ref, "value": cell_value, "style": style}
-        )
+        parsed_edits.append(parse_edit(edit, index))
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)

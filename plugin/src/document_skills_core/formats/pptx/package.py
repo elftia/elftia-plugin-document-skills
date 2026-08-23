@@ -218,20 +218,31 @@ class OpcPackage:
         *,
         changed_parts: dict[str, bytes],
         added_parts: dict[str, bytes] | None = None,
+        removed_parts: set[str] | None = None,
     ) -> PreservationManifest:
         additions = added_parts or {}
-        if set(changed_parts).intersection(additions):
-            raise ValueError("A package part cannot be both changed and added.")
+        removals = removed_parts or set()
+        if (
+            set(changed_parts).intersection(additions)
+            or set(changed_parts).intersection(removals)
+            or set(additions).intersection(removals)
+        ):
+            raise ValueError("A package part mutation must be declared exactly once.")
         missing = sorted(set(changed_parts) - set(self.parts))
+        missing_removals = sorted(removals - set(self.parts))
         existing_additions = sorted(set(additions).intersection(self.parts))
-        if missing or existing_additions:
+        if missing or missing_removals or existing_additions:
             raise ValueError("Copy-through part declaration does not match the package.")
-        output_parts = {**self.parts, **changed_parts, **additions}
+        output_parts = {
+            **{name: payload for name, payload in self.parts.items() if name not in removals},
+            **changed_parts,
+            **additions,
+        }
         write_deterministic_zip(Path(destination), output_parts)
         output_hashes = {
             name: _sha256(payload) for name, payload in sorted(output_parts.items())
         }
-        preserved = sorted(set(self.parts) - set(changed_parts))
+        preserved = sorted(set(self.parts) - set(changed_parts) - removals)
         if any(output_hashes[name] != self.part_hashes[name] for name in preserved):
             raise DocumentSkillsError(
                 ErrorCode.VALIDATION_FAILED,
@@ -240,7 +251,7 @@ class OpcPackage:
         return PreservationManifest(
             tuple(sorted(changed_parts)),
             tuple(sorted(additions)),
-            (),
+            tuple(sorted(removals)),
             tuple(preserved),
             dict(sorted(self.part_hashes.items())),
             output_hashes,
