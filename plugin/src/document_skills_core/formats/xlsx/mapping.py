@@ -84,6 +84,7 @@ def _map_sheets(
         sheet_part = rel.resolved_target if rel else None
         sheet_data: dict[str, Any] = {
             "name": name,
+            "part": sheet_part,
             "order": idx,
             "state": sheet_state,
             "rows": [],

@@ -147,6 +147,90 @@ def test_parse_edit_style_primitive_requires_style():
     assert exc.value.code.value == "DS_REQUEST_INVALID"
 
 
+def test_parse_edit_accepts_bounded_worksheet_and_sheet_primitives():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.edit",
+        "input": "in.xlsx",
+        "output": "out.xlsx",
+        "arguments": {
+            "edits": [
+                {"sheet": "Data", "type": "row_height", "ref": "2:4", "height": 27.5},
+                {"sheet": "Data", "type": "column_hidden", "ref": "B:C", "hidden": True},
+                {"sheet": "Data", "type": "range_clear", "ref": "A2:C9", "clear": "styles"},
+                {"sheet": "Data", "type": "freeze_panes", "ref": "C3"},
+                {"sheet": "Data", "type": "row_page_break", "ref": "20"},
+                {
+                    "sheet": "Data",
+                    "type": "defined_name_add",
+                    "name": "InputArea",
+                    "ref": "Data!$A$1:$C$3",
+                    "scope": "workbook",
+                },
+                {"sheet": "Archive", "type": "sheet_add", "position": 1},
+                {"sheet": "Data", "type": "sheet_copy", "name": "Data Copy", "position": 2},
+            ]
+        },
+    })
+
+    edits = parsed.arguments["edits"]
+    assert edits[0]["height"] == 27.5
+    assert edits[1]["hidden"] is True
+    assert edits[2]["clear"] == "styles"
+    assert edits[4]["enabled"] is True
+    assert edits[5]["scope"] == "workbook"
+    assert edits[7]["name"] == "Data Copy"
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"sheet": "Data", "type": "row_height", "ref": "2", "height": 410},
+        {"sheet": "Data", "type": "column_width", "ref": "A", "width": 256},
+        {"sheet": "Data", "type": "cells_merge", "ref": "C3:A1"},
+        {"sheet": "Bad/Name", "type": "sheet_add"},
+        {"sheet": "Data", "type": "sheet_copy", "name": "x" * 32},
+        {"sheet": "Data", "type": "row_insert", "ref": "1048576", "count": 2},
+    ],
+)
+def test_parse_edit_rejects_new_primitive_boundaries(edit: dict[str, object]):
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {"edits": [edit]},
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
+def test_parse_edit_rejects_conflicting_defined_name_writes():
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {
+                "edits": [
+                    {
+                        "sheet": "Data",
+                        "type": "defined_name_update",
+                        "name": "InputArea",
+                        "ref": "Data!$A$1",
+                    },
+                    {
+                        "sheet": "Data",
+                        "type": "defined_name_delete",
+                        "name": "InputArea",
+                    },
+                ]
+            },
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
 def test_parse_input_must_have_xlsx_extension():
     with pytest.raises(DocumentSkillsError):
         parse_xlsx_request({

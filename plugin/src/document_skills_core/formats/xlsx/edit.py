@@ -3,7 +3,7 @@
 from pathlib import Path
 import re
 from typing import Any
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import Element, SubElement
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
@@ -18,7 +18,10 @@ from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 from .shared_strings import read_shared_strings
 from .shared_strings import build_shared_strings_xml
+from .sheet_edit import apply_sheet_edit
 from .style_patch import ExistingStyleRegistry
+from .structural_edit import StructuralEditContext
+from .worksheet_edit import apply_defined_name_edit, apply_worksheet_edit
 
 _MAIN_NS = NS["main"]
 
@@ -39,11 +42,9 @@ def edit_xlsx(
 
     # Map the workbook to get current state
     workbook = map_workbook(package)
-    sheet_lookup = {s["name"]: s for s in workbook["sheets"]}
-
     # Track changed parts
     changed_parts: dict[str, bytes] = {}
-    worksheet_roots: dict[str, Element] = {}
+    structural_context = StructuralEditContext(package, workbook)
     # Track formula state for all formulas (existing + edited)
     all_formula_cells: dict[str, dict[str, Any]] = dict(workbook.get("formula_cells", {}))
     # Track invalidated dependents
@@ -51,6 +52,7 @@ def edit_xlsx(
     edit_counts: dict[str, int] = {}
     # Track new/edited shared strings
     new_shared = list(shared)
+    use_shared_strings = SHARED_STRINGS_PART in package.parts
     style_registry = ExistingStyleRegistry(package.xml("xl/styles.xml"))
 
     # Process each edit
@@ -59,16 +61,40 @@ def edit_xlsx(
         edit_type = edit["type"]
         ref = edit["ref"]
         value = edit.get("value")
-        sheet = sheet_lookup.get(sheet_name)
+        if edit_type in {
+            "sheet_add",
+            "sheet_delete",
+            "sheet_copy",
+            "sheet_reorder",
+            "sheet_rename",
+        }:
+            apply_sheet_edit(structural_context, edit)
+            _apply_structural(all_formula_cells, invalidated)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+            continue
+        sheet = next(
+            (item for item in structural_context.workbook["sheets"] if item["name"] == sheet_name),
+            None,
+        )
         if sheet is None:
             _invalid_edit("Edit sheet was not found.", sheet=sheet_name)
-        # Find the worksheet part
-        sheet_idx = [s["name"] for s in workbook["sheets"]].index(sheet_name)
-        sheet_part = f"xl/worksheets/sheet{sheet_idx + 1}.xml"
-        sheet_root = worksheet_roots.setdefault(sheet_part, package.xml(sheet_part))
+        sheet_part = sheet.get("part")
+        if not sheet_part:
+            _invalid_edit("Edit sheet relationship was not found.", sheet=sheet_name)
+        sheet_root = structural_context.worksheet(sheet_part)
+        mark_sheet_dirty = True
 
         if edit_type == "cell_value":
-            _apply_cell_value(sheet_root, ref, value, new_shared, all_formula_cells, invalidated, sheet_name)
+            _apply_cell_value(
+                sheet_root,
+                ref,
+                value,
+                new_shared,
+                all_formula_cells,
+                invalidated,
+                sheet_name,
+                use_shared_strings=use_shared_strings,
+            )
             if edit.get("style"):
                 _apply_cell_style(sheet_root, ref, edit["style"], style_registry)
             edit_counts["cell_value"] = edit_counts.get("cell_value", 0) + 1
@@ -87,18 +113,50 @@ def edit_xlsx(
             _apply_column_style(sheet_root, ref, edit["style"], style_registry)
             edit_counts["column_style"] = edit_counts.get("column_style", 0) + 1
         elif edit_type in ("row_insert", "row_delete", "column_insert", "column_delete"):
-            _apply_structural(sheet_root, edit_type, ref, all_formula_cells, invalidated, sheet_name)
+            axis = "row" if edit_type.startswith("row") else "column"
+            index = int(ref) if axis == "row" else _column_number(ref)
+            structural_context.apply_axis_mutation(
+                sheet_name=sheet_name,
+                axis=axis,
+                index=index,
+                count=edit["count"],
+                delete=edit_type.endswith("delete"),
+            )
+            _apply_structural(all_formula_cells, invalidated)
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
-        elif edit_type == "sheet_rename":
-            # Rename is handled at workbook level
-            edit_counts["sheet_rename"] = edit_counts.get("sheet_rename", 0) + 1
-
-    for sheet_part, sheet_root in worksheet_roots.items():
-        changed_parts[sheet_part] = tostring(
-            sheet_root,
-            encoding="UTF-8",
-            xml_declaration=True,
-        )
+        elif edit_type in {
+            "row_height",
+            "row_hidden",
+            "column_width",
+            "column_hidden",
+            "cells_merge",
+            "cells_unmerge",
+            "range_clear",
+            "freeze_panes",
+            "auto_filter",
+            "auto_filter_clear",
+            "row_page_break",
+            "column_page_break",
+        }:
+            apply_worksheet_edit(sheet_root, edit)
+            if edit_type == "range_clear" and edit["clear"] in {"contents", "all"}:
+                _apply_structural(all_formula_cells, invalidated)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {
+            "print_area",
+            "print_area_clear",
+            "defined_name_add",
+            "defined_name_update",
+            "defined_name_delete",
+        }:
+            apply_defined_name_edit(structural_context.workbook_root, workbook["sheets"], edit)
+            structural_context.mark_dirty("xl/workbook.xml")
+            mark_sheet_dirty = False
+            if edit_type.startswith("defined_name_"):
+                _apply_structural(all_formula_cells, invalidated)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        if mark_sheet_dirty:
+            structural_context.mark_dirty(sheet_part)
 
     # Rebuild shared strings if changed
     if new_shared != shared:
@@ -106,21 +164,7 @@ def edit_xlsx(
     if style_registry.changed:
         changed_parts["xl/styles.xml"] = style_registry.to_bytes()
 
-    # Handle sheet rename at workbook level
-    workbook_changed = False
-    workbook_root = package.xml("xl/workbook.xml")
-    for edit in edits:
-        if edit["type"] == "sheet_rename":
-            old_name = edit["sheet"]
-            new_name = edit.get("value", "")
-            if new_name and _rename_sheet_in_workbook(workbook_root, old_name, new_name):
-                workbook_changed = True
-    if workbook_changed:
-        changed_parts["xl/workbook.xml"] = tostring(
-            workbook_root,
-            encoding="UTF-8",
-            xml_declaration=True,
-        )
+    changed_parts.update(structural_context.changed_parts())
 
     expected_edits = arguments.get("expected_edits")
     actual_edits = sum(edit_counts.values())
@@ -143,7 +187,31 @@ def edit_xlsx(
             )
 
     # Write the mutated package
-    manifest = package.write_copy(destination, changed_parts=changed_parts)
+    manifest = package.write_copy(
+        destination,
+        changed_parts=changed_parts,
+        added_parts=structural_context.added_parts(),
+        removed_parts=structural_context.removed,
+    )
+    if any(
+        edit_type in edit_counts
+        for edit_type in (
+            "row_insert",
+            "row_delete",
+            "column_insert",
+            "column_delete",
+            "range_clear",
+            "defined_name_add",
+            "defined_name_update",
+            "defined_name_delete",
+            "sheet_add",
+            "sheet_delete",
+            "sheet_copy",
+            "sheet_reorder",
+            "sheet_rename",
+        )
+    ):
+        all_formula_cells = _structural_formula_state(destination)
 
     operation_result: dict[str, Any] = {
         "edit_counts": edit_counts,
@@ -157,6 +225,23 @@ def edit_xlsx(
     return operation_result, manifest
 
 
+def _structural_formula_state(path: str | Path) -> dict[str, dict[str, Any]]:
+    """Reopen structural output so formula keys and text use final coordinates."""
+
+    mapped = map_workbook(OpcPackage.open(path))
+    result: dict[str, dict[str, Any]] = {}
+    for ref_key, record in mapped.get("formula_cells", {}).items():
+        formula = record.get("formula", "")
+        result[ref_key] = build_formula_cell_state(
+            state=derive_edit_state(),
+            formula=formula,
+            cached_value=record.get("cached_value"),
+            precedents_count=len(parse_formula_references(formula)),
+            dependents_count=record.get("dependents_count", 0),
+        )
+    return result
+
+
 def _apply_cell_value(
     sheet_root: Element,
     ref: str,
@@ -165,6 +250,8 @@ def _apply_cell_value(
     formula_cells: dict[str, dict[str, Any]],
     invalidated: set[str],
     sheet_name: str,
+    *,
+    use_shared_strings: bool,
 ) -> None:
     """Apply a cell value edit, preserving existing style."""
     sheet_data = sheet_root.find(f"{{{_MAIN_NS}}}sheetData")
@@ -185,13 +272,17 @@ def _apply_cell_value(
             v = SubElement(cell, f"{{{_MAIN_NS}}}v")
             v.text = value
         except ValueError:
-            # String value — use shared strings
-            if value not in shared:
-                shared.append(value)
-            idx = shared.index(value)
-            cell.attrib["t"] = "s"
-            v = SubElement(cell, f"{{{_MAIN_NS}}}v")
-            v.text = str(idx)
+            if use_shared_strings:
+                if value not in shared:
+                    shared.append(value)
+                cell.attrib["t"] = "s"
+                v = SubElement(cell, f"{{{_MAIN_NS}}}v")
+                v.text = str(shared.index(value))
+            else:
+                cell.attrib["t"] = "inlineStr"
+                inline = SubElement(cell, f"{{{_MAIN_NS}}}is")
+                text = SubElement(inline, f"{{{_MAIN_NS}}}t")
+                text.text = value
     # Restore style
     if old_style is not None:
         cell.attrib["s"] = old_style
@@ -234,22 +325,17 @@ def _apply_cell_formula(
 
 
 def _apply_structural(
-    sheet_root: Element,
-    op: str,
-    ref: str,
     formula_cells: dict[str, dict[str, Any]],
     invalidated: set[str],
-    sheet_name: str,
 ) -> None:
     """Apply a row/column insert/delete operation.
 
     For structural operations, all formulas whose reference set was touched
     report recalculation_required.
     """
-    # Structural operations affect all formulas on the sheet
+    # Structural operations can migrate cross-sheet references, so every formula is stale.
     for ref_key in formula_cells:
-        if ref_key.startswith(f"{sheet_name}!"):
-            invalidated.add(ref_key)
+        invalidated.add(ref_key)
 
 
 def _apply_cell_style(
@@ -408,18 +494,6 @@ def _column_number(value: str) -> int:
     for char in value.upper():
         result = result * 26 + ord(char) - ord("A") + 1
     return result
-
-
-def _rename_sheet_in_workbook(workbook_root: Element, old_name: str, new_name: str) -> bool:
-    """Rename a sheet in the workbook XML. Returns True if renamed."""
-    sheets_elem = workbook_root.find(f"{{{_MAIN_NS}}}sheets")
-    if sheets_elem is None:
-        return False
-    for sheet in sheets_elem.findall(f"{{{_MAIN_NS}}}sheet"):
-        if sheet.attrib.get("name") == old_name:
-            sheet.attrib["name"] = new_name
-            return True
-    return False
 
 
 def _invalid_edit(message: str, **details: Any) -> None:

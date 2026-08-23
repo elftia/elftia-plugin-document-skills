@@ -67,15 +67,22 @@ fragment.
 
 ### xlsx.edit
 
-Performs bounded cell value/formula edits, cell/row/column style edits, custom number-format
-addition, and sheet-label rename. Existing style tables are patched append-only: untargeted
+Performs bounded cell value/formula edits, cell/row/column style and dimension edits, custom
+number-format addition, row/column insertion and deletion, sheet CRUD/reorder/copy, merge/
+unmerge, range clear, freeze panes, auto filters, print areas, manual page breaks, and defined-
+name CRUD. Existing style tables are patched append-only: untargeted
 font/fill/border/xf records, themes, and indexed colors remain intact. Requires distinct input
 and output paths. Editing a precedent cell invalidates dependents to
 `recalculation_required`. Preserves all untargeted package parts (pivot caches, charts,
 drawings, external links, custom XML, etc.) at the payload-hash level.
 
-Row/column structural operations and full sheet CRUD/reorder/copy are not public edit
-capabilities yet and fail closed with `enhancement_required`.
+Structural edits migrate formulas, defined names, tables, charts, data-validation and
+conditional-format formulas/ranges, internal hyperlinks, merged cells, drawing anchors, print
+areas, page breaks, and calc state. A dangerous edit fails closed instead of emitting a repair-
+prone workbook: shared/array/data-table formulas, external-workbook references, pivots, sheet
+deletion with inbound references/related objects, and sheet copy with related objects return
+`enhancement_required`. Plain worksheet copy is available. See
+[`references/edits.md`](references/edits.md) for the closed primitive fields and examples.
 
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression

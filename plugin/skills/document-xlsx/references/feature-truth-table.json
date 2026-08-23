@@ -30,17 +30,35 @@
         "cell_style",
         "row_style",
         "column_style",
-        "custom_number_format"
-      ],
-      "enhancement_required": [
+        "custom_number_format",
         "row_insert",
         "row_delete",
         "column_insert",
         "column_delete",
+        "row_height",
+        "row_hidden",
+        "column_width",
+        "column_hidden",
         "sheet_add",
         "sheet_delete",
-        "sheet_copy",
-        "sheet_reorder"
+        "sheet_copy_plain_worksheet",
+        "sheet_reorder",
+        "cells_merge",
+        "cells_unmerge",
+        "range_clear",
+        "freeze_panes",
+        "auto_filter",
+        "print_area",
+        "manual_page_breaks",
+        "defined_name_crud"
+      ],
+      "enhancement_required": [
+        "sheet_copy_with_related_objects",
+        "sheet_delete_with_related_objects",
+        "sheet_delete_with_inbound_references",
+        "shared_array_or_data_table_formula_structural_edit",
+        "external_workbook_reference_structural_edit",
+        "pivot_structural_edit"
       ]
     }
   }

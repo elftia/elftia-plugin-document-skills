@@ -100,12 +100,16 @@ def test_disconnected_xlsx_create_feature_fails_closed(
     )
 
 
-def test_xlsx_structural_noop_is_enhancement_required_and_preserves_source(
+def test_xlsx_unsafe_structural_delete_is_enhancement_required_and_preserves_source(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "source.xlsx"
-    create_xlsx(source, _workbook())
+    workbook = _workbook()
+    workbook["sheets"][0]["rows"][0]["cells"].append(
+        {"ref": "C1", "formula": "B1", "type": "n"}
+    )
+    create_xlsx(source, workbook)
     _assert_fail_closed(
         project_root,
         tmp_path,
@@ -119,9 +123,9 @@ def test_xlsx_structural_noop_is_enhancement_required_and_preserves_source(
                 "edits": [
                     {
                         "sheet": "Sheet1",
-                        "type": "row_insert",
-                        "ref": "2",
-                        "value": None,
+                        "type": "column_delete",
+                        "ref": "B",
+                        "count": 1,
                     }
                 ]
             },

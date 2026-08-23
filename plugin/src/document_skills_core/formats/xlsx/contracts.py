@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -23,6 +24,39 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.edit",
     }
 )
+
+_STRUCTURAL_EDIT_TYPES = {
+    "row_insert",
+    "row_delete",
+    "column_insert",
+    "column_delete",
+}
+_WORKSHEET_EDIT_TYPES = {
+    "row_height",
+    "row_hidden",
+    "column_width",
+    "column_hidden",
+    "cells_merge",
+    "cells_unmerge",
+    "range_clear",
+    "freeze_panes",
+    "auto_filter",
+    "auto_filter_clear",
+    "print_area",
+    "print_area_clear",
+    "row_page_break",
+    "column_page_break",
+    "defined_name_add",
+    "defined_name_update",
+    "defined_name_delete",
+}
+_SHEET_EDIT_TYPES = {
+    "sheet_add",
+    "sheet_delete",
+    "sheet_copy",
+    "sheet_reorder",
+    "sheet_rename",
+}
 
 
 @dataclass(frozen=True)
@@ -119,10 +153,29 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     if type(edits) is not list or not edits or len(edits) > MAX_EDIT_OPS:
         _invalid("edits must be a non-empty bounded array.", field="edits")
     parsed_edits = []
+    defined_name_targets: set[tuple[str, str, str]] = set()
     for index, edit in enumerate(edits):
         if type(edit) is not dict:
             _invalid("Each edit must be an object.", field=f"edits.{index}")
-        _exact_keys(edit, {"sheet", "type", "ref", "value", "style"})
+        _exact_keys(
+            edit,
+            {
+                "sheet",
+                "type",
+                "ref",
+                "value",
+                "style",
+                "count",
+                "height",
+                "width",
+                "hidden",
+                "position",
+                "name",
+                "scope",
+                "clear",
+                "enabled",
+            },
+        )
         sheet = _text(edit.get("sheet"), f"edits.{index}.sheet", allow_empty=False)
         edit_type = edit.get("type")
         if edit_type not in {
@@ -135,16 +188,38 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "row_delete",
             "column_insert",
             "column_delete",
-            "sheet_rename",
+            *_WORKSHEET_EDIT_TYPES,
+            *_SHEET_EDIT_TYPES,
         }:
             _invalid("Unknown edit type.", field=f"edits.{index}.type")
-        if edit_type in {"row_insert", "row_delete", "column_insert", "column_delete"}:
-            _enhancement(
-                "Structural row and column edits are not implemented.",
-                field=f"edits.{index}.type",
-                capability="xlsx.structural-edit",
-            )
-        ref = _text(edit.get("ref", ""), f"edits.{index}.ref", allow_empty=False)
+        ref_optional = edit_type in {
+            "sheet_add",
+            "sheet_delete",
+            "sheet_copy",
+            "sheet_reorder",
+            "sheet_rename",
+            "auto_filter_clear",
+            "print_area_clear",
+            "defined_name_delete",
+        }
+        ref = _text(
+            edit.get("ref", ""),
+            f"edits.{index}.ref",
+            allow_empty=ref_optional,
+        )
+        count = edit.get("count")
+        if edit_type in {"row_insert", "row_delete"}:
+            _validate_structural_ref(ref, "row", f"edits.{index}.ref")
+            count = _integer(1 if count is None else count, 1, 10_000)
+            if int(ref) + count - 1 > 1_048_576:
+                _invalid("Row structural edit exceeds the XLSX range.", field=f"edits.{index}.count")
+        elif edit_type in {"column_insert", "column_delete"}:
+            _validate_structural_ref(ref, "column", f"edits.{index}.ref")
+            count = _integer(1 if count is None else count, 1, 1_024)
+            if _column_number(ref) + count - 1 > 16_384:
+                _invalid("Column structural edit exceeds the XLSX range.", field=f"edits.{index}.count")
+        elif count is not None:
+            _invalid("count is only valid for structural edits.", field=f"edits.{index}.count")
         cell_value = _optional_text(edit.get("value"), f"edits.{index}.value")
         style = parse_style(edit.get("style"), f"edits.{index}.style")
         if edit_type in {"cell_style", "row_style", "column_style"} and not style:
@@ -157,8 +232,104 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "sheet_rename does not accept style.",
                 field=f"edits.{index}.style",
             )
+        height = edit.get("height")
+        width = edit.get("width")
+        hidden = edit.get("hidden")
+        position = edit.get("position")
+        name = edit.get("name")
+        scope = edit.get("scope")
+        clear = edit.get("clear")
+        enabled = edit.get("enabled")
+        if edit_type == "row_height":
+            _validate_index_range(ref, "row", f"edits.{index}.ref")
+            height = _number(height, 0, 409, f"edits.{index}.height")
+        elif height is not None:
+            _invalid("height is only valid for row_height.", field=f"edits.{index}.height")
+        if edit_type == "column_width":
+            _validate_index_range(ref, "column", f"edits.{index}.ref")
+            width = _number(width, 0, 255, f"edits.{index}.width")
+        elif width is not None:
+            _invalid("width is only valid for column_width.", field=f"edits.{index}.width")
+        if edit_type in {"row_hidden", "column_hidden"}:
+            _validate_index_range(
+                ref,
+                "row" if edit_type.startswith("row") else "column",
+                f"edits.{index}.ref",
+            )
+            hidden = _boolean(hidden, f"edits.{index}.hidden")
+        elif hidden is not None:
+            _invalid("hidden is only valid for row_hidden or column_hidden.", field=f"edits.{index}.hidden")
+        if edit_type in {"cells_merge", "cells_unmerge", "range_clear", "auto_filter", "print_area"}:
+            _validate_cell_range(ref, f"edits.{index}.ref")
+        elif edit_type == "freeze_panes":
+            _validate_cell_ref(ref, f"edits.{index}.ref")
+        elif edit_type == "row_page_break":
+            _validate_structural_ref(ref, "row", f"edits.{index}.ref")
+        elif edit_type == "column_page_break":
+            _validate_structural_ref(ref, "column", f"edits.{index}.ref")
+        if edit_type == "range_clear":
+            clear = "contents" if clear is None else clear
+            if clear not in {"contents", "styles", "all"}:
+                _invalid("range_clear clear must be contents, styles, or all.", field=f"edits.{index}.clear")
+        elif clear is not None:
+            _invalid("clear is only valid for range_clear.", field=f"edits.{index}.clear")
+        if edit_type in {"row_page_break", "column_page_break"}:
+            enabled = _boolean(True if enabled is None else enabled, f"edits.{index}.enabled")
+        elif enabled is not None:
+            _invalid("enabled is only valid for page-break edits.", field=f"edits.{index}.enabled")
+        if edit_type in {"sheet_add", "sheet_copy", "sheet_reorder"}:
+            position = _integer(
+                MAX_SHEETS - 1 if position is None else position,
+                0,
+                MAX_SHEETS - 1,
+            )
+        elif position is not None:
+            _invalid("position is only valid for sheet edits.", field=f"edits.{index}.position")
+        if edit_type in {"sheet_copy", "defined_name_add", "defined_name_update", "defined_name_delete"}:
+            name = _text(name, f"edits.{index}.name", allow_empty=False)
+        elif name is not None:
+            _invalid("name is not valid for this edit type.", field=f"edits.{index}.name")
+        if edit_type in {"defined_name_add", "defined_name_update", "defined_name_delete"}:
+            scope = "workbook" if scope is None else scope
+            if scope not in {"workbook", "sheet"}:
+                _invalid("Defined-name scope must be workbook or sheet.", field=f"edits.{index}.scope")
+            _validate_defined_name(name, f"edits.{index}.name")
+            defined_name_target = (
+                scope,
+                sheet.casefold() if scope == "sheet" else "",
+                name.casefold(),
+            )
+            if defined_name_target in defined_name_targets:
+                _invalid(
+                    "A request cannot mutate the same defined name more than once.",
+                    field=f"edits.{index}.name",
+                )
+            defined_name_targets.add(defined_name_target)
+        elif scope is not None:
+            _invalid("scope is only valid for defined-name edits.", field=f"edits.{index}.scope")
+        if edit_type == "sheet_add":
+            _validate_sheet_name(sheet, f"edits.{index}.sheet")
+        elif edit_type == "sheet_copy":
+            _validate_sheet_name(name, f"edits.{index}.name")
+        elif edit_type == "sheet_rename":
+            _validate_sheet_name(cell_value, f"edits.{index}.value")
         parsed_edits.append(
-            {"sheet": sheet, "type": edit_type, "ref": ref, "value": cell_value, "style": style}
+            {
+                "sheet": sheet,
+                "type": edit_type,
+                "ref": ref,
+                "value": cell_value,
+                "style": style,
+                "count": count,
+                "height": height,
+                "width": width,
+                "hidden": hidden,
+                "position": position,
+                "name": name,
+                "scope": scope,
+                "clear": clear,
+                "enabled": enabled,
+            }
         )
     expected = value.get("expected_edits")
     if expected is not None:
@@ -389,6 +560,74 @@ def _exact_keys(value: dict[str, Any], allowed: set[str]) -> None:
         _invalid("Unknown XLSX operation argument.", unknown=unknown)
 
 
+def _validate_structural_ref(ref: str, kind: str, field: str) -> None:
+    pattern = r"\d+" if kind == "row" else r"[A-Za-z]{1,3}"
+    if re.fullmatch(pattern, ref) is None:
+        _invalid(f"{kind.title()} structural ref is invalid.", field=field)
+    if kind == "row" and not 1 <= int(ref) <= 1_048_576:
+        _invalid("Row structural ref is outside the XLSX range.", field=field)
+    if kind == "column":
+        number = _column_number(ref)
+        if number > 16_384:
+            _invalid("Column structural ref is outside the XLSX range.", field=field)
+
+
+def _validate_index_range(ref: str, kind: str, field: str) -> None:
+    parts = ref.split(":", 1)
+    if len(parts) == 1:
+        parts.append(parts[0])
+    for part in parts:
+        _validate_structural_ref(part, kind, field)
+    first = int(parts[0]) if kind == "row" else _column_number(parts[0])
+    last = int(parts[1]) if kind == "row" else _column_number(parts[1])
+    if first > last:
+        _invalid(f"{kind.title()} range must be ascending.", field=field)
+
+
+def _validate_cell_ref(ref: str, field: str) -> None:
+    match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d{1,7})", ref)
+    if match is None:
+        _invalid("Cell reference must use A1 notation.", field=field)
+    if _column_number(match.group(1)) > 16_384 or int(match.group(2)) > 1_048_576:
+        _invalid("Cell reference is outside the XLSX range.", field=field)
+
+
+def _validate_cell_range(ref: str, field: str) -> None:
+    parts = ref.split(":", 1)
+    for part in parts:
+        _validate_cell_ref(part, field)
+    if len(parts) == 2:
+        first = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", parts[0])
+        last = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", parts[1])
+        assert first is not None and last is not None
+        if (
+            _column_number(first.group(1)) > _column_number(last.group(1))
+            or int(first.group(2)) > int(last.group(2))
+        ):
+            _invalid("Cell range must be ascending.", field=field)
+
+
+def _validate_sheet_name(value: str | None, field: str) -> None:
+    if value is None or len(value) > 31 or any(char in value for char in "[]:*?/\\"):
+        _invalid("Sheet name is invalid.", field=field)
+    if value.startswith("'") or value.endswith("'"):
+        _invalid("Sheet name cannot begin or end with an apostrophe.", field=field)
+
+
+def _validate_defined_name(value: str | None, field: str) -> None:
+    if value is None or re.fullmatch(r"[A-Za-z_\\][A-Za-z0-9_.\\]*", value) is None:
+        _invalid("Defined name is invalid.", field=field)
+    if re.fullmatch(r"[A-Za-z]{1,3}\d+", value) is not None:
+        _invalid("Defined name cannot be a cell reference.", field=field)
+
+
+def _column_number(value: str) -> int:
+    result = 0
+    for char in value.upper():
+        result = result * 26 + ord(char) - ord("A") + 1
+    return result
+
+
 def _optional_path(value: Any, field: str) -> Path | None:
     if value is None:
         return None
@@ -399,6 +638,12 @@ def _integer(value: Any, minimum: int, maximum: int) -> int:
     if type(value) is not int or not minimum <= value <= maximum:
         _invalid(f"Integer must be between {minimum} and {maximum}.")
     return value
+
+
+def _number(value: Any, minimum: float, maximum: float, field: str) -> float:
+    if type(value) not in {int, float} or not minimum <= value <= maximum:
+        _invalid(f"Number must be between {minimum} and {maximum}.", field=field)
+    return float(value)
 
 
 def _boolean(value: Any, field: str) -> bool:

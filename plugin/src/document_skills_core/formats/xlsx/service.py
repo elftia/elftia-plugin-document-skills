@@ -221,9 +221,18 @@ class XlsxService:
                     source=request.input_path,
                     source_sha256=source_record.sha256,
                     manifest=manifest,
+                    allowed_removed_parts=(
+                        set(manifest.removed)
+                        if any(
+                            edit["type"] == "sheet_delete"
+                            for edit in request.arguments["edits"]
+                        )
+                        else set()
+                    ),
                     assertion=lambda candidate: assert_edits_applied(
                         candidate,
                         request.arguments["edits"],
+                        source=request.input_path,
                     ),
                 )
                 # Build formula state for degradation

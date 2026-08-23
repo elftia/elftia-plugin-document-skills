@@ -1,16 +1,21 @@
 """XLSX reopen, semantic, and preservation validation gates."""
 
 from pathlib import Path
+import re
 from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.validation import validate_artifact
 
 from .formula_state import assert_invariant
+from .constants import NS
 from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 from .projection import project_tables
 from .styles import read_styles
+from .structural_refs import AxisMutation, shift_coordinate
+
+_MAIN_NS = NS["main"]
 
 
 def validate_created(
@@ -35,11 +40,18 @@ def validate_mutation(
     source: Path,
     source_sha256: str,
     manifest: PreservationManifest,
+    allowed_removed_parts: set[str] | None = None,
     assertion: Callable[[Path], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] = [
         ("consumer-package-conformance", _assert_consumer_package),
-        ("part-preservation", lambda _candidate: _assert_preservation(manifest))
+        (
+            "part-preservation",
+            lambda _candidate: _assert_preservation(
+                manifest,
+                allowed_removed_parts=allowed_removed_parts or set(),
+            ),
+        )
     ]
     if assertion is not None:
         assertions.append(("mutation-semantics", assertion))
@@ -73,10 +85,16 @@ def assert_formula_state_invariant(
     return {"no_unverified_claimed_recalculated": True}
 
 
-def assert_edits_applied(path: Path, edits: list[dict[str, Any]]) -> dict[str, Any]:
+def assert_edits_applied(
+    path: Path,
+    edits: list[dict[str, Any]],
+    *,
+    source: Path | None = None,
+) -> dict[str, Any]:
     """Reopen a staged mutation and prove every bounded edit took effect."""
 
-    mapped = map_workbook(OpcPackage.open(path))
+    package = OpcPackage.open(path)
+    mapped = map_workbook(package)
     sheets = {sheet["name"]: sheet for sheet in mapped.get("sheets", [])}
     rename_map = {
         edit["sheet"]: edit.get("value", "")
@@ -85,6 +103,7 @@ def assert_edits_applied(path: Path, edits: list[dict[str, Any]]) -> dict[str, A
     }
     failures: list[str] = []
     matched = 0
+    expected_cells = _expected_cell_refs(source, edits) if source is not None else None
     for edit in edits:
         edit_type = edit["type"]
         if edit_type == "sheet_rename":
@@ -92,6 +111,32 @@ def assert_edits_applied(path: Path, edits: list[dict[str, Any]]) -> dict[str, A
                 failures.append(f"sheet_rename:{edit['sheet']}")
             else:
                 matched += 1
+            continue
+        if edit_type == "sheet_add":
+            if edit["sheet"] in sheets:
+                matched += 1
+            else:
+                failures.append(f"sheet_add:{edit['sheet']}")
+            continue
+        if edit_type == "sheet_copy":
+            if edit["name"] in sheets:
+                matched += 1
+            else:
+                failures.append(f"sheet_copy:{edit['sheet']}->{edit['name']}")
+            continue
+        if edit_type == "sheet_delete":
+            if edit["sheet"] not in sheets:
+                matched += 1
+            else:
+                failures.append(f"sheet_delete:{edit['sheet']}")
+            continue
+        if edit_type == "sheet_reorder":
+            order = list(sheets)
+            expected_position = min(edit["position"], len(order) - 1)
+            if edit["sheet"] in sheets and order.index(edit["sheet"]) == expected_position:
+                matched += 1
+            else:
+                failures.append(f"sheet_reorder:{edit['sheet']}")
             continue
         sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
         sheet = sheets.get(sheet_name)
@@ -140,6 +185,51 @@ def assert_edits_applied(path: Path, edits: list[dict[str, Any]]) -> dict[str, A
             else:
                 matched += 1
             continue
+        if edit_type in {
+            "row_height",
+            "row_hidden",
+            "column_width",
+            "column_hidden",
+            "cells_merge",
+            "cells_unmerge",
+            "range_clear",
+            "freeze_panes",
+            "auto_filter",
+            "auto_filter_clear",
+            "row_page_break",
+            "column_page_break",
+        }:
+            if _worksheet_edit_matches(package, sheet, edit):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}!{edit['ref']}")
+            continue
+        if edit_type in {
+            "print_area",
+            "print_area_clear",
+            "defined_name_add",
+            "defined_name_update",
+            "defined_name_delete",
+        }:
+            if _defined_name_edit_matches(mapped, sheet_name, edit):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}!{edit.get('name') or edit.get('ref')}")
+            continue
+        if edit_type in {
+            "row_insert",
+            "row_delete",
+            "column_insert",
+            "column_delete",
+        }:
+            if expected_cells is None or _mapped_cell_refs(sheet) != expected_cells.get(
+                sheet_name,
+                set(),
+            ):
+                failures.append(f"{edit_type}:{sheet_name}!{edit['ref']}")
+            else:
+                matched += 1
+            continue
         matched += 1
     if failures:
         raise DocumentSkillsError(
@@ -148,6 +238,218 @@ def assert_edits_applied(path: Path, edits: list[dict[str, Any]]) -> dict[str, A
             details={"missing_or_mismatched": failures},
         )
     return {"requested_edits": len(edits), "matched_edits": matched}
+
+
+def _expected_cell_refs(
+    source: Path,
+    edits: list[dict[str, Any]],
+) -> dict[str, set[str]]:
+    mapped = map_workbook(OpcPackage.open(source))
+    expected = {
+        sheet["name"]: _mapped_cell_refs(sheet)
+        for sheet in mapped.get("sheets", [])
+    }
+    for edit in edits:
+        edit_type = edit["type"]
+        sheet_name = edit["sheet"]
+        if edit_type == "sheet_rename":
+            new_name = edit.get("value")
+            if new_name and sheet_name in expected:
+                expected[new_name] = expected.pop(sheet_name)
+            continue
+        if edit_type == "sheet_add":
+            expected[edit["sheet"]] = set()
+            continue
+        if edit_type == "sheet_copy":
+            expected[edit["name"]] = set(expected.get(sheet_name, set()))
+            continue
+        if edit_type == "sheet_delete":
+            expected.pop(sheet_name, None)
+            continue
+        if edit_type == "sheet_reorder":
+            continue
+        if edit_type in {"cell_value", "cell_formula", "cell_style"}:
+            expected.setdefault(sheet_name, set()).add(edit["ref"].upper())
+            continue
+        if edit_type not in {
+            "row_insert",
+            "row_delete",
+            "column_insert",
+            "column_delete",
+        }:
+            continue
+        axis = "row" if edit_type.startswith("row") else "column"
+        index = int(edit["ref"]) if axis == "row" else _column_number(edit["ref"])
+        mutation = AxisMutation(
+            sheet=sheet_name,
+            axis=axis,
+            index=index,
+            count=edit["count"],
+            delete=edit_type.endswith("delete"),
+        )
+        shifted: set[str] = set()
+        for ref in expected.get(sheet_name, set()):
+            column, row = _split_cell_ref(ref)
+            coordinate = shift_coordinate(column, row, mutation)
+            if coordinate is not None:
+                shifted.add(f"{_column_name(coordinate[0])}{coordinate[1]}")
+        expected[sheet_name] = shifted
+    return expected
+
+
+def _worksheet_edit_matches(
+    package: OpcPackage,
+    sheet: dict[str, Any],
+    edit: dict[str, Any],
+) -> bool:
+    edit_type = edit["type"]
+    if edit_type in {"row_height", "row_hidden"}:
+        first, last = _numeric_range(edit["ref"])
+        rows = {int(row["ref"]): row for row in sheet.get("rows", [])}
+        key = "height" if edit_type == "row_height" else "hidden"
+        return all(rows.get(index, {}).get(key) == edit[key] for index in range(first, last + 1))
+    if edit_type in {"column_width", "column_hidden"}:
+        first, last = _column_range(edit["ref"])
+        key = "width" if edit_type == "column_width" else "hidden"
+        return all(
+            next(
+                (
+                    column.get(key) == edit[key]
+                    for column in sheet.get("columns", [])
+                    if column["min"] <= index <= column["max"]
+                ),
+                False,
+            )
+            for index in range(first, last + 1)
+        )
+    part = sheet.get("part")
+    if not part:
+        return False
+    root = package.xml(part)
+    if edit_type in {"cells_merge", "cells_unmerge"}:
+        merged = {
+            item.attrib.get("ref", "").casefold()
+            for item in root.findall(f".//{{{_MAIN_NS}}}mergeCell")
+        }
+        exists = edit["ref"].casefold() in merged
+        return exists if edit_type == "cells_merge" else not exists
+    if edit_type == "range_clear":
+        cells = _cells_in_range(root, edit["ref"])
+        if edit["clear"] == "all":
+            return not cells
+        if edit["clear"] == "styles":
+            return all("s" not in cell.attrib for cell in cells)
+        return all(
+            "t" not in cell.attrib
+            and not any(child.tag.rsplit("}", 1)[-1] in {"f", "v", "is"} for child in cell)
+            for cell in cells
+        )
+    if edit_type == "freeze_panes":
+        pane = root.find(f".//{{{_MAIN_NS}}}pane")
+        return pane is None if edit["ref"].upper() == "A1" else (
+            pane is not None and pane.attrib.get("topLeftCell", "").casefold() == edit["ref"].casefold()
+        )
+    if edit_type in {"auto_filter", "auto_filter_clear"}:
+        auto_filter = root.find(f"{{{_MAIN_NS}}}autoFilter")
+        return auto_filter is None if edit_type.endswith("_clear") else (
+            auto_filter is not None and auto_filter.attrib.get("ref", "").casefold() == edit["ref"].casefold()
+        )
+    if edit_type in {"row_page_break", "column_page_break"}:
+        is_row = edit_type.startswith("row")
+        tag = "rowBreaks" if is_row else "colBreaks"
+        expected_id = int(edit["ref"]) if is_row else _column_number(edit["ref"])
+        ids = {
+            int(item.attrib.get("id", "0"))
+            for item in root.findall(f".//{{{_MAIN_NS}}}{tag}/{{{_MAIN_NS}}}brk")
+        }
+        return (expected_id in ids) == edit["enabled"]
+    return False
+
+
+def _defined_name_edit_matches(
+    mapped: dict[str, Any],
+    sheet_name: str,
+    edit: dict[str, Any],
+) -> bool:
+    sheets = [sheet["name"] for sheet in mapped.get("sheets", [])]
+    local_id = str(sheets.index(sheet_name))
+    name = "_xlnm.Print_Area" if edit["type"].startswith("print_area") else edit["name"]
+    scope = local_id if edit["type"].startswith("print_area") or edit.get("scope") == "sheet" else "workbook"
+    match = next(
+        (
+            item
+            for item in mapped.get("defined_names", [])
+            if item["name"].casefold() == name.casefold() and item["scope"] == scope
+        ),
+        None,
+    )
+    if edit["type"] in {"print_area_clear", "defined_name_delete"}:
+        return match is None
+    if match is None:
+        return False
+    if edit["type"] == "print_area":
+        expected = f"'{sheet_name.replace(chr(39), chr(39) * 2)}'!{_absolute_range(edit['ref'])}"
+    else:
+        expected = edit["ref"]
+    return match["ref"] == expected
+
+
+def _cells_in_range(root: Any, ref: str) -> list[Any]:
+    first, separator, last = ref.partition(":")
+    first_column, first_row = _split_cell_ref(first.replace("$", "").upper())
+    last_column, last_row = _split_cell_ref((last if separator else first).replace("$", "").upper())
+    return [
+        cell
+        for cell in root.findall(f".//{{{_MAIN_NS}}}c")
+        if (
+            first_column
+            <= _split_cell_ref(cell.attrib.get("r", ""))[0]
+            <= last_column
+            and first_row <= _split_cell_ref(cell.attrib.get("r", ""))[1] <= last_row
+        )
+    ]
+
+
+def _column_range(ref: str) -> tuple[int, int]:
+    first, separator, last = ref.partition(":")
+    return _column_number(first), _column_number(last) if separator else _column_number(first)
+
+
+def _absolute_range(ref: str) -> str:
+    def absolute_cell(cell: str) -> str:
+        match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", cell)
+        assert match is not None
+        return f"${match.group(1).upper()}${match.group(2)}"
+
+    return ":".join(absolute_cell(cell) for cell in ref.split(":"))
+
+
+def _mapped_cell_refs(sheet: dict[str, Any]) -> set[str]:
+    return {
+        cell["ref"].upper()
+        for row in sheet.get("rows", [])
+        for cell in row.get("cells", [])
+    }
+
+
+def _split_cell_ref(ref: str) -> tuple[int, int]:
+    letters = ref.rstrip("0123456789")
+    return _column_number(letters), int(ref[len(letters):])
+
+
+def _column_number(value: str) -> int:
+    result = 0
+    for char in value.upper():
+        result = result * 26 + ord(char) - ord("A") + 1
+    return result
+
+
+def _column_name(value: int) -> str:
+    result = ""
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        result = chr(ord("A") + remainder) + result
+    return result
 
 
 def _assert_created(
@@ -323,12 +625,17 @@ def _assert_consumer_package(path: Path) -> dict[str, Any]:
     return {"style_table_counts": evidence, "consumer_conformant": True}
 
 
-def _assert_preservation(manifest: PreservationManifest) -> dict[str, Any]:
-    if manifest.removed:
+def _assert_preservation(
+    manifest: PreservationManifest,
+    *,
+    allowed_removed_parts: set[str],
+) -> dict[str, Any]:
+    unexpected_removed = sorted(set(manifest.removed) - allowed_removed_parts)
+    if unexpected_removed:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
             "An XLSX mutation removed package parts.",
-            details={"removed_parts": list(manifest.removed)},
+            details={"removed_parts": unexpected_removed},
         )
     mismatched = [
         name

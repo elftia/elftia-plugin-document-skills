@@ -228,16 +228,34 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "row_style",
                     "column_style",
                     "custom_number_format",
-                ],
-                "enhancement_required": [
                     "row_insert",
                     "row_delete",
                     "column_insert",
                     "column_delete",
+                    "row_height",
+                    "row_hidden",
+                    "column_width",
+                    "column_hidden",
                     "sheet_add",
                     "sheet_delete",
-                    "sheet_copy",
+                    "sheet_copy_plain_worksheet",
                     "sheet_reorder",
+                    "cells_merge",
+                    "cells_unmerge",
+                    "range_clear",
+                    "freeze_panes",
+                    "auto_filter",
+                    "print_area",
+                    "manual_page_breaks",
+                    "defined_name_crud",
+                ],
+                "enhancement_required": [
+                    "sheet_copy_with_related_objects",
+                    "sheet_delete_with_related_objects",
+                    "sheet_delete_with_inbound_references",
+                    "shared_array_or_data_table_formula_structural_edit",
+                    "external_workbook_reference_structural_edit",
+                    "pivot_structural_edit",
                 ],
             },
         },
@@ -317,6 +335,108 @@ def test_public_edit_claimed_features_reopen(
     assert reopened.sheetnames == ["Renamed"]
     assert reopened["Renamed"]["B1"].value == 42
     assert reopened["Renamed"]["B2"].value == "=B1*3"
+
+
+def test_public_edit_structural_sheet_and_range_features_reopen(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.workbook.defined_name import DefinedName
+
+    source = tmp_path / "structural-public-source.xlsx"
+    output = tmp_path / "structural-public-output.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Main"
+    sheet["A1"] = "Name"
+    sheet["B1"] = 10
+    sheet["B2"] = "=B1*2"
+    sheet["E1"] = "Merged"
+    sheet.merge_cells("E1:F1")
+    workbook.create_sheet("DeleteMe")["A1"] = "delete"
+    workbook.defined_names.add(
+        DefinedName("ExistingName", attr_text="Main!$A$1")
+    )
+    workbook.defined_names.add(
+        DefinedName("DeleteName", attr_text="Main!$B$1")
+    )
+    workbook.save(source)
+    edits = [
+        {"sheet": "Main", "type": "row_insert", "ref": "2", "count": 1},
+        {"sheet": "Main", "type": "row_delete", "ref": "4", "count": 1},
+        {"sheet": "Main", "type": "column_insert", "ref": "C", "count": 1},
+        {"sheet": "Main", "type": "column_delete", "ref": "D", "count": 1},
+        {"sheet": "Main", "type": "row_height", "ref": "2:3", "height": 25},
+        {"sheet": "Main", "type": "row_hidden", "ref": "2", "hidden": True},
+        {"sheet": "Main", "type": "column_width", "ref": "B", "width": 18},
+        {"sheet": "Main", "type": "column_hidden", "ref": "C", "hidden": True},
+        {"sheet": "Main", "type": "cells_unmerge", "ref": "E1:F1"},
+        {"sheet": "Main", "type": "cells_merge", "ref": "C1:D1"},
+        {"sheet": "Main", "type": "range_clear", "ref": "A1", "clear": "contents"},
+        {"sheet": "Main", "type": "freeze_panes", "ref": "C3"},
+        {"sheet": "Main", "type": "auto_filter", "ref": "A1:D3"},
+        {"sheet": "Main", "type": "print_area", "ref": "A1:G5"},
+        {"sheet": "Main", "type": "row_page_break", "ref": "4"},
+        {"sheet": "Main", "type": "column_page_break", "ref": "E"},
+        {
+            "sheet": "Main",
+            "type": "defined_name_add",
+            "name": "NewName",
+            "ref": "Main!$A$1",
+        },
+        {
+            "sheet": "Main",
+            "type": "defined_name_update",
+            "name": "ExistingName",
+            "ref": "Main!$B$1",
+        },
+        {
+            "sheet": "Main",
+            "type": "defined_name_delete",
+            "name": "DeleteName",
+        },
+        {"sheet": "Main", "type": "sheet_copy", "name": "Clone", "position": 1},
+        {"sheet": "Added", "type": "sheet_add", "position": 2},
+        {"sheet": "Added", "type": "cell_value", "ref": "A1", "value": "7"},
+        {"sheet": "Added", "type": "sheet_reorder", "position": 0},
+        {"sheet": "DeleteMe", "type": "sheet_delete"},
+    ]
+    request = _request(
+        tmp_path,
+        "structural-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"edits": edits, "expected_edits": len(edits)},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "degraded"
+    reopened = load_workbook(output, data_only=False)
+    assert reopened.sheetnames == ["Added", "Main", "Clone"]
+    main = reopened["Main"]
+    assert main["B3"].value == "=B1*2"
+    assert main["A1"].value is None
+    assert main.row_dimensions[2].height == 25
+    assert main.row_dimensions[2].hidden is True
+    assert main.column_dimensions["B"].width == 18
+    assert main.column_dimensions["C"].hidden is True
+    assert [str(item) for item in main.merged_cells.ranges] == ["C1:D1"]
+    assert main.freeze_panes == "C3"
+    assert main.auto_filter.ref == "A1:D3"
+    assert main.print_area == "'Main'!$A$1:$G$5"
+    assert [item.id for item in main.row_breaks.brk] == [4]
+    assert [item.id for item in main.col_breaks.brk] == [5]
+    assert reopened["Clone"]["B3"].value == "=B1*2"
+    assert reopened["Added"]["A1"].value == 7
+    assert reopened.defined_names["ExistingName"].attr_text == "Main!$B$1"
+    assert reopened.defined_names["NewName"].attr_text == "Main!$A$1"
+    assert "DeleteName" not in reopened.defined_names
 
 
 def test_public_create_styles_and_number_formats_reopen(
