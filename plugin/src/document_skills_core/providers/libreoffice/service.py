@@ -147,6 +147,30 @@ class LibreOfficeProvider:
         except DocumentSkillsError:
             return None
 
+    def convert_legacy_required(
+        self,
+        input_path: Path,
+        *,
+        target_format: str,
+    ) -> bytes:
+        """Require LibreOffice for a legacy conversion and preserve typed failures."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice legacy conversion is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return read_or_convert_legacy(
+            input_path,
+            self.runner,
+            target_format=target_format,
+        )
+
     def _do_recalc(self, input_path: Path) -> dict[str, Any]:
         cached_values = recalculate_xlsx(input_path, self.runner)
         return _build_success(

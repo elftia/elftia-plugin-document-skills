@@ -506,6 +506,43 @@ class TestConsultationMatrix:
         )
         assert provider.try_read_legacy(input_file) is None
 
+    def test_legacy_required_preserves_success_and_unavailable_errors(
+        self, project_root, tmp_path
+    ):
+        input_file = tmp_path / "input.xls"
+        input_file.write_bytes(b"fake xls")
+        _, callable_provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=FakeCallableRunner(canned_data=b"PK fake xlsx"),
+        )
+        assert callable_provider.convert_legacy_required(
+            input_file,
+            target_format="xlsx",
+        ).startswith(b"PK")
+        _, absent_provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeAbsentDetector(),
+            runner=FakeCallableRunner(),
+        )
+        with pytest.raises(DocumentSkillsError) as exc:
+            absent_provider.convert_legacy_required(
+                input_file,
+                target_format="xlsx",
+            )
+        assert exc.value.code == ErrorCode.PROVIDER_UNAVAILABLE
+        _, crashing_provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=FakeCrashingRunner(),
+        )
+        with pytest.raises(DocumentSkillsError) as crash:
+            crashing_provider.convert_legacy_required(
+                input_file,
+                target_format="xlsx",
+            )
+        assert crash.value.code == ErrorCode.PROVIDER_FAILED
+
 
 # ---------------------------------------------------------------------------
 # XLSX service integration tests

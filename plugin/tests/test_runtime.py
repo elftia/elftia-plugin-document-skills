@@ -79,6 +79,7 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "xlsx.convert",
         "xlsx.inspect.structure",
         "xlsx.read",
+        "xlsx.template.instantiate",
     }
     for operation in public_operations:
         bindings = registry.operations.get(operation, [])
