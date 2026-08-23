@@ -12,13 +12,13 @@
         "column_style",
         "custom_number_format",
         "row_height_and_hidden",
-        "column_width_and_hidden"
+        "column_width_and_hidden",
+        "native_table",
+        "data_validation",
+        "conditional_formatting"
       ],
       "enhancement_required": [
-        "native_table",
         "native_chart",
-        "data_validation",
-        "conditional_formatting",
         "page_setup"
       ]
     },
@@ -50,7 +50,14 @@
         "auto_filter",
         "print_area",
         "manual_page_breaks",
-        "defined_name_crud"
+        "defined_name_crud",
+        "native_table_add",
+        "native_table_resize",
+        "native_table_rename",
+        "native_table_style",
+        "native_table_delete",
+        "data_validation_crud",
+        "conditional_formatting_crud"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",

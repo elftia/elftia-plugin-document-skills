@@ -40,14 +40,16 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 ### xlsx.read
 
 Reads a structured projection of sheets, rows, cells, formulas, cached values, styles, number
-formats, tables, defined names, hyperlinks, chart references, and shared-string metadata.
+formats, tables, data-validation rules, conditional-format rules and resolved differential
+styles, defined names, hyperlinks, chart references, and shared-string metadata.
 Uses the normal reject-mode security policy; active/external content returns `DS_ARCHIVE_UNSAFE`
 and directs the caller to structural inspection.
 
 ### xlsx.inspect.structure
 
 Inventories package parts, content types, relationships, media, sheets, calc chain, shared
-strings, styles, tables, pivot caches, external links, dangerous content, and unknown parts
+strings, styles, tables, data validations, conditional formats, pivot caches, external links,
+dangerous content, and unknown parts
 without executing or dereferencing anything. Never authorizes mutation.
 
 ### xlsx.create
@@ -55,22 +57,26 @@ without executing or dereferencing anything. Never authorizes mutation.
 Creates a workbook from bounded typed data (not raw XML). Requires an explicit output path.
 The current public contract supports multiple sheets, typed cell values, formulas with optional
 cached literals, workbook defined names, cell/row/column styles, custom number formats,
-row height/hiding, and column width/hiding. Style records are deduplicated, and existing cells
-resolve style precedence as column → row → cell override. Every created formula reports
+row height/hiding, column width/hiding, native tables, data validations, and conditional
+formatting (`cellIs`, `expression`, color scales, data bars, and icon sets). Style and
+differential-style records are deduplicated, and existing cells resolve style precedence as
+column → row → cell override. Every created formula reports
 `recalculation_required` (or `stale` when a cached literal is supplied).
 
-Tables, charts, validation, conditional formatting, and page setup are not public create
-capabilities yet. Requests for the legacy placeholder fields fail closed with
+Native charts and page setup are not public create capabilities yet. Requests for their legacy
+placeholder fields fail closed with
 `enhancement_required` until their complete package and consumer-reopen paths are implemented.
 See [`references/styles.md`](references/styles.md) for the closed style contract and a request
-fragment.
+fragment, and [`references/native-objects.md`](references/native-objects.md) for tables,
+validations, and conditional formats.
 
 ### xlsx.edit
 
 Performs bounded cell value/formula edits, cell/row/column style and dimension edits, custom
 number-format addition, row/column insertion and deletion, sheet CRUD/reorder/copy, merge/
 unmerge, range clear, freeze panes, auto filters, print areas, manual page breaks, and defined-
-name CRUD. Existing style tables are patched append-only: untargeted
+name CRUD, native table add/resize/rename/style/delete, and data-validation and conditional-
+format CRUD. Existing style and differential-style tables are patched append-only: untargeted
 font/fill/border/xf records, themes, and indexed colors remain intact. Requires distinct input
 and output paths. Editing a precedent cell invalidates dependents to
 `recalculation_required`. Preserves all untargeted package parts (pivot caches, charts,

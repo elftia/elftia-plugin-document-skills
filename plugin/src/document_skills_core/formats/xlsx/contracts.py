@@ -11,10 +11,12 @@ from document_skills_core.core.io.paths import same_path
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHEETS
 from .style_contract import (
     custom_number_format_id,
+    parse_color,
     parse_column,
     parse_number_format_definition,
     parse_style,
 )
+from .structural_refs import has_external_workbook_reference
 
 XLSX_OPERATIONS = frozenset(
     {
@@ -174,6 +176,10 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "scope",
                 "clear",
                 "enabled",
+                "table_style",
+                "validation",
+                "priority",
+                "rule",
             },
         )
         sheet = _text(edit.get("sheet"), f"edits.{index}.sheet", allow_empty=False)
@@ -188,6 +194,17 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "row_delete",
             "column_insert",
             "column_delete",
+            "table_add",
+            "table_resize",
+            "table_rename",
+            "table_style",
+            "table_delete",
+            "data_validation_add",
+            "data_validation_update",
+            "data_validation_delete",
+            "conditional_format_add",
+            "conditional_format_update",
+            "conditional_format_delete",
             *_WORKSHEET_EDIT_TYPES,
             *_SHEET_EDIT_TYPES,
         }:
@@ -201,6 +218,11 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "auto_filter_clear",
             "print_area_clear",
             "defined_name_delete",
+            "table_rename",
+            "table_style",
+            "table_delete",
+            "data_validation_add",
+            "conditional_format_add",
         }
         ref = _text(
             edit.get("ref", ""),
@@ -240,6 +262,10 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         scope = edit.get("scope")
         clear = edit.get("clear")
         enabled = edit.get("enabled")
+        table_style = edit.get("table_style")
+        validation = edit.get("validation")
+        priority = edit.get("priority")
+        rule = edit.get("rule")
         if edit_type == "row_height":
             _validate_index_range(ref, "row", f"edits.{index}.ref")
             height = _number(height, 0, 409, f"edits.{index}.height")
@@ -285,7 +311,17 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             )
         elif position is not None:
             _invalid("position is only valid for sheet edits.", field=f"edits.{index}.position")
-        if edit_type in {"sheet_copy", "defined_name_add", "defined_name_update", "defined_name_delete"}:
+        if edit_type in {
+            "sheet_copy",
+            "defined_name_add",
+            "defined_name_update",
+            "defined_name_delete",
+            "table_add",
+            "table_resize",
+            "table_rename",
+            "table_style",
+            "table_delete",
+        }:
             name = _text(name, f"edits.{index}.name", allow_empty=False)
         elif name is not None:
             _invalid("name is not valid for this edit type.", field=f"edits.{index}.name")
@@ -307,6 +343,60 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             defined_name_targets.add(defined_name_target)
         elif scope is not None:
             _invalid("scope is only valid for defined-name edits.", field=f"edits.{index}.scope")
+        if edit_type in {"table_add", "table_resize"}:
+            _validate_cell_range(ref, f"edits.{index}.ref")
+            bounds = _cell_range_bounds(ref)
+            if bounds[1] == bounds[3]:
+                _invalid(
+                    "Table range must include a header and at least one data row.",
+                    field=f"edits.{index}.ref",
+                )
+        if edit_type.startswith("table_"):
+            _validate_defined_name(name, f"edits.{index}.name")
+        if edit_type in {"table_add", "table_rename"}:
+            _validate_defined_name(
+                name if edit_type == "table_add" else cell_value,
+                f"edits.{index}.{'name' if edit_type == 'table_add' else 'value'}",
+            )
+        if edit_type in {"table_add", "table_style"}:
+            table_style = _text(
+                "TableStyleMedium2" if table_style is None else table_style,
+                f"edits.{index}.table_style",
+                allow_empty=False,
+            )
+            _validate_table_style(table_style, f"edits.{index}.table_style")
+        elif table_style is not None:
+            _invalid(
+                "table_style is only valid for table_add or table_style.",
+                field=f"edits.{index}.table_style",
+            )
+        if edit_type in {"data_validation_add", "data_validation_update"}:
+            validation = _parse_data_validation(
+                validation,
+                f"edits.{index}.validation",
+            )
+        elif validation is not None:
+            _invalid(
+                "validation is only valid for data-validation edits.",
+                field=f"edits.{index}.validation",
+            )
+        if edit_type in {"data_validation_update", "data_validation_delete"}:
+            _validate_cell_range(ref, f"edits.{index}.ref")
+        if edit_type in {"conditional_format_add", "conditional_format_update"}:
+            rule = _parse_conditional_format(rule, f"edits.{index}.rule")
+        elif rule is not None:
+            _invalid(
+                "rule is only valid for conditional-format edits.",
+                field=f"edits.{index}.rule",
+            )
+        if edit_type in {"conditional_format_update", "conditional_format_delete"}:
+            _validate_cell_range(ref, f"edits.{index}.ref")
+            priority = _integer(priority, 1, 65_535)
+        elif priority is not None:
+            _invalid(
+                "priority is only valid for conditional-format update/delete selectors.",
+                field=f"edits.{index}.priority",
+            )
         if edit_type == "sheet_add":
             _validate_sheet_name(sheet, f"edits.{index}.sheet")
         elif edit_type == "sheet_copy":
@@ -329,6 +419,10 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "scope": scope,
                 "clear": clear,
                 "enabled": enabled,
+                "table_style": table_style,
+                "validation": validation,
+                "priority": priority,
+                "rule": rule,
             }
         )
     expected = value.get("expected_edits")
@@ -358,7 +452,17 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     for idx, sheet in enumerate(sheets):
         if type(sheet) is not dict:
             _invalid(f"Sheet {idx} must be an object.", field=f"sheets.{idx}")
-        _exact_keys(sheet, {"name", "rows", "columns", "number_formats"})
+        _exact_keys(
+            sheet,
+            {
+                "name",
+                "rows",
+                "columns",
+                "number_formats",
+                "data_validations",
+                "conditional_formats",
+            },
+        )
         name = _text(sheet.get("name", f"Sheet{idx + 1}"), f"sheets.{idx}.name", allow_empty=False)
         columns = sheet.get("columns", [])
         if type(columns) is not list:
@@ -461,12 +565,47 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
             custom_formats[format_id] = code
             custom_format_codes[code] = format_id
             parsed_formats.append(parsed_format)
+        data_validations = sheet.get("data_validations", [])
+        if type(data_validations) is not list:
+            _invalid(
+                "data_validations must be an array.",
+                field=f"sheets.{idx}.data_validations",
+            )
+        parsed_validations = []
+        validation_ranges: list[tuple[int, int, int, int]] = []
+        for validation_idx, validation in enumerate(data_validations):
+            field = f"sheets.{idx}.data_validations.{validation_idx}"
+            parsed_validation = _parse_data_validation(validation, field)
+            bounds = _cell_range_bounds(parsed_validation["ref"])
+            if any(_ranges_overlap(bounds, existing) for existing in validation_ranges):
+                _invalid(
+                    "Data-validation ranges cannot overlap in a create request.",
+                    field=f"{field}.ref",
+                )
+            validation_ranges.append(bounds)
+            parsed_validations.append(parsed_validation)
+        conditional_formats = sheet.get("conditional_formats", [])
+        if type(conditional_formats) is not list:
+            _invalid(
+                "conditional_formats must be an array.",
+                field=f"sheets.{idx}.conditional_formats",
+            )
+        parsed_conditional_formats = []
+        for rule_idx, rule in enumerate(conditional_formats):
+            parsed_rule = _parse_conditional_format(
+                rule,
+                f"sheets.{idx}.conditional_formats.{rule_idx}",
+            )
+            parsed_rule["priority"] = rule_idx + 1
+            parsed_conditional_formats.append(parsed_rule)
         parsed_sheets.append(
             {
                 "name": name,
                 "columns": parsed_columns,
                 "rows": parsed_rows,
                 "number_formats": parsed_formats,
+                "data_validations": parsed_validations,
+                "conditional_formats": parsed_conditional_formats,
             }
         )
     for style in parsed_styles:
@@ -495,23 +634,40 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     tables = workbook.get("tables", [])
     if type(tables) is not list:
         _invalid("tables must be an array.", field="tables")
-    if tables:
-        _enhancement(
-            "XLSX tables are not connected to a consumer-accepted package.",
-            field="tables",
-            capability="xlsx.table",
-        )
     parsed_tables = []
+    table_names: set[str] = set()
+    table_ranges: dict[str, list[tuple[int, int, int, int]]] = {}
+    parsed_sheet_map = {sheet["name"]: sheet for sheet in parsed_sheets}
     for tbl_idx, tbl in enumerate(tables):
         if type(tbl) is not dict:
             _invalid("table must be an object.", field=f"tables.{tbl_idx}")
         _exact_keys(tbl, {"name", "ref", "sheet", "style"})
+        name = _text(tbl.get("name", ""), "table.name", allow_empty=False)
+        ref = _text(tbl.get("ref", ""), "table.ref", allow_empty=False)
+        sheet_name = _text(tbl.get("sheet", ""), "table.sheet", allow_empty=False)
+        style = _text(tbl.get("style", "TableStyleMedium2"), "table.style")
+        _validate_defined_name(name, f"tables.{tbl_idx}.name")
+        if name.casefold() in table_names:
+            _invalid("Table display names must be unique.", field=f"tables.{tbl_idx}.name")
+        if sheet_name not in parsed_sheet_map:
+            _invalid("Table sheet was not found.", field=f"tables.{tbl_idx}.sheet")
+        _validate_cell_range(ref, f"tables.{tbl_idx}.ref")
+        bounds = _cell_range_bounds(ref)
+        if bounds[1] == bounds[3]:
+            _invalid("Table range must include a header and at least one data row.", field=f"tables.{tbl_idx}.ref")
+        if any(_ranges_overlap(bounds, existing) for existing in table_ranges.get(sheet_name, [])):
+            _invalid("Native table ranges cannot overlap.", field=f"tables.{tbl_idx}.ref")
+        _validate_table_style(style, f"tables.{tbl_idx}.style")
+        headers = _table_headers(parsed_sheet_map[sheet_name], bounds, f"tables.{tbl_idx}.ref")
+        table_names.add(name.casefold())
+        table_ranges.setdefault(sheet_name, []).append(bounds)
         parsed_tables.append(
             {
-                "name": _text(tbl.get("name", ""), "table.name", allow_empty=False),
-                "ref": _text(tbl.get("ref", ""), "table.ref", allow_empty=False),
-                "sheet": _text(tbl.get("sheet", ""), "table.sheet", allow_empty=False),
-                "style": _text(tbl.get("style", "TableStyleMedium2"), "table.style"),
+                "name": name,
+                "ref": _normalize_cell_range(ref),
+                "sheet": sheet_name,
+                "style": style,
+                "columns": headers,
             }
         )
     chart_ref = workbook.get("chart_reference")
@@ -607,6 +763,66 @@ def _validate_cell_range(ref: str, field: str) -> None:
             _invalid("Cell range must be ascending.", field=field)
 
 
+def _cell_range_bounds(ref: str) -> tuple[int, int, int, int]:
+    first, separator, last = ref.partition(":")
+    first_match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", first)
+    last_match = re.fullmatch(
+        r"\$?([A-Za-z]{1,3})\$?(\d+)",
+        last if separator else first,
+    )
+    assert first_match is not None and last_match is not None
+    return (
+        _column_number(first_match.group(1)),
+        int(first_match.group(2)),
+        _column_number(last_match.group(1)),
+        int(last_match.group(2)),
+    )
+
+
+def _ranges_overlap(
+    first: tuple[int, int, int, int],
+    second: tuple[int, int, int, int],
+) -> bool:
+    return not (
+        first[2] < second[0]
+        or second[2] < first[0]
+        or first[3] < second[1]
+        or second[3] < first[1]
+    )
+
+
+def _table_headers(
+    sheet: dict[str, Any],
+    bounds: tuple[int, int, int, int],
+    field: str,
+) -> list[str]:
+    cells = {
+        cell["ref"].replace("$", "").upper(): cell
+        for row in sheet.get("rows", [])
+        for cell in row.get("cells", [])
+    }
+    headers: list[str] = []
+    for column in range(bounds[0], bounds[2] + 1):
+        ref = f"{_column_name(column)}{bounds[1]}"
+        cell = cells.get(ref)
+        value = None if cell is None else cell.get("value")
+        if (
+            cell is None
+            or cell.get("formula")
+            or cell.get("type") not in {"s", "str", "inlineStr"}
+            or not value
+        ):
+            _invalid("Every table column requires a non-empty text header cell.", field=field, cell=ref)
+        if value.casefold() in {item.casefold() for item in headers}:
+            _invalid("Table column headers must be unique.", field=field, cell=ref)
+        headers.append(value)
+    return headers
+
+
+def _normalize_cell_range(ref: str) -> str:
+    return ":".join(item.replace("$", "").upper() for item in ref.split(":"))
+
+
 def _validate_sheet_name(value: str | None, field: str) -> None:
     if value is None or len(value) > 31 or any(char in value for char in "[]:*?/\\"):
         _invalid("Sheet name is invalid.", field=field)
@@ -621,10 +837,327 @@ def _validate_defined_name(value: str | None, field: str) -> None:
         _invalid("Defined name cannot be a cell reference.", field=field)
 
 
+def _validate_table_style(value: str, field: str) -> None:
+    if re.fullmatch(
+        r"TableStyle(?:Light(?:[1-9]|1\d|2[01])|Medium(?:[1-9]|1\d|2[0-8])|Dark(?:[1-9]|1[01]))",
+        value,
+    ) is None:
+        _invalid("Table style must be a supported built-in style.", field=field)
+
+
+def _parse_data_validation(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Data validation must be an object.", field=field)
+    _exact_keys(
+        value,
+        {
+            "ref",
+            "type",
+            "operator",
+            "formula1",
+            "formula2",
+            "allow_blank",
+            "show_input_message",
+            "show_error_message",
+            "prompt_title",
+            "prompt",
+            "error_title",
+            "error",
+            "error_style",
+        },
+    )
+    ref = _text(value.get("ref", ""), f"{field}.ref", allow_empty=False)
+    _validate_cell_range(ref, f"{field}.ref")
+    validation_type = _text(
+        value.get("type", ""),
+        f"{field}.type",
+        allow_empty=False,
+    )
+    if validation_type not in {
+        "list",
+        "whole",
+        "decimal",
+        "date",
+        "time",
+        "textLength",
+        "custom",
+    }:
+        _invalid("Data-validation type is not supported.", field=f"{field}.type")
+    formula1 = _text(
+        value.get("formula1", ""),
+        f"{field}.formula1",
+        allow_empty=False,
+    )
+    formula2 = _optional_text(value.get("formula2"), f"{field}.formula2")
+    for formula_field, formula in (("formula1", formula1), ("formula2", formula2)):
+        if formula is not None and has_external_workbook_reference(formula):
+            _invalid(
+                "Data-validation formulas do not accept external workbook references.",
+                field=f"{field}.{formula_field}",
+            )
+    operator = value.get("operator")
+    if validation_type in {"list", "custom"}:
+        if operator is not None:
+            _invalid(
+                "list and custom data validations do not accept operator.",
+                field=f"{field}.operator",
+            )
+        if formula2 is not None:
+            _invalid(
+                "list and custom data validations do not accept formula2.",
+                field=f"{field}.formula2",
+            )
+    else:
+        operator = _text(operator, f"{field}.operator", allow_empty=False)
+        if operator not in {
+            "between",
+            "notBetween",
+            "equal",
+            "notEqual",
+            "greaterThan",
+            "lessThan",
+            "greaterThanOrEqual",
+            "lessThanOrEqual",
+        }:
+            _invalid(
+                "Data-validation operator is not supported.",
+                field=f"{field}.operator",
+            )
+        if operator in {"between", "notBetween"} and formula2 is None:
+            _invalid(
+                "between and notBetween data validations require formula2.",
+                field=f"{field}.formula2",
+            )
+        if operator not in {"between", "notBetween"} and formula2 is not None:
+            _invalid(
+                "formula2 is only valid with between or notBetween.",
+                field=f"{field}.formula2",
+            )
+    error_style = value.get("error_style", "stop")
+    error_style = _text(error_style, f"{field}.error_style", allow_empty=False)
+    if error_style not in {"stop", "warning", "information"}:
+        _invalid("Data-validation error_style is not supported.", field=f"{field}.error_style")
+    return {
+        "ref": _normalize_cell_range(ref),
+        "type": validation_type,
+        "operator": operator,
+        "formula1": formula1,
+        "formula2": formula2,
+        "allow_blank": _boolean(value.get("allow_blank", False), f"{field}.allow_blank"),
+        "show_input_message": _boolean(
+            value.get("show_input_message", False),
+            f"{field}.show_input_message",
+        ),
+        "show_error_message": _boolean(
+            value.get("show_error_message", False),
+            f"{field}.show_error_message",
+        ),
+        "prompt_title": _optional_text(value.get("prompt_title"), f"{field}.prompt_title"),
+        "prompt": _optional_text(value.get("prompt"), f"{field}.prompt"),
+        "error_title": _optional_text(value.get("error_title"), f"{field}.error_title"),
+        "error": _optional_text(value.get("error"), f"{field}.error"),
+        "error_style": error_style,
+    }
+
+
+def _parse_conditional_format(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Conditional-format rule must be an object.", field=field)
+    _exact_keys(
+        value,
+        {
+            "ref",
+            "type",
+            "operator",
+            "formulas",
+            "style",
+            "stop_if_true",
+            "thresholds",
+            "colors",
+            "color",
+            "show_value",
+            "icon_set",
+            "reverse",
+        },
+    )
+    ref = _text(value.get("ref", ""), f"{field}.ref", allow_empty=False)
+    _validate_cell_range(ref, f"{field}.ref")
+    rule_type = _text(value.get("type", ""), f"{field}.type", allow_empty=False)
+    if rule_type not in {"cellIs", "expression", "colorScale", "dataBar", "iconSet"}:
+        _invalid("Conditional-format type is not supported.", field=f"{field}.type")
+    formulas = value.get("formulas", [])
+    if type(formulas) is not list:
+        _invalid("Conditional-format formulas must be an array.", field=f"{field}.formulas")
+    parsed_formulas = [
+        _text(formula, f"{field}.formulas.{index}", allow_empty=False)
+        for index, formula in enumerate(formulas)
+    ]
+    if any(has_external_workbook_reference(formula) for formula in parsed_formulas):
+        _invalid(
+            "Conditional-format formulas do not accept external workbook references.",
+            field=f"{field}.formulas",
+        )
+    operator = value.get("operator")
+    style = parse_style(value.get("style"), f"{field}.style")
+    if style and set(style) - {"font", "fill", "border"}:
+        _invalid(
+            "Conditional-format differential styles support font, fill, and border.",
+            field=f"{field}.style",
+        )
+    thresholds = value.get("thresholds", [])
+    colors = value.get("colors", [])
+    color = value.get("color")
+    icon_set = value.get("icon_set")
+    if rule_type == "cellIs":
+        operator = _text(operator, f"{field}.operator", allow_empty=False)
+        if operator not in {
+            "between",
+            "notBetween",
+            "equal",
+            "notEqual",
+            "greaterThan",
+            "lessThan",
+            "greaterThanOrEqual",
+            "lessThanOrEqual",
+        }:
+            _invalid("cellIs operator is not supported.", field=f"{field}.operator")
+        expected_formulas = 2 if operator in {"between", "notBetween"} else 1
+        if len(parsed_formulas) != expected_formulas:
+            _invalid(
+                "cellIs formula count does not match its operator.",
+                field=f"{field}.formulas",
+            )
+        if not style:
+            _invalid("cellIs requires a differential style.", field=f"{field}.style")
+    elif rule_type == "expression":
+        if operator is not None:
+            _invalid("expression does not accept operator.", field=f"{field}.operator")
+        if len(parsed_formulas) != 1:
+            _invalid("expression requires exactly one formula.", field=f"{field}.formulas")
+        if not style:
+            _invalid("expression requires a differential style.", field=f"{field}.style")
+    else:
+        if operator is not None or parsed_formulas or style:
+            _invalid(
+                "Visual conditional formats do not accept operator, formulas, or style.",
+                field=field,
+            )
+    parsed_thresholds: list[dict[str, Any]] = []
+    if rule_type in {"colorScale", "dataBar", "iconSet"}:
+        if type(thresholds) is not list:
+            _invalid("thresholds must be an array.", field=f"{field}.thresholds")
+        parsed_thresholds = [
+            _parse_cf_threshold(item, f"{field}.thresholds.{index}")
+            for index, item in enumerate(thresholds)
+        ]
+    elif thresholds:
+        _invalid("thresholds are only valid for visual rules.", field=f"{field}.thresholds")
+    parsed_colors: list[str] = []
+    parsed_color = None
+    parsed_icon_set = None
+    if rule_type == "colorScale":
+        if len(parsed_thresholds) not in {2, 3}:
+            _invalid("colorScale requires two or three thresholds.", field=f"{field}.thresholds")
+        if type(colors) is not list or len(colors) != len(parsed_thresholds):
+            _invalid("colorScale colors must match threshold count.", field=f"{field}.colors")
+        parsed_colors = [
+            parse_color(item, f"{field}.colors.{index}")
+            for index, item in enumerate(colors)
+        ]
+    elif colors:
+        _invalid("colors is only valid for colorScale.", field=f"{field}.colors")
+    if rule_type == "dataBar":
+        if len(parsed_thresholds) != 2:
+            _invalid("dataBar requires exactly two thresholds.", field=f"{field}.thresholds")
+        parsed_color = parse_color(color, f"{field}.color")
+    elif color is not None:
+        _invalid("color is only valid for dataBar.", field=f"{field}.color")
+    if rule_type == "iconSet":
+        parsed_icon_set = _text(icon_set, f"{field}.icon_set", allow_empty=False)
+        icon_counts = {
+            "3Arrows": 3,
+            "3ArrowsGray": 3,
+            "3Flags": 3,
+            "3TrafficLights1": 3,
+            "3TrafficLights2": 3,
+            "3Signs": 3,
+            "3Symbols": 3,
+            "3Symbols2": 3,
+            "4Arrows": 4,
+            "4ArrowsGray": 4,
+            "4RedToBlack": 4,
+            "4Rating": 4,
+            "4TrafficLights": 4,
+            "5Arrows": 5,
+            "5ArrowsGray": 5,
+            "5Rating": 5,
+            "5Quarters": 5,
+        }
+        if parsed_icon_set not in icon_counts:
+            _invalid("icon_set is not supported.", field=f"{field}.icon_set")
+        if len(parsed_thresholds) != icon_counts[parsed_icon_set]:
+            _invalid(
+                "iconSet threshold count does not match the selected icon set.",
+                field=f"{field}.thresholds",
+            )
+    elif icon_set is not None:
+        _invalid("icon_set is only valid for iconSet.", field=f"{field}.icon_set")
+    return {
+        "ref": _normalize_cell_range(ref),
+        "type": rule_type,
+        "operator": operator,
+        "formulas": parsed_formulas,
+        "style": style,
+        "stop_if_true": _boolean(
+            value.get("stop_if_true", False),
+            f"{field}.stop_if_true",
+        ),
+        "thresholds": parsed_thresholds,
+        "colors": parsed_colors,
+        "color": parsed_color,
+        "show_value": _boolean(value.get("show_value", True), f"{field}.show_value"),
+        "icon_set": parsed_icon_set,
+        "reverse": _boolean(value.get("reverse", False), f"{field}.reverse"),
+    }
+
+
+def _parse_cf_threshold(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Conditional-format threshold must be an object.", field=field)
+    _exact_keys(value, {"type", "value", "gte"})
+    threshold_type = _text(value.get("type", ""), f"{field}.type", allow_empty=False)
+    if threshold_type not in {"min", "max", "num", "percent", "percentile", "formula"}:
+        _invalid("Conditional-format threshold type is not supported.", field=f"{field}.type")
+    threshold_value = value.get("value")
+    if threshold_type in {"min", "max"}:
+        if threshold_value is not None:
+            _invalid("min/max thresholds do not accept value.", field=f"{field}.value")
+    else:
+        threshold_value = _text(threshold_value, f"{field}.value", allow_empty=False)
+        if threshold_type == "formula" and has_external_workbook_reference(threshold_value):
+            _invalid(
+                "Conditional-format threshold formulas do not accept external references.",
+                field=f"{field}.value",
+            )
+    return {
+        "type": threshold_type,
+        "value": threshold_value,
+        "gte": _boolean(value.get("gte", True), f"{field}.gte"),
+    }
+
+
 def _column_number(value: str) -> int:
     result = 0
     for char in value.upper():
         result = result * 26 + ord(char) - ord("A") + 1
+    return result
+
+
+def _column_name(value: int) -> str:
+    result = ""
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        result = chr(ord("A") + remainder) + result
     return result
 
 

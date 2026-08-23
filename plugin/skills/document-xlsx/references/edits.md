@@ -25,6 +25,17 @@ preservation failure prevents promotion.
 | `row_page_break`, `column_page_break` | `sheet`, `ref` | `enabled` defaults to `true`; `false` removes an existing manual break. |
 | `defined_name_add`, `defined_name_update` | `sheet`, `name`, `ref` | `scope` is `workbook` (default) or `sheet`. |
 | `defined_name_delete` | `sheet`, `name` | Uses the same optional `scope`. |
+| `table_add` | `sheet`, `name`, `ref` | Optional built-in `table_style`; requires unique text headers and a non-overlapping range. |
+| `table_resize` | `sheet`, `name`, `ref` | Keeps the top-left header; refuses removal of referenced structured columns. |
+| `table_rename` | `sheet`, old `name`, new `value` | Migrates structured-reference formulas. |
+| `table_style` | `sheet`, `name`, `table_style` | Accepts supported built-in Excel table styles. |
+| `table_delete` | `sheet`, `name` | Refuses deletion while structured references remain. |
+| `data_validation_add` | `sheet`, `validation` | The full validation object contains its target `ref`. |
+| `data_validation_update` | `sheet`, selector `ref`, `validation` | Selector must match one standard rule exactly. |
+| `data_validation_delete` | `sheet`, selector `ref` | Removes one exact standard rule. |
+| `conditional_format_add` | `sheet`, `rule` | Assigns the next unique worksheet priority. |
+| `conditional_format_update` | `sheet`, selector `ref`/`priority`, `rule` | Replaces one exact standard rule and preserves its priority. |
+| `conditional_format_delete` | `sheet`, selector `ref`/`priority` | Removes one exact standard rule. |
 
 ## Example
 

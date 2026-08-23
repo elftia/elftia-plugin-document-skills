@@ -7,6 +7,8 @@ from .constants import CALC_CHAIN_PART, SHARED_STRINGS_PART, STYLES_PART
 from .package import OpcPackage
 from .projection import (
     project_charts,
+    project_conditional_formats,
+    project_data_validations,
     project_drawings,
     project_external_links,
     project_pivot_caches,
@@ -70,6 +72,8 @@ def inspect_xlsx(
     pivot_caches = project_pivot_caches(package)
     external_links = project_external_links(package)
     drawings = project_drawings(package)
+    data_validations = project_data_validations(package)
+    conditional_formats = project_conditional_formats(package)
 
     operation_result: dict[str, Any] = {
         "mutation_authorized": False,
@@ -88,6 +92,8 @@ def inspect_xlsx(
         "pivot_caches": pivot_caches,
         "external_links": external_links,
         "drawings": drawings,
+        "data_validations": data_validations,
+        "conditional_formats": conditional_formats,
         "unknown_parts": package.unknown_parts,
         "dangerous_content": {
             "present": dangerous_present,

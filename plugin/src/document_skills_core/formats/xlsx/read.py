@@ -10,6 +10,8 @@ from .mapping import map_workbook
 from .package import OpcPackage
 from .projection import (
     project_charts,
+    project_conditional_formats,
+    project_data_validations,
     project_drawings,
     project_external_links,
     project_hyperlinks,
@@ -88,6 +90,8 @@ def read_xlsx(
     pivot_caches = project_pivot_caches(package)
     external_links = project_external_links(package)
     drawings = project_drawings(package)
+    data_validations = project_data_validations(package)
+    conditional_formats = project_conditional_formats(package)
 
     # Hyperlinks per sheet
     hyperlinks: list[dict[str, Any]] = []
@@ -105,6 +109,8 @@ def read_xlsx(
         "pivot_caches": pivot_caches,
         "external_links": external_links,
         "drawings": drawings,
+        "data_validations": data_validations,
+        "conditional_formats": conditional_formats,
         "hyperlinks": hyperlinks,
         "full_calc_on_load": workbook["full_calc_on_load"],
         "formula_state": {

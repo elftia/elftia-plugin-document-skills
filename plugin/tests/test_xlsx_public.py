@@ -120,10 +120,40 @@ def _claimed_create_features_workbook() -> dict[str, object]:
                                 "cached_value": "24",
                                 "type": "n",
                             },
+                            {"ref": "D1", "value": "Item", "type": "s"},
+                            {"ref": "E1", "value": "Amount", "type": "s"},
+                            {"ref": "D2", "value": "Alpha", "type": "s"},
+                            {"ref": "E2", "value": "12", "type": "n"},
                         ]
                     }
                 ],
                 "number_formats": [],
+                "data_validations": [
+                    {
+                        "ref": "C2:C20",
+                        "type": "list",
+                        "formula1": "\"Low,High\"",
+                        "allow_blank": True,
+                        "show_input_message": True,
+                        "show_error_message": True,
+                        "prompt_title": "Level",
+                        "prompt": "Choose a level",
+                        "error_title": "Invalid",
+                        "error": "Choose Low or High",
+                        "error_style": "stop",
+                    }
+                ],
+                "conditional_formats": [
+                    {
+                        "ref": "E2:E20",
+                        "type": "cellIs",
+                        "operator": "greaterThan",
+                        "formulas": ["10"],
+                        "style": {
+                            "fill": {"pattern": "solid", "color": "#FFCC00"}
+                        },
+                    }
+                ],
             },
             {
                 "name": "Summary",
@@ -140,7 +170,14 @@ def _claimed_create_features_workbook() -> dict[str, object]:
         "defined_names": [
             {"name": "TotalValue", "ref": "Data!$B$2", "scope": "workbook"},
         ],
-        "tables": [],
+        "tables": [
+            {
+                "name": "PublicData",
+                "ref": "D1:E2",
+                "sheet": "Data",
+                "style": "TableStyleMedium2",
+            }
+        ],
         "chart_reference": None,
         "page_setup": None,
     }
@@ -210,12 +247,12 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "custom_number_format",
                     "row_height_and_hidden",
                     "column_width_and_hidden",
-                ],
-                "enhancement_required": [
                     "native_table",
-                    "native_chart",
                     "data_validation",
                     "conditional_formatting",
+                ],
+                "enhancement_required": [
+                    "native_chart",
                     "page_setup",
                 ],
             },
@@ -248,6 +285,13 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "print_area",
                     "manual_page_breaks",
                     "defined_name_crud",
+                    "native_table_add",
+                    "native_table_resize",
+                    "native_table_rename",
+                    "native_table_style",
+                    "native_table_delete",
+                    "data_validation_crud",
+                    "conditional_formatting_crud",
                 ],
                 "enhancement_required": [
                     "sheet_copy_with_related_objects",
@@ -289,6 +333,195 @@ def test_public_create_claimed_features_reopen(
     assert reopened["Data"]["B1"].value == 12
     assert reopened["Data"]["B2"].value == "=B1*2"
     assert reopened.defined_names["TotalValue"].attr_text == "Data!$B$2"
+    assert reopened["Data"].tables["PublicData"].ref == "D1:E2"
+    validations = list(reopened["Data"].data_validations.dataValidation)
+    assert len(validations) == 1
+    assert str(validations[0].sqref) == "C2:C20"
+    conditional_rules = [
+        rule
+        for conditional_format in reopened["Data"].conditional_formatting
+        for rule in reopened["Data"].conditional_formatting[conditional_format]
+    ]
+    assert [rule.type for rule in conditional_rules] == ["cellIs"]
+
+
+def test_public_native_object_edits_reopen(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.formatting.rule import CellIsRule, FormulaRule
+    from openpyxl.styles import PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.worksheet.table import Table, TableStyleInfo
+
+    source = tmp_path / "native-objects-source.xlsx"
+    first_output = tmp_path / "native-objects-first.xlsx"
+    renamed_output = tmp_path / "native-objects-renamed.xlsx"
+    deleted_output = tmp_path / "native-objects-deleted.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    for row in [
+        ["Name", "Amount", "Category", "Code", "Score"],
+        ["Alpha", 10, "A", "X", 1],
+        ["Beta", 20, "B", "Y", 2],
+        ["Gamma", 30, "C", "Z", 3],
+    ]:
+        sheet.append(row)
+    table = Table(displayName="DataTable", ref="A1:C3")
+    table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True)
+    sheet.add_table(table)
+    for ref, validation_type, formula in (
+        ("A2:A4", "whole", "1"),
+        ("C2:C4", "list", '"A,B,C"'),
+    ):
+        validation = DataValidation(
+            type=validation_type,
+            operator="greaterThanOrEqual" if validation_type == "whole" else None,
+            formula1=formula,
+        )
+        validation.add(ref)
+        sheet.add_data_validation(validation)
+    red = PatternFill(start_color="FFFF0000", end_color="FFFF0000", fill_type="solid")
+    sheet.conditional_formatting.add(
+        "A2:A4", CellIsRule(operator="greaterThan", formula=["1"], fill=red)
+    )
+    sheet.conditional_formatting.add(
+        "B2:B4", FormulaRule(formula=["MOD(B2,2)=0"], fill=red)
+    )
+    workbook.save(source)
+
+    edits = [
+        {"sheet": "Data", "type": "table_resize", "name": "DataTable", "ref": "A1:C4"},
+        {
+            "sheet": "Data",
+            "type": "table_style",
+            "name": "DataTable",
+            "table_style": "TableStyleLight1",
+        },
+        {
+            "sheet": "Data",
+            "type": "table_add",
+            "name": "ScoreTable",
+            "ref": "D1:E4",
+            "table_style": "TableStyleDark1",
+        },
+        {
+            "sheet": "Data",
+            "type": "data_validation_update",
+            "ref": "A2:A4",
+            "validation": {
+                "ref": "A2:A4",
+                "type": "decimal",
+                "operator": "greaterThanOrEqual",
+                "formula1": "0",
+            },
+        },
+        {
+            "sheet": "Data",
+            "type": "data_validation_add",
+            "validation": {"ref": "B2:B4", "type": "list", "formula1": '"Low,High"'},
+        },
+        {"sheet": "Data", "type": "data_validation_delete", "ref": "C2:C4"},
+        {
+            "sheet": "Data",
+            "type": "conditional_format_update",
+            "ref": "A2:A4",
+            "priority": 1,
+            "rule": {
+                "ref": "A2:A4",
+                "type": "cellIs",
+                "operator": "lessThan",
+                "formulas": ["4"],
+                "style": {"font": {"bold": True, "color": "#008000"}},
+            },
+        },
+        {
+            "sheet": "Data",
+            "type": "conditional_format_delete",
+            "ref": "B2:B4",
+            "priority": 2,
+        },
+        {
+            "sheet": "Data",
+            "type": "conditional_format_add",
+            "rule": {
+                "ref": "C2:C4",
+                "type": "dataBar",
+                "thresholds": [{"type": "min"}, {"type": "max"}],
+                "color": "#638EC6",
+            },
+        },
+    ]
+    request = _request(
+        tmp_path,
+        "native-object-edits.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(first_output),
+            "arguments": {"edits": edits, "expected_edits": len(edits)},
+        },
+    )
+    assert _public(project_root, "run", "--request", str(request))["status"] == "success"
+    reopened = load_workbook(first_output)
+    assert reopened["Data"].tables["DataTable"].ref == "A1:C4"
+    assert reopened["Data"].tables["DataTable"].tableStyleInfo.name == "TableStyleLight1"
+    assert reopened["Data"].tables["ScoreTable"].ref == "D1:E4"
+    assert {str(item.sqref) for item in reopened["Data"].data_validations.dataValidation} == {
+        "A2:A4",
+        "B2:B4",
+    }
+    rules = [
+        item
+        for conditional_format in reopened["Data"].conditional_formatting
+        for item in reopened["Data"].conditional_formatting[conditional_format]
+    ]
+    assert {(item.type, item.priority) for item in rules} == {("cellIs", 1), ("dataBar", 2)}
+
+    rename_request = _request(
+        tmp_path,
+        "native-object-rename.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(first_output),
+            "output": str(renamed_output),
+            "arguments": {
+                "edits": [
+                    {
+                        "sheet": "Data",
+                        "type": "table_rename",
+                        "name": "DataTable",
+                        "value": "SalesTable",
+                    }
+                ]
+            },
+        },
+    )
+    assert _public(project_root, "run", "--request", str(rename_request))["status"] == "success"
+    assert "SalesTable" in load_workbook(renamed_output)["Data"].tables
+
+    delete_request = _request(
+        tmp_path,
+        "native-object-delete.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(renamed_output),
+            "output": str(deleted_output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Data", "type": "table_delete", "name": "SalesTable"},
+                    {"sheet": "Data", "type": "table_delete", "name": "ScoreTable"},
+                ]
+            },
+        },
+    )
+    assert _public(project_root, "run", "--request", str(delete_request))["status"] == "success"
+    assert not load_workbook(deleted_output)["Data"].tables
 
 
 def test_public_edit_claimed_features_reopen(

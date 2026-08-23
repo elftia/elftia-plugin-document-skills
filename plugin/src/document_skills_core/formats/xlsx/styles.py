@@ -75,6 +75,8 @@ class StyleRegistry:
             }
         ]
         self._style_ids = {self._signature(self.cell_xfs[0]): 0}
+        self.dxfs: list[dict[str, Any]] = []
+        self._dxf_ids: dict[str, int] = {}
 
     def register(self, style: dict[str, Any] | None) -> int:
         if not style:
@@ -103,6 +105,13 @@ class StyleRegistry:
             self._style_ids[signature] = len(self.cell_xfs)
             self.cell_xfs.append(xf)
         return self._style_ids[signature]
+
+    def register_dxf(self, style: dict[str, Any]) -> int:
+        signature = self._signature(style)
+        if signature not in self._dxf_ids:
+            self._dxf_ids[signature] = len(self.dxfs)
+            self.dxfs.append(style)
+        return self._dxf_ids[signature]
 
     def build_xml(self) -> bytes:
         root = Element(f"{{{_MAIN_NS}}}styleSheet")
@@ -166,7 +175,13 @@ class StyleRegistry:
             f"{{{_MAIN_NS}}}cellStyle",
             attrib={"name": "Normal", "xfId": "0", "builtinId": "0"},
         )
-        SubElement(root, f"{{{_MAIN_NS}}}dxfs", attrib={"count": "0"})
+        dxfs = SubElement(
+            root,
+            f"{{{_MAIN_NS}}}dxfs",
+            attrib={"count": str(len(self.dxfs))},
+        )
+        for style in self.dxfs:
+            dxfs.append(build_dxf_element(style))
         return tostring(root, encoding="UTF-8", xml_declaration=True)
 
     def manifest(self) -> dict[str, Any]:
@@ -179,6 +194,7 @@ class StyleRegistry:
             "fills": len(self.fills),
             "borders": len(self.borders),
             "cell_xfs": len(self.cell_xfs),
+            "dxfs": len(self.dxfs),
         }
 
     def _resolve_number_format(self, number_format: dict[str, Any] | None) -> int:
@@ -230,7 +246,14 @@ def read_styles(parts: dict[str, bytes]) -> dict[str, Any]:
 
     payload = parts.get(STYLES_PART)
     if payload is None:
-        return {"cell_xfs": [], "fonts": [], "fills": [], "borders": [], "num_fmts": {}}
+        return {
+            "cell_xfs": [],
+            "fonts": [],
+            "fills": [],
+            "borders": [],
+            "num_fmts": {},
+            "dxfs": [],
+        }
     from defusedxml.ElementTree import fromstring
 
     root = fromstring(payload)
@@ -245,7 +268,143 @@ def read_styles(parts: dict[str, bytes]) -> dict[str, Any]:
         "fills": fills,
         "borders": borders,
         "num_fmts": num_fmts,
+        "dxfs": _read_differential_styles(root),
     }
+
+
+def build_dxf_element(style: dict[str, Any]) -> Element:
+    """Build a differential-style record without adding cell-style defaults."""
+
+    dxf = Element(f"{{{_MAIN_NS}}}dxf")
+    if style.get("font"):
+        _write_dxf_font(dxf, style["font"])
+    if style.get("fill"):
+        _write_dxf_fill(dxf, style["fill"])
+    if style.get("border"):
+        _write_dxf_border(dxf, style["border"])
+    return dxf
+
+
+def _write_dxf_font(parent: Element, record: dict[str, Any]) -> None:
+    font = SubElement(parent, f"{{{_MAIN_NS}}}font")
+    if "size" in record:
+        SubElement(font, f"{{{_MAIN_NS}}}sz", {"val": str(record["size"])})
+    if "name" in record:
+        SubElement(font, f"{{{_MAIN_NS}}}name", {"val": record["name"]})
+    if "bold" in record:
+        SubElement(font, f"{{{_MAIN_NS}}}b", {"val": _xml_bool(record["bold"])})
+    if "italic" in record:
+        SubElement(font, f"{{{_MAIN_NS}}}i", {"val": _xml_bool(record["italic"])})
+    if record.get("underline"):
+        attributes = {} if record["underline"] == "single" else {"val": record["underline"]}
+        SubElement(font, f"{{{_MAIN_NS}}}u", attributes)
+    if record.get("color"):
+        SubElement(font, f"{{{_MAIN_NS}}}color", {"rgb": record["color"]})
+
+
+def _write_dxf_fill(parent: Element, record: dict[str, Any]) -> None:
+    fill = SubElement(parent, f"{{{_MAIN_NS}}}fill")
+    pattern = SubElement(
+        fill,
+        f"{{{_MAIN_NS}}}patternFill",
+        {"patternType": record.get("pattern", "none")},
+    )
+    if record.get("color"):
+        SubElement(pattern, f"{{{_MAIN_NS}}}fgColor", {"rgb": record["color"]})
+    if record.get("background_color"):
+        SubElement(
+            pattern,
+            f"{{{_MAIN_NS}}}bgColor",
+            {"rgb": record["background_color"]},
+        )
+
+
+def _write_dxf_border(parent: Element, record: dict[str, Any]) -> None:
+    border = SubElement(
+        parent,
+        f"{{{_MAIN_NS}}}border",
+        {
+            xml_key: _xml_bool(record[key])
+            for key, xml_key in (
+                ("diagonal_up", "diagonalUp"),
+                ("diagonal_down", "diagonalDown"),
+                ("outline", "outline"),
+            )
+            if key in record
+        },
+    )
+    for side_name in ("left", "right", "top", "bottom", "diagonal"):
+        if side_name not in record:
+            continue
+        side_record = record[side_name]
+        side = SubElement(
+            border,
+            f"{{{_MAIN_NS}}}{side_name}",
+            {"style": side_record["style"]} if side_record.get("style") else {},
+        )
+        if side_record.get("color"):
+            SubElement(side, f"{{{_MAIN_NS}}}color", {"rgb": side_record["color"]})
+
+
+def _read_differential_styles(root: Element) -> list[dict[str, Any]]:
+    container = root.find(f"{{{_MAIN_NS}}}dxfs")
+    if container is None:
+        return []
+    result: list[dict[str, Any]] = []
+    for dxf in container.findall(f"{{{_MAIN_NS}}}dxf"):
+        style: dict[str, Any] = {}
+        font = dxf.find(f"{{{_MAIN_NS}}}font")
+        fill = dxf.find(f"{{{_MAIN_NS}}}fill")
+        border = dxf.find(f"{{{_MAIN_NS}}}border")
+        if font is not None:
+            style["font"] = _parse_dxf_font(font)
+        if fill is not None:
+            style["fill"] = _parse_dxf_fill(fill)
+        if border is not None:
+            style["border"] = _parse_dxf_border(border)
+        result.append(style)
+    return result
+
+
+def _parse_dxf_font(font: Element) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for tag, key in (("b", "bold"), ("i", "italic")):
+        element = font.find(f"{{{_MAIN_NS}}}{tag}")
+        if element is not None:
+            result[key] = element.attrib.get("val", "1") not in {"0", "false", "off"}
+    underline = font.find(f"{{{_MAIN_NS}}}u")
+    if underline is not None:
+        result["underline"] = underline.attrib.get("val", "single")
+    for tag, key in (("name", "name"), ("sz", "size")):
+        element = font.find(f"{{{_MAIN_NS}}}{tag}")
+        if element is not None:
+            value: Any = element.attrib.get("val", "")
+            if key == "size":
+                numeric = float(value)
+                value = int(numeric) if numeric.is_integer() else numeric
+            result[key] = value
+    color = font.find(f"{{{_MAIN_NS}}}color")
+    if color is not None:
+        result["color"] = _parse_color(color)
+    return result
+
+
+def _parse_dxf_fill(fill: Element) -> dict[str, Any]:
+    pattern = fill.find(f"{{{_MAIN_NS}}}patternFill")
+    if pattern is None:
+        return {}
+    result: dict[str, Any] = {"pattern": pattern.attrib.get("patternType", "none")}
+    foreground = pattern.find(f"{{{_MAIN_NS}}}fgColor")
+    background = pattern.find(f"{{{_MAIN_NS}}}bgColor")
+    if foreground is not None:
+        result["color"] = _parse_color(foreground)
+    if background is not None:
+        result["background_color"] = _parse_color(background)
+    return result
+
+
+def _parse_dxf_border(border: Element) -> dict[str, Any]:
+    return _parse_border(border)
 
 
 def resolve_style_index(styles: dict[str, Any], style_index: int) -> dict[str, Any]:

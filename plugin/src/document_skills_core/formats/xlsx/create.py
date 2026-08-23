@@ -4,7 +4,9 @@ from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from .constants import NS
+from .constants import NS, REL_TABLE
+from .conditional_format import append_conditional_format
+from .data_validation import append_data_validation
 from .formula_state import derive_create_state, build_formula_cell_state
 from .package import write_deterministic_zip
 from .styles import StyleRegistry, merge_styles
@@ -47,7 +49,11 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     parts: dict[str, bytes] = {}
 
     # Content types
-    parts["[Content_Types].xml"] = _build_content_types(sheets_data, has_chart=bool(chart_ref))
+    parts["[Content_Types].xml"] = _build_content_types(
+        sheets_data,
+        tables=tables,
+        has_chart=bool(chart_ref),
+    )
 
     # Root rels
     parts["_rels/.rels"] = _build_root_rels()
@@ -63,12 +69,18 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
 
     # Worksheets
     formula_cells: dict[str, dict[str, Any]] = {}
+    indexed_tables = [dict(table, table_id=index + 1) for index, table in enumerate(tables)]
     for idx, sheet in enumerate(sheets_data):
         sheet_part = f"xl/worksheets/sheet{idx + 1}.xml"
+        sheet_tables = [table for table in indexed_tables if table["sheet"] == sheet["name"]]
         parts[sheet_part] = _build_worksheet(
             sheet, idx, shared_strings, string_index, formula_cells,
-            style_registry, style_assignments,
+            style_registry, style_assignments, sheet_tables,
         )
+        if sheet_tables:
+            parts[f"xl/worksheets/_rels/sheet{idx + 1}.xml.rels"] = (
+                _build_worksheet_rels(sheet_tables)
+            )
 
     # Shared strings
     parts["xl/sharedStrings.xml"] = _build_shared_strings(shared_strings)
@@ -77,9 +89,9 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     parts["xl/styles.xml"] = style_registry.build_xml()
 
     # Tables
-    for tbl_idx, tbl in enumerate(tables):
-        tbl_part = f"xl/tables/table{tbl_idx + 1}.xml"
-        parts[tbl_part] = _build_table(tbl)
+    for table in indexed_tables:
+        tbl_part = f"xl/tables/table{table['table_id']}.xml"
+        parts[tbl_part] = _build_table(table)
 
     # Chart reference (placeholder chart part)
     if chart_ref:
@@ -117,12 +129,36 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
             **style_registry.manifest(),
             "assignments": style_assignments,
         },
+        "tables": [
+            {
+                "name": table["name"],
+                "sheet": table["sheet"],
+                "ref": table["ref"],
+                "part": f"xl/tables/table{table['table_id']}.xml",
+            }
+            for table in indexed_tables
+        ],
+        "data_validations": [
+            {"sheet": sheet["name"], **validation}
+            for sheet in sheets_data
+            for validation in sheet.get("data_validations", [])
+        ],
+        "conditional_formats": [
+            {"sheet": sheet["name"], **rule}
+            for sheet in sheets_data
+            for rule in sheet.get("conditional_formats", [])
+        ],
     }
 
 
 # --- Part builders ---
 
-def _build_content_types(sheets: list[dict[str, Any]], *, has_chart: bool) -> bytes:
+def _build_content_types(
+    sheets: list[dict[str, Any]],
+    *,
+    tables: list[dict[str, Any]],
+    has_chart: bool,
+) -> bytes:
     root = Element(f"{{{_CONTENT_TYPES_NS}}}Types")
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
         "Extension": "rels",
@@ -157,6 +193,11 @@ def _build_content_types(sheets: list[dict[str, Any]], *, has_chart: bool) -> by
         "PartName": "/docProps/app.xml",
         "ContentType": "application/vnd.openxmlformats-officedocument.extended-properties+xml",
     })
+    for index in range(len(tables)):
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
+            "PartName": f"/xl/tables/table{index + 1}.xml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
+        })
     return _to_xml_bytes(root)
 
 
@@ -231,6 +272,7 @@ def _build_worksheet(
     formula_cells: dict[str, dict[str, Any]],
     style_registry: StyleRegistry,
     style_assignments: dict[str, dict[str, int]],
+    tables: list[dict[str, Any]],
 ) -> bytes:
     root = Element(f"{{{_MAIN_NS}}}worksheet")
     columns = sheet.get("columns", [])
@@ -329,6 +371,29 @@ def _build_worksheet(
                 else:
                     v_elem = SubElement(cell_elem, f"{{{_MAIN_NS}}}v")
                     v_elem.text = value
+    for rule in sheet.get("conditional_formats", []):
+        append_conditional_format(root, rule, style_registry)
+    data_validations = sheet.get("data_validations", [])
+    if data_validations:
+        validations_element = SubElement(
+            root,
+            f"{{{_MAIN_NS}}}dataValidations",
+            attrib={"count": str(len(data_validations))},
+        )
+        for validation in data_validations:
+            append_data_validation(validations_element, validation)
+    if tables:
+        table_parts = SubElement(
+            root,
+            f"{{{_MAIN_NS}}}tableParts",
+            attrib={"count": str(len(tables))},
+        )
+        for index, _table in enumerate(tables, start=1):
+            SubElement(
+                table_parts,
+                f"{{{_MAIN_NS}}}tablePart",
+                attrib={f"{{{_R_NS}}}id": f"rId{index}"},
+            )
     return _to_xml_bytes(root)
 
 
@@ -346,14 +411,45 @@ def _build_shared_strings(strings: list[str]) -> bytes:
 
 def _build_table(tbl: dict[str, Any]) -> bytes:
     root = Element(f"{{{_MAIN_NS}}}table", attrib={
+        "id": str(tbl["table_id"]),
         "name": tbl["name"],
         "ref": tbl["ref"],
         "displayName": tbl["name"],
     })
-    style_info = SubElement(root, f"{{{_MAIN_NS}}}tableStyleInfo", attrib={
+    SubElement(root, f"{{{_MAIN_NS}}}autoFilter", attrib={"ref": tbl["ref"]})
+    columns = SubElement(
+        root,
+        f"{{{_MAIN_NS}}}tableColumns",
+        attrib={"count": str(len(tbl["columns"]))},
+    )
+    for index, name in enumerate(tbl["columns"], start=1):
+        SubElement(
+            columns,
+            f"{{{_MAIN_NS}}}tableColumn",
+            attrib={"id": str(index), "name": name},
+        )
+    SubElement(root, f"{{{_MAIN_NS}}}tableStyleInfo", attrib={
         "name": tbl.get("style", "TableStyleMedium2"),
+        "showFirstColumn": "0",
+        "showLastColumn": "0",
         "showRowStripes": "1",
+        "showColumnStripes": "0",
     })
+    return _to_xml_bytes(root)
+
+
+def _build_worksheet_rels(tables: list[dict[str, Any]]) -> bytes:
+    root = Element(f"{{{_RELS_NS}}}Relationships")
+    for index, table in enumerate(tables, start=1):
+        SubElement(
+            root,
+            f"{{{_RELS_NS}}}Relationship",
+            attrib={
+                "Id": f"rId{index}",
+                "Type": REL_TABLE,
+                "Target": f"../tables/table{table['table_id']}.xml",
+            },
+        )
     return _to_xml_bytes(root)
 
 

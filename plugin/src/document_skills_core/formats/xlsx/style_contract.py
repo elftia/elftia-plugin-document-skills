@@ -155,6 +155,12 @@ def custom_number_format_id(style: dict[str, Any] | None) -> int | None:
     return format_id if format_id >= 164 else None
 
 
+def parse_color(value: Any, field: str) -> str:
+    """Parse an RGB/ARGB color for non-cell-style SpreadsheetML features."""
+
+    return _color(value, field)
+
+
 def _parse_font(value: Any, field: str) -> dict[str, Any]:
     if type(value) is not dict:
         _invalid("font must be an object.", field=field)

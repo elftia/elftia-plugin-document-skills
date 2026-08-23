@@ -11,7 +11,11 @@ from .formula_state import assert_invariant
 from .constants import NS
 from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
-from .projection import project_tables
+from .projection import (
+    project_conditional_formats,
+    project_data_validations,
+    project_tables,
+)
 from .styles import read_styles
 from .structural_refs import AxisMutation, shift_coordinate
 
@@ -103,6 +107,9 @@ def assert_edits_applied(
     }
     failures: list[str] = []
     matched = 0
+    projected_tables = project_tables(package)
+    projected_validations = project_data_validations(package)
+    projected_conditional_formats = project_conditional_formats(package)
     expected_cells = _expected_cell_refs(source, edits) if source is not None else None
     for edit in edits:
         edit_type = edit["type"]
@@ -137,6 +144,101 @@ def assert_edits_applied(
                 matched += 1
             else:
                 failures.append(f"sheet_reorder:{edit['sheet']}")
+            continue
+        if edit_type in {
+            "table_add",
+            "table_resize",
+            "table_rename",
+            "table_style",
+            "table_delete",
+        }:
+            expected_name = edit.get("value") if edit_type == "table_rename" else edit["name"]
+            table = next(
+                (
+                    item
+                    for item in projected_tables
+                    if item["name"].casefold() == expected_name.casefold()
+                    and item.get("sheet") == rename_map.get(edit["sheet"], edit["sheet"])
+                ),
+                None,
+            )
+            if edit_type == "table_delete":
+                if table is None:
+                    matched += 1
+                else:
+                    failures.append(f"table_delete:{edit['name']}")
+                continue
+            expected_ref = edit.get("ref") if edit_type in {"table_add", "table_resize"} else None
+            expected_style = edit.get("table_style") if edit_type in {"table_add", "table_style"} else None
+            if (
+                table is None
+                or (expected_ref is not None and table.get("ref") != expected_ref)
+                or (expected_style is not None and table.get("style") != expected_style)
+            ):
+                failures.append(f"{edit_type}:{expected_name}")
+            else:
+                matched += 1
+            continue
+        if edit_type in {
+            "data_validation_add",
+            "data_validation_update",
+            "data_validation_delete",
+        }:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            if edit_type == "data_validation_delete":
+                exists = any(
+                    item["sheet"] == sheet_name
+                    and item["ref"].casefold() == edit["ref"].casefold()
+                    for item in projected_validations
+                )
+                if exists:
+                    failures.append(f"data_validation_delete:{sheet_name}!{edit['ref']}")
+                else:
+                    matched += 1
+                continue
+            expected = {"sheet": sheet_name, **edit["validation"]}
+            if any(
+                _data_validation_matches(item, expected)
+                for item in projected_validations
+            ):
+                matched += 1
+            else:
+                failures.append(
+                    f"{edit_type}:{sheet_name}!{edit['validation']['ref']}"
+                )
+            continue
+        if edit_type in {
+            "conditional_format_add",
+            "conditional_format_update",
+            "conditional_format_delete",
+        }:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            if edit_type == "conditional_format_delete":
+                exists = any(
+                    item["sheet"] == sheet_name
+                    and item["ref"].casefold() == edit["ref"].casefold()
+                    and item["priority"] == edit["priority"]
+                    for item in projected_conditional_formats
+                )
+                if exists:
+                    failures.append(
+                        f"conditional_format_delete:{sheet_name}!{edit['ref']}#{edit['priority']}"
+                    )
+                else:
+                    matched += 1
+                continue
+            expected_rule = {"sheet": sheet_name, **edit["rule"]}
+            if edit_type == "conditional_format_update":
+                expected_rule["priority"] = edit["priority"]
+            if any(
+                _conditional_format_matches(item, expected_rule)
+                for item in projected_conditional_formats
+            ):
+                matched += 1
+            else:
+                failures.append(
+                    f"{edit_type}:{sheet_name}!{edit['rule']['ref']}"
+                )
             continue
         sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
         sheet = sheets.get(sheet_name)
@@ -476,10 +578,41 @@ def _assert_created(
 
     # Check tables
     tables = project_tables(package)
-    expected_tables = {t["name"] for t in workbook.get("tables", [])}
-    actual_tables = {t["name"] for t in tables}
-    if expected_tables and not expected_tables.issubset(actual_tables):
-        failures.append("tables")
+    actual_tables = {table["name"]: table for table in tables}
+    for expected in workbook.get("tables", []):
+        actual = actual_tables.get(expected["name"])
+        if actual is None:
+            failures.append(f"table:{expected['name']}")
+            continue
+        for field in ("ref", "sheet", "style", "columns"):
+            if actual.get(field) != expected.get(field):
+                failures.append(f"table-{field}:{expected['name']}")
+        if actual.get("auto_filter_ref") != expected["ref"]:
+            failures.append(f"table-auto-filter:{expected['name']}")
+
+    data_validations = project_data_validations(package)
+    for sheet in workbook.get("sheets", []):
+        for expected_validation in sheet.get("data_validations", []):
+            expected = {"sheet": sheet["name"], **expected_validation}
+            if not any(
+                _data_validation_matches(actual, expected)
+                for actual in data_validations
+            ):
+                failures.append(
+                    f"data-validation:{sheet['name']}!{expected_validation['ref']}"
+                )
+
+    conditional_formats = project_conditional_formats(package)
+    for sheet in workbook.get("sheets", []):
+        for expected_rule in sheet.get("conditional_formats", []):
+            expected = {"sheet": sheet["name"], **expected_rule}
+            if not any(
+                _conditional_format_matches(actual, expected)
+                for actual in conditional_formats
+            ):
+                failures.append(
+                    f"conditional-format:{sheet['name']}!{expected_rule['ref']}"
+                )
 
     expected_styles = (creation or {}).get("styles", {})
     assignments = expected_styles.get("assignments", {})
@@ -509,6 +642,8 @@ def _assert_created(
     return {
         "sheets": len(actual_sheets),
         "tables": len(tables),
+        "data_validations": len(data_validations),
+        "conditional_formats": len(conditional_formats),
         "formula_cells": len(formula_cells),
         "cell_styles": len(assignments.get("cells", {})),
         "row_styles": len(assignments.get("rows", {})),
@@ -537,6 +672,57 @@ def _mapped_style_assignments(mapped: dict[str, Any]) -> dict[str, dict[str, int
                     "resolved_style_index"
                 ]
     return assignments
+
+
+def _data_validation_matches(
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    return all(
+        actual.get(field) == expected.get(field)
+        for field in (
+            "sheet",
+            "ref",
+            "type",
+            "operator",
+            "formula1",
+            "formula2",
+            "allow_blank",
+            "show_input_message",
+            "show_error_message",
+            "prompt_title",
+            "prompt",
+            "error_title",
+            "error",
+            "error_style",
+        )
+    )
+
+
+def _conditional_format_matches(
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    fields = [
+        "sheet",
+        "ref",
+        "type",
+        "operator",
+        "formulas",
+        "style",
+        "stop_if_true",
+        "thresholds",
+        "colors",
+        "color",
+        "show_value",
+        "icon_set",
+        "reverse",
+    ]
+    if "priority" in expected:
+        fields.append("priority")
+    return actual.get("dxf_valid") is True and all(
+        actual.get(field) == expected.get(field) for field in fields
+    )
 
 
 def _find_mapped_cell(sheet: dict[str, Any], ref: str) -> dict[str, Any] | None:

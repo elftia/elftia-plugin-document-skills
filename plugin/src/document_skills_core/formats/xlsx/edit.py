@@ -8,6 +8,8 @@ from xml.etree.ElementTree import Element, SubElement
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import NS, SHARED_STRINGS_PART
+from .conditional_format import apply_conditional_format_edit
+from .data_validation import apply_data_validation_edit
 from .formula_state import (
     derive_edit_state,
     parse_formula_references,
@@ -21,6 +23,7 @@ from .shared_strings import build_shared_strings_xml
 from .sheet_edit import apply_sheet_edit
 from .style_patch import ExistingStyleRegistry
 from .structural_edit import StructuralEditContext
+from .table_edit import apply_table_edit
 from .worksheet_edit import apply_defined_name_edit, apply_worksheet_edit
 
 _MAIN_NS = NS["main"]
@@ -143,6 +146,32 @@ def edit_xlsx(
                 _apply_structural(all_formula_cells, invalidated)
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
         elif edit_type in {
+            "table_add",
+            "table_resize",
+            "table_rename",
+            "table_style",
+            "table_delete",
+        }:
+            apply_table_edit(structural_context, edit, new_shared)
+            mark_sheet_dirty = False
+            if edit_type != "table_style":
+                _apply_structural(all_formula_cells, invalidated)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {
+            "data_validation_add",
+            "data_validation_update",
+            "data_validation_delete",
+        }:
+            apply_data_validation_edit(sheet_root, edit)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {
+            "conditional_format_add",
+            "conditional_format_update",
+            "conditional_format_delete",
+        }:
+            apply_conditional_format_edit(sheet_root, edit, style_registry)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {
             "print_area",
             "print_area_clear",
             "defined_name_add",
@@ -209,6 +238,10 @@ def edit_xlsx(
             "sheet_copy",
             "sheet_reorder",
             "sheet_rename",
+            "table_add",
+            "table_resize",
+            "table_rename",
+            "table_delete",
         )
     ):
         all_formula_cells = _structural_formula_state(destination)

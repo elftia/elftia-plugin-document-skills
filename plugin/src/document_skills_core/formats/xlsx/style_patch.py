@@ -9,7 +9,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import NS
-from .styles import builtin_number_format_id
+from .styles import build_dxf_element, builtin_number_format_id
 
 _MAIN_NS = NS["main"]
 
@@ -73,6 +73,19 @@ class ExistingStyleRegistry:
 
     def to_bytes(self) -> bytes:
         return tostring(self.root, encoding="UTF-8", xml_declaration=True)
+
+    def register_dxf(self, style: dict[str, Any]) -> int:
+        container = self.root.find(f"{{{_MAIN_NS}}}dxfs")
+        if container is None:
+            container = Element(f"{{{_MAIN_NS}}}dxfs", {"count": "0"})
+            for index, child in enumerate(self.root):
+                if child.tag.rsplit("}", 1)[-1] in {"tableStyles", "colors", "extLst"}:
+                    self.root.insert(index, container)
+                    break
+            else:
+                self.root.append(container)
+            self.changed = True
+        return self._append_or_find(container, build_dxf_element(style))
 
     def _patch_record(
         self,
