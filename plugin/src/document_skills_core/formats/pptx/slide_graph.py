@@ -10,12 +10,14 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .chart import build_chart_part, prepare_chart, public_chart_record
 from .constants import CONTENT_TYPES_NS, NS
+from .design_contracts import DEFAULT_LAYOUT_TOKENS, DEFAULT_THEME
 from .create import (
     _build_notes_master,
     _build_notes_slide,
     _build_slide,
 )
 from .image import load_pptx_image, public_image_record
+from .layout_recipes import layout_recipe
 from .mapping import map_slides
 from .mutation import MutablePptxPackage
 
@@ -65,10 +67,28 @@ def add_slide(
     target: MutablePptxPackage,
     slide: dict[str, Any],
     position: int | None,
+    *,
+    theme: dict[str, Any] | None = None,
+    layout_tokens: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     target_position = _bounded_insert_position(position, len(map_slides(target)) + 1)
     slide_part = _allocate_part_name("ppt/slides/slide1.xml", set(target.parts))
     prepared = dict(slide)
+    mapped = map_slides(target)
+    slide_size = (
+        mapped[0].get("slide_size")
+        if mapped
+        else {"cx": "9144000", "cy": "6858000"}
+    )
+    recipe = layout_recipe(
+        slide.get("recipe", "cover" if slide.get("layout") == "title" else "content"),
+        slide_size,
+        layout_tokens or DEFAULT_LAYOUT_TOKENS,
+        len(slide.get("shapes", [])),
+    )
+    prepared["_layout_recipe"] = recipe
+    selected_theme = theme or DEFAULT_THEME
+    prepared["_theme"] = selected_theme
     additions: dict[str, str] = {
         slide_part: "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
     }
@@ -78,11 +98,14 @@ def add_slide(
     image = None
     chart = None
     if slide.get("image_reference") is not None:
+        image_reference = dict(slide["image_reference"])
+        if image_reference.get("frame") is None:
+            image_reference["frame"] = recipe["media"]
         image_index = _next_part_index(target.parts, "ppt/media/image")
-        image = load_pptx_image(slide["image_reference"], image_index)
+        image = load_pptx_image(image_reference, image_index)
         while image["part"] in target.parts:
             image_index += 1
-            image = load_pptx_image(slide["image_reference"], image_index)
+            image = load_pptx_image(image_reference, image_index)
         prepared["_image"] = image
         target.set_part(image["part"], image["bytes"])
         additions[image["part"]] = image["content_type"]
@@ -90,16 +113,22 @@ def add_slide(
         image_record = public_image_record(image)
     if slide.get("chart_reference") is not None:
         chart_index = _next_part_index(target.parts, "ppt/charts/chart")
-        chart = prepare_chart(slide["chart_reference"], chart_index)
+        chart_reference = dict(slide["chart_reference"])
+        if not chart_reference.get("colors"):
+            chart_reference["colors"] = list(selected_theme["default_chart"]["colors"])
+        chart = prepare_chart(chart_reference, chart_index)
         while chart["part"] in target.parts:
             chart_index += 1
-            chart = prepare_chart(slide["chart_reference"], chart_index)
+            chart = prepare_chart(chart_reference, chart_index)
         prepared["_chart"] = chart
         target.set_part(chart["part"], build_chart_part(chart))
         additions[chart["part"]] = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
         created_parts.append(chart["part"])
         chart_record = public_chart_record(chart)
-    layout_part = _select_layout(target, slide.get("layout", "content"))
+    requested_layout = slide.get("layout", "content")
+    if recipe["name"] != "content" and requested_layout in {"content", "title"}:
+        requested_layout = recipe["name"]
+    layout_part = _select_layout(target, requested_layout)
     notes_part = None
     notes_master = None
     if slide.get("notes") is not None:
@@ -287,21 +316,23 @@ def _select_layout(target: MutablePptxPackage, requested: str) -> str:
     layouts = target.source.slide_layout_parts()
     if requested in target.parts and requested.startswith("ppt/slideLayouts/"):
         return requested
-    requested_key = requested.casefold()
+    requested_key = requested.casefold().replace("-", " ")
+    if requested_key == "title":
+        requested_key = "cover"
     for layout in layouts:
         try:
             root = target.xml(layout)
             common = root.find(P("cSld"))
             name = "" if common is None else common.attrib.get("name", "")
-            if name.casefold() == requested_key:
+            if name.casefold().replace("-", " ") == requested_key:
                 return layout
         except Exception:
             continue
     if not layouts:
         _invalid("Target deck has no reusable slide layout.")
-    if requested_key == "title" and len(layouts) > 1:
-        return layouts[1]
-    if requested_key in {"content", "title"}:
+    if requested_key == "cover":
+        return layouts[0]
+    if requested_key == "content":
         return layouts[0]
     _invalid("Requested slide layout was not found.", layout=requested)
 

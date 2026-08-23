@@ -1,5 +1,6 @@
 """PPTX public command surface tests — frozen uv subprocess boundary."""
 
+from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
@@ -7,6 +8,7 @@ import subprocess
 import pytest
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.formats.pptx.package import OpcPackage
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
@@ -329,6 +331,91 @@ def test_public_create_reopens_real_native_objects(project_root: Path, tmp_path:
     assert len(chart_shapes) == 1
     assert list(chart_shapes[0].chart.series[0].values) == [4.0, 7.0]
     assert any(getattr(shape, "has_table", False) for shape in shapes)
+
+
+def test_public_create_applies_design_tokens_and_reuses_template_graph(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    theme = {
+        "name": "Public Design",
+        "palette": {"accent1": "006D77", "accent2": "E29578"},
+        "fonts": {"major": "Aptos Display", "minor": "Aptos"},
+        "background": "F8F5EC",
+        "default_text": {
+            "title_color": "101820",
+            "body_color": "203040",
+            "title_size": 32,
+            "body_size": 17,
+            "bold_titles": True,
+        },
+        "default_shape": {"fill": "FFFFFF", "line": "006D77", "opacity": 0.95},
+        "default_chart": {"colors": ["006D77", "E29578"]},
+    }
+    slide = {
+        "layout": "content",
+        "recipe": "comparison",
+        "title": "Designed publicly",
+        "shapes": [
+            {"text": "Left", "runs": []},
+            {"text": "Right", "runs": []},
+        ],
+        "table": None,
+        "chart_reference": None,
+        "image_reference": None,
+        "notes": None,
+    }
+    deck = {
+        "metadata": {"title": "Public design", "creator": "Test", "subject": ""},
+        "slide_size": {"cx": "9144000", "cy": "6858000", "type": "screen4x3"},
+        "theme": theme,
+        "layout_tokens": {
+            "safe_margins": {
+                "top": 300_000,
+                "right": 400_000,
+                "bottom": 300_000,
+                "left": 400_000,
+            },
+            "grid": {"columns": 12, "gutter": 200_000},
+            "spacing": {"sm": 150_000, "md": 250_000, "lg": 400_000},
+            "typography_scale": {"title": 32, "section": 25, "body": 17, "caption": 11},
+        },
+        "slides": [slide],
+    }
+    template = tmp_path / "public-design-template.pptx"
+    template_request = _request(tmp_path, "public-design-template.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.create",
+        "output": str(template),
+        "arguments": {"deck": deck},
+    })
+    template_result = _public(project_root, "run", "--request", str(template_request))
+    assert template_result["status"] == "success", template_result
+    template_hash = sha256(template.read_bytes()).hexdigest()
+    source = OpcPackage.open(template)
+    design_parts = source.slide_master_parts() + source.slide_layout_parts() + source.theme_parts()
+    design_hashes = {part: source.part_hashes[part] for part in design_parts}
+
+    based_deck = {**deck, "slides": [{**slide, "recipe": "summary", "title": "Based publicly"}]}
+    based_deck.pop("theme")
+    output = tmp_path / "public-template-based.pptx"
+    based_request = _request(tmp_path, "public-template-based.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.create",
+        "output": str(output),
+        "arguments": {"deck": based_deck, "template": str(template)},
+    })
+    result = _public(project_root, "run", "--request", str(based_request))
+
+    assert result["status"] == "success", result
+    assert sha256(template.read_bytes()).hexdigest() == template_hash
+    candidate = OpcPackage.open(output)
+    assert {part: candidate.part_hashes[part] for part in design_parts} == design_hashes
+    creation = result["diagnostics"]["operation_result"]["creation"]
+    assert creation["template_reuse"]["source_sha256"] == template_hash
+    assert creation["layout_recipes"][0]["name"] == "summary"
+    outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}
+    assert outcomes["operation.typed-design-correspondence"] == "pass"
 
 
 def test_public_create_missing_image_fails_closed(project_root: Path, tmp_path: Path) -> None:

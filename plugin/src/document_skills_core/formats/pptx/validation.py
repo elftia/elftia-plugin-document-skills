@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.validation import validate_artifact
 
 from .constants import NS
+from .design_validation import assert_typed_design
 from .mapping import map_slides
 from .package import OpcPackage, PreservationManifest
 from .scene_emitter import EMU_PER_PIXEL, SLIDE_CX, SLIDE_CY
@@ -28,6 +29,10 @@ def validate_created(
         (
             "native-object-correspondence",
             lambda candidate: assert_typed_objects(OpcPackage.open(candidate), deck, creation),
+        ),
+        (
+            "typed-design-correspondence",
+            lambda candidate: assert_typed_design(candidate, deck, creation),
         ),
     ]
     return _required_report(path, assertions=assertions)

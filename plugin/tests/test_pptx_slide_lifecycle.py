@@ -108,7 +108,7 @@ def test_slide_add_uses_target_layout_and_creates_native_objects(tmp_path: Path)
     slides = map_slides(package)
 
     assert len(slides) == 2
-    assert len(package.slide_layout_parts()) == 2
+    assert len(package.slide_layout_parts()) == 7
     assert len(package.slide_master_parts()) == 1
     assert len(package.theme_parts()) == 1
     assert len(package.media_parts()) == 1
@@ -172,7 +172,7 @@ def test_slide_duplicate_copies_media_chart_notes_and_reuses_layout(tmp_path: Pa
     assert len(package.media_parts()) == 2
     assert len(package.chart_parts()) == 2
     assert len(package.notes_slide_parts()) == 2
-    assert len(package.slide_layout_parts()) == 2
+    assert len(package.slide_layout_parts()) == 7
     assert package.parts[slides[0]["part"]] == package.parts[slides[1]["part"]]
     assert slides[0]["layout"]["part"] == slides[1]["layout"]["part"]
     assert any(name.startswith("ppt/media/") for name in manifest.added)
@@ -224,7 +224,7 @@ def test_cross_deck_slide_copy_imports_layout_master_theme_and_dependencies(tmp_
 
     assert len(slides) == 2
     assert len(package.slide_master_parts()) == 2
-    assert len(package.slide_layout_parts()) == 4
+    assert len(package.slide_layout_parts()) == 14
     assert len(package.theme_parts()) == 2
     assert len(package.media_parts()) == 1
     assert len(package.chart_parts()) == 1

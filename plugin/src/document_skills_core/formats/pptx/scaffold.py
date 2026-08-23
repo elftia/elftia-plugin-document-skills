@@ -9,6 +9,7 @@ from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from .constants import NS
+from .design_contracts import DEFAULT_THEME, LAYOUT_RECIPES
 
 _P = NS["p"]
 _A = NS["a"]
@@ -29,28 +30,25 @@ def _to_xml_bytes(root: Element) -> bytes:
 # ---------------------------------------------------------------------------
 
 
-def _build_theme() -> bytes:
+def _build_theme(theme: dict[str, Any] | None = None) -> bytes:
     """Complete minimal Office theme with clrScheme, fontScheme, and fmtScheme."""
-    root = Element(f"{{{_A}}}theme", attrib={"name": "Office Theme"})
+    theme = DEFAULT_THEME if theme is None else theme
+    palette = theme["palette"]
+    root = Element(f"{{{_A}}}theme", attrib={"name": theme["name"]})
     elements = SubElement(root, f"{{{_A}}}themeElements")
 
-    clr_scheme = SubElement(elements, f"{{{_A}}}clrScheme", attrib={"name": "Office"})
-    _sys_color(clr_scheme, "dk1", "windowText", "000000")
-    _sys_color(clr_scheme, "lt1", "window", "FFFFFF")
-    _srgb_color(clr_scheme, "dk2", "44546A")
-    _srgb_color(clr_scheme, "lt2", "E7E6E6")
-    _srgb_color(clr_scheme, "accent1", "4472C4")
-    _srgb_color(clr_scheme, "accent2", "ED7D31")
-    _srgb_color(clr_scheme, "accent3", "A5A5A5")
-    _srgb_color(clr_scheme, "accent4", "FFC000")
-    _srgb_color(clr_scheme, "accent5", "5B9BD5")
-    _srgb_color(clr_scheme, "accent6", "70AD47")
-    _srgb_color(clr_scheme, "hlink", "0563C1")
-    _srgb_color(clr_scheme, "folHlink", "954F72")
+    clr_scheme = SubElement(elements, f"{{{_A}}}clrScheme", attrib={"name": theme["name"]})
+    _sys_color(clr_scheme, "dk1", "windowText", palette["dk1"])
+    _sys_color(clr_scheme, "lt1", "window", palette["lt1"])
+    for name in (
+        "dk2", "lt2", "accent1", "accent2", "accent3", "accent4",
+        "accent5", "accent6", "hlink", "folHlink",
+    ):
+        _srgb_color(clr_scheme, name, palette[name])
 
-    font_scheme = SubElement(elements, f"{{{_A}}}fontScheme", attrib={"name": "Office"})
-    _font_collection(font_scheme, "majorFont", "Calibri Light")
-    _font_collection(font_scheme, "minorFont", "Calibri")
+    font_scheme = SubElement(elements, f"{{{_A}}}fontScheme", attrib={"name": theme["name"]})
+    _font_collection(font_scheme, "majorFont", theme["fonts"]["major"])
+    _font_collection(font_scheme, "minorFont", theme["fonts"]["minor"])
 
     fmt_scheme = SubElement(elements, f"{{{_A}}}fmtScheme")
     fill_lst = SubElement(fmt_scheme, f"{{{_A}}}fillStyleLst")
@@ -120,9 +118,12 @@ def _build_slide_master(
     layout_count: int,
     cx: int = _SLIDE_CX_DEFAULT,
     cy: int = _SLIDE_CY_DEFAULT,
+    theme: dict[str, Any] | None = None,
 ) -> bytes:
+    theme = DEFAULT_THEME if theme is None else theme
     root = Element(f"{{{_P}}}sldMaster")
     c_sld = SubElement(root, f"{{{_P}}}cSld")
+    _background(c_sld, theme["background"])
     _complete_sp_tree(c_sld, cx, cy)
     SubElement(root, f"{{{_P}}}clrMap", attrib=_CLR_MAP)
     layout_id_lst = SubElement(root, f"{{{_P}}}sldLayoutIdLst")
@@ -132,7 +133,29 @@ def _build_slide_master(
             f"{{{_P}}}sldLayoutId",
             attrib={"id": str(2_147_483_648 + i), f"{{{_R}}}id": f"rIdLayout{i}"},
         )
-    SubElement(root, f"{{{_P}}}txStyles")
+    text_styles = SubElement(root, f"{{{_P}}}txStyles")
+    _master_text_style(
+        text_styles,
+        "titleStyle",
+        theme["default_text"]["title_size"],
+        theme["default_text"]["title_color"],
+        "+mj-lt",
+        bold=theme["default_text"]["bold_titles"],
+    )
+    _master_text_style(
+        text_styles,
+        "bodyStyle",
+        theme["default_text"]["body_size"],
+        theme["default_text"]["body_color"],
+        "+mn-lt",
+    )
+    _master_text_style(
+        text_styles,
+        "otherStyle",
+        theme["default_text"]["body_size"],
+        theme["default_text"]["body_color"],
+        "+mn-lt",
+    )
     return _to_xml_bytes(root)
 
 
@@ -165,7 +188,10 @@ def _build_slide_layout(
     cx: int = _SLIDE_CX_DEFAULT,
     cy: int = _SLIDE_CY_DEFAULT,
 ) -> bytes:
-    layout_names = {1: "Title Slide", 2: "Title and Content"}
+    layout_names = {
+        index: recipe.replace("-", " ").title()
+        for index, recipe in enumerate(LAYOUT_RECIPES, 1)
+    }
     root = Element(f"{{{_P}}}sldLayout")
     c_sld = SubElement(root, f"{{{_P}}}cSld", attrib={"name": layout_names.get(layout_idx, "Custom")})
     _complete_sp_tree(c_sld, cx, cy)
@@ -200,6 +226,35 @@ def _complete_sp_tree(parent: Element, cx: int, cy: int) -> None:
     SubElement(xfrm, f"{{{_A}}}ext", attrib={"cx": str(cx), "cy": str(cy)})
     SubElement(xfrm, f"{{{_A}}}chOff", attrib={"x": "0", "y": "0"})
     SubElement(xfrm, f"{{{_A}}}chExt", attrib={"cx": str(cx), "cy": str(cy)})
+
+
+def _background(parent: Element, color: str) -> None:
+    background = SubElement(parent, f"{{{_P}}}bg")
+    properties = SubElement(background, f"{{{_P}}}bgPr")
+    solid = SubElement(properties, f"{{{_A}}}solidFill")
+    SubElement(solid, f"{{{_A}}}srgbClr", attrib={"val": color})
+    SubElement(properties, f"{{{_A}}}effectLst")
+
+
+def _master_text_style(
+    parent: Element,
+    tag: str,
+    size: float,
+    color: str,
+    typeface: str,
+    *,
+    bold: bool = False,
+) -> None:
+    style = SubElement(parent, f"{{{_P}}}{tag}")
+    paragraph = SubElement(style, f"{{{_A}}}lvl1pPr")
+    properties = SubElement(
+        paragraph,
+        f"{{{_A}}}defRPr",
+        attrib={"sz": str(round(size * 100)), **({"b": "1"} if bold else {})},
+    )
+    fill = SubElement(properties, f"{{{_A}}}solidFill")
+    SubElement(fill, f"{{{_A}}}srgbClr", attrib={"val": color})
+    SubElement(properties, f"{{{_A}}}latin", attrib={"typeface": typeface})
 
 
 # ---------------------------------------------------------------------------

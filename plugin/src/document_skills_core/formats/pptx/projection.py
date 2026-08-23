@@ -29,6 +29,58 @@ def project_slide_size(package: Any) -> dict[str, str] | None:
     return {"cx": cx, "cy": cy, "type": size.attrib.get("type", "custom"), "orientation": orientation}
 
 
+def project_theme(package: Any) -> dict[str, Any] | None:
+    theme_parts = package.theme_parts()
+    if not theme_parts:
+        return None
+    root = package.xml(theme_parts[0])
+    scheme = next(
+        (node for node in root.iter() if local_name(node.tag) == "clrScheme"),
+        None,
+    )
+    palette: dict[str, str] = {}
+    if scheme is not None:
+        for slot in list(scheme):
+            color = next(iter(slot), None)
+            if color is not None:
+                palette[local_name(slot.tag)] = color.attrib.get(
+                    "lastClr",
+                    color.attrib.get("val", ""),
+                )
+    font_scheme = next(
+        (node for node in root.iter() if local_name(node.tag) == "fontScheme"),
+        None,
+    )
+    fonts = {"major": "", "minor": ""}
+    if font_scheme is not None:
+        for key, tag in (("major", "majorFont"), ("minor", "minorFont")):
+            collection = next(
+                (node for node in list(font_scheme) if local_name(node.tag) == tag),
+                None,
+            )
+            latin = None if collection is None else collection.find(A("latin"))
+            if latin is not None:
+                fonts[key] = latin.attrib.get("typeface", "")
+    return {
+        "fonts": fonts,
+        "name": root.attrib.get("name", ""),
+        "palette": palette,
+        "part": theme_parts[0],
+    }
+
+
+def project_layout_recipes(package: Any) -> list[dict[str, str]]:
+    result = []
+    for part in package.slide_layout_parts():
+        root = package.xml(part)
+        common = root.find(P("cSld"))
+        result.append({
+            "name": "" if common is None else common.attrib.get("name", ""),
+            "part": part,
+        })
+    return result
+
+
 def project_defined_names(package: Any) -> list[dict[str, str]]:
     presentation = package.xml("ppt/presentation.xml")
     result: list[dict[str, str]] = []

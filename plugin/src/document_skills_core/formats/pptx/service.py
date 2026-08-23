@@ -101,10 +101,15 @@ class PptxService:
     def _create(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.output_path is not None
         deck = request.arguments["deck"]
+        template_path = request.arguments.get("template")
+        template_source = None
+        if template_path is not None:
+            assert_distinct_paths(template_path, request.output_path, in_place=False)
+            template_source = file_record(template_path, "input")
         destination = destination_snapshot(request.output_path)
         with OperationTempRoot() as private_root:
             staged = private_root / "created.pptx"
-            creation = create_pptx(staged, deck)
+            creation = create_pptx(staged, deck, template=template_path)
             validation = validate_created(staged, deck, creation)
             operation_result = {"creation": creation}
             result = write_candidate_result(
@@ -114,13 +119,13 @@ class PptxService:
                 validation,
                 operation_result,
                 warnings=[],
-                source=None,
+                source=template_source,
             )
             return promote_candidate(
                 request,
                 staged,
                 result,
-                source=None,
+                source=template_source,
                 destination=destination,
             )
 

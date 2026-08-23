@@ -87,7 +87,7 @@ class TestCreate:
         assert destination.is_file()
         assert destination.stat().st_size > 0
         assert creation["slides"] == 2
-        assert creation["layouts"] == 2
+        assert creation["layouts"] == 7
         assert creation["has_chart"] is True
         assert creation["has_image"] is True
         assert creation["has_table"] is True

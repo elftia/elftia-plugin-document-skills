@@ -26,7 +26,8 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
-_PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
+_PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
+_WORKER_TIMEOUT_SECONDS = 15.0
 
 
 class PublicCommandSupervisor:
@@ -35,7 +36,7 @@ class PublicCommandSupervisor:
         project_root: Path,
         *,
         worker_script: Path | None = None,
-        timeout_seconds: float = 8.0,
+        timeout_seconds: float = _WORKER_TIMEOUT_SECONDS,
         output_limit: int = 65_536,
         nonce_factory: Callable[[], str] | None = None,
     ) -> None:

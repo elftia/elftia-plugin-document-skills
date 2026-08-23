@@ -8,6 +8,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MAX_SLIDES
+from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
@@ -90,6 +91,17 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-html": parse_html_create_arguments,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
+    if (
+        operation == "pptx.create"
+        and parsed.get("template") is not None
+        and output_path is not None
+        and same_path(parsed["template"], output_path)
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.OUTPUT_EQUALS_INPUT,
+            "PPTX template-as-base requires a distinct output path.",
+            status="invalid_request",
+        )
     return ParsedPptxRequest(operation, input_path, output_path, parsed, fidelity)
 
 
@@ -117,11 +129,20 @@ def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"deck"})
+    _exact_keys(value, {"deck", "template"})
     deck = value.get("deck")
     if type(deck) is not dict:
         _invalid("create requires a deck object.", field="deck")
-    return {"deck": _parse_deck(deck)}
+    template = _optional_path(value.get("template"), "template")
+    if template is not None:
+        if template.suffix.casefold() != ".pptx":
+            _invalid("PPTX template-as-base requires a .pptx file.", field="template")
+        if "theme" in deck:
+            _invalid(
+                "Template-as-base reuses the template theme and does not accept deck.theme.",
+                field="deck.theme",
+            )
+    return {"deck": _parse_deck(deck), "template": template}
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
@@ -141,7 +162,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(deck, {"metadata", "slide_size", "slides"})
+    _exact_keys(deck, {"layout_tokens", "metadata", "slide_size", "slides", "theme"})
     metadata = deck.get("metadata")
     if type(metadata) is not dict:
         _invalid("deck.metadata must be an object.", field="metadata")
@@ -168,8 +189,9 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
     for idx, slide in enumerate(slides):
         if type(slide) is not dict:
             _invalid(f"Slide {idx} must be an object.", field=f"slides.{idx}")
-        _exact_keys(slide, {"layout", "title", "shapes", "table", "chart_reference", "image_reference", "notes"})
+        _exact_keys(slide, {"layout", "recipe", "title", "shapes", "table", "chart_reference", "image_reference", "notes"})
         layout = _text(slide.get("layout", "content"), f"slides.{idx}.layout")
+        recipe = parse_recipe(slide.get("recipe"), layout, f"slides.{idx}.recipe")
         title = _optional_text(slide.get("title"), f"slides.{idx}.title")
         shapes = slide.get("shapes", [])
         if type(shapes) is not list:
@@ -224,6 +246,7 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
             notes = _optional_text(notes, f"slides.{idx}.notes")
         parsed_slides.append({
             "layout": layout,
+            "recipe": recipe,
             "title": title,
             "shapes": parsed_shapes,
             "table": table,
@@ -232,9 +255,11 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
             "notes": notes,
         })
     return {
+        "layout_tokens": parse_layout_tokens(deck.get("layout_tokens"), "layout_tokens"),
         "metadata": parsed_meta,
         "slide_size": slide_size,
         "slides": parsed_slides,
+        "theme": parse_theme(deck.get("theme"), "theme"),
     }
 
 

@@ -12,8 +12,10 @@ from .projection import (
     project_defined_names,
     project_external_links,
     project_image_references,
+    project_layout_recipes,
     project_media,
     project_slide_size,
+    project_theme,
 )
 
 
@@ -73,5 +75,7 @@ def read_pptx(
         "charts": charts,
         "media": media,
         "external_links": external_links,
+        "layout_recipes": project_layout_recipes(package),
+        "theme": project_theme(package),
     }
     return operation_result, warnings

@@ -6,6 +6,7 @@ from typing import Any
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_SLIDES
+from .design_contracts import parse_recipe
 from .object_contracts import OBJECT_EDIT_TYPES, parse_object_edit
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
@@ -106,7 +107,7 @@ def parse_edit(edit: dict[str, Any], index: int) -> dict[str, Any]:
 def _parse_added_slide(value: dict[str, Any], field: str) -> dict[str, Any]:
     _exact_keys(
         value,
-        {"chart_reference", "image_reference", "layout", "notes", "shapes", "table", "title"},
+        {"chart_reference", "image_reference", "layout", "notes", "recipe", "shapes", "table", "title"},
         field,
     )
     shapes = value.get("shapes", [])
@@ -136,11 +137,13 @@ def _parse_added_slide(value: dict[str, Any], field: str) -> dict[str, Any]:
             "runs": parsed_runs,
             "text": _optional_text(shape.get("text"), f"{field}.shapes.{index}.text"),
         })
+    layout = _text(value.get("layout", "content"), f"{field}.layout", False)
     return {
         "chart_reference": parse_chart_reference(value.get("chart_reference"), f"{field}.chart_reference"),
         "image_reference": parse_image_reference(value.get("image_reference"), f"{field}.image_reference"),
-        "layout": _text(value.get("layout", "content"), f"{field}.layout", False),
+        "layout": layout,
         "notes": _optional_text(value.get("notes"), f"{field}.notes"),
+        "recipe": parse_recipe(value.get("recipe"), layout, f"{field}.recipe"),
         "shapes": parsed_shapes,
         "table": _parse_table(value.get("table"), f"{field}.table"),
         "title": _optional_text(value.get("title"), f"{field}.title"),

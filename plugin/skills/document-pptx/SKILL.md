@@ -24,7 +24,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 |---|---|---|
 | `pptx.read` | no | Structured slide/shape/text-frame/table/chart/media/notes/layout projection |
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
-| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, and ≥2 layouts |
+| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx` template reuse |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.edit` | yes (distinct output) | Transactional slide CRUD/copy/reorder plus native shape/text/image/table/chart/notes/link/action edits |
 
@@ -48,6 +48,12 @@ missing, mismatched, animated, or oversized images fail closed and never turn
 into placeholders. Charts are native DrawingML chart objects with bounded
 literal data caches, not pictures or empty references. The supported chart
 types are bar, column, line, pie, and scatter.
+
+For a custom palette/font system, recipe-driven layout, or template-as-base
+request, read `references/typed-design.md`. Theme and layout tokens are closed
+contracts: unsupported properties fail closed. A local `.pptx` template reuses
+its master/layout/theme graph byte-for-byte and cannot be combined with new
+`deck.theme` tokens or a different slide size.
 
 ## Transactional editing
 
