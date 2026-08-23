@@ -8,13 +8,14 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .chart_validation import validate_chart_packages
 from .deep_graph_validation import validate_part_graph
 from .mapping import map_slides
+from .macro_policy import validate_vba_package
 from .package import OpcPackage
 from .static_layout_validation import audit_static_layout
 
 
-def validate_deep_package(path: Path) -> dict[str, Any]:
+def validate_deep_package(path: Path, *, allow_vba: bool = False) -> dict[str, Any]:
     package = OpcPackage.open(path, allow_dangerous_inventory=True)
-    security = _validate_security_inventory(package)
+    security = _validate_security_inventory(package, allow_vba=allow_vba)
     slides = map_slides(package)
     return {
         "charts": validate_chart_packages(package),
@@ -35,12 +36,17 @@ def validate_deep_package(path: Path) -> dict[str, Any]:
     }
 
 
-def _validate_security_inventory(package: OpcPackage) -> dict[str, Any]:
+def _validate_security_inventory(
+    package: OpcPackage,
+    *,
+    allow_vba: bool,
+) -> dict[str, Any]:
+    vba = validate_vba_package(package, candidate=True) if allow_vba else None
     categories = package.security.get("categories", {})
     disallowed = {
         name: values
         for name, values in categories.items()
-        if name != "ole" and values
+        if name != "ole" and (not allow_vba or name != "vba") and values
     }
     allowed_relationships = {
         (relationship.relationship_part, relationship.relationship_id): relationship.resolved_target
@@ -71,6 +77,11 @@ def _validate_security_inventory(package: OpcPackage) -> dict[str, Any]:
         )
     return {
         "embedded_workbooks": len(allowed_parts),
-        "other_dangerous_categories": [],
-        "policy": "read-only-internal-xlsx-chart-workbooks",
+        "other_dangerous_categories": ["vba"] if vba is not None else [],
+        "policy": (
+            "exact-vba-copy-through-and-internal-xlsx-chart-workbooks"
+            if vba is not None
+            else "read-only-internal-xlsx-chart-workbooks"
+        ),
+        "vba": vba,
     }

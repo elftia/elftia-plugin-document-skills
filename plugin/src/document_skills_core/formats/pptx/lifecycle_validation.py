@@ -8,6 +8,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS
 from .mapping import map_slides
+from .macro_policy import open_presentation_package
 from .package import OpcPackage
 
 
@@ -17,9 +18,10 @@ def validate_slide_lifecycle(
     source: Path,
     edits: list[dict[str, Any]],
     operation_result: dict[str, Any],
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
-    source_package = OpcPackage.open(source)
-    candidate = OpcPackage.open(path)
+    source_package = open_presentation_package(source, allow_vba=allow_vba)
+    candidate = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     source_slides = map_slides(source_package)
     candidate_slides = map_slides(candidate)
     failures: list[str] = []

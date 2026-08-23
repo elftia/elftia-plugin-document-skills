@@ -77,6 +77,8 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     expected_input_suffixes = {
         "pptx.create.from-html": {".htm", ".html"},
         "pptx.create.from-markdown": {".markdown", ".md"},
+        "pptx.edit": {".pptm", ".pptx"},
+        "pptx.inspect.structure": {".pptm", ".pptx"},
     }.get(operation, {".pptx"})
     if input_path is not None and input_path.suffix.casefold() not in expected_input_suffixes:
         expected = ", ".join(sorted(expected_input_suffixes))
@@ -85,7 +87,11 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.convert.pdf": ".pdf",
         "pptx.outline.create": ".json",
         "pptx.render": ".zip",
-    }.get(operation, ".pptx")
+    }.get(
+        operation,
+        ".pptm" if operation == "pptx.edit" and input_path is not None
+        and input_path.suffix.casefold() == ".pptm" else ".pptx",
+    )
     if (
         output_path is not None
         and output_path.suffix.casefold() != expected_output_suffix
@@ -117,6 +123,13 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-markdown": parse_markdown_arguments,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
+    if operation == "pptx.edit":
+        assert input_path is not None
+        macro_enabled = input_path.suffix.casefold() == ".pptm"
+        if macro_enabled and parsed["keep_vba"] is not True:
+            _invalid("PPTM editing requires explicit arguments.keep_vba: true.", field="keep_vba")
+        if not macro_enabled and parsed["keep_vba"] is True:
+            _invalid("keep_vba is accepted only for .pptm input and output.", field="keep_vba")
     if (
         operation in {"pptx.create", "pptx.create.from-markdown"}
         and parsed.get("template") is not None
@@ -182,7 +195,7 @@ def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"edits", "expected_edits"})
+    _exact_keys(value, {"edits", "expected_edits", "keep_vba"})
     edits = value.get("edits")
     if type(edits) is not list or not edits or len(edits) > MAX_EDIT_OPS:
         _invalid("edits must be a non-empty bounded array.", field="edits")
@@ -194,7 +207,11 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)
-    return {"edits": parsed_edits, "expected_edits": expected}
+    return {
+        "edits": parsed_edits,
+        "expected_edits": expected,
+        "keep_vba": _boolean(value.get("keep_vba", False), "keep_vba"),
+    }
 
 
 def parse_deck(deck: dict[str, Any]) -> dict[str, Any]:

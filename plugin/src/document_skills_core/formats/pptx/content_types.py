@@ -51,6 +51,7 @@ def validate_package_content_types(
     if not (
         main_type.endswith("presentationml.presentation.main+xml")
         or main_type.endswith("presentationml.template.main+xml")
+        or main_type == "application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml"
     ):
         _unsafe("Presentation main document has an invalid content type.", content_type=main_type)
 

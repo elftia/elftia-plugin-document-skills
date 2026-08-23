@@ -5,7 +5,8 @@ description: Plan, read, inspect, create, edit, render, convert, and validate PP
 
 # PPTX presentations
 
-Use this Skill for `.pptx` requests. The Core implementation reads, inspects,
+Use this Skill for `.pptx` presentations, `.potx` template bases, and explicit
+`.pptm` keep-VBA edits. The Core implementation reads, inspects,
 creates, edits, and performs mandatory package validation through direct OOXML.
 It does not depend on python-pptx or PptxGenJS. LibreOffice rendering and
 .NET/OpenXML schema validation are optional, capability-gated enhancements.
@@ -32,7 +33,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
-| `pptx.edit` | yes (distinct output) | Transactional slide CRUD/copy/reorder plus native shape/text/image/table/chart/notes/link/action edits |
+| `pptx.edit` | yes (distinct output) | Transactional slide/object edits plus explicit inert `.pptm` keep-VBA copy-through |
 
 ## HTML deck conversion
 
@@ -135,10 +136,11 @@ provider is absent, but becomes a required promotion gate when it is callable.
   identical payload SHA-256. Unknown safe parts, custom XML, media, charts,
   tables, slide masters, slide layouts, themes, notes masters, and notes slides
   are preserved.
-- **Fail closed:** Malicious ZIP/XML, active content (VBA, DDE, remote
-  templates, executable relationships), and external targets are rejected under
-  the normal policy. Use `pptx.inspect.structure` for inert inventory of
-  suspicious packages.
+- **Fail closed:** Malicious ZIP/XML, DDE, remote templates, executable
+  relationships, and external targets are rejected. VBA is rejected by default;
+  the sole mutation exception is the explicit `.pptm` keep-VBA policy in
+  `references/typed-edit.md`. Use `pptx.inspect.structure` for inert inventory
+  of suspicious `.pptx` or `.pptm` packages.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
   becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
   required visual gate only after every slide PNG and the full-deck PDF reopen

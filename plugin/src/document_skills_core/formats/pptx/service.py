@@ -18,12 +18,9 @@ from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedPptxRequest, parse_deck, parse_pptx_request
 from .create import create_pptx
-from .edit import edit_pptx
+from .edit_service import execute_pptx_edit
 from .inspect import inspect_pptx
-from .lifecycle_validation import validate_slide_lifecycle
 from .markdown import parse_markdown_deck
-from .object_contracts import OBJECT_EDIT_TYPES
-from .object_validation import validate_object_edits
 from .outline import outline_validation, write_outline
 from .read import read_pptx
 from .html_capture import HtmlDeckCapture
@@ -32,7 +29,7 @@ from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
 from .schema_validation import validate_schema_gate, with_schema_gate
 from .transaction import promote_candidate, write_candidate_result
-from .validation import validate_created, validate_mutation, validate_reorder, validate_scene_created
+from .validation import validate_created, validate_scene_created
 from .visual_validation import validate_scene_visuals, with_visual_gate
 
 
@@ -84,7 +81,7 @@ class PptxService:
             return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
-        return self._edit(parsed)
+        return execute_pptx_edit(parsed, self.schemas, self.dotnet)
 
     def _read(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -221,103 +218,6 @@ class PptxService:
                 )
         except Exception as error:
             merge_source_preservation_failure(error, source.path, source.sha256)
-            raise
-
-    def _edit(self, request: ParsedPptxRequest) -> dict[str, Any]:
-        assert request.input_path is not None
-        assert request.output_path is not None
-        assert_distinct_paths(
-            request.input_path,
-            request.output_path,
-            in_place=False,
-        )
-        source_record = file_record(request.input_path, "input")
-        destination = destination_snapshot(request.output_path)
-        try:
-            with OperationTempRoot() as private_root:
-                staged = private_root / "edited.pptx"
-                operation_result, manifest = edit_pptx(
-                    request.input_path, staged, request.arguments
-                )
-                only_reorder = all(
-                    edit["type"] == "slide_reorder"
-                    for edit in request.arguments["edits"]
-                )
-                lifecycle_types = {
-                    "slide_add",
-                    "slide_copy",
-                    "slide_delete",
-                    "slide_duplicate",
-                }
-                has_lifecycle = any(
-                    edit["type"] in lifecycle_types
-                    for edit in request.arguments["edits"]
-                )
-                has_objects = any(
-                    edit["type"] in OBJECT_EDIT_TYPES
-                    for edit in request.arguments["edits"]
-                )
-                assertion = None
-                if only_reorder:
-                    def assertion(_candidate: Path) -> dict[str, Any]:
-                        return validate_reorder(staged, source=request.input_path)
-                if not only_reorder and (has_lifecycle or has_objects):
-                    def assertion(_candidate: Path) -> dict[str, Any]:
-                        evidence: dict[str, Any] = {}
-                        if has_lifecycle:
-                            evidence["slide_lifecycle"] = validate_slide_lifecycle(
-                                staged,
-                                source=request.input_path,
-                                edits=request.arguments["edits"],
-                                operation_result=operation_result,
-                            )
-                        if has_objects:
-                            evidence["object_edits"] = validate_object_edits(
-                                staged,
-                                edits=request.arguments["edits"],
-                                operation_result=operation_result,
-                            )
-                        return evidence
-                validation = validate_mutation(
-                    staged,
-                    source=request.input_path,
-                    source_sha256=source_record.sha256,
-                    manifest=manifest,
-                    assertion=assertion,
-                    allow_removals=any(
-                        edit["type"] in {
-                            "chart_delete",
-                            "image_delete",
-                            "image_replace",
-                            "slide_delete",
-                        }
-                        for edit in request.arguments["edits"]
-                    ),
-                )
-                validation = with_schema_gate(
-                    validation,
-                    validate_schema_gate(staged, self.dotnet),
-                )
-                result = write_candidate_result(
-                    self.schemas,
-                    request,
-                    staged,
-                    validation,
-                    operation_result,
-                    warnings=[],
-                    source=source_record,
-                )
-                return promote_candidate(
-                    request,
-                    staged,
-                    result,
-                    source=source_record,
-                    destination=destination,
-                )
-        except Exception as error:
-            merge_source_preservation_failure(
-                error, source_record.path, source_record.sha256
-            )
             raise
 
     def _create_from_html(self, request: ParsedPptxRequest) -> dict[str, Any]:

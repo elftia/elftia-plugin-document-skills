@@ -10,6 +10,11 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .constants import NS, local_name
 from .image import MAX_TOTAL_IMAGE_BYTES
 from .mapping import map_slides
+from .macro_policy import (
+    open_presentation_package,
+    validate_vba_copy_through,
+    validate_vba_package,
+)
 from .mutation import MutablePptxPackage
 from .object_contracts import OBJECT_EDIT_TYPES
 from .object_edit import apply_object_edit
@@ -34,7 +39,9 @@ def edit_pptx(
 
     Returns (operation_result, manifest).
     """
-    package = OpcPackage.open(source)
+    keep_vba = arguments.get("keep_vba", False) is True
+    package = open_presentation_package(source, allow_vba=keep_vba)
+    vba_source = validate_vba_package(package, candidate=False) if keep_vba else None
     edits = arguments.get("edits", [])
     _validate_preconditions(package, edits)
     target = MutablePptxPackage(package)
@@ -140,6 +147,12 @@ def edit_pptx(
         operation_result["slide_lifecycle"] = lifecycle_evidence
     if object_evidence:
         operation_result["object_edits"] = object_evidence
+    if vba_source is not None:
+        operation_result["macro_copy_through"] = validate_vba_copy_through(
+            package,
+            Path(destination),
+            vba_source,
+        )
     return operation_result, manifest
 
 

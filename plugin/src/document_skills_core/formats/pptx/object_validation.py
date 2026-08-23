@@ -16,6 +16,7 @@ from .object_xml import (
     select_object,
     slide_shape_tree,
 )
+from .macro_policy import open_presentation_package
 from .package import OpcPackage
 
 
@@ -24,8 +25,9 @@ def validate_object_edits(
     *,
     edits: list[dict[str, Any]],
     operation_result: dict[str, Any],
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
-    candidate = OpcPackage.open(path)
+    candidate = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     evidence_items = operation_result.get("object_edits", [])
     object_edits = [edit for edit in edits if edit["type"] in OBJECT_EDIT_TYPES]
     failures: list[str] = []

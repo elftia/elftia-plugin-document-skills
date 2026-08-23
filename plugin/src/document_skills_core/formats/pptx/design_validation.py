@@ -18,6 +18,13 @@ def assert_typed_design(
     creation: dict[str, Any] | None,
 ) -> dict[str, Any]:
     package = OpcPackage.open(path)
+    if creation is None:
+        return {
+            "contract_requested": False,
+            "layout_count": len(package.slide_layout_parts()),
+            "template_graph_reused": False,
+            "theme_parts": len(package.theme_parts()),
+        }
     creation = creation or {}
     template = creation.get("template_reuse")
     if template is not None:

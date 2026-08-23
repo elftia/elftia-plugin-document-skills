@@ -1,9 +1,40 @@
 # Transactional PPTX editing
 
 `pptx.edit` accepts a non-empty bounded `edits` array and always writes a
-distinct `.pptx` output. The entire array commits once: a bad selector,
+distinct output. Ordinary `.pptx` input requires `.pptx` output. A `.pptm`
+input requires `.pptm` output plus explicit `arguments.keep_vba: true`. The
+entire array commits once: a bad selector,
 precondition, local asset, relationship, or semantic validation result produces
 no partial output.
+
+## Inert PPTM keep-VBA policy
+
+Keep-VBA never executes, parses, edits, or resigns macro code. It admits only a
+macro-enabled presentation with one internal presentation-to-`vbaProject.bin`
+relationship, the correct macro/VBA content types, and no ActiveX, OLE,
+external target, DDE, executable, attached-template, or other dangerous graph.
+Internal `.xlsx` chart workbooks remain allowed as data packages.
+
+```json
+{
+  "operation": "pptx.edit",
+  "input": "deck.pptm",
+  "output": "deck-edited.pptm",
+  "arguments": {
+    "keep_vba": true,
+    "edits": [
+      {"type": "slide_text", "slide": 1, "ref": "", "value": "Updated"}
+    ]
+  }
+}
+```
+
+The source and candidate VBA bytes must have the same SHA-256. The result
+records part, content type, internal relationship, byte count, source/output
+hash, and `copy_through: "exact-bytes"` under
+`diagnostics.operation_result.macro_copy_through`. Digitally signed packages
+are rejected with `signature_invalidation_required: true`; signatures are
+never silently copied after content changes.
 
 ## Stable selectors and preconditions
 
@@ -94,8 +125,9 @@ Example:
   primitive in this contract.
 - Group-child selection is not advertised; selectors address top-level slide
   objects.
-- External hyperlinks/actions, scripts, macros, OLE activation, and raw OOXML
-  injection are not accepted.
+- External hyperlinks/actions, scripts, macro creation/editing/execution, OLE
+  activation, and raw OOXML injection are not accepted. The keep-VBA exception
+  preserves only an already-present validated VBA project byte-for-byte.
 
 Successful output reports `slide_lifecycle` and/or `object_edits` evidence under
 `diagnostics.operation_result`, including copied dependency mappings, added and
