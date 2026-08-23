@@ -2,14 +2,12 @@
 
 from pathlib import Path
 from typing import Any
-from xml.etree.ElementTree import tostring
-
 from document_skills_core.core.contracts.models import gate_record
 
-from .constants import NS
-from .package import OpcPackage, write_deterministic_zip
+from .package import OpcPackage
 from .png_compare import compare_png, visual_thresholds
 from .scene_normalizer import NormalizedScene
+from .slide_render import write_single_slide_candidate
 
 
 def validate_scene_visuals(
@@ -50,7 +48,11 @@ def validate_scene_visuals(
     try:
         for source in scene.visual_sources:
             slide = source["slide"]
-            rendered_candidate = _single_slide_candidate(package, slide, visual_root)
+            rendered_candidate = write_single_slide_candidate(
+                package,
+                slide,
+                visual_root / f"slide-{slide}.pptx",
+            )
             rendered = render_to_image(rendered_candidate)
             if type(rendered) is not bytes or not rendered:
                 return _visual_gate(
@@ -91,26 +93,6 @@ def with_visual_gate(
         for gate in validation["gates"]
     ]
     return {**validation, "gates": gates}
-
-
-def _single_slide_candidate(package: OpcPackage, slide: int, visual_root: Path) -> Path:
-    presentation = package.xml("ppt/presentation.xml")
-    slide_list = presentation.find(f"{{{NS['p']}}}sldIdLst")
-    if slide_list is None or not 1 <= slide <= len(slide_list):
-        raise ValueError("PPTX slide list does not match visual-source evidence.")
-    selected = list(slide_list)[slide - 1]
-    for child in list(slide_list):
-        if child is not selected:
-            slide_list.remove(child)
-    parts = dict(package.parts)
-    parts["ppt/presentation.xml"] = tostring(
-        presentation,
-        encoding="UTF-8",
-        xml_declaration=True,
-    )
-    output = visual_root / f"slide-{slide}.pptx"
-    write_deterministic_zip(output, parts)
-    return output
 
 
 def _detection_evidence(provider: Any) -> Any:

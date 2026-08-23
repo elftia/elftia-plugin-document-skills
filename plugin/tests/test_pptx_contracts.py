@@ -16,6 +16,8 @@ def test_pptx_operations_preserve_existing_surface_and_add_validators():
         {
             "pptx.read",
             "pptx.inspect.structure",
+            "pptx.render",
+            "pptx.convert.pdf",
             "pptx.validate.schema",
             "pptx.create",
             "pptx.edit",
@@ -38,6 +40,58 @@ def test_parse_schema_validation_is_read_only_and_bounded(tmp_path: Path):
             "operation": "pptx.validate.schema",
             "input": str(tmp_path / "deck.pptx"),
             "output": str(tmp_path / "report.pptx"),
+            "arguments": {},
+        })
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_name"),
+    [
+        ("pptx.convert.pdf", "deck.pdf"),
+        ("pptx.render", "deck-render.zip"),
+    ],
+)
+def test_parse_libreoffice_outputs_are_distinct_and_bounded(
+    tmp_path: Path,
+    operation: str,
+    output_name: str,
+):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": operation,
+        "input": str(tmp_path / "deck.pptx"),
+        "output": str(tmp_path / output_name),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / output_name),
+            "arguments": {"unknown": True},
+        })
+
+
+@pytest.mark.parametrize(
+    ("operation", "bad_output"),
+    [
+        ("pptx.convert.pdf", "deck.pptx"),
+        ("pptx.render", "deck.pdf"),
+    ],
+)
+def test_parse_libreoffice_outputs_reject_wrong_extension(
+    tmp_path: Path,
+    operation: str,
+    bad_output: str,
+):
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / bad_output),
             "arguments": {},
         })
 

@@ -159,6 +159,15 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
     assert report["validation"]["schema"] == (
         "available" if schema["available"] else "unavailable"
     )
+    for operation in ("pptx.convert.pdf", "pptx.render"):
+        item = operations[operation]
+        assert item["providers"] in ([], ["libreoffice"])
+        assert item["fidelity"] == ("enhanced" if item["available"] else "none")
+    libreoffice_available = operations["pptx.render"]["available"]
+    assert operations["pptx.convert.pdf"]["available"] is libreoffice_available
+    assert report["validation"]["visual"] == (
+        "available" if libreoffice_available else "unavailable"
+    )
 
 
 def test_public_doctor_succeeds(project_root: Path) -> None:
@@ -291,6 +300,47 @@ def test_public_schema_validation_is_honestly_provider_gated(
         assert result["validation"]["gates"][0]["outcome"] == "pass"
     else:
         assert result["status"] == "unavailable"
+
+
+def test_public_libreoffice_outputs_are_honestly_provider_gated(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    capabilities = _public(project_root, "capabilities", "--json")
+    operations = {
+        item["operation"]: item
+        for item in capabilities["operations"]
+    }
+    source_hash = sha256(public_created.read_bytes()).hexdigest()
+    cases = [
+        ("pptx.convert.pdf", tmp_path / "public-converted.pdf"),
+        ("pptx.render", tmp_path / "public-render.zip"),
+    ]
+    for operation, output in cases:
+        request = _request(tmp_path, f"{output.stem}.json", {
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {},
+            "options": {"fidelity": "enhanced"},
+        })
+        result = _public(
+            project_root,
+            "run",
+            "--request",
+            str(request),
+            check=False,
+        )
+        assert sha256(public_created.read_bytes()).hexdigest() == source_hash
+        if operations[operation]["available"]:
+            assert result["status"] == "success", result
+            assert result["provider_chain"] == ["libreoffice"]
+            assert output.is_file()
+        else:
+            assert result["status"] == "unavailable"
+            assert not output.exists()
 
 
 def test_public_unknown_operation_rejected(project_root: Path, tmp_path: Path) -> None:

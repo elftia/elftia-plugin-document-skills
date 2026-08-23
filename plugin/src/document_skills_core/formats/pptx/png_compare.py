@@ -81,6 +81,11 @@ def compare_png(source: bytes, rendered: bytes) -> dict[str, object]:
     }
 
 
+def inspect_png(payload: bytes) -> dict[str, int]:
+    width, height, _rgba = _decode_png(payload)
+    return {"height": height, "width": width}
+
+
 def visual_thresholds() -> dict[str, object]:
     return {
         "mean_absolute_error_max": MEAN_ABSOLUTE_ERROR_MAX,

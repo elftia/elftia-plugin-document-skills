@@ -26,6 +26,10 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
+_LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
+_LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
+_LIBREOFFICE_RENDER_OPERATION = "pptx.render"
+_LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
 _PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
 _SCHEMA_OPERATION = "pptx.validate.schema"
 _SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
@@ -197,6 +201,22 @@ class PublicCommandSupervisor:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
             if type(value) is dict and value.get("operation") == _SCHEMA_OPERATION:
                 return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") == _LIBREOFFICE_CONVERT_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if (
+                type(value) is dict
+                and value.get("operation") == _LIBREOFFICE_RENDER_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_RENDER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES

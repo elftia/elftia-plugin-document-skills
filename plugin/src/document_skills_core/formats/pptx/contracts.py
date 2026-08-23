@@ -17,6 +17,8 @@ PPTX_OPERATIONS = frozenset(
     {
         "pptx.read",
         "pptx.inspect.structure",
+        "pptx.render",
+        "pptx.convert.pdf",
         "pptx.validate.schema",
         "pptx.create",
         "pptx.create.from-html",
@@ -59,6 +61,9 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     elif operation == "pptx.create.from-html":
         if input_path is None or output_path is None:
             _invalid("HTML conversion requires input and output paths.")
+    elif operation in {"pptx.convert.pdf", "pptx.render"}:
+        if input_path is None or output_path is None:
+            _invalid("LibreOffice PPTX output requires input and output paths.")
     elif input_path is None or output_path is None:
         _invalid("PPTX mutation requires distinct input and output paths.")
     if (
@@ -73,14 +78,25 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         and input_path.suffix.casefold() != ".pptx"
     ):
         _invalid("PPTX input path must use the .pptx extension.", field="input")
-    if output_path is not None and output_path.suffix.casefold() != ".pptx":
-        _invalid("PPTX output path must use the .pptx extension.", field="output")
-    if operation == "pptx.edit":
+    expected_output_suffix = {
+        "pptx.convert.pdf": ".pdf",
+        "pptx.render": ".zip",
+    }.get(operation, ".pptx")
+    if (
+        output_path is not None
+        and output_path.suffix.casefold() != expected_output_suffix
+    ):
+        _invalid(
+            f"{operation} output must use the {expected_output_suffix} extension.",
+            field="output",
+        )
+    if operation in {"pptx.convert.pdf", "pptx.edit", "pptx.render"}:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
                 ErrorCode.OUTPUT_EQUALS_INPUT,
-                "Core PPTX mutations require a distinct output and do not support in-place mode.",
+                "PPTX output operations require a distinct output and do not "
+                "support in-place mode.",
                 status="invalid_request",
             )
     elif in_place:
@@ -88,6 +104,8 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     parsed = {
         "pptx.read": _parse_read,
         "pptx.inspect.structure": _parse_inspect,
+        "pptx.render": _parse_provider_output,
+        "pptx.convert.pdf": _parse_provider_output,
         "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
@@ -131,6 +149,11 @@ def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_schema_validation(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, set())
+    return {}
+
+
+def _parse_provider_output(value: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(value, set())
     return {}
 

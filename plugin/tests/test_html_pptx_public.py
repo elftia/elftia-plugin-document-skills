@@ -87,6 +87,16 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     normal_request.write_text(json.dumps({"operation": "pptx.read"}), encoding="utf-8")
     schema_request = tmp_path / "schema.json"
     schema_request.write_text(json.dumps({"operation": "pptx.validate.schema"}), encoding="utf-8")
+    convert_request = tmp_path / "convert.json"
+    convert_request.write_text(
+        json.dumps({"operation": "pptx.convert.pdf"}),
+        encoding="utf-8",
+    )
+    render_request = tmp_path / "render.json"
+    render_request.write_text(
+        json.dumps({"operation": "pptx.render"}),
+        encoding="utf-8",
+    )
     supervisor = PublicCommandSupervisor(project_root, timeout_seconds=8.0)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(html_request))),
@@ -96,6 +106,14 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
         PublicCommand("run", ("run", "--request", str(schema_request))),
         tmp_path,
     ) == (45.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(convert_request))),
+        tmp_path,
+    ) == (60.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(render_request))),
+        tmp_path,
+    ) == (150.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(normal_request))),
         tmp_path,

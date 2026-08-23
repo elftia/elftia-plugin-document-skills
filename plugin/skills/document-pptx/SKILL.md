@@ -1,6 +1,6 @@
 ---
 name: document-pptx
-description: Read, inspect, create, edit, and validate PPTX presentations through the bundled document core.
+description: Read, inspect, create, edit, render, convert, and validate PPTX presentations through the bundled document core.
 ---
 
 # PPTX presentations
@@ -25,6 +25,8 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 |---|---|---|
 | `pptx.read` | no | Structured slide/shape/text-frame/table/chart/media/notes/layout projection |
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
+| `pptx.render` | yes (distinct `.zip` output) | LibreOffice-gated full-deck PDF plus one PNG per slide and a hash manifest |
+| `pptx.convert.pdf` | yes (distinct `.pdf` output) | LibreOffice-gated PDF conversion with source-slide/output-page correspondence |
 | `pptx.validate.schema` | no | Provider-gated OpenXML SDK schema report for an existing `.pptx` |
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx` template reuse |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
@@ -41,6 +43,14 @@ state that no PPTX was created.
 The fixed-canvas/local-asset contract, exact request, safe fallback policy, and
 diagnostic interpretation are in
 `references/html-to-editable-pptx.md`.
+
+## LibreOffice rendering and PDF conversion
+
+Probe capabilities before promising `pptx.render` or `pptx.convert.pdf`; both
+are exposed only when the `libreoffice` provider is callable. Read
+`references/rendering.md` for their exact requests, bounded output formats, and
+validation evidence. Provider absence returns `unavailable` and never creates
+the requested output.
 
 ## Typed deck creation
 
@@ -120,7 +130,9 @@ provider is absent, but becomes a required promotion gate when it is callable.
   the normal policy. Use `pptx.inspect.structure` for inert inventory of
   suspicious packages.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
-  becomes `pass` from structural or DOM evidence alone.
+  becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
+  required visual gate only after every slide PNG and the full-deck PDF reopen
+  from the published evidence bundle.
 - **Schema validation:** It reports `unavailable` without .NET/OpenXML. A
   callable provider must actually validate the candidate; provider failure or
   schema errors block promotion.

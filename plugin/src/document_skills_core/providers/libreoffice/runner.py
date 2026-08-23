@@ -80,14 +80,18 @@ class LibreOfficeRunner:
             )
         if timeout_seconds is None:
             timeout_seconds = _timeout_for_format(target_format)
+        resolved_output = output_dir.resolve()
+        profile_dir = resolved_output / ".libreoffice-profile"
+        profile_dir.mkdir(mode=0o700, exist_ok=True)
         argv = _build_argv(
+            f"-env:UserInstallation={profile_dir.as_uri()}",
             "--convert-to",
             target_format,
             "--outdir",
-            str(output_dir.resolve()),
+            str(resolved_output),
             str(input_path.resolve()),
         )
-        self._runner.run(
+        result = self._runner.run(
             "libreoffice",
             self._executable,
             argv,
@@ -95,7 +99,13 @@ class LibreOfficeRunner:
             timeout_seconds=timeout_seconds,
             output_limit=OUTPUT_LIMIT,
         )
-        expected = output_dir.resolve() / (input_path.stem + "." + target_format)
+        if result.returncode != 0:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "LibreOffice conversion exited non-zero.",
+                details={"returncode": result.returncode},
+            )
+        expected = resolved_output / (input_path.stem + "." + target_format)
         if not expected.is_file():
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
