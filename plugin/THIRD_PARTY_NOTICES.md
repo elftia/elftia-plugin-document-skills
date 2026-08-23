@@ -10,6 +10,18 @@ The foundation runtime uses the following locked Python packages:
 - `rpds-py` — MIT.
 - `typing-extensions` (when selected by the Python environment marker) — PSF-2.0.
 
+The PDF encryption, decryption, and lossless-compression provider uses this exact locked
+production graph:
+
+- `pypdf` 6.16.2 — BSD-3-Clause.
+- `cryptography` 50.0.0 — Apache-2.0 OR BSD-3-Clause.
+- `cffi` 2.1.1 — MIT-0.
+- `pycparser` 3.0 — BSD-3-Clause.
+
+These packages run only behind the public supervisor and isolated worker. Passwords remain
+in private request/result files and process memory; they are never passed through command-line
+arguments or provider diagnostics.
+
 The release audit uses the locked Node package `acorn` 8.15.0 (MIT) to parse provider runtime
 ECMAScript. It is not an agent-visible command or a document provider.
 
@@ -41,5 +53,5 @@ none of these packages is distributed or imported by production runtime sources:
   `Pygments` 2.20.0 — BSD-2-Clause.
 
 Development-only dependencies are not distributed as production runtime components. Adopted
-source is not present in this release; later additions must update this file and
+Adopted source is not present in this release; later additions must update this file and
 `provenance/modules.json`.

@@ -280,7 +280,8 @@ def _release_copy(project_root, tmp_path):
 def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     root = _release_copy(project_root, tmp_path)
     bind_test_review(root)
-    assert run_audits(root)["status"] == "pass"
+    report = run_audits(root)
+    assert report["status"] == "pass", report["errors"]
 
 
 @pytest.mark.parametrize(

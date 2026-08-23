@@ -49,7 +49,7 @@ def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
     assert detectors.detect_node_provider().available is True
 
 
-def test_optional_descriptors_never_create_callable_operations(project_root):
+def test_provider_descriptors_bind_only_accepted_operations(project_root):
     registry = build_default_registry(project_root)
     assert {
         "core-python",
@@ -57,6 +57,9 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "libreoffice",
         "dotnet-openxml",
         "html-browser",
+        "pypdf",
+        "poppler",
+        "tesseract-ocr",
     } == set(registry.providers)
     # Existing public format-prefix operations remain unbound to optional providers.
     public_operations = {
@@ -67,9 +70,11 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "docx.template.apply",
         "pdf.create",
         "pdf.edit",
+        "pdf.images.extract",
         "pdf.inspect.structure",
         "pdf.read",
         "pdf.rewrite.apply",
+        "pdf.table.extract",
         "pptx.create",
         "pptx.edit",
         "pptx.inspect.structure",
@@ -88,6 +93,17 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         ), f"public operation {operation} is bound to an optional provider"
     html_bindings = registry.operations["pptx.create.from-html"]
     assert [str(binding.provider_id) for binding in html_bindings] == ["html-browser"]
+    expected_pdf_provider_bindings = {
+        "pdf.compress": ["pypdf"],
+        "pdf.decrypt": ["pypdf"],
+        "pdf.encrypt": ["pypdf"],
+        "pdf.ocr": ["tesseract-ocr"],
+        "pdf.render": ["poppler"],
+    }
+    assert {
+        operation: [str(binding.provider_id) for binding in registry.operations[operation]]
+        for operation in expected_pdf_provider_bindings
+    } == expected_pdf_provider_bindings
     # The libreoffice provider's internal operations use the libreoffice.* prefix
     # and are consulted enhancement identifiers, NOT public operation routes.
     libreoffice_ops = {

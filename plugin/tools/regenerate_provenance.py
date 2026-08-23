@@ -24,6 +24,10 @@ DOCX_CONSUMER_GATES_REQUIREMENT = (
     "Rasen document-skills-core-docx + "
     "document-skills-consumer-gates-and-truthful-contracts"
 )
+PDF_COMPLETION_REQUIREMENT = (
+    "Elftia docs/research/document-skills/tasks/pdf-completion-task.md "
+    "(2026-08-24)"
+)
 
 
 def regenerate(
@@ -95,6 +99,14 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx_" in artifact.path
         or "docx-" in artifact.path
     )
+    is_pdf = (
+        "/pdf/" in artifact.path
+        or "/pypdf/" in artifact.path
+        or "/pdf_tools/" in artifact.path
+        or "document-pdf" in artifact.path
+        or "pdf_" in artifact.path
+        or "pdf-" in artifact.path
+    )
     tests = html_profile[1] if html_profile else (
         ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
         if is_docx_consumer_gate
@@ -111,6 +123,13 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             "tests/test_supply_chain.py",
         ]
         if is_docx
+        else [
+            "tests/test_pdf_contracts.py",
+            "tests/test_pdf_operations.py",
+            "tests/test_pdf_public.py",
+            "tests/test_supply_chain.py",
+        ]
+        if is_pdf
         else
         [
             "tests/test_strategy2.py",
@@ -139,6 +158,8 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             if is_consumer_gate
             else "Rasen document-skills-core-docx"
             if is_docx
+            else PDF_COMPLETION_REQUIREMENT
+            if is_pdf
             else "Rasen document-skills-foundation strategy-attempt-3"
         ),
         "implementation_source": "Original Elftia project code",
@@ -166,6 +187,12 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 "validation, Skill guidance, tests, or release evidence."
             )
             if is_docx
+            else (
+                "PDF completion contracts, Core/provider implementations, atomic "
+                "validation, truthful capability reporting, Skill guidance, tests, "
+                "or release evidence."
+            )
+            if is_pdf
             else (
                 "Strategy-attempt-3 semantic loader/reflection, command discovery, "
                 "portable release inventory, tests, or release evidence."
