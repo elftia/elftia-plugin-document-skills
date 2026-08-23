@@ -1,4 +1,4 @@
-"""Strict bounded argument contracts for the four Core XLSX operations."""
+"""Strict bounded argument contracts for Core XLSX operations."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,6 +31,7 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.inspect.structure",
         "xlsx.create",
         "xlsx.edit",
+        "xlsx.recalculate",
     }
 )
 
@@ -110,7 +111,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         _invalid("XLSX input path must use the .xlsx extension.", field="input")
     if output_path is not None and output_path.suffix.casefold() != ".xlsx":
         _invalid("XLSX output path must use the .xlsx extension.", field="output")
-    if operation in {"xlsx.edit"}:
+    if operation in {"xlsx.edit", "xlsx.recalculate"}:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -125,6 +126,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.inspect.structure": _parse_inspect,
         "xlsx.create": _parse_create,
         "xlsx.edit": _parse_edit,
+        "xlsx.recalculate": _parse_recalculate,
     }[operation](arguments)
     return ParsedXlsxRequest(operation, input_path, output_path, parsed, fidelity)
 
@@ -153,16 +155,19 @@ def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"workbook"})
+    _exact_keys(value, {"workbook", "recalculation"})
     workbook = value.get("workbook")
     if type(workbook) is not dict:
         _invalid("create requires a workbook object.", field="workbook")
     wb = _parse_workbook(workbook)
-    return {"workbook": wb}
+    return {
+        "workbook": wb,
+        "recalculation": _recalculation_policy(value.get("recalculation")),
+    }
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"edits", "expected_edits"})
+    _exact_keys(value, {"edits", "expected_edits", "recalculation"})
     edits = value.get("edits")
     if type(edits) is not list or not edits or len(edits) > MAX_EDIT_OPS:
         _invalid("edits must be a non-empty bounded array.", field="edits")
@@ -560,7 +565,26 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)
-    return {"edits": parsed_edits, "expected_edits": expected}
+    return {
+        "edits": parsed_edits,
+        "expected_edits": expected,
+        "recalculation": _recalculation_policy(value.get("recalculation")),
+    }
+
+
+def _parse_recalculate(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, set())
+    return {}
+
+
+def _recalculation_policy(value: Any) -> str:
+    policy = "auto" if value is None else value
+    if policy not in {"auto", "required", "skip"}:
+        _invalid(
+            "recalculation must be auto, required, or skip.",
+            field="recalculation",
+        )
+    return policy
 
 
 def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:

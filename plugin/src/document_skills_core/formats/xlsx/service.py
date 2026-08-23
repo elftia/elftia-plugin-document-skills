@@ -1,4 +1,4 @@
-"""Four-operation XLSX dispatch and shared transactional mutation."""
+"""XLSX dispatch and shared transactional mutation."""
 
 from pathlib import Path
 from typing import Any, Callable
@@ -19,17 +19,26 @@ from .contracts import ParsedXlsxRequest, parse_xlsx_request
 from .create import create_xlsx
 from .edit import edit_xlsx
 from .formula_state import (
-    assert_invariant,
-    build_formula_cell_state,
     build_formula_state_summary,
-    derive_read_state,
     should_downgrade,
 )
 from .inspect import inspect_xlsx
 from .read import read_xlsx
-from .results import read_validation, success_result, with_formula_gate
+from .recalculation import compare_final_preservation
+from .recalculation_operation import execute_recalculation
+from .recalculation_service import RecalculationOutcome, recalculate_candidate
+from .results import (
+    read_validation,
+    success_result,
+    with_formula_gate,
+    with_recalculation_gate,
+)
 from .transaction import promote_candidate, write_candidate_result
-from .validation import assert_edits_applied, validate_created, validate_mutation
+from .validation import (
+    assert_edits_applied,
+    validate_created,
+    validate_mutation,
+)
 
 
 class XlsxService:
@@ -66,74 +75,70 @@ class XlsxService:
             return self._inspect(parsed)
         if operation == "xlsx.create":
             return self._create(parsed)
-        return self._edit(parsed)
+        if operation == "xlsx.edit":
+            return self._edit(parsed)
+        return execute_recalculation(
+            parsed,
+            schemas=self.schemas,
+            libreoffice=self.libreoffice,
+        )
 
     def _read(self, request: ParsedXlsxRequest) -> dict[str, Any]:
         assert request.input_path is not None
         source = file_record(request.input_path, "input")
         operation_result, warnings = read_xlsx(request.input_path, request.arguments)
         assert_source_preserved(source.path, source.sha256)
-        # Consult LibreOffice for recalculation
-        recalculation_provider, formula_cells = self._try_recalc(
-            request.input_path,
-            operation_result.get("formula_state", {}).get("cells", {}),
-        )
-        if recalculation_provider is not None:
-            operation_result["formula_state"]["cells"] = formula_cells
+        if request.arguments["include_formulas"]:
+            with OperationTempRoot() as private_root:
+                outcome = recalculate_candidate(
+                    request.input_path,
+                    private_root,
+                    libreoffice=self.libreoffice,
+                    policy="auto",
+                    formula_cells=operation_result.get("formula_state", {}).get(
+                        "cells", {}
+                    ),
+                )
+        else:
+            outcome = RecalculationOutcome(
+                request.input_path,
+                {},
+                None,
+                {
+                    "outcome": "not_run",
+                    "policy": "auto",
+                    "reason": "request-excluded-formulas",
+                    "formula_cells": 0,
+                },
+                [],
+            )
+        formula_cells = outcome.formula_cells
+        recalculation_provider = _recalculation_provider(outcome)
+        operation_result["formula_state"]["cells"] = formula_cells
         formula_summary = build_formula_state_summary(
             formula_cells,
             recalculation_provider=recalculation_provider,
         )
         operation_result["formula_state"]["summary"] = formula_summary
+        operation_result["recalculation"] = outcome.evidence
         degraded = should_downgrade(formula_summary)
-        degradations: list[dict[str, Any]] = []
-        if degraded:
-            degradations.append({
-                "code": "outstanding-formula-recalculation",
-                "semantic_difference": "Formulas require recalculation by an accepted provider.",
-                "missing_capabilities": ["recalculation"],
-                "recommended_providers": ["libreoffice"],
-            })
+        validation = read_validation("operation.structured-read", operation_result)
+        validation = with_recalculation_gate(validation, outcome.evidence)
         return success_result(
             request,
             artifacts=[source.as_dict()],
             operation_result=operation_result,
             warnings=warnings,
-            validation=read_validation("operation.structured-read", operation_result),
+            validation=validation,
             status="degraded" if degraded else "success",
             degraded=degraded,
-            degradations=degradations,
+            degradations=_formula_degradations(
+                degraded,
+                "Formulas require recalculation by an accepted provider.",
+            ),
+            achieved_fidelity="enhanced" if outcome.provider_chain else "core",
+            provider_chain=outcome.provider_chain,
         )
-
-    def _try_recalc(
-        self, input_path: Path, core_cells: dict[str, Any]
-    ) -> tuple[str | None, dict[str, Any]]:
-        """Consult LibreOffice for recalculation. Returns (provider, cells).
-
-        When LibreOffice is absent or fails, returns (None, core_cells) so the
-        Core formula-state logic is byte-identical.
-        """
-        if not core_cells or self.libreoffice is None:
-            return None, core_cells
-        recalculated = self.libreoffice.try_recalc_xlsx(input_path)
-        if recalculated is None:
-            return None, core_cells
-        updated = dict(core_cells)
-        for ref, record in core_cells.items():
-            if ref in recalculated and recalculated[ref] is not None:
-                new_state = derive_read_state(
-                    has_cached_value=True,
-                    recalculation_provider="libreoffice",
-                )
-                updated[ref] = build_formula_cell_state(
-                    state=new_state,
-                    formula=record.get("formula", ""),
-                    cached_value=recalculated[ref],
-                    precedents_count=record.get("precedents_count", 0),
-                    dependents_count=record.get("dependents_count", 0),
-                )
-        assert_invariant(updated, recalculation_provider="libreoffice")
-        return "libreoffice", updated
 
     def _inspect(self, request: ParsedXlsxRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -156,9 +161,25 @@ class XlsxService:
             staged = private_root / "created.xlsx"
             creation = create_xlsx(staged, workbook)
             validation = validate_created(staged, workbook, creation=creation)
-            # Build formula state for degradation
             formula_cells = creation.get("formula_cells", {})
-            formula_summary = build_formula_state_summary(formula_cells)
+            outcome = recalculate_candidate(
+                staged,
+                private_root,
+                libreoffice=self.libreoffice,
+                policy=request.arguments["recalculation"],
+                formula_cells=formula_cells,
+            )
+            if outcome.candidate != staged:
+                validation = validate_created(
+                    outcome.candidate,
+                    workbook,
+                    creation=creation,
+                )
+            formula_cells = outcome.formula_cells
+            formula_summary = build_formula_state_summary(
+                formula_cells,
+                recalculation_provider=_recalculation_provider(outcome),
+            )
             operation_result = {
                 "creation": {
                     "sheets": creation["sheets"],
@@ -177,32 +198,38 @@ class XlsxService:
                     "cells": formula_cells,
                     "summary": formula_summary,
                 },
+                "recalculation": outcome.evidence,
             }
             degraded = should_downgrade(formula_summary)
-            degradations: list[dict[str, Any]] = []
-            if degraded:
-                degradations.append({
-                    "code": "outstanding-formula-recalculation",
-                    "semantic_difference": "Created formulas require recalculation by an accepted provider.",
-                    "missing_capabilities": ["recalculation"],
-                    "recommended_providers": ["libreoffice"],
-                })
             validation = with_formula_gate(validation, operation_result)
+            validation = with_recalculation_gate(
+                validation,
+                outcome.evidence,
+                required=(
+                    request.arguments["recalculation"] == "required"
+                    and outcome.evidence["outcome"] == "pass"
+                ),
+            )
             result = write_candidate_result(
                 self.schemas,
                 request,
-                staged,
+                outcome.candidate,
                 validation,
                 operation_result,
                 warnings=[],
                 source=None,
                 status="degraded" if degraded else "success",
                 degraded=degraded,
-                degradations=degradations,
+                degradations=_formula_degradations(
+                    degraded,
+                    "Created formulas require recalculation by an accepted provider.",
+                ),
+                achieved_fidelity="enhanced" if outcome.provider_chain else "core",
+                provider_chain=outcome.provider_chain,
             )
             return promote_candidate(
                 request,
-                staged,
+                outcome.candidate,
                 result,
                 source=None,
                 destination=destination,
@@ -229,18 +256,9 @@ class XlsxService:
                     source=request.input_path,
                     source_sha256=source_record.sha256,
                     manifest=manifest,
-                    allowed_removed_parts=(
-                        set(manifest.removed)
-                        if any(
-                            edit["type"] in {
-                                "sheet_delete",
-                                "table_delete",
-                                "chart_delete",
-                                "comment_delete",
-                            }
-                            for edit in request.arguments["edits"]
-                        )
-                        else set()
+                    allowed_removed_parts=_allowed_removed_parts(
+                        request.arguments["edits"],
+                        manifest.removed,
                     ),
                     assertion=lambda candidate: assert_edits_applied(
                         candidate,
@@ -248,36 +266,79 @@ class XlsxService:
                         source=request.input_path,
                     ),
                 )
-                # Build formula state for degradation
+                outcome = recalculate_candidate(
+                    staged,
+                    private_root,
+                    libreoffice=self.libreoffice,
+                    policy=request.arguments["recalculation"],
+                    formula_cells=operation_result.get("formula_state", {}).get(
+                        "cells", {}
+                    ),
+                )
+                final_manifest = manifest
+                if outcome.manifest is not None:
+                    final_manifest = compare_final_preservation(
+                        request.input_path,
+                        outcome.candidate,
+                        allowed_changed=(
+                            set(manifest.changed) | set(outcome.manifest.changed)
+                        ),
+                        expected_added=set(manifest.added),
+                        expected_removed=set(manifest.removed),
+                    )
+                    validation = validate_mutation(
+                        outcome.candidate,
+                        source=request.input_path,
+                        source_sha256=source_record.sha256,
+                        manifest=final_manifest,
+                        allowed_removed_parts=_allowed_removed_parts(
+                            request.arguments["edits"],
+                            final_manifest.removed,
+                        ),
+                        assertion=lambda candidate: assert_edits_applied(
+                            candidate,
+                            request.arguments["edits"],
+                            source=request.input_path,
+                        ),
+                    )
+                operation_result["formula_state"]["cells"] = outcome.formula_cells
+                operation_result["preservation"] = final_manifest.as_dict()
+                operation_result["recalculation"] = outcome.evidence
                 formula_summary = build_formula_state_summary(
-                    operation_result.get("formula_state", {}).get("cells", {})
+                    outcome.formula_cells,
+                    recalculation_provider=_recalculation_provider(outcome),
                 )
                 operation_result["formula_state"]["summary"] = formula_summary
                 degraded = should_downgrade(formula_summary)
-                degradations: list[dict[str, Any]] = []
-                if degraded:
-                    degradations.append({
-                        "code": "outstanding-formula-recalculation",
-                        "semantic_difference": "Edited formulas require recalculation by an accepted provider.",
-                        "missing_capabilities": ["recalculation"],
-                        "recommended_providers": ["libreoffice"],
-                    })
                 validation = with_formula_gate(validation, operation_result)
+                validation = with_recalculation_gate(
+                    validation,
+                    outcome.evidence,
+                    required=(
+                        request.arguments["recalculation"] == "required"
+                        and outcome.evidence["outcome"] == "pass"
+                    ),
+                )
                 result = write_candidate_result(
                     self.schemas,
                     request,
-                    staged,
+                    outcome.candidate,
                     validation,
                     operation_result,
                     warnings=[],
                     source=source_record,
                     status="degraded" if degraded else "success",
                     degraded=degraded,
-                    degradations=degradations,
+                    degradations=_formula_degradations(
+                        degraded,
+                        "Edited formulas require recalculation by an accepted provider.",
+                    ),
+                    achieved_fidelity="enhanced" if outcome.provider_chain else "core",
+                    provider_chain=outcome.provider_chain,
                 )
                 return promote_candidate(
                     request,
-                    staged,
+                    outcome.candidate,
                     result,
                     source=source_record,
                     destination=destination,
@@ -292,3 +353,33 @@ class XlsxService:
 def build_xlsx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
     service = XlsxService(project_root, libreoffice=libreoffice)
     return service.execute
+
+
+def _recalculation_provider(outcome: RecalculationOutcome) -> str | None:
+    return "libreoffice" if outcome.provider_chain else None
+
+
+def _formula_degradations(
+    degraded: bool,
+    semantic_difference: str,
+) -> list[dict[str, Any]]:
+    if not degraded:
+        return []
+    return [{
+        "code": "outstanding-formula-recalculation",
+        "semantic_difference": semantic_difference,
+        "missing_capabilities": ["recalculation"],
+        "recommended_providers": ["libreoffice"],
+    }]
+
+
+def _allowed_removed_parts(
+    edits: list[dict[str, Any]],
+    removed_parts: tuple[str, ...],
+) -> set[str]:
+    removable = {"sheet_delete", "table_delete", "chart_delete", "comment_delete"}
+    return (
+        set(removed_parts)
+        if any(edit["type"] in removable for edit in edits)
+        else set()
+    )

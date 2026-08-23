@@ -31,6 +31,7 @@ def write_candidate_result(
     degraded: bool = False,
     degradations: list[dict[str, Any]] | None = None,
     achieved_fidelity: str = "core",
+    provider_chain: list[str] | None = None,
 ) -> dict[str, Any]:
     assert request.output_path is not None
     staged_record = assert_promotable(status, validation, staged)
@@ -53,6 +54,7 @@ def write_candidate_result(
         degraded=degraded,
         degradations=degradations,
         achieved_fidelity=achieved_fidelity,
+        provider_chain=provider_chain,
     )
     schemas.validate("operation-result", result)
     return result

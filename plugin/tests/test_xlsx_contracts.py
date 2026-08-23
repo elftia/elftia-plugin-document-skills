@@ -11,9 +11,15 @@ from document_skills_core.formats.xlsx.contracts import (
 )
 
 
-def test_xlsx_operations_set_is_exactly_four():
+def test_xlsx_operations_set_includes_recalculation():
     assert XLSX_OPERATIONS == frozenset(
-        {"xlsx.read", "xlsx.inspect.structure", "xlsx.create", "xlsx.edit"}
+        {
+            "xlsx.read",
+            "xlsx.inspect.structure",
+            "xlsx.create",
+            "xlsx.edit",
+            "xlsx.recalculate",
+        }
     )
 
 
@@ -54,6 +60,50 @@ def test_parse_create_requires_output():
             "schema_version": "1.0",
             "operation": "xlsx.create",
             "arguments": {"workbook": {"metadata": {}, "sheets": []}},
+        })
+
+
+def test_parse_create_defaults_recalculation_to_auto():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.create",
+        "output": "out.xlsx",
+        "arguments": {
+            "workbook": {
+                "metadata": {},
+                "sheets": [{"name": "Sheet1", "rows": [], "number_formats": []}],
+                "defined_names": [],
+                "tables": [],
+            },
+        },
+    })
+    assert parsed.arguments["recalculation"] == "auto"
+
+
+def test_parse_edit_rejects_unknown_recalculation_policy():
+    with pytest.raises(DocumentSkillsError):
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "A1", "value": "x"}
+                ],
+                "recalculation": "sometimes",
+            },
+        })
+
+
+def test_parse_recalculate_requires_empty_arguments():
+    with pytest.raises(DocumentSkillsError):
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.recalculate",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {"recalculation": "auto"},
         })
 
 

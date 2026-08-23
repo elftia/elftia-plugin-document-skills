@@ -24,7 +24,8 @@
         "print_titles",
         "internal_hyperlink",
         "cell_comments",
-        "workbook_properties"
+        "workbook_properties",
+        "recalculation_policy_auto_required_skip"
       ],
       "enhancement_required": [
         "external_hyperlink_authoring"
@@ -73,7 +74,8 @@
         "print_titles",
         "internal_hyperlink_crud",
         "cell_comment_crud",
-        "workbook_properties"
+        "workbook_properties",
+        "recalculation_policy_auto_required_skip"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",
@@ -83,6 +85,19 @@
         "external_workbook_reference_structural_edit",
         "pivot_structural_edit",
         "external_hyperlink_authoring"
+      ]
+    },
+    "xlsx.recalculate": {
+      "available": [
+        "formula_identity_validation",
+        "formula_error_token_scan",
+        "cached_value_harvest",
+        "unknown_part_copy_through",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "unavailable_without": [
+        "libreoffice_for_formula_workbooks"
       ]
     }
   }

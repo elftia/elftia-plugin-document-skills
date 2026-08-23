@@ -22,7 +22,7 @@ from ...core.contracts.models import make_error_result
 from .convert import convert_to_pdf
 from .detector import LibreOfficeDetector
 from .legacy import read_or_convert_legacy
-from .recalc import recalculate_xlsx
+from .recalc import RecalculatedXlsx, recalculate_xlsx, recalculate_xlsx_artifact
 from .render import render_to_image
 from .runner import LibreOfficeRunner
 
@@ -93,6 +93,21 @@ class LibreOfficeProvider:
             return recalculate_xlsx(input_path, self.runner)
         except DocumentSkillsError:
             return None
+
+    def recalculate_xlsx_artifact(self, input_path: Path) -> RecalculatedXlsx:
+        """Require a callable provider and return its isolated recalculated artifact."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice recalculation is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return recalculate_xlsx_artifact(input_path, self.runner)
 
     def try_convert_to_pdf(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for Office-to-PDF conversion. Returns PDF bytes."""

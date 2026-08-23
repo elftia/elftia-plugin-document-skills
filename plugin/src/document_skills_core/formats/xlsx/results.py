@@ -18,12 +18,13 @@ def success_result(
     degraded: bool = False,
     degradations: list[dict[str, Any]] | None = None,
     achieved_fidelity: str = "core",
+    provider_chain: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "schema_version": "1.0",
         "status": status,
         "operation": request.operation,
-        "provider_chain": [],
+        "provider_chain": provider_chain or [],
         "requested_fidelity": request.requested_fidelity,
         "achieved_fidelity": achieved_fidelity,
         "degraded": degraded,
@@ -206,6 +207,49 @@ def with_formula_gate(
                     "outstanding_recalculation_required", 0
                 ),
             },
+        )
+    )
+    return {
+        "schema_version": validation.get("schema_version", "1.0"),
+        "status": (
+            "pass"
+            if all(not gate["required"] or gate["outcome"] == "pass" for gate in gates)
+            else "fail"
+        ),
+        "gates": gates,
+    }
+
+
+def with_recalculation_gate(
+    validation: dict[str, Any],
+    evidence: dict[str, Any],
+    *,
+    required: bool = False,
+) -> dict[str, Any]:
+    """Replace the canonical recalculation gate with policy/provider evidence."""
+
+    outcome = evidence.get("outcome", "unavailable")
+    gates = [
+        gate
+        for gate in validation.get("gates", [])
+        if gate.get("id") != "recalculation.full"
+    ]
+    gates.append(
+        gate_record(
+            "recalculation.full",
+            outcome,
+            required=required,
+            validator=(
+                "libreoffice"
+                if evidence.get("provider") == "libreoffice"
+                else "document-skills-core"
+            ),
+            evidence={key: value for key, value in evidence.items() if key != "outcome"},
+            warnings=(
+                []
+                if outcome in {"pass", "not_applicable"}
+                else ["Whole-workbook recalculation was not completed."]
+            ),
         )
     )
     return {

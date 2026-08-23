@@ -282,6 +282,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "internal_hyperlink",
                     "cell_comments",
                     "workbook_properties",
+                    "recalculation_policy_auto_required_skip",
                 ],
                 "enhancement_required": [
                     "external_hyperlink_authoring",
@@ -331,6 +332,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "internal_hyperlink_crud",
                     "cell_comment_crud",
                     "workbook_properties",
+                    "recalculation_policy_auto_required_skip",
                 ],
                 "enhancement_required": [
                     "sheet_copy_with_related_objects",
@@ -340,6 +342,19 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "external_workbook_reference_structural_edit",
                     "pivot_structural_edit",
                     "external_hyperlink_authoring",
+                ],
+            },
+            "xlsx.recalculate": {
+                "available": [
+                    "formula_identity_validation",
+                    "formula_error_token_scan",
+                    "cached_value_harvest",
+                    "unknown_part_copy_through",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "unavailable_without": [
+                    "libreoffice_for_formula_workbooks",
                 ],
             },
         },
@@ -1043,7 +1058,42 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.inspect.structure" in operations
     assert "xlsx.create" in operations
     assert "xlsx.edit" in operations
+    assert "xlsx.recalculate" in operations
     assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
+
+
+def test_public_recalculate_without_formulas_is_not_applicable_success(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "plain.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["rows"][0]["cells"] = [
+        {"ref": "A1", "value": "Name", "type": "s"},
+        {"ref": "B1", "value": "10", "type": "n"},
+    ]
+    create_xlsx(source, workbook)
+    output = tmp_path / "plain-recalculated.xlsx"
+    request = _request(
+        tmp_path,
+        "recalculate-no-formulas.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.recalculate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    assert result["provider_chain"] == ["core-python"]
+    assert result["diagnostics"]["operation_result"]["recalculation"][
+        "outcome"
+    ] == "not_applicable"
+    assert output.is_file()
 
 
 def test_public_doctor_succeeds(project_root: Path) -> None:

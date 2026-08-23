@@ -1,13 +1,15 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, and edit XLSX spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, and recalculate XLSX spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx` requests. The Core XLSX capability supports four operations:
-`xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, and `xlsx.edit`. All operations run
-through the frozen uv/Python facade without Node, npm, LibreOffice, or dotnet.
+Use this Skill for `.xlsx` requests. The Core XLSX capability supports five operations:
+`xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
+`xlsx.recalculate`. The public contract and package validation run through the frozen
+uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
+required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas.
 
 ## Formula-state policy
 
@@ -22,9 +24,11 @@ from a closed enum:
 | `recalculation_required` | A write or dependent invalidation requires recalculation. |
 
 **Never report a formula as recalculated or correct unless the result explicitly proves it
-through an accepted recalculation provider.** Without LibreOffice, the recalculation gate is
-`unavailable` and the result status is `degraded` with an `outstanding-formula-recalculation`
-degradation.
+through an accepted recalculation provider.** Create/edit default to `recalculation: "auto"`:
+without LibreOffice they still publish the validated Core artifact and honestly retain the
+stale/never/recalculation-required state. Such outstanding formulas produce `degraded` plus an
+`outstanding-formula-recalculation` degradation. See
+[`references/recalculation.md`](references/recalculation.md) for policy and gate details.
 
 ## Commands
 
@@ -65,8 +69,9 @@ formatting (`cellIs`, `expression`, color scales, data bars, and icon sets), nat
 column/bar/line/pie/scatter charts, per-sheet view/page setup/header/footer/print ranges,
 inert internal hyperlinks, legacy cell notes, and workbook properties. Style and
 differential-style records are deduplicated, and existing cells resolve style precedence as
-column → row → cell override. Every created formula reports
-`recalculation_required` (or `stale` when a cached literal is supplied).
+column → row → cell override. Before an accepted provider runs, every created formula reports
+`recalculation_required` (or `stale` when a cached literal is supplied). The request-level
+`recalculation` policy is `auto`, `required`, or `skip`.
 
 The legacy workbook-level `page_setup` and `chart_reference` placeholders continue to fail
 closed. Native page settings belong to each sheet, and native charts use the typed `charts`
@@ -98,6 +103,10 @@ legacy cell-note CRUD, and targeted workbook-property updates. Deleting the last
 only its declared comments/VML parts; unrelated legacy VML remains preserved. External hyperlink
 mutation and ambiguous/unsafe legacy drawing composition fail closed.
 
+The request-level `recalculation` policy is `auto`, `required`, or `skip`. A successful accepted
+provider pass updates only formula cached values/result types and workbook calculation metadata
+in the Core candidate; the provider's whole-package rewrite is never published directly.
+
 Structural edits migrate formulas, defined names, tables, charts, data-validation and
 conditional-format formulas/ranges, internal hyperlinks, merged cells, drawing anchors, print
 areas, page breaks, and calc state. A dangerous edit fails closed instead of emitting a repair-
@@ -105,6 +114,15 @@ prone workbook: shared/array/data-table formulas, external-workbook references, 
 deletion with inbound references/related objects, and sheet copy with related objects return
 `enhancement_required`. Plain worksheet copy is available. See
 [`references/edits.md`](references/edits.md) for the closed primitive fields and examples.
+
+### xlsx.recalculate
+
+Requires distinct `input` and `output` paths and accepts an empty `arguments` object. For a
+formula workbook it requires callable LibreOffice, validates that formula keys and formula text
+are unchanged, rejects formula error tokens, harvests cached values/result types, reopens the
+Core-patched candidate, proves source/unknown-part preservation, and only then promotes it. If
+LibreOffice is unavailable or fails, no output is promoted. A workbook without formulas succeeds
+as `not_applicable` without invoking LibreOffice.
 
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression
@@ -118,10 +136,11 @@ the promoted artifact with an independent consumer.
 | `success` | All required gates pass; no formulas require recalculation. |
 | `degraded` | Required gates pass but formulas require recalculation (provider unavailable). |
 | `enhancement_required` | The request requires an unimplemented optional provider. |
+| `unavailable` | A required provider, such as LibreOffice for explicit formula recalculation, is unavailable; no output is promoted. |
 | `invalid_request` | Request arguments are invalid; no file is mutated. |
 | `failed` | A provider or validation failure occurred; no output is promoted. |
 
 ## Distinct output rule
 
-Mutations (create, edit) require an explicit output path. Output resolving to input is
-rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.
+Mutations require an explicit output path. For `xlsx.edit` and `xlsx.recalculate`, output
+resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.
