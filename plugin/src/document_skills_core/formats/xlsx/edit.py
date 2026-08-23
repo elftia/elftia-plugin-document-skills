@@ -7,6 +7,8 @@ from xml.etree.ElementTree import Element, SubElement
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
+from .annotations import apply_hyperlink_edit
+from .comment_edit import apply_comment_edit
 from .constants import NS, SHARED_STRINGS_PART
 from .conditional_format import apply_conditional_format_edit
 from .chart_edit import apply_chart_edit
@@ -26,6 +28,8 @@ from .style_patch import ExistingStyleRegistry
 from .structural_edit import StructuralEditContext
 from .table_edit import apply_table_edit
 from .worksheet_edit import apply_defined_name_edit, apply_worksheet_edit
+from .worksheet_metadata import apply_worksheet_metadata_edit
+from .workbook_properties import apply_workbook_properties_edit
 
 _MAIN_NS = NS["main"]
 
@@ -65,6 +69,10 @@ def edit_xlsx(
         edit_type = edit["type"]
         ref = edit["ref"]
         value = edit.get("value")
+        if edit_type == "workbook_properties":
+            apply_workbook_properties_edit(structural_context, edit["properties"])
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+            continue
         if edit_type in {
             "sheet_add",
             "sheet_delete",
@@ -146,6 +154,16 @@ def edit_xlsx(
             if edit_type == "range_clear" and edit["clear"] in {"contents", "all"}:
                 _apply_structural(all_formula_cells, invalidated)
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {"page_setup", "header_footer", "sheet_view"}:
+            apply_worksheet_metadata_edit(sheet_root, edit)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {"hyperlink_add", "hyperlink_update", "hyperlink_delete"}:
+            apply_hyperlink_edit(sheet_root, edit)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {"comment_add", "comment_update", "comment_delete"}:
+            apply_comment_edit(structural_context, sheet_part, edit)
+            mark_sheet_dirty = False
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
         elif edit_type in {
             "table_add",
             "table_resize",
@@ -182,6 +200,8 @@ def edit_xlsx(
             "defined_name_add",
             "defined_name_update",
             "defined_name_delete",
+            "print_titles",
+            "print_titles_clear",
         }:
             apply_defined_name_edit(structural_context.workbook_root, workbook["sheets"], edit)
             structural_context.mark_dirty("xl/workbook.xml")

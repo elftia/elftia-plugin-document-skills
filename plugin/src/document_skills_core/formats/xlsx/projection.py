@@ -182,8 +182,9 @@ def project_tables(package: Any) -> list[dict[str, Any]]:
 def project_hyperlinks(
     package: Any,
     sheet_part: str,
+    sheet_name: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Project hyperlinks from a worksheet's relationship targets."""
+    """Project relationship-backed and inert internal worksheet hyperlinks."""
     rels = package.sheet_rels(sheet_part)
     result: list[dict[str, Any]] = []
     root = package.xml(sheet_part)
@@ -193,7 +194,11 @@ def project_hyperlinks(
         rel_id = hl.attrib.get(f"{{{NS['r']}}}id", "")
         rel = next((r for r in rels if r.relationship_id == rel_id), None)
         result.append({
+            "sheet": sheet_name,
             "ref": ref,
+            "location": hl.attrib.get("location"),
+            "display": hl.attrib.get("display"),
+            "tooltip": hl.attrib.get("tooltip"),
             "relationship_id": rel_id,
             "target": rel.target if rel else None,
             "external": (rel.target_mode == "External") if rel else False,

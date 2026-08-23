@@ -42,7 +42,8 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 Reads a structured projection of sheets, rows, cells, formulas, cached values, styles, number
 formats, tables, data-validation rules, conditional-format rules and resolved differential
 styles, defined names, hyperlinks, native chart types/anchors/series/axes/labels/colors, and
-shared-string metadata.
+shared-string metadata. It also projects per-sheet views/print settings, inert internal
+hyperlinks, legacy cell notes, and core/extended workbook properties.
 Uses the normal reject-mode security policy; active/external content returns `DS_ARCHIVE_UNSAFE`
 and directs the caller to structural inspection.
 
@@ -51,7 +52,8 @@ and directs the caller to structural inspection.
 Inventories package parts, content types, relationships, media, sheets, calc chain, shared
 strings, styles, tables, data validations, conditional formats, pivot caches, external links,
 native charts/drawings, dangerous content, and unknown parts
-without executing or dereferencing anything. Never authorizes mutation.
+without executing or dereferencing anything. Worksheet print metadata, hyperlinks, cell notes,
+and workbook properties are included in the inert projection. Never authorizes mutation.
 
 ### xlsx.create
 
@@ -59,19 +61,23 @@ Creates a workbook from bounded typed data (not raw XML). Requires an explicit o
 The current public contract supports multiple sheets, typed cell values, formulas with optional
 cached literals, workbook defined names, cell/row/column styles, custom number formats,
 row height/hiding, column width/hiding, native tables, data validations, and conditional
-formatting (`cellIs`, `expression`, color scales, data bars, and icon sets), and native
-column/bar/line/pie/scatter charts. Style and
+formatting (`cellIs`, `expression`, color scales, data bars, and icon sets), native
+column/bar/line/pie/scatter charts, per-sheet view/page setup/header/footer/print ranges,
+inert internal hyperlinks, legacy cell notes, and workbook properties. Style and
 differential-style records are deduplicated, and existing cells resolve style precedence as
 column → row → cell override. Every created formula reports
 `recalculation_required` (or `stale` when a cached literal is supplied).
 
-Page setup is not a public create capability yet. The legacy `chart_reference` placeholder also
-continues to fail closed; native charts use the typed `charts` array. Unsupported placeholder
-requests return `enhancement_required` until a complete package and consumer-reopen path exists.
+The legacy workbook-level `page_setup` and `chart_reference` placeholders continue to fail
+closed. Native page settings belong to each sheet, and native charts use the typed `charts`
+array. External hyperlink authoring remains unavailable; the Core only creates relationship-free
+internal workbook locations. Unsupported placeholder requests return `enhancement_required`
+until a complete package and consumer-reopen path exists.
 See [`references/styles.md`](references/styles.md) for the closed style contract and a request
 fragment, and [`references/native-objects.md`](references/native-objects.md) for tables,
 validations, and conditional formats. See [`references/charts.md`](references/charts.md) for
-native chart fields.
+native chart fields and [`references/worksheet-metadata.md`](references/worksheet-metadata.md)
+for views, print settings, hyperlinks, notes, and workbook properties.
 
 ### xlsx.edit
 
@@ -86,6 +92,11 @@ font/fill/border/xf records, themes, and indexed colors remain intact. Requires 
 and output paths. Editing a precedent cell invalidates dependents to
 `recalculation_required`. Preserves all untargeted package parts (pivot caches, charts,
 drawings, external links, custom XML, etc.) at the payload-hash level.
+
+Worksheet edits also cover view/page setup/header/footer/print titles, internal hyperlink CRUD,
+legacy cell-note CRUD, and targeted workbook-property updates. Deleting the last note removes
+only its declared comments/VML parts; unrelated legacy VML remains preserved. External hyperlink
+mutation and ambiguous/unsafe legacy drawing composition fail closed.
 
 Structural edits migrate formulas, defined names, tables, charts, data-validation and
 conditional-format formulas/ranges, internal hyperlinks, merged cells, drawing anchors, print

@@ -4,13 +4,23 @@ from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+from .annotations import append_hyperlinks, build_comments_root, build_comments_vml
 from .chart import DRAWING_NS, append_chart_anchor, build_chart_root
-from .constants import NS, REL_CHART, REL_DRAWING, REL_TABLE
+from .constants import (
+    NS,
+    REL_CHART,
+    REL_COMMENTS,
+    REL_DRAWING,
+    REL_TABLE,
+    REL_VML_DRAWING,
+)
 from .conditional_format import append_conditional_format
 from .data_validation import append_data_validation
 from .formula_state import derive_create_state, build_formula_cell_state
 from .package import write_deterministic_zip
 from .styles import StyleRegistry, merge_styles
+from .workbook_properties import build_app_properties, build_core_properties
+from .worksheet_metadata import append_worksheet_metadata
 
 _MAIN_NS = NS["main"]
 _R_NS = NS["r"]
@@ -62,6 +72,17 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
                 }
             )
     drawings_by_sheet = {item["sheet"]: item for item in drawing_groups}
+    comment_groups = [
+        {
+            "comment_id": index + 1,
+            "sheet": sheet["name"],
+            "comments": sheet.get("comments", []),
+        }
+        for index, sheet in enumerate(
+            sheet for sheet in sheets_data if sheet.get("comments")
+        )
+    ]
+    comments_by_sheet = {item["sheet"]: item for item in comment_groups}
 
     # Content types
     parts["[Content_Types].xml"] = _build_content_types(
@@ -69,6 +90,7 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         tables=tables,
         chart_count=len(indexed_charts),
         drawing_count=len(drawing_groups),
+        comment_count=len(comment_groups),
     )
 
     # Root rels
@@ -90,18 +112,28 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         sheet_part = f"xl/worksheets/sheet{idx + 1}.xml"
         sheet_tables = [table for table in indexed_tables if table["sheet"] == sheet["name"]]
         drawing = drawings_by_sheet.get(sheet["name"])
+        comments = comments_by_sheet.get(sheet["name"])
         drawing_relationship_id = (
             f"rId{len(sheet_tables) + 1}" if drawing is not None else None
         )
+        relationship_offset = len(sheet_tables) + (1 if drawing is not None else 0)
+        legacy_drawing_relationship_id = (
+            f"rId{relationship_offset + 2}" if comments is not None else None
+        )
         parts[sheet_part] = _build_worksheet(
             sheet, idx, shared_strings, string_index, formula_cells,
-            style_registry, style_assignments, sheet_tables, drawing_relationship_id,
+            style_registry,
+            style_assignments,
+            sheet_tables,
+            drawing_relationship_id,
+            legacy_drawing_relationship_id,
         )
-        if sheet_tables or drawing is not None:
+        if sheet_tables or drawing is not None or comments is not None:
             parts[f"xl/worksheets/_rels/sheet{idx + 1}.xml.rels"] = (
                 _build_worksheet_rels(
                     sheet_tables,
                     drawing_id=None if drawing is None else drawing["drawing_id"],
+                    comments=comments,
                 )
             )
 
@@ -115,6 +147,16 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     for table in indexed_tables:
         tbl_part = f"xl/tables/table{table['table_id']}.xml"
         parts[tbl_part] = _build_table(table)
+
+    # Cell notes/comments and their legacy VML drawings
+    for group in comment_groups:
+        comment_id = group["comment_id"]
+        parts[f"xl/comments{comment_id}.xml"] = _to_xml_bytes(
+            build_comments_root(group["comments"])
+        )
+        parts[f"xl/drawings/commentsDrawing{comment_id}.vml"] = _to_xml_bytes(
+            build_comments_vml(group["comments"])
+        )
 
     # Native charts and their sheet drawings
     for chart in indexed_charts:
@@ -137,8 +179,8 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         )
 
     # DocProps
-    parts["docProps/core.xml"] = _build_core_props(metadata)
-    parts["docProps/app.xml"] = _build_app_props(sheets_data)
+    parts["docProps/core.xml"] = build_core_properties(metadata)
+    parts["docProps/app.xml"] = build_app_properties(sheets_data, metadata)
 
     write_deterministic_zip(destination, parts)
 
@@ -196,6 +238,27 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
             }
             for chart in indexed_charts
         ],
+        "worksheet_metadata": [
+            {
+                "sheet": sheet["name"],
+                "view": sheet.get("view"),
+                "page_setup": sheet.get("page_setup"),
+                "header_footer": sheet.get("header_footer"),
+                "print_area": sheet.get("print_area"),
+                "print_titles": sheet.get("print_titles"),
+            }
+            for sheet in sheets_data
+        ],
+        "hyperlinks": [
+            {"sheet": sheet["name"], **hyperlink}
+            for sheet in sheets_data
+            for hyperlink in sheet.get("hyperlinks", [])
+        ],
+        "comments": [
+            {"sheet": sheet["name"], **comment}
+            for sheet in sheets_data
+            for comment in sheet.get("comments", [])
+        ],
     }
 
 
@@ -207,6 +270,7 @@ def _build_content_types(
     tables: list[dict[str, Any]],
     chart_count: int,
     drawing_count: int,
+    comment_count: int,
 ) -> bytes:
     root = Element(f"{{{_CONTENT_TYPES_NS}}}Types")
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
@@ -217,6 +281,11 @@ def _build_content_types(
         "Extension": "xml",
         "ContentType": "application/xml",
     })
+    if comment_count:
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
+            "Extension": "vml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.vmlDrawing",
+        })
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
         "PartName": "/xl/workbook.xml",
         "ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
@@ -256,6 +325,11 @@ def _build_content_types(
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
             "PartName": f"/xl/drawings/drawing{index + 1}.xml",
             "ContentType": "application/vnd.openxmlformats-officedocument.drawing+xml",
+        })
+    for index in range(comment_count):
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
+            "PartName": f"/xl/comments{index + 1}.xml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml",
         })
     return _to_xml_bytes(root)
 
@@ -310,17 +384,66 @@ def _build_workbook(sheets: list[dict[str, Any]], defined_names: list[dict[str, 
             "sheetId": str(idx + 1),
             f"{{{_R_NS}}}id": f"sht{idx}",
         })
-    if defined_names:
+    print_names = []
+    for sheet_index, sheet in enumerate(sheets):
+        if sheet.get("print_area"):
+            print_names.append(
+                {
+                    "name": "_xlnm.Print_Area",
+                    "ref": f"{_quote_sheet(sheet['name'])}!{_absolute_cell_range(sheet['print_area'])}",
+                    "local_sheet_id": sheet_index,
+                }
+            )
+        if sheet.get("print_titles"):
+            titles = sheet["print_titles"]
+            fragments = []
+            if titles.get("columns"):
+                first, separator, last = titles["columns"].partition(":")
+                fragments.append(
+                    f"{_quote_sheet(sheet['name'])}!${first}:${last if separator else first}"
+                )
+            if titles.get("rows"):
+                first, separator, last = titles["rows"].partition(":")
+                fragments.append(
+                    f"{_quote_sheet(sheet['name'])}!${first}:${last if separator else first}"
+                )
+            print_names.append(
+                {
+                    "name": "_xlnm.Print_Titles",
+                    "ref": ",".join(fragments),
+                    "local_sheet_id": sheet_index,
+                }
+            )
+    if defined_names or print_names:
         dn_elem = SubElement(root, f"{{{_MAIN_NS}}}definedNames")
         for dn in defined_names:
             SubElement(dn_elem, f"{{{_MAIN_NS}}}definedName", attrib={
                 "name": dn["name"],
             }).text = dn["ref"]
+        for dn in print_names:
+            SubElement(
+                dn_elem,
+                f"{{{_MAIN_NS}}}definedName",
+                attrib={"name": dn["name"], "localSheetId": str(dn["local_sheet_id"])},
+            ).text = dn["ref"]
     calc_pr = SubElement(root, f"{{{_MAIN_NS}}}calcPr", attrib={
         "calcId": "0",
         "fullCalcOnLoad": "1",
     })
     return _to_xml_bytes(root)
+
+
+def _quote_sheet(value: str) -> str:
+    return f"'{value.replace(chr(39), chr(39) * 2)}'"
+
+
+def _absolute_cell_range(value: str) -> str:
+    result = []
+    for cell in value.split(":"):
+        letters = cell.rstrip("0123456789")
+        digits = cell[len(letters):]
+        result.append(f"${letters.upper()}${digits}")
+    return ":".join(result)
 
 
 def _build_worksheet(
@@ -333,6 +456,7 @@ def _build_worksheet(
     style_assignments: dict[str, dict[str, int]],
     tables: list[dict[str, Any]],
     drawing_relationship_id: str | None,
+    legacy_drawing_relationship_id: str | None,
 ) -> bytes:
     root = Element(f"{{{_MAIN_NS}}}worksheet")
     columns = sheet.get("columns", [])
@@ -442,11 +566,19 @@ def _build_worksheet(
         )
         for validation in data_validations:
             append_data_validation(validations_element, validation)
+    append_hyperlinks(root, sheet.get("hyperlinks", []))
+    append_worksheet_metadata(root, sheet)
     if drawing_relationship_id is not None:
         SubElement(
             root,
             f"{{{_MAIN_NS}}}drawing",
             {f"{{{_R_NS}}}id": drawing_relationship_id},
+        )
+    if legacy_drawing_relationship_id is not None:
+        SubElement(
+            root,
+            f"{{{_MAIN_NS}}}legacyDrawing",
+            {f"{{{_R_NS}}}id": legacy_drawing_relationship_id},
         )
     if tables:
         table_parts = SubElement(
@@ -508,6 +640,7 @@ def _build_worksheet_rels(
     tables: list[dict[str, Any]],
     *,
     drawing_id: int | None,
+    comments: dict[str, Any] | None,
 ) -> bytes:
     root = Element(f"{{{_RELS_NS}}}Relationships")
     for index, table in enumerate(tables, start=1):
@@ -530,6 +663,27 @@ def _build_worksheet_rels(
                 "Target": f"../drawings/drawing{drawing_id}.xml",
             },
         )
+    if comments is not None:
+        relationship_offset = len(tables) + (1 if drawing_id is not None else 0)
+        comment_id = comments["comment_id"]
+        SubElement(
+            root,
+            f"{{{_RELS_NS}}}Relationship",
+            attrib={
+                "Id": f"rId{relationship_offset + 1}",
+                "Type": REL_COMMENTS,
+                "Target": f"../comments{comment_id}.xml",
+            },
+        )
+        SubElement(
+            root,
+            f"{{{_RELS_NS}}}Relationship",
+            attrib={
+                "Id": f"rId{relationship_offset + 2}",
+                "Type": REL_VML_DRAWING,
+                "Target": f"../drawings/commentsDrawing{comment_id}.vml",
+            },
+        )
     return _to_xml_bytes(root)
 
 
@@ -545,26 +699,6 @@ def _build_drawing_rels(charts: list[dict[str, Any]]) -> bytes:
                 "Target": f"../charts/chart{chart['chart_id']}.xml",
             },
         )
-    return _to_xml_bytes(root)
-
-
-def _build_core_props(metadata: dict[str, Any]) -> bytes:
-    cp_ns = "http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
-    dc_ns = "http://purl.org/dc/elements/1.1/"
-    dcterms_ns = "http://purl.org/dc/terms/"
-    root = Element(f"{{{cp_ns}}}coreProperties")
-    SubElement(root, f"{{{dc_ns}}}title").text = metadata.get("title", "")
-    SubElement(root, f"{{{dc_ns}}}creator").text = metadata.get("creator", "Elftia Document Skills")
-    SubElement(root, f"{{{dc_ns}}}subject").text = metadata.get("subject", "")
-    return _to_xml_bytes(root)
-
-
-def _build_app_props(sheets: list[dict[str, Any]]) -> bytes:
-    app_ns = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
-    vt_ns = "http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"
-    root = Element(f"{{{app_ns}}}Properties")
-    SubElement(root, f"{{{app_ns}}}Application").text = "Elftia Document Skills"
-    SubElement(root, f"{{{app_ns}}}SheetCount").text = str(len(sheets))
     return _to_xml_bytes(root)
 
 

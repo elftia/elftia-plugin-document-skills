@@ -39,6 +39,13 @@ preservation failure prevents promotion.
 | `chart_add` | `sheet`, `chart` | Adds a full native chart definition; `chart.sheet` must match `sheet`. |
 | `chart_update` | `sheet`, existing `name`, `chart` | Replaces the named chart, including safe series/range and anchor changes. |
 | `chart_delete` | `sheet`, existing `name` | Removes the chart and any drawing parts made empty by that deletion. |
+| `sheet_view` | `sheet`, `view` | Replaces gridline, zoom, and selected-cell settings. |
+| `page_setup` | `sheet`, `page_setup` | Replaces orientation, paper, margins, centering, and scale/fit settings. |
+| `header_footer` | `sheet`, `header_footer` | Replaces odd/even/first header and footer fields. |
+| `print_titles`, `print_titles_clear` | `sheet`, optional `print_titles` | Sets or clears repeated row/column titles. |
+| `hyperlink_add`, `hyperlink_update`, `hyperlink_delete` | `sheet`, exact `ref`; add/update carry `hyperlink` | CRUD for inert internal locations only. |
+| `comment_add`, `comment_update`, `comment_delete` | `sheet`, exact cell `ref`; add/update carry `comment` | CRUD for legacy cell notes. |
+| `workbook_properties` | empty `sheet`, partial `properties` | Updates only declared core/extended properties. |
 
 ## Example
 

@@ -16,10 +16,18 @@
         "native_table",
         "data_validation",
         "conditional_formatting",
-        "native_chart"
+        "native_chart",
+        "page_setup",
+        "header_footer",
+        "sheet_view",
+        "print_area",
+        "print_titles",
+        "internal_hyperlink",
+        "cell_comments",
+        "workbook_properties"
       ],
       "enhancement_required": [
-        "page_setup"
+        "external_hyperlink_authoring"
       ]
     },
     "xlsx.edit": {
@@ -58,7 +66,14 @@
         "native_table_delete",
         "data_validation_crud",
         "conditional_formatting_crud",
-        "native_chart_crud"
+        "native_chart_crud",
+        "page_setup",
+        "header_footer",
+        "sheet_view",
+        "print_titles",
+        "internal_hyperlink_crud",
+        "cell_comment_crud",
+        "workbook_properties"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",
@@ -66,7 +81,8 @@
         "sheet_delete_with_inbound_references",
         "shared_array_or_data_table_formula_structural_edit",
         "external_workbook_reference_structural_edit",
-        "pivot_structural_edit"
+        "pivot_structural_edit",
+        "external_hyperlink_authoring"
       ]
     }
   }

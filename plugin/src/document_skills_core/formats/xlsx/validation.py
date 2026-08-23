@@ -7,6 +7,7 @@ from typing import Any, Callable
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.validation import validate_artifact
 
+from .annotations import project_comments
 from .formula_state import assert_invariant
 from .constants import NS
 from .mapping import map_workbook
@@ -15,10 +16,13 @@ from .projection import (
     project_conditional_formats,
     project_charts,
     project_data_validations,
+    project_hyperlinks,
     project_tables,
 )
 from .styles import read_styles
 from .structural_refs import AxisMutation, shift_coordinate
+from .worksheet_metadata import project_worksheet_metadata
+from .workbook_properties import project_workbook_properties
 
 _MAIN_NS = NS["main"]
 
@@ -112,6 +116,17 @@ def assert_edits_applied(
     projected_validations = project_data_validations(package)
     projected_conditional_formats = project_conditional_formats(package)
     projected_charts = project_charts(package)
+    projected_hyperlinks = [
+        hyperlink
+        for sheet in mapped.get("sheets", [])
+        if sheet.get("part")
+        for hyperlink in project_hyperlinks(package, sheet["part"], sheet["name"])
+    ]
+    projected_comments = project_comments(package)
+    projected_properties = project_workbook_properties(package.parts)
+    projected_worksheet_metadata = {
+        item["sheet"]: item for item in project_worksheet_metadata(package)
+    }
     expected_cells = _expected_cell_refs(source, edits) if source is not None else None
     for edit in edits:
         edit_type = edit["type"]
@@ -260,6 +275,71 @@ def assert_edits_applied(
                 matched += 1
             else:
                 failures.append(f"{edit_type}:{sheet_name}!{edit['chart']['name']}")
+            continue
+        if edit_type in {"hyperlink_add", "hyperlink_update", "hyperlink_delete"}:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            expected_ref = (
+                edit["ref"] if edit_type == "hyperlink_delete" else edit["hyperlink"]["ref"]
+            )
+            matches = [
+                item
+                for item in projected_hyperlinks
+                if item["sheet"] == sheet_name
+                and item["ref"].casefold() == expected_ref.casefold()
+            ]
+            if edit_type == "hyperlink_delete":
+                if matches:
+                    failures.append(f"hyperlink_delete:{sheet_name}!{expected_ref}")
+                else:
+                    matched += 1
+            elif any(_hyperlink_matches(item, edit["hyperlink"]) for item in matches):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}!{expected_ref}")
+            continue
+        if edit_type in {"comment_add", "comment_update", "comment_delete"}:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            expected_ref = (
+                edit["ref"] if edit_type == "comment_delete" else edit["comment"]["ref"]
+            )
+            matches = [
+                item
+                for item in projected_comments
+                if item["sheet"] == sheet_name
+                and item["ref"].casefold() == expected_ref.casefold()
+            ]
+            if edit_type == "comment_delete":
+                if matches:
+                    failures.append(f"comment_delete:{sheet_name}!{expected_ref}")
+                else:
+                    matched += 1
+            elif any(_comment_matches(item, edit["comment"]) for item in matches):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}!{expected_ref}")
+            continue
+        if edit_type == "workbook_properties":
+            if all(
+                projected_properties.get(field) == value
+                for field, value in edit["properties"].items()
+            ):
+                matched += 1
+            else:
+                failures.append("workbook_properties")
+            continue
+        if edit_type in {
+            "page_setup",
+            "header_footer",
+            "sheet_view",
+            "print_titles",
+            "print_titles_clear",
+        }:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            metadata = projected_worksheet_metadata.get(sheet_name)
+            if metadata is not None and _worksheet_metadata_edit_matches(metadata, edit):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}")
             continue
         sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
         sheet = sheets.get(sheet_name)
@@ -642,6 +722,54 @@ def _assert_created(
         if actual_chart is None or not _chart_matches(actual_chart, expected_chart):
             failures.append(f"chart:{expected_chart['name']}")
 
+    worksheet_metadata = {
+        item["sheet"]: item for item in project_worksheet_metadata(package)
+    }
+    for sheet in workbook.get("sheets", []):
+        actual_metadata = worksheet_metadata.get(sheet["name"], {})
+        for field in ("view", "header_footer", "print_area", "print_titles"):
+            if sheet.get(field) is not None and actual_metadata.get(field) != sheet.get(field):
+                failures.append(f"worksheet-{field}:{sheet['name']}")
+        if sheet.get("page_setup") is not None:
+            expected_page_setup = {
+                **sheet["page_setup"],
+                "fit_to_page": sheet["page_setup"]["fit_to_width"] is not None,
+            }
+            if actual_metadata.get("page_setup") != expected_page_setup:
+                failures.append(f"worksheet-page-setup:{sheet['name']}")
+
+    hyperlinks = [
+        hyperlink
+        for sheet in mapped.get("sheets", [])
+        if sheet.get("part")
+        for hyperlink in project_hyperlinks(package, sheet["part"], sheet["name"])
+    ]
+    for sheet in workbook.get("sheets", []):
+        for expected_hyperlink in sheet.get("hyperlinks", []):
+            if not any(
+                item["sheet"] == sheet["name"]
+                and _hyperlink_matches(item, expected_hyperlink)
+                for item in hyperlinks
+            ):
+                failures.append(
+                    f"hyperlink:{sheet['name']}!{expected_hyperlink['ref']}"
+                )
+
+    comments = project_comments(package)
+    for sheet in workbook.get("sheets", []):
+        for expected_comment in sheet.get("comments", []):
+            if not any(
+                item["sheet"] == sheet["name"]
+                and _comment_matches(item, expected_comment)
+                for item in comments
+            ):
+                failures.append(f"comment:{sheet['name']}!{expected_comment['ref']}")
+
+    workbook_properties = project_workbook_properties(package.parts)
+    for field, expected_value in workbook.get("metadata", {}).items():
+        if workbook_properties.get(field) != expected_value:
+            failures.append(f"workbook-property:{field}")
+
     expected_styles = (creation or {}).get("styles", {})
     assignments = expected_styles.get("assignments", {})
     actual_assignments = _mapped_style_assignments(mapped)
@@ -673,6 +801,10 @@ def _assert_created(
         "data_validations": len(data_validations),
         "conditional_formats": len(conditional_formats),
         "charts": len(charts),
+        "worksheet_metadata": len(worksheet_metadata),
+        "hyperlinks": len(hyperlinks),
+        "comments": len(comments),
+        "workbook_properties": len(workbook_properties),
         "formula_cells": len(formula_cells),
         "cell_styles": len(assignments.get("cells", {})),
         "row_styles": len(assignments.get("rows", {})),
@@ -776,6 +908,40 @@ def _chart_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
         actual.get(field)
         for field in ("part", "drawing_part", "content_type")
     )
+
+
+def _hyperlink_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
+    return all(
+        actual.get(field) == expected.get(field)
+        for field in ("ref", "location", "display", "tooltip")
+    ) and actual.get("external") is False
+
+
+def _comment_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
+    return all(
+        actual.get(field) == expected.get(field)
+        for field in ("ref", "text", "author")
+    ) and bool(actual.get("part")) and bool(actual.get("vml_part"))
+
+
+def _worksheet_metadata_edit_matches(
+    actual: dict[str, Any],
+    edit: dict[str, Any],
+) -> bool:
+    edit_type = edit["type"]
+    if edit_type == "page_setup":
+        expected = {
+            **edit["page_setup"],
+            "fit_to_page": edit["page_setup"]["fit_to_width"] is not None,
+        }
+        return actual.get("page_setup") == expected
+    if edit_type == "header_footer":
+        return actual.get("header_footer") == edit["header_footer"]
+    if edit_type == "sheet_view":
+        return actual.get("view") == edit["view"]
+    if edit_type == "print_titles":
+        return actual.get("print_titles") == edit["print_titles"]
+    return actual.get("print_titles") is None
 
 
 def _find_mapped_cell(sheet: dict[str, Any], ref: str) -> dict[str, Any] | None:

@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import Any
 
-from .constants import CALC_CHAIN_PART, SHARED_STRINGS_PART, STYLES_PART
+from .annotations import project_comments
+from .constants import CALC_CHAIN_PART, NS, SHARED_STRINGS_PART, STYLES_PART
 from .package import OpcPackage
 from .projection import (
     project_charts,
@@ -11,9 +12,12 @@ from .projection import (
     project_data_validations,
     project_drawings,
     project_external_links,
+    project_hyperlinks,
     project_pivot_caches,
     project_tables,
 )
+from .worksheet_metadata import project_worksheet_metadata
+from .workbook_properties import project_workbook_properties
 
 
 def inspect_xlsx(
@@ -74,6 +78,26 @@ def inspect_xlsx(
     drawings = project_drawings(package)
     data_validations = project_data_validations(package)
     conditional_formats = project_conditional_formats(package)
+    worksheet_metadata = project_worksheet_metadata(package)
+    hyperlinks = []
+    workbook = package.xml("xl/workbook.xml")
+    workbook_relationships = {
+        relationship.relationship_id: relationship
+        for relationship in package.relationships
+        if relationship.source_part == "xl/workbook.xml"
+    }
+    for sheet in workbook.findall(f".//{{{NS['main']}}}sheet"):
+        relationship = workbook_relationships.get(
+            sheet.attrib.get(f"{{{NS['r']}}}id", "")
+        )
+        if relationship is not None and relationship.resolved_target:
+            hyperlinks.extend(
+                project_hyperlinks(
+                    package,
+                    relationship.resolved_target,
+                    sheet.attrib.get("name", ""),
+                )
+            )
 
     operation_result: dict[str, Any] = {
         "mutation_authorized": False,
@@ -94,6 +118,10 @@ def inspect_xlsx(
         "drawings": drawings,
         "data_validations": data_validations,
         "conditional_formats": conditional_formats,
+        "worksheet_metadata": worksheet_metadata,
+        "hyperlinks": hyperlinks,
+        "comments": project_comments(package),
+        "workbook_properties": project_workbook_properties(package.parts),
         "unknown_parts": package.unknown_parts,
         "dangerous_content": {
             "present": dangerous_present,

@@ -98,6 +98,30 @@ def apply_defined_name_edit(
             sheet_name=edit["sheet"],
         )
         return
+    if edit_type in {"print_titles", "print_titles_clear"}:
+        reference = None
+        if edit_type == "print_titles":
+            fragments = []
+            titles = edit["print_titles"]
+            if titles.get("columns"):
+                fragments.append(
+                    f"{_quote_sheet(edit['sheet'])}!{_absolute_index_range(titles['columns'])}"
+                )
+            if titles.get("rows"):
+                fragments.append(
+                    f"{_quote_sheet(edit['sheet'])}!{_absolute_index_range(titles['rows'])}"
+                )
+            reference = ",".join(fragments)
+        _mutate_defined_name(
+            workbook_root,
+            sheets,
+            action="upsert" if reference is not None else "delete",
+            name="_xlnm.Print_Titles",
+            reference=reference,
+            scope="sheet",
+            sheet_name=edit["sheet"],
+        )
+        return
     action = edit_type.rsplit("_", 1)[-1]
     reference = edit["ref"] if action != "delete" else None
     if reference and has_external_workbook_reference(reference):
@@ -479,6 +503,11 @@ def _absolute_cell(ref: str) -> str:
     match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", ref)
     assert match is not None
     return f"${match.group(1).upper()}${match.group(2)}"
+
+
+def _absolute_index_range(ref: str) -> str:
+    first, separator, last = ref.partition(":")
+    return f"${first.upper()}:${(last if separator else first).upper()}"
 
 
 def _normalize_cell(ref: str) -> str:

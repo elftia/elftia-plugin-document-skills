@@ -1,6 +1,7 @@
 """Strict bounded argument contracts for the four Core XLSX operations."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import re
 from typing import Any
@@ -8,7 +9,13 @@ from typing import Any
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.io.paths import same_path
 
-from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHEETS
+from .constants import (
+    MAX_ARGUMENT_TEXT,
+    MAX_COMMENTS,
+    MAX_EDIT_OPS,
+    MAX_HYPERLINKS,
+    MAX_SHEETS,
+)
 from .style_contract import (
     custom_number_format_id,
     parse_color,
@@ -51,6 +58,11 @@ _WORKSHEET_EDIT_TYPES = {
     "defined_name_add",
     "defined_name_update",
     "defined_name_delete",
+    "page_setup",
+    "header_footer",
+    "sheet_view",
+    "print_titles",
+    "print_titles_clear",
 }
 _SHEET_EDIT_TYPES = {
     "sheet_add",
@@ -181,10 +193,21 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "priority",
                 "rule",
                 "chart",
+                "page_setup",
+                "header_footer",
+                "view",
+                "print_titles",
+                "hyperlink",
+                "comment",
+                "properties",
             },
         )
-        sheet = _text(edit.get("sheet"), f"edits.{index}.sheet", allow_empty=False)
         edit_type = edit.get("type")
+        sheet = _text(
+            edit.get("sheet", ""),
+            f"edits.{index}.sheet",
+            allow_empty=edit_type == "workbook_properties",
+        )
         if edit_type not in {
             "cell_value",
             "cell_formula",
@@ -209,6 +232,13 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "chart_add",
             "chart_update",
             "chart_delete",
+            "hyperlink_add",
+            "hyperlink_update",
+            "hyperlink_delete",
+            "comment_add",
+            "comment_update",
+            "comment_delete",
+            "workbook_properties",
             *_WORKSHEET_EDIT_TYPES,
             *_SHEET_EDIT_TYPES,
         }:
@@ -230,6 +260,14 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "chart_add",
             "chart_update",
             "chart_delete",
+            "page_setup",
+            "header_footer",
+            "sheet_view",
+            "print_titles",
+            "print_titles_clear",
+            "hyperlink_add",
+            "comment_add",
+            "workbook_properties",
         }
         ref = _text(
             edit.get("ref", ""),
@@ -274,6 +312,13 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         priority = edit.get("priority")
         rule = edit.get("rule")
         chart = edit.get("chart")
+        page_setup_edit = edit.get("page_setup")
+        header_footer = edit.get("header_footer")
+        view = edit.get("view")
+        print_titles = edit.get("print_titles")
+        hyperlink = edit.get("hyperlink")
+        comment = edit.get("comment")
+        properties = edit.get("properties")
         if edit_type == "row_height":
             _validate_index_range(ref, "row", f"edits.{index}.ref")
             height = _number(height, 0, 409, f"edits.{index}.height")
@@ -419,6 +464,63 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "chart is only valid for chart add/update edits.",
                 field=f"edits.{index}.chart",
             )
+        if edit_type == "page_setup":
+            page_setup_edit = _parse_page_setup(page_setup_edit, f"edits.{index}.page_setup")
+        elif page_setup_edit is not None:
+            _invalid("page_setup is only valid for page_setup edits.", field=f"edits.{index}.page_setup")
+        if edit_type == "header_footer":
+            header_footer = _parse_header_footer(
+                header_footer,
+                f"edits.{index}.header_footer",
+            )
+        elif header_footer is not None:
+            _invalid(
+                "header_footer is only valid for header_footer edits.",
+                field=f"edits.{index}.header_footer",
+            )
+        if edit_type == "sheet_view":
+            view = _parse_sheet_view(view, f"edits.{index}.view")
+        elif view is not None:
+            _invalid("view is only valid for sheet_view edits.", field=f"edits.{index}.view")
+        if edit_type == "print_titles":
+            print_titles = _parse_print_titles(
+                print_titles,
+                f"edits.{index}.print_titles",
+            )
+        elif print_titles is not None:
+            _invalid(
+                "print_titles is only valid for print_titles edits.",
+                field=f"edits.{index}.print_titles",
+            )
+        if edit_type in {"hyperlink_add", "hyperlink_update"}:
+            hyperlink = _parse_hyperlink(hyperlink, f"edits.{index}.hyperlink")
+        elif hyperlink is not None:
+            _invalid(
+                "hyperlink is only valid for hyperlink add/update edits.",
+                field=f"edits.{index}.hyperlink",
+            )
+        if edit_type in {"hyperlink_update", "hyperlink_delete"}:
+            _validate_cell_range(ref, f"edits.{index}.ref")
+        if edit_type in {"comment_add", "comment_update"}:
+            comment = _parse_comment(comment, f"edits.{index}.comment")
+        elif comment is not None:
+            _invalid(
+                "comment is only valid for comment add/update edits.",
+                field=f"edits.{index}.comment",
+            )
+        if edit_type in {"comment_update", "comment_delete"}:
+            _validate_cell_ref(ref, f"edits.{index}.ref")
+        if edit_type == "workbook_properties":
+            properties = _parse_workbook_properties(
+                properties,
+                f"edits.{index}.properties",
+                partial=True,
+            )
+        elif properties is not None:
+            _invalid(
+                "properties is only valid for workbook_properties edits.",
+                field=f"edits.{index}.properties",
+            )
         if edit_type == "sheet_add":
             _validate_sheet_name(sheet, f"edits.{index}.sheet")
         elif edit_type == "sheet_copy":
@@ -446,6 +548,13 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "priority": priority,
                 "rule": rule,
                 "chart": chart,
+                "page_setup": page_setup_edit,
+                "header_footer": header_footer,
+                "view": view,
+                "print_titles": print_titles,
+                "hyperlink": hyperlink,
+                "comment": comment,
+                "properties": properties,
             }
         )
     expected = value.get("expected_edits")
@@ -470,12 +579,7 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
     metadata = workbook.get("metadata")
     if type(metadata) is not dict:
         _invalid("workbook.metadata must be an object.", field="metadata")
-    _exact_keys(metadata, {"title", "creator", "subject"})
-    parsed_meta = {
-        "title": _text(metadata.get("title", "Elftia Workbook"), "metadata.title"),
-        "creator": _text(metadata.get("creator", "Elftia Document Skills"), "metadata.creator"),
-        "subject": _text(metadata.get("subject", ""), "metadata.subject"),
-    }
+    parsed_meta = _parse_workbook_properties(metadata, "metadata", partial=False)
     sheets = workbook.get("sheets")
     if type(sheets) is not list or not sheets or len(sheets) > MAX_SHEETS:
         _invalid("workbook.sheets must be a non-empty bounded array.", field="sheets")
@@ -495,6 +599,13 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 "number_formats",
                 "data_validations",
                 "conditional_formats",
+                "page_setup",
+                "header_footer",
+                "view",
+                "print_area",
+                "print_titles",
+                "hyperlinks",
+                "comments",
             },
         )
         name = _text(sheet.get("name", f"Sheet{idx + 1}"), f"sheets.{idx}.name", allow_empty=False)
@@ -632,6 +743,50 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
             )
             parsed_rule["priority"] = rule_idx + 1
             parsed_conditional_formats.append(parsed_rule)
+        page_setup_sheet = sheet.get("page_setup")
+        if page_setup_sheet is not None:
+            page_setup_sheet = _parse_page_setup(
+                page_setup_sheet,
+                f"sheets.{idx}.page_setup",
+            )
+        header_footer_sheet = sheet.get("header_footer")
+        if header_footer_sheet is not None:
+            header_footer_sheet = _parse_header_footer(
+                header_footer_sheet,
+                f"sheets.{idx}.header_footer",
+            )
+        view_sheet = sheet.get("view")
+        if view_sheet is not None:
+            view_sheet = _parse_sheet_view(view_sheet, f"sheets.{idx}.view")
+        print_area = sheet.get("print_area")
+        if print_area is not None:
+            print_area = _text(print_area, f"sheets.{idx}.print_area", allow_empty=False)
+            _validate_cell_range(print_area, f"sheets.{idx}.print_area")
+            print_area = _normalize_cell_range(print_area)
+        print_titles = sheet.get("print_titles")
+        if print_titles is not None:
+            print_titles = _parse_print_titles(
+                print_titles,
+                f"sheets.{idx}.print_titles",
+            )
+        hyperlinks = sheet.get("hyperlinks", [])
+        if type(hyperlinks) is not list or len(hyperlinks) > MAX_HYPERLINKS:
+            _invalid("hyperlinks must be a bounded array.", field=f"sheets.{idx}.hyperlinks")
+        parsed_hyperlinks = [
+            _parse_hyperlink(item, f"sheets.{idx}.hyperlinks.{item_idx}")
+            for item_idx, item in enumerate(hyperlinks)
+        ]
+        if len({item["ref"].casefold() for item in parsed_hyperlinks}) != len(parsed_hyperlinks):
+            _invalid("Hyperlink refs must be unique on a sheet.", field=f"sheets.{idx}.hyperlinks")
+        comments = sheet.get("comments", [])
+        if type(comments) is not list or len(comments) > MAX_COMMENTS:
+            _invalid("comments must be a bounded array.", field=f"sheets.{idx}.comments")
+        parsed_comments = [
+            _parse_comment(item, f"sheets.{idx}.comments.{item_idx}")
+            for item_idx, item in enumerate(comments)
+        ]
+        if len({item["ref"].casefold() for item in parsed_comments}) != len(parsed_comments):
+            _invalid("Comment refs must be unique on a sheet.", field=f"sheets.{idx}.comments")
         parsed_sheets.append(
             {
                 "name": name,
@@ -640,6 +795,13 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 "number_formats": parsed_formats,
                 "data_validations": parsed_validations,
                 "conditional_formats": parsed_conditional_formats,
+                "page_setup": page_setup_sheet,
+                "header_footer": header_footer_sheet,
+                "view": view_sheet,
+                "print_area": print_area,
+                "print_titles": print_titles,
+                "hyperlinks": parsed_hyperlinks,
+                "comments": parsed_comments,
             }
         )
     for style in parsed_styles:
@@ -1403,6 +1565,259 @@ def _absolute_cell(ref: str) -> str:
     match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", ref)
     assert match is not None
     return f"${match.group(1).upper()}${match.group(2)}"
+
+
+def _parse_page_setup(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("page_setup must be an object.", field=field)
+    _exact_keys(
+        value,
+        {
+            "orientation",
+            "paper_size",
+            "margins",
+            "fit_to_width",
+            "fit_to_height",
+            "scale",
+            "horizontal_centered",
+            "vertical_centered",
+        },
+    )
+    orientation = _text(
+        value.get("orientation", "portrait"),
+        f"{field}.orientation",
+        allow_empty=False,
+    )
+    if orientation not in {"portrait", "landscape"}:
+        _invalid("Page orientation is not supported.", field=f"{field}.orientation")
+    paper_size = _text(
+        value.get("paper_size", "letter"),
+        f"{field}.paper_size",
+        allow_empty=False,
+    )
+    if paper_size not in {"letter", "legal", "tabloid", "a3", "a4", "a5", "b4", "b5"}:
+        _invalid("Paper size is not supported.", field=f"{field}.paper_size")
+    margins = value.get("margins", {})
+    if type(margins) is not dict:
+        _invalid("Page margins must be an object.", field=f"{field}.margins")
+    _exact_keys(margins, {"left", "right", "top", "bottom", "header", "footer"})
+    parsed_margins = {
+        key: _number(margins.get(key, default), 0, 49, f"{field}.margins.{key}")
+        for key, default in (
+            ("left", 0.7),
+            ("right", 0.7),
+            ("top", 0.75),
+            ("bottom", 0.75),
+            ("header", 0.3),
+            ("footer", 0.3),
+        )
+    }
+    fit_width = value.get("fit_to_width")
+    fit_height = value.get("fit_to_height")
+    scale = value.get("scale")
+    if fit_width is not None or fit_height is not None:
+        if scale is not None:
+            _invalid("Page scale and fit-to-page are mutually exclusive.", field=field)
+        fit_width = _integer(1 if fit_width is None else fit_width, 0, 32_767)
+        fit_height = _integer(0 if fit_height is None else fit_height, 0, 32_767)
+    elif scale is not None:
+        scale = _integer(scale, 10, 400)
+    else:
+        scale = 100
+    return {
+        "orientation": orientation,
+        "paper_size": paper_size,
+        "margins": parsed_margins,
+        "fit_to_width": fit_width,
+        "fit_to_height": fit_height,
+        "scale": scale,
+        "horizontal_centered": _boolean(
+            value.get("horizontal_centered", False),
+            f"{field}.horizontal_centered",
+        ),
+        "vertical_centered": _boolean(
+            value.get("vertical_centered", False),
+            f"{field}.vertical_centered",
+        ),
+    }
+
+
+def _parse_header_footer(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("header_footer must be an object.", field=field)
+    _exact_keys(
+        value,
+        {
+            "odd_header",
+            "odd_footer",
+            "even_header",
+            "even_footer",
+            "first_header",
+            "first_footer",
+            "different_first",
+            "different_odd_even",
+            "scale_with_doc",
+            "align_with_margins",
+        },
+    )
+    return {
+        key: _text(value.get(key, ""), f"{field}.{key}")
+        for key in (
+            "odd_header",
+            "odd_footer",
+            "even_header",
+            "even_footer",
+            "first_header",
+            "first_footer",
+        )
+    } | {
+        key: _boolean(value.get(key, default), f"{field}.{key}")
+        for key, default in (
+            ("different_first", False),
+            ("different_odd_even", False),
+            ("scale_with_doc", True),
+            ("align_with_margins", True),
+        )
+    }
+
+
+def _parse_sheet_view(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("view must be an object.", field=field)
+    _exact_keys(value, {"show_grid_lines", "zoom_scale", "selected_cell"})
+    selected_cell = _text(
+        value.get("selected_cell", "A1"),
+        f"{field}.selected_cell",
+        allow_empty=False,
+    )
+    _validate_cell_ref(selected_cell, f"{field}.selected_cell")
+    return {
+        "show_grid_lines": _boolean(
+            value.get("show_grid_lines", True),
+            f"{field}.show_grid_lines",
+        ),
+        "zoom_scale": _integer(value.get("zoom_scale", 100), 10, 400),
+        "selected_cell": selected_cell.replace("$", "").upper(),
+    }
+
+
+def _parse_print_titles(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("print_titles must be an object.", field=field)
+    _exact_keys(value, {"rows", "columns"})
+    rows = _optional_text(value.get("rows"), f"{field}.rows")
+    columns = _optional_text(value.get("columns"), f"{field}.columns")
+    if rows is None and columns is None:
+        _invalid("print_titles requires rows and/or columns.", field=field)
+    if rows is not None:
+        _validate_index_range(rows, "row", f"{field}.rows")
+    if columns is not None:
+        _validate_index_range(columns, "column", f"{field}.columns")
+        columns = columns.upper()
+    return {"rows": rows, "columns": columns}
+
+
+def _parse_hyperlink(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("hyperlink must be an object.", field=field)
+    _exact_keys(value, {"ref", "location", "display", "tooltip"})
+    ref = _text(value.get("ref", ""), f"{field}.ref", allow_empty=False)
+    _validate_cell_range(ref, f"{field}.ref")
+    location = _text(
+        value.get("location", ""),
+        f"{field}.location",
+        allow_empty=False,
+    )
+    if (
+        has_external_workbook_reference(location)
+        or location.startswith(("//", "\\\\"))
+        or re.match(
+            r"^[A-Za-z][A-Za-z0-9+.-]*:",
+            location,
+        )
+    ):
+        _enhancement(
+            "Core XLSX mutation only authors inert internal hyperlinks.",
+            field=f"{field}.location",
+            capability="xlsx.external-hyperlink-authoring",
+        )
+    return {
+        "ref": _normalize_cell_range(ref),
+        "location": location,
+        "display": _optional_text(value.get("display"), f"{field}.display"),
+        "tooltip": _optional_text(value.get("tooltip"), f"{field}.tooltip"),
+    }
+
+
+def _parse_comment(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("comment must be an object.", field=field)
+    _exact_keys(value, {"ref", "text", "author"})
+    ref = _text(value.get("ref", ""), f"{field}.ref", allow_empty=False)
+    _validate_cell_ref(ref, f"{field}.ref")
+    return {
+        "ref": ref.replace("$", "").upper(),
+        "text": _text(value.get("text", ""), f"{field}.text", allow_empty=False),
+        "author": _text(value.get("author", ""), f"{field}.author", allow_empty=False),
+    }
+
+
+def _parse_workbook_properties(
+    value: Any,
+    field: str,
+    *,
+    partial: bool,
+) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Workbook properties must be an object.", field=field)
+    allowed = (
+        "title",
+        "creator",
+        "subject",
+        "description",
+        "keywords",
+        "category",
+        "last_modified_by",
+        "created",
+        "modified",
+        "company",
+        "manager",
+    )
+    _exact_keys(value, set(allowed))
+    if partial and not value:
+        _invalid("Workbook property edit must contain at least one field.", field=field)
+    result: dict[str, Any] = {}
+    defaults = {
+        "title": "Elftia Workbook",
+        "creator": "Elftia Document Skills",
+        "subject": "",
+    }
+    for key in allowed:
+        if key in value:
+            result[key] = _text(value[key], f"{field}.{key}")
+        elif not partial:
+            result[key] = defaults.get(key)
+    for key in ("created", "modified"):
+        timestamp = result.get(key)
+        if timestamp is not None and timestamp:
+            valid_shape = re.fullmatch(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})",
+                timestamp,
+            )
+            try:
+                parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                parsed_timestamp = None
+            if (
+                valid_shape is None
+                or parsed_timestamp is None
+                or parsed_timestamp.tzinfo is None
+            ):
+                _invalid(
+                    "Workbook timestamp must use valid ISO 8601 with a timezone.",
+                    field=f"{field}.{key}",
+                )
+    return result
 
 
 def _column_number(value: str) -> int:

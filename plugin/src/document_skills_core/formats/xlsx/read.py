@@ -5,6 +5,7 @@ from typing import Any
 
 from document_skills_core.core.io.core_properties import project_core_properties
 
+from .annotations import project_comments
 from .formula_state import build_formula_state_summary
 from .mapping import map_workbook
 from .package import OpcPackage
@@ -18,6 +19,8 @@ from .projection import (
     project_pivot_caches,
     project_tables,
 )
+from .worksheet_metadata import project_worksheet_metadata
+from .workbook_properties import project_workbook_properties
 
 
 def read_xlsx(
@@ -92,14 +95,19 @@ def read_xlsx(
     drawings = project_drawings(package)
     data_validations = project_data_validations(package)
     conditional_formats = project_conditional_formats(package)
+    worksheet_metadata = project_worksheet_metadata(package)
 
     # Hyperlinks per sheet
     hyperlinks: list[dict[str, Any]] = []
-    for name in package.worksheet_parts():
-        hyperlinks.extend(project_hyperlinks(package, name))
+    for sheet in workbook["sheets"]:
+        if sheet.get("part"):
+            hyperlinks.extend(
+                project_hyperlinks(package, sheet["part"], sheet["name"])
+            )
 
     operation_result: dict[str, Any] = {
         "metadata": project_core_properties(package.parts),
+        "workbook_properties": project_workbook_properties(package.parts),
         "sheets": sheets,
         "sheet_count": len(sheets),
         "defined_names": workbook["defined_names"],
@@ -111,7 +119,9 @@ def read_xlsx(
         "drawings": drawings,
         "data_validations": data_validations,
         "conditional_formats": conditional_formats,
+        "worksheet_metadata": worksheet_metadata,
         "hyperlinks": hyperlinks,
+        "comments": project_comments(package),
         "full_calc_on_load": workbook["full_calc_on_load"],
         "formula_state": {
             "cells": formula_cells,

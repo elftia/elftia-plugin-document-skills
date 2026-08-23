@@ -52,6 +52,10 @@ REL_DRAWING = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
 )
 REL_CHART = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+REL_COMMENTS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
+REL_VML_DRAWING = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing"
+)
 REL_PIVOT_TABLE = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable"
 )
@@ -90,6 +94,7 @@ MAX_SHEETS = 1_000
 MAX_TABLES = 500
 MAX_DEFINED_NAMES = 1_000
 MAX_HYPERLINKS = 1_000
+MAX_COMMENTS = 1_000
 MAX_EDIT_OPS = 256
 
 # Formula state enum

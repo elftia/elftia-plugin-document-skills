@@ -51,7 +51,7 @@ def test_unsupported_docx_formatting_has_typed_gate_evidence(
 
 @pytest.mark.parametrize(
     "feature",
-    ["legacy-chart-reference", "page-setup"],
+    ["legacy-chart-reference", "legacy-page-setup"],
 )
 def test_disconnected_xlsx_create_feature_fails_closed(
     project_root: Path,
