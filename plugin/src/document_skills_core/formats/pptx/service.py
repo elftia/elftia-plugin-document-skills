@@ -1,4 +1,4 @@
-"""Four-operation PPTX dispatch and shared transactional mutation."""
+"""PPTX dispatch and shared transactional mutation."""
 
 from pathlib import Path
 import time
@@ -16,13 +16,15 @@ from document_skills_core.core.io.paths import (
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
-from .contracts import ParsedPptxRequest, parse_pptx_request
+from .contracts import ParsedPptxRequest, parse_deck, parse_pptx_request
 from .create import create_pptx
 from .edit import edit_pptx
 from .inspect import inspect_pptx
 from .lifecycle_validation import validate_slide_lifecycle
+from .markdown import parse_markdown_deck
 from .object_contracts import OBJECT_EDIT_TYPES
 from .object_validation import validate_object_edits
+from .outline import outline_validation, write_outline
 from .read import read_pptx
 from .html_capture import HtmlDeckCapture
 from .results import read_validation, success_result
@@ -76,6 +78,10 @@ class PptxService:
             return self._inspect(parsed)
         if operation == "pptx.create":
             return self._create(parsed)
+        if operation == "pptx.outline.create":
+            return self._create_outline(parsed)
+        if operation == "pptx.create.from-markdown":
+            return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
         return self._edit(parsed)
@@ -140,6 +146,82 @@ class PptxService:
                 source=template_source,
                 destination=destination,
             )
+
+    def _create_outline(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        assert request.output_path is not None
+        destination = destination_snapshot(request.output_path)
+        with OperationTempRoot() as private_root:
+            staged = private_root / "outline.json"
+            plan = write_outline(staged, request.arguments)
+            result = write_candidate_result(
+                self.schemas,
+                request,
+                staged,
+                outline_validation(staged, plan),
+                {
+                    "artifact_type": "planning-json",
+                    "presentation_generated": False,
+                    "slides": len(plan["slides"]),
+                },
+                warnings=[],
+                source=None,
+            )
+            return promote_candidate(
+                request,
+                staged,
+                result,
+                source=None,
+                destination=destination,
+            )
+
+    def _create_from_markdown(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        assert request.input_path is not None
+        assert request.output_path is not None
+        source = file_record(request.input_path, "input")
+        destination = destination_snapshot(request.output_path)
+        try:
+            with OperationTempRoot() as private_root:
+                raw_deck, reconstruction = parse_markdown_deck(
+                    request.input_path,
+                    request.arguments,
+                )
+                deck = parse_deck(raw_deck)
+                staged = private_root / "created-from-markdown.pptx"
+                creation = create_pptx(
+                    staged,
+                    deck,
+                    template=request.arguments.get("template"),
+                )
+                validation = validate_created(staged, deck, creation)
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
+                result = write_candidate_result(
+                    self.schemas,
+                    request,
+                    staged,
+                    validation,
+                    {
+                        "creation": creation,
+                        "reconstruction": reconstruction,
+                    },
+                    warnings=[{
+                        "code": "PPTX_MARKDOWN_SEMANTIC_RECONSTRUCTION",
+                        "message": "Markdown semantics were reconstructed; source visual styling was not preserved.",
+                    }],
+                    source=source,
+                )
+                return promote_candidate(
+                    request,
+                    staged,
+                    result,
+                    source=source,
+                    destination=destination,
+                )
+        except Exception as error:
+            merge_source_preservation_failure(error, source.path, source.sha256)
+            raise
 
     def _edit(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.input_path is not None

@@ -8,6 +8,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MAX_SLIDES
+from .content_contracts import parse_markdown_arguments, parse_outline_arguments
 from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
@@ -20,7 +21,9 @@ PPTX_OPERATIONS = frozenset(
         "pptx.render",
         "pptx.convert.pdf",
         "pptx.validate.schema",
+        "pptx.outline.create",
         "pptx.create",
+        "pptx.create.from-markdown",
         "pptx.create.from-html",
         "pptx.edit",
     }
@@ -58,28 +61,29 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
             _invalid("PPTX creation requires an explicit output path.", field="output")
         if input_path is not None:
             _invalid("PPTX creation does not accept input.", field="input")
-    elif operation == "pptx.create.from-html":
+    elif operation == "pptx.outline.create":
+        if output_path is None:
+            _invalid("PPTX outline planning requires an explicit output path.", field="output")
+        if input_path is not None:
+            _invalid("PPTX outline planning does not accept input.", field="input")
+    elif operation in {"pptx.create.from-html", "pptx.create.from-markdown"}:
         if input_path is None or output_path is None:
-            _invalid("HTML conversion requires input and output paths.")
+            _invalid("PPTX content reconstruction requires input and output paths.")
     elif operation in {"pptx.convert.pdf", "pptx.render"}:
         if input_path is None or output_path is None:
             _invalid("LibreOffice PPTX output requires input and output paths.")
     elif input_path is None or output_path is None:
         _invalid("PPTX mutation requires distinct input and output paths.")
-    if (
-        input_path is not None
-        and operation == "pptx.create.from-html"
-        and input_path.suffix.casefold() not in {".html", ".htm"}
-    ):
-        _invalid("HTML conversion input must use the .html or .htm extension.", field="input")
-    if (
-        input_path is not None
-        and operation != "pptx.create.from-html"
-        and input_path.suffix.casefold() != ".pptx"
-    ):
-        _invalid("PPTX input path must use the .pptx extension.", field="input")
+    expected_input_suffixes = {
+        "pptx.create.from-html": {".htm", ".html"},
+        "pptx.create.from-markdown": {".markdown", ".md"},
+    }.get(operation, {".pptx"})
+    if input_path is not None and input_path.suffix.casefold() not in expected_input_suffixes:
+        expected = ", ".join(sorted(expected_input_suffixes))
+        _invalid(f"{operation} input must use one of: {expected}.", field="input")
     expected_output_suffix = {
         "pptx.convert.pdf": ".pdf",
+        "pptx.outline.create": ".json",
         "pptx.render": ".zip",
     }.get(operation, ".pptx")
     if (
@@ -106,13 +110,15 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.inspect.structure": _parse_inspect,
         "pptx.render": _parse_provider_output,
         "pptx.convert.pdf": _parse_provider_output,
+        "pptx.outline.create": parse_outline_arguments,
         "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
+        "pptx.create.from-markdown": parse_markdown_arguments,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
     if (
-        operation == "pptx.create"
+        operation in {"pptx.create", "pptx.create.from-markdown"}
         and parsed.get("template") is not None
         and output_path is not None
         and same_path(parsed["template"], output_path)
@@ -172,7 +178,7 @@ def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
                 "Template-as-base reuses the template theme and does not accept deck.theme.",
                 field="deck.theme",
             )
-    return {"deck": _parse_deck(deck), "template": template}
+    return {"deck": parse_deck(deck), "template": template}
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
@@ -191,7 +197,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     return {"edits": parsed_edits, "expected_edits": expected}
 
 
-def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
+def parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(deck, {"layout_tokens", "metadata", "slide_size", "slides", "theme"})
     metadata = deck.get("metadata")
     if type(metadata) is not dict:

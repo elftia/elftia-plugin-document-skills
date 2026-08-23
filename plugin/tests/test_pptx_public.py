@@ -127,7 +127,14 @@ def public_created(project_root: Path, tmp_path: Path) -> Path:
 def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
     report = _public(project_root, "capabilities", "--json")
     operations = {item["operation"]: item for item in report["operations"]}
-    core = ("pptx.read", "pptx.inspect.structure", "pptx.create", "pptx.edit")
+    core = (
+        "pptx.read",
+        "pptx.inspect.structure",
+        "pptx.outline.create",
+        "pptx.create",
+        "pptx.create.from-markdown",
+        "pptx.edit",
+    )
     for operation in core:
         assert operation in operations
         assert operations[operation]["available"], operations[operation]
@@ -173,6 +180,61 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
 def test_public_doctor_succeeds(project_root: Path) -> None:
     report = _public(project_root, "doctor", "--json")
     assert report["status"] == "healthy"
+
+
+def test_public_outline_and_markdown_content_entry(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    outline_output = tmp_path / "public-outline.json"
+    outline_request = _request(tmp_path, "outline-request.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.outline.create",
+        "output": str(outline_output),
+        "arguments": {
+            "title": "Public plan",
+            "slides": [{"title": "Opening", "bullets": ["Context"]}],
+        },
+    })
+    outline_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(outline_request),
+    )
+    assert outline_result["status"] == "success", outline_result
+    outline = json.loads(outline_output.read_text(encoding="utf-8"))
+    assert outline["presentation_generated"] is False
+
+    image = tmp_path / "markdown-image.png"
+    image.write_bytes(PNG_1X1)
+    source = tmp_path / "public-deck.md"
+    source.write_text(
+        "# Public deck\n\nNative paragraph.\n\n"
+        "## Evidence\n\n| Item | Value |\n| --- | --- |\n| A | 1 |\n\n"
+        "![Evidence](markdown-image.png)\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    output = tmp_path / "public-markdown.pptx"
+    markdown_request = _request(tmp_path, "markdown-request.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.create.from-markdown",
+        "input": str(source),
+        "output": str(output),
+        "arguments": {},
+    })
+    markdown_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(markdown_request),
+    )
+    assert markdown_result["status"] == "success", markdown_result
+    package = OpcPackage.open(output)
+    assert len(package.slide_parts()) == 2
+    assert len(package.media_parts()) == 1
+    assert markdown_result["diagnostics"]["operation_result"]["creation"]["has_table"] is True
 
 
 def test_public_create_and_read(project_root: Path, public_created: Path, tmp_path: Path) -> None:

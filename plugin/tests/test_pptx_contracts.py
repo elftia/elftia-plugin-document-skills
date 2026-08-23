@@ -19,11 +19,64 @@ def test_pptx_operations_preserve_existing_surface_and_add_validators():
             "pptx.render",
             "pptx.convert.pdf",
             "pptx.validate.schema",
+            "pptx.outline.create",
             "pptx.create",
+            "pptx.create.from-markdown",
             "pptx.edit",
             "pptx.create.from-html",
         }
     )
+
+
+def test_parse_outline_and_markdown_content_entry(tmp_path: Path):
+    outline = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.outline.create",
+        "output": str(tmp_path / "plan.json"),
+        "arguments": {
+            "title": "Plan",
+            "slides": [{"title": "Opening", "bullets": ["Context"]}],
+        },
+    })
+    assert outline.input_path is None
+    assert outline.arguments["slides"][0]["title"] == "Opening"
+
+    markdown = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.create.from-markdown",
+        "input": str(tmp_path / "deck.markdown"),
+        "output": str(tmp_path / "deck.pptx"),
+        "arguments": {"metadata": {"title": "Deck"}},
+    })
+    assert markdown.arguments["metadata"]["title"] == "Deck"
+    assert markdown.arguments["template"] is None
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {
+            "operation": "pptx.outline.create",
+            "output": "plan.pptx",
+            "arguments": {"title": "Plan", "slides": [{"title": "One"}]},
+        },
+        {
+            "operation": "pptx.create.from-markdown",
+            "input": "deck.txt",
+            "output": "deck.pptx",
+            "arguments": {},
+        },
+        {
+            "operation": "pptx.create.from-markdown",
+            "input": "deck.md",
+            "output": "deck.pptx",
+            "arguments": {"template": "base.potx", "theme": {}},
+        },
+    ],
+)
+def test_parse_content_entry_rejects_ambiguous_contracts(case):
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({"schema_version": "1.0", **case})
 
 
 def test_parse_schema_validation_is_read_only_and_bounded(tmp_path: Path):
