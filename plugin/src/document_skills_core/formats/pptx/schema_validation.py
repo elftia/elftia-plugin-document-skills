@@ -65,7 +65,7 @@ def with_schema_gate(
 
 
 def _detection_evidence(provider: Any) -> Any:
-    if provider is None or not hasattr(provider, "detect"):
+    if provider is None:
         return None
     try:
         return provider.detect()
@@ -74,10 +74,10 @@ def _detection_evidence(provider: Any) -> Any:
 
 
 def _evidence_version(evidence: Any) -> str | None:
-    version = None if evidence is None else getattr(evidence, "version", None)
+    version = None if evidence is None else evidence.version
     return version if type(version) is str else None
 
 
 def _unavailable_reason(evidence: Any) -> str:
-    reason = None if evidence is None else getattr(evidence, "reason", None)
+    reason = None if evidence is None else evidence.reason
     return reason if type(reason) is str and reason else "OpenXML SDK provider is unavailable."
