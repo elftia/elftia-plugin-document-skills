@@ -36,6 +36,9 @@ preservation failure prevents promotion.
 | `conditional_format_add` | `sheet`, `rule` | Assigns the next unique worksheet priority. |
 | `conditional_format_update` | `sheet`, selector `ref`/`priority`, `rule` | Replaces one exact standard rule and preserves its priority. |
 | `conditional_format_delete` | `sheet`, selector `ref`/`priority` | Removes one exact standard rule. |
+| `chart_add` | `sheet`, `chart` | Adds a full native chart definition; `chart.sheet` must match `sheet`. |
+| `chart_update` | `sheet`, existing `name`, `chart` | Replaces the named chart, including safe series/range and anchor changes. |
+| `chart_delete` | `sheet`, existing `name` | Removes the chart and any drawing parts made empty by that deletion. |
 
 ## Example
 

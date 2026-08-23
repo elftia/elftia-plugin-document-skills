@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from .constants import NS, REL_TABLE
+from .chart import DRAWING_NS, append_chart_anchor, build_chart_root
+from .constants import NS, REL_CHART, REL_DRAWING, REL_TABLE
 from .conditional_format import append_conditional_format
 from .data_validation import append_data_validation
 from .formula_state import derive_create_state, build_formula_cell_state
@@ -26,7 +27,7 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     sheets_data = workbook.get("sheets", [])
     defined_names = workbook.get("defined_names", [])
     tables = workbook.get("tables", [])
-    chart_ref = workbook.get("chart_reference")
+    charts = workbook.get("charts", [])
     page_setup = workbook.get("page_setup")
 
     # Build shared strings table
@@ -48,11 +49,26 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     # Build parts
     parts: dict[str, bytes] = {}
 
+    indexed_charts = [dict(chart, chart_id=index + 1) for index, chart in enumerate(charts)]
+    drawing_groups: list[dict[str, Any]] = []
+    for sheet in sheets_data:
+        sheet_charts = [chart for chart in indexed_charts if chart["sheet"] == sheet["name"]]
+        if sheet_charts:
+            drawing_groups.append(
+                {
+                    "drawing_id": len(drawing_groups) + 1,
+                    "sheet": sheet["name"],
+                    "charts": sheet_charts,
+                }
+            )
+    drawings_by_sheet = {item["sheet"]: item for item in drawing_groups}
+
     # Content types
     parts["[Content_Types].xml"] = _build_content_types(
         sheets_data,
         tables=tables,
-        has_chart=bool(chart_ref),
+        chart_count=len(indexed_charts),
+        drawing_count=len(drawing_groups),
     )
 
     # Root rels
@@ -73,13 +89,20 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
     for idx, sheet in enumerate(sheets_data):
         sheet_part = f"xl/worksheets/sheet{idx + 1}.xml"
         sheet_tables = [table for table in indexed_tables if table["sheet"] == sheet["name"]]
+        drawing = drawings_by_sheet.get(sheet["name"])
+        drawing_relationship_id = (
+            f"rId{len(sheet_tables) + 1}" if drawing is not None else None
+        )
         parts[sheet_part] = _build_worksheet(
             sheet, idx, shared_strings, string_index, formula_cells,
-            style_registry, style_assignments, sheet_tables,
+            style_registry, style_assignments, sheet_tables, drawing_relationship_id,
         )
-        if sheet_tables:
+        if sheet_tables or drawing is not None:
             parts[f"xl/worksheets/_rels/sheet{idx + 1}.xml.rels"] = (
-                _build_worksheet_rels(sheet_tables)
+                _build_worksheet_rels(
+                    sheet_tables,
+                    drawing_id=None if drawing is None else drawing["drawing_id"],
+                )
             )
 
     # Shared strings
@@ -93,12 +116,25 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
         tbl_part = f"xl/tables/table{table['table_id']}.xml"
         parts[tbl_part] = _build_table(table)
 
-    # Chart reference (placeholder chart part)
-    if chart_ref:
-        chart_part = "xl/charts/chart1.xml"
-        parts[chart_part] = _build_chart_reference(chart_ref)
-        drawing_part = "xl/drawings/drawing1.xml"
-        parts[drawing_part] = _build_drawing(chart_part)
+    # Native charts and their sheet drawings
+    for chart in indexed_charts:
+        parts[f"xl/charts/chart{chart['chart_id']}.xml"] = _to_xml_bytes(
+            build_chart_root(chart, chart["chart_id"])
+        )
+    for drawing in drawing_groups:
+        drawing_id = drawing["drawing_id"]
+        drawing_root = Element(f"{{{DRAWING_NS}}}wsDr")
+        for index, chart in enumerate(drawing["charts"], start=1):
+            append_chart_anchor(
+                drawing_root,
+                chart,
+                relationship_id=f"rId{index}",
+                object_id=index,
+            )
+        parts[f"xl/drawings/drawing{drawing_id}.xml"] = _to_xml_bytes(drawing_root)
+        parts[f"xl/drawings/_rels/drawing{drawing_id}.xml.rels"] = (
+            _build_drawing_rels(drawing["charts"])
+        )
 
     # DocProps
     parts["docProps/core.xml"] = _build_core_props(metadata)
@@ -148,6 +184,18 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
             for sheet in sheets_data
             for rule in sheet.get("conditional_formats", [])
         ],
+        "charts": [
+            {
+                "name": chart["name"],
+                "sheet": chart["sheet"],
+                "type": chart["type"],
+                "part": f"xl/charts/chart{chart['chart_id']}.xml",
+                "drawing_part": (
+                    f"xl/drawings/drawing{drawings_by_sheet[chart['sheet']]['drawing_id']}.xml"
+                ),
+            }
+            for chart in indexed_charts
+        ],
     }
 
 
@@ -157,7 +205,8 @@ def _build_content_types(
     sheets: list[dict[str, Any]],
     *,
     tables: list[dict[str, Any]],
-    has_chart: bool,
+    chart_count: int,
+    drawing_count: int,
 ) -> bytes:
     root = Element(f"{{{_CONTENT_TYPES_NS}}}Types")
     SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Default", attrib={
@@ -197,6 +246,16 @@ def _build_content_types(
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
             "PartName": f"/xl/tables/table{index + 1}.xml",
             "ContentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml",
+        })
+    for index in range(chart_count):
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
+            "PartName": f"/xl/charts/chart{index + 1}.xml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.drawingml.chart+xml",
+        })
+    for index in range(drawing_count):
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
+            "PartName": f"/xl/drawings/drawing{index + 1}.xml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.drawing+xml",
         })
     return _to_xml_bytes(root)
 
@@ -273,6 +332,7 @@ def _build_worksheet(
     style_registry: StyleRegistry,
     style_assignments: dict[str, dict[str, int]],
     tables: list[dict[str, Any]],
+    drawing_relationship_id: str | None,
 ) -> bytes:
     root = Element(f"{{{_MAIN_NS}}}worksheet")
     columns = sheet.get("columns", [])
@@ -382,6 +442,12 @@ def _build_worksheet(
         )
         for validation in data_validations:
             append_data_validation(validations_element, validation)
+    if drawing_relationship_id is not None:
+        SubElement(
+            root,
+            f"{{{_MAIN_NS}}}drawing",
+            {f"{{{_R_NS}}}id": drawing_relationship_id},
+        )
     if tables:
         table_parts = SubElement(
             root,
@@ -438,7 +504,11 @@ def _build_table(tbl: dict[str, Any]) -> bytes:
     return _to_xml_bytes(root)
 
 
-def _build_worksheet_rels(tables: list[dict[str, Any]]) -> bytes:
+def _build_worksheet_rels(
+    tables: list[dict[str, Any]],
+    *,
+    drawing_id: int | None,
+) -> bytes:
     root = Element(f"{{{_RELS_NS}}}Relationships")
     for index, table in enumerate(tables, start=1):
         SubElement(
@@ -450,27 +520,31 @@ def _build_worksheet_rels(tables: list[dict[str, Any]]) -> bytes:
                 "Target": f"../tables/table{table['table_id']}.xml",
             },
         )
+    if drawing_id is not None:
+        SubElement(
+            root,
+            f"{{{_RELS_NS}}}Relationship",
+            attrib={
+                "Id": f"rId{len(tables) + 1}",
+                "Type": REL_DRAWING,
+                "Target": f"../drawings/drawing{drawing_id}.xml",
+            },
+        )
     return _to_xml_bytes(root)
 
 
-def _build_chart_reference(chart_ref: dict[str, Any]) -> bytes:
-    main_ns = "http://schemas.openxmlformats.org/drawingml/2006/main"
-    chart_ns = "http://schemas.openxmlformats.org/drawingml/2006/chart"
-    root = Element(f"{{{chart_ns}}}chartSpace")
-    chart = SubElement(root, f"{{{chart_ns}}}chart")
-    plot_area = SubElement(chart, f"{{{chart_ns}}}plotArea")
-    bar_chart = SubElement(plot_area, f"{{{chart_ns}}}barChart")
-    SubElement(bar_chart, f"{{{chart_ns}}}barDir", attrib={"val": "col"})
-    ser = SubElement(bar_chart, f"{{{chart_ns}}}ser")
-    tx = SubElement(ser, f"{{{chart_ns}}}tx")
-    v = SubElement(tx, f"{{{chart_ns}}}v")
-    v.text = chart_ref.get("title", "")
-    return _to_xml_bytes(root)
-
-
-def _build_drawing(chart_part: str) -> bytes:
-    xdr_ns = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-    root = Element(f"{{{xdr_ns}}}wsDr")
+def _build_drawing_rels(charts: list[dict[str, Any]]) -> bytes:
+    root = Element(f"{{{_RELS_NS}}}Relationships")
+    for index, chart in enumerate(charts, start=1):
+        SubElement(
+            root,
+            f"{{{_RELS_NS}}}Relationship",
+            {
+                "Id": f"rId{index}",
+                "Type": REL_CHART,
+                "Target": f"../charts/chart{chart['chart_id']}.xml",
+            },
+        )
     return _to_xml_bytes(root)
 
 

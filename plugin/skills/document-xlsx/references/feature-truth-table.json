@@ -15,10 +15,10 @@
         "column_width_and_hidden",
         "native_table",
         "data_validation",
-        "conditional_formatting"
+        "conditional_formatting",
+        "native_chart"
       ],
       "enhancement_required": [
-        "native_chart",
         "page_setup"
       ]
     },
@@ -57,7 +57,8 @@
         "native_table_style",
         "native_table_delete",
         "data_validation_crud",
-        "conditional_formatting_crud"
+        "conditional_formatting_crud",
+        "native_chart_crud"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",

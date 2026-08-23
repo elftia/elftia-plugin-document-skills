@@ -180,6 +180,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "validation",
                 "priority",
                 "rule",
+                "chart",
             },
         )
         sheet = _text(edit.get("sheet"), f"edits.{index}.sheet", allow_empty=False)
@@ -205,6 +206,9 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "conditional_format_add",
             "conditional_format_update",
             "conditional_format_delete",
+            "chart_add",
+            "chart_update",
+            "chart_delete",
             *_WORKSHEET_EDIT_TYPES,
             *_SHEET_EDIT_TYPES,
         }:
@@ -223,6 +227,9 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "table_delete",
             "data_validation_add",
             "conditional_format_add",
+            "chart_add",
+            "chart_update",
+            "chart_delete",
         }
         ref = _text(
             edit.get("ref", ""),
@@ -266,6 +273,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         validation = edit.get("validation")
         priority = edit.get("priority")
         rule = edit.get("rule")
+        chart = edit.get("chart")
         if edit_type == "row_height":
             _validate_index_range(ref, "row", f"edits.{index}.ref")
             height = _number(height, 0, 409, f"edits.{index}.height")
@@ -321,6 +329,8 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "table_rename",
             "table_style",
             "table_delete",
+            "chart_update",
+            "chart_delete",
         }:
             name = _text(name, f"edits.{index}.name", allow_empty=False)
         elif name is not None:
@@ -397,6 +407,18 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "priority is only valid for conditional-format update/delete selectors.",
                 field=f"edits.{index}.priority",
             )
+        if edit_type in {"chart_add", "chart_update"}:
+            chart = _parse_chart(chart, f"edits.{index}.chart", known_sheets=None)
+            if chart["sheet"] != sheet:
+                _invalid(
+                    "Chart edit sheet must match chart.sheet.",
+                    field=f"edits.{index}.chart.sheet",
+                )
+        elif chart is not None:
+            _invalid(
+                "chart is only valid for chart add/update edits.",
+                field=f"edits.{index}.chart",
+            )
         if edit_type == "sheet_add":
             _validate_sheet_name(sheet, f"edits.{index}.sheet")
         elif edit_type == "sheet_copy":
@@ -423,6 +445,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "validation": validation,
                 "priority": priority,
                 "rule": rule,
+                "chart": chart,
             }
         )
     expected = value.get("expected_edits")
@@ -432,7 +455,18 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(workbook, {"metadata", "sheets", "defined_names", "tables", "chart_reference", "page_setup"})
+    _exact_keys(
+        workbook,
+        {
+            "metadata",
+            "sheets",
+            "defined_names",
+            "tables",
+            "charts",
+            "chart_reference",
+            "page_setup",
+        },
+    )
     metadata = workbook.get("metadata")
     if type(metadata) is not dict:
         _invalid("workbook.metadata must be an object.", field="metadata")
@@ -670,6 +704,23 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 "columns": headers,
             }
         )
+    charts = workbook.get("charts", [])
+    if type(charts) is not list:
+        _invalid("charts must be an array.", field="charts")
+    parsed_charts = []
+    chart_names: set[str] = set()
+    known_sheets = set(parsed_sheet_map)
+    for chart_idx, chart in enumerate(charts):
+        parsed_chart = _parse_chart(
+            chart,
+            f"charts.{chart_idx}",
+            known_sheets=known_sheets,
+        )
+        folded_name = parsed_chart["name"].casefold()
+        if folded_name in chart_names:
+            _invalid("Chart names must be unique.", field=f"charts.{chart_idx}.name")
+        chart_names.add(folded_name)
+        parsed_charts.append(parsed_chart)
     chart_ref = workbook.get("chart_reference")
     if chart_ref is not None:
         if type(chart_ref) is not dict:
@@ -705,6 +756,7 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
         "sheets": parsed_sheets,
         "defined_names": parsed_dn,
         "tables": parsed_tables,
+        "charts": parsed_charts,
         "chart_reference": chart_ref,
         "page_setup": page_setup,
     }
@@ -1144,6 +1196,213 @@ def _parse_cf_threshold(value: Any, field: str) -> dict[str, Any]:
         "value": threshold_value,
         "gte": _boolean(value.get("gte", True), f"{field}.gte"),
     }
+
+
+def _parse_chart(
+    value: Any,
+    field: str,
+    *,
+    known_sheets: set[str] | None,
+) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Chart must be an object.", field=field)
+    _exact_keys(
+        value,
+        {
+            "name",
+            "sheet",
+            "type",
+            "title",
+            "anchor",
+            "series",
+            "show_legend",
+            "legend_position",
+            "x_axis_title",
+            "y_axis_title",
+            "x_axis_number_format",
+            "y_axis_number_format",
+            "data_labels",
+        },
+    )
+    name = _text(value.get("name", ""), f"{field}.name", allow_empty=False)
+    sheet = _text(value.get("sheet", ""), f"{field}.sheet", allow_empty=False)
+    if known_sheets is not None and sheet not in known_sheets:
+        _invalid("Chart placement sheet was not found.", field=f"{field}.sheet")
+    chart_type = _text(value.get("type", ""), f"{field}.type", allow_empty=False)
+    if chart_type not in {"column", "bar", "line", "pie", "scatter"}:
+        _invalid("Chart type is not supported.", field=f"{field}.type")
+    anchor = _text(value.get("anchor", ""), f"{field}.anchor", allow_empty=False)
+    _validate_cell_range(anchor, f"{field}.anchor")
+    anchor_bounds = _cell_range_bounds(anchor)
+    if anchor_bounds[0] == anchor_bounds[2] or anchor_bounds[1] == anchor_bounds[3]:
+        _invalid(
+            "Chart anchor must span at least two rows and two columns.",
+            field=f"{field}.anchor",
+        )
+    series = value.get("series")
+    if type(series) is not list or not series or len(series) > 50:
+        _invalid("Chart series must be a non-empty bounded array.", field=f"{field}.series")
+    parsed_series = [
+        _parse_chart_series(
+            item,
+            f"{field}.series.{index}",
+            chart_type=chart_type,
+            known_sheets=known_sheets,
+        )
+        for index, item in enumerate(series)
+    ]
+    legend_position = _text(
+        value.get("legend_position", "r"),
+        f"{field}.legend_position",
+        allow_empty=False,
+    )
+    if legend_position not in {"l", "r", "t", "b", "tr"}:
+        _invalid("Chart legend position is not supported.", field=f"{field}.legend_position")
+    data_labels = value.get("data_labels", {})
+    if type(data_labels) is not dict:
+        _invalid("Chart data_labels must be an object.", field=f"{field}.data_labels")
+    _exact_keys(
+        data_labels,
+        {
+            "show_value",
+            "show_category_name",
+            "show_series_name",
+            "show_legend_key",
+            "show_percentage",
+        },
+    )
+    parsed_labels = {
+        key: _boolean(data_labels.get(key, False), f"{field}.data_labels.{key}")
+        for key in (
+            "show_value",
+            "show_category_name",
+            "show_series_name",
+            "show_legend_key",
+            "show_percentage",
+        )
+    }
+    axis_values = {
+        key: _optional_text(value.get(key), f"{field}.{key}")
+        for key in (
+            "x_axis_title",
+            "y_axis_title",
+            "x_axis_number_format",
+            "y_axis_number_format",
+        )
+    }
+    if chart_type == "pie" and any(axis_values.values()):
+        _invalid("Pie charts do not accept axis fields.", field=field)
+    return {
+        "name": name,
+        "sheet": sheet,
+        "type": chart_type,
+        "title": _text(value.get("title", ""), f"{field}.title"),
+        "anchor": _normalize_cell_range(anchor),
+        "series": parsed_series,
+        "show_legend": _boolean(value.get("show_legend", True), f"{field}.show_legend"),
+        "legend_position": legend_position,
+        **axis_values,
+        "data_labels": parsed_labels,
+    }
+
+
+def _parse_chart_series(
+    value: Any,
+    field: str,
+    *,
+    chart_type: str,
+    known_sheets: set[str] | None,
+) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Chart series must be an object.", field=field)
+    _exact_keys(value, {"name", "categories", "values", "x_values", "y_values", "color"})
+    name = _text(value.get("name", ""), f"{field}.name", allow_empty=False)
+    color = parse_color(value.get("color", "4472C4"), f"{field}.color")
+    if chart_type == "scatter":
+        if value.get("categories") is not None or value.get("values") is not None:
+            _invalid("Scatter series use x_values and y_values.", field=field)
+        x_values = _parse_chart_range(
+            value.get("x_values"),
+            f"{field}.x_values",
+            known_sheets=known_sheets,
+        )
+        y_values = _parse_chart_range(
+            value.get("y_values"),
+            f"{field}.y_values",
+            known_sheets=known_sheets,
+        )
+        if _chart_range_length(x_values) != _chart_range_length(y_values):
+            _invalid("Scatter x/y ranges must have equal length.", field=field)
+        return {
+            "name": name,
+            "categories": None,
+            "values": None,
+            "x_values": x_values,
+            "y_values": y_values,
+            "color": color,
+        }
+    if value.get("x_values") is not None or value.get("y_values") is not None:
+        _invalid("Non-scatter series use categories and values.", field=field)
+    categories = _parse_chart_range(
+        value.get("categories"),
+        f"{field}.categories",
+        known_sheets=known_sheets,
+    )
+    values = _parse_chart_range(
+        value.get("values"),
+        f"{field}.values",
+        known_sheets=known_sheets,
+    )
+    if _chart_range_length(categories) != _chart_range_length(values):
+        _invalid("Chart category/value ranges must have equal length.", field=field)
+    return {
+        "name": name,
+        "categories": categories,
+        "values": values,
+        "x_values": None,
+        "y_values": None,
+        "color": color,
+    }
+
+
+def _parse_chart_range(
+    value: Any,
+    field: str,
+    *,
+    known_sheets: set[str] | None,
+) -> str:
+    text = _text(value, field, allow_empty=False)
+    if has_external_workbook_reference(text):
+        _invalid("Chart ranges do not accept external workbooks.", field=field)
+    match = re.fullmatch(
+        r"(?:'(?P<quoted>(?:[^']|'')+)'|(?P<plain>[^!']+))!"
+        r"(?P<range>\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?)",
+        text,
+    )
+    if match is None:
+        _invalid("Chart range must include a sheet and use A1 notation.", field=field)
+    sheet = (match.group("quoted") or match.group("plain")).replace("''", "'")
+    if known_sheets is not None and sheet not in known_sheets:
+        _invalid("Chart data sheet was not found.", field=field, sheet=sheet)
+    cell_range = match.group("range")
+    _validate_cell_range(cell_range, field)
+    bounds = _cell_range_bounds(cell_range)
+    if bounds[0] != bounds[2] and bounds[1] != bounds[3]:
+        _invalid("Chart data range must be one-dimensional.", field=field)
+    absolute = ":".join(_absolute_cell(item) for item in cell_range.split(":"))
+    return f"'{sheet.replace(chr(39), chr(39) * 2)}'!{absolute}"
+
+
+def _chart_range_length(value: str) -> int:
+    cell_range = value.rsplit("!", 1)[1]
+    first_col, first_row, last_col, last_row = _cell_range_bounds(cell_range)
+    return max(last_col - first_col, last_row - first_row) + 1
+
+
+def _absolute_cell(ref: str) -> str:
+    match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", ref)
+    assert match is not None
+    return f"${match.group(1).upper()}${match.group(2)}"
 
 
 def _column_number(value: str) -> int:

@@ -13,6 +13,7 @@ from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 from .projection import (
     project_conditional_formats,
+    project_charts,
     project_data_validations,
     project_tables,
 )
@@ -110,6 +111,7 @@ def assert_edits_applied(
     projected_tables = project_tables(package)
     projected_validations = project_data_validations(package)
     projected_conditional_formats = project_conditional_formats(package)
+    projected_charts = project_charts(package)
     expected_cells = _expected_cell_refs(source, edits) if source is not None else None
     for edit in edits:
         edit_type = edit["type"]
@@ -239,6 +241,25 @@ def assert_edits_applied(
                 failures.append(
                     f"{edit_type}:{sheet_name}!{edit['rule']['ref']}"
                 )
+            continue
+        if edit_type in {"chart_add", "chart_update", "chart_delete"}:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            if edit_type == "chart_delete":
+                exists = any(
+                    item["sheet"] == sheet_name
+                    and item["name"].casefold() == edit["name"].casefold()
+                    for item in projected_charts
+                )
+                if exists:
+                    failures.append(f"chart_delete:{sheet_name}!{edit['name']}")
+                else:
+                    matched += 1
+                continue
+            expected_chart = {**edit["chart"], "sheet": sheet_name}
+            if any(_chart_matches(item, expected_chart) for item in projected_charts):
+                matched += 1
+            else:
+                failures.append(f"{edit_type}:{sheet_name}!{edit['chart']['name']}")
             continue
         sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
         sheet = sheets.get(sheet_name)
@@ -614,6 +635,13 @@ def _assert_created(
                     f"conditional-format:{sheet['name']}!{expected_rule['ref']}"
                 )
 
+    charts = project_charts(package)
+    actual_charts = {chart["name"]: chart for chart in charts}
+    for expected_chart in workbook.get("charts", []):
+        actual_chart = actual_charts.get(expected_chart["name"])
+        if actual_chart is None or not _chart_matches(actual_chart, expected_chart):
+            failures.append(f"chart:{expected_chart['name']}")
+
     expected_styles = (creation or {}).get("styles", {})
     assignments = expected_styles.get("assignments", {})
     actual_assignments = _mapped_style_assignments(mapped)
@@ -644,6 +672,7 @@ def _assert_created(
         "tables": len(tables),
         "data_validations": len(data_validations),
         "conditional_formats": len(conditional_formats),
+        "charts": len(charts),
         "formula_cells": len(formula_cells),
         "cell_styles": len(assignments.get("cells", {})),
         "row_styles": len(assignments.get("rows", {})),
@@ -722,6 +751,30 @@ def _conditional_format_matches(
         fields.append("priority")
     return actual.get("dxf_valid") is True and all(
         actual.get(field) == expected.get(field) for field in fields
+    )
+
+
+def _chart_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
+    return all(
+        actual.get(field) == expected.get(field)
+        for field in (
+            "name",
+            "sheet",
+            "type",
+            "title",
+            "anchor",
+            "series",
+            "show_legend",
+            "legend_position",
+            "x_axis_title",
+            "y_axis_title",
+            "x_axis_number_format",
+            "y_axis_number_format",
+            "data_labels",
+        )
+    ) and all(
+        actual.get(field)
+        for field in ("part", "drawing_part", "content_type")
     )
 
 

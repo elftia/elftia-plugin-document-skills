@@ -51,7 +51,7 @@ def test_unsupported_docx_formatting_has_typed_gate_evidence(
 
 @pytest.mark.parametrize(
     "feature",
-    ["chart", "page-setup"],
+    ["legacy-chart-reference", "page-setup"],
 )
 def test_disconnected_xlsx_create_feature_fails_closed(
     project_root: Path,
@@ -74,7 +74,7 @@ def test_disconnected_xlsx_create_feature_fails_closed(
                 "style": "TableStyleMedium2",
             }
         ]
-    elif feature == "chart":
+    elif feature == "legacy-chart-reference":
         workbook["chart_reference"] = {
             "title": "Chart",
             "data_ref": "Sheet1!$A$1:$B$1",

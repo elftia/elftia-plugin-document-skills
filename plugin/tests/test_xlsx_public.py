@@ -178,6 +178,29 @@ def _claimed_create_features_workbook() -> dict[str, object]:
                 "style": "TableStyleMedium2",
             }
         ],
+        "charts": [
+            {
+                "name": "PublicChart",
+                "sheet": "Data",
+                "type": "column",
+                "title": "Public native chart",
+                "anchor": "G2:N16",
+                "series": [
+                    {
+                        "name": "Amount",
+                        "categories": "Data!$D$2:$D$2",
+                        "values": "Data!$E$2:$E$2",
+                        "color": "#4472C4",
+                    }
+                ],
+                "show_legend": True,
+                "legend_position": "r",
+                "x_axis_title": "Item",
+                "y_axis_title": "Amount",
+                "y_axis_number_format": "#,##0",
+                "data_labels": {"show_value": True},
+            }
+        ],
         "chart_reference": None,
         "page_setup": None,
     }
@@ -250,9 +273,9 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "native_table",
                     "data_validation",
                     "conditional_formatting",
+                    "native_chart",
                 ],
                 "enhancement_required": [
-                    "native_chart",
                     "page_setup",
                 ],
             },
@@ -292,6 +315,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "native_table_delete",
                     "data_validation_crud",
                     "conditional_formatting_crud",
+                    "native_chart_crud",
                 ],
                 "enhancement_required": [
                     "sheet_copy_with_related_objects",
@@ -343,6 +367,8 @@ def test_public_create_claimed_features_reopen(
         for rule in reopened["Data"].conditional_formatting[conditional_format]
     ]
     assert [rule.type for rule in conditional_rules] == ["cellIs"]
+    assert [type(chart).__name__ for chart in reopened["Data"]._charts] == ["BarChart"]
+    assert reopened["Data"]._charts[0].type == "col"
 
 
 def test_public_native_object_edits_reopen(
@@ -522,6 +548,104 @@ def test_public_native_object_edits_reopen(
     )
     assert _public(project_root, "run", "--request", str(delete_request))["status"] == "success"
     assert not load_workbook(deleted_output)["Data"].tables
+
+
+def test_public_native_chart_edits_reopen(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    source = tmp_path / "public-chart-source.xlsx"
+    edited = tmp_path / "public-chart-edited.xlsx"
+    deleted = tmp_path / "public-chart-deleted.xlsx"
+    workbook = _workbook()
+    cells = workbook["sheets"][0]["rows"][0]["cells"]
+    cells[2] = {"ref": "B2", "value": "20", "type": "n"}
+    cells.append({"ref": "A2", "value": "Beta", "type": "s"})
+
+    def chart(name: str, chart_type: str, anchor: str) -> dict[str, object]:
+        return {
+            "name": name,
+            "sheet": "Sheet1",
+            "type": chart_type,
+            "title": name,
+            "anchor": anchor,
+            "series": [
+                {
+                    "name": "Amount",
+                    "categories": "Sheet1!$A$1:$A$2",
+                    "values": "Sheet1!$B$1:$B$2",
+                    "color": "#4472C4",
+                }
+            ],
+            "show_legend": True,
+            "legend_position": "r",
+            "data_labels": {"show_value": True},
+        }
+
+    workbook["charts"] = [chart("OriginalChart", "column", "D2:K16")]
+    create_request = _request(
+        tmp_path,
+        "public-chart-create.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": str(source),
+            "arguments": {"workbook": workbook},
+        },
+    )
+    assert _public(project_root, "run", "--request", str(create_request))["status"] == "success"
+
+    update = chart("UpdatedChart", "line", "E3:L17")
+    added = chart("AddedPie", "pie", "M3:T17")
+    edit_request = _request(
+        tmp_path,
+        "public-chart-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(edited),
+            "arguments": {
+                "edits": [
+                    {
+                        "sheet": "Sheet1",
+                        "type": "chart_update",
+                        "name": "OriginalChart",
+                        "chart": update,
+                    },
+                    {"sheet": "Sheet1", "type": "chart_add", "chart": added},
+                ],
+                "expected_edits": 2,
+            },
+        },
+    )
+    assert _public(project_root, "run", "--request", str(edit_request))["status"] == "success"
+    assert [type(item).__name__ for item in load_workbook(edited)["Sheet1"]._charts] == [
+        "LineChart",
+        "PieChart",
+    ]
+
+    delete_request = _request(
+        tmp_path,
+        "public-chart-delete.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(edited),
+            "output": str(deleted),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "chart_delete", "name": "UpdatedChart"},
+                    {"sheet": "Sheet1", "type": "chart_delete", "name": "AddedPie"},
+                ],
+                "expected_edits": 2,
+            },
+        },
+    )
+    assert _public(project_root, "run", "--request", str(delete_request))["status"] == "success"
+    assert not load_workbook(deleted)["Sheet1"]._charts
 
 
 def test_public_edit_claimed_features_reopen(

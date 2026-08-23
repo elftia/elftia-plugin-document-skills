@@ -167,6 +167,7 @@ class XlsxService:
                     "tables": creation.get("tables", []),
                     "data_validations": creation.get("data_validations", []),
                     "conditional_formats": creation.get("conditional_formats", []),
+                    "charts": creation.get("charts", []),
                 },
                 "formula_state": {
                     "cells": formula_cells,
@@ -227,7 +228,7 @@ class XlsxService:
                     allowed_removed_parts=(
                         set(manifest.removed)
                         if any(
-                            edit["type"] in {"sheet_delete", "table_delete"}
+                            edit["type"] in {"sheet_delete", "table_delete", "chart_delete"}
                             for edit in request.arguments["edits"]
                         )
                         else set()

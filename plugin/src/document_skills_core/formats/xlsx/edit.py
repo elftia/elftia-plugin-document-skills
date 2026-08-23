@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS, SHARED_STRINGS_PART
 from .conditional_format import apply_conditional_format_edit
+from .chart_edit import apply_chart_edit
 from .data_validation import apply_data_validation_edit
 from .formula_state import (
     derive_edit_state,
@@ -170,6 +171,10 @@ def edit_xlsx(
             "conditional_format_delete",
         }:
             apply_conditional_format_edit(sheet_root, edit, style_registry)
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {"chart_add", "chart_update", "chart_delete"}:
+            apply_chart_edit(structural_context, edit)
+            mark_sheet_dirty = False
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
         elif edit_type in {
             "print_area",
