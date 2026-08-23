@@ -17,6 +17,7 @@ PPTX_OPERATIONS = frozenset(
     {
         "pptx.read",
         "pptx.inspect.structure",
+        "pptx.validate.schema",
         "pptx.create",
         "pptx.create.from-html",
         "pptx.edit",
@@ -45,7 +46,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     options = request.get("options", {})
     fidelity = options.get("fidelity", "core") if type(options) is dict else "core"
     in_place = options.get("in_place", False) if type(options) is dict else False
-    if operation in {"pptx.read", "pptx.inspect.structure"}:
+    if operation in {"pptx.read", "pptx.inspect.structure", "pptx.validate.schema"}:
         if input_path is None:
             _invalid("This PPTX operation requires an input path.", field="input")
         if output_path is not None:
@@ -87,6 +88,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     parsed = {
         "pptx.read": _parse_read,
         "pptx.inspect.structure": _parse_inspect,
+        "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
         "pptx.edit": _parse_edit,
@@ -126,6 +128,11 @@ def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
             value.get("max_relationships", 5_000), 1, 10_000
         ),
     }
+
+
+def _parse_schema_validation(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, set())
+    return {}
 
 
 def _parse_create(value: dict[str, Any]) -> dict[str, Any]:

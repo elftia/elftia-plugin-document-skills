@@ -28,17 +28,25 @@ from .html_capture import HtmlDeckCapture
 from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
+from .schema_validation import validate_schema_gate, with_schema_gate
 from .transaction import promote_candidate, write_candidate_result
 from .validation import validate_created, validate_mutation, validate_reorder, validate_scene_created
 from .visual_validation import validate_scene_visuals, with_visual_gate
 
 
 class PptxService:
-    def __init__(self, project_root: Path, libreoffice=None, html_browser_detector=None) -> None:
+    def __init__(
+        self,
+        project_root: Path,
+        libreoffice=None,
+        html_browser_detector=None,
+        dotnet=None,
+    ) -> None:
         self.project_root = project_root.resolve()
         self.schemas = SchemaCatalog(self.project_root)
         self.libreoffice = libreoffice
         self.html_browser_detector = html_browser_detector
+        self.dotnet = dotnet
 
     def execute(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -111,6 +119,10 @@ class PptxService:
             staged = private_root / "created.pptx"
             creation = create_pptx(staged, deck, template=template_path)
             validation = validate_created(staged, deck, creation)
+            validation = with_schema_gate(
+                validation,
+                validate_schema_gate(staged, self.dotnet),
+            )
             operation_result = {"creation": creation}
             result = write_candidate_result(
                 self.schemas,
@@ -200,6 +212,10 @@ class PptxService:
                         for edit in request.arguments["edits"]
                     ),
                 )
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
                 result = write_candidate_result(
                     self.schemas,
                     request,
@@ -261,6 +277,10 @@ class PptxService:
                 emission_ms = int((time.monotonic() - emission_started) * 1000)
                 validation_started = time.monotonic()
                 validation = validate_scene_created(staged, normalized, emission)
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
                 visual_gate = validate_scene_visuals(
                     staged,
                     normalized,
@@ -355,8 +375,12 @@ class PptxService:
             raise
 
 
-def build_pptx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
-    service = PptxService(project_root, libreoffice=libreoffice)
+def build_pptx_service(
+    project_root: Path,
+    libreoffice=None,
+    dotnet=None,
+) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
+    service = PptxService(project_root, libreoffice=libreoffice, dotnet=dotnet)
     return service.execute
 
 
@@ -364,11 +388,13 @@ def build_html_pptx_service(
     project_root: Path,
     html_browser_detector: Any,
     libreoffice=None,
+    dotnet=None,
 ) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
     service = PptxService(
         project_root,
         libreoffice=libreoffice,
         html_browser_detector=html_browser_detector,
+        dotnet=dotnet,
     )
     return service.execute
 

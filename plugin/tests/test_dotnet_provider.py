@@ -693,6 +693,51 @@ class TestProviderExecuteDispatcher:
         })
         assert result["status"] == "failed"
 
+    @pytest.mark.parametrize(
+        ("response", "status", "gate_outcome"),
+        [
+            (_canned_schema_valid_response(), "success", "pass"),
+            (_canned_schema_invalid_response(), "failed", "fail"),
+        ],
+    )
+    def test_execute_pptx_schema_validation_returns_canonical_gate(
+        self,
+        project_root,
+        tmp_path,
+        response,
+        status,
+        gate_outcome,
+    ):
+        source = tmp_path / "deck.pptx"
+        source.write_bytes(b"PK bounded schema fixture")
+        runner = _make_runner_with_responses({"--schema-validate": response})
+        definition, provider = build_dotnet_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        result = provider.execute("pptx.validate.schema", {
+            "schema_version": "1.0",
+            "operation": "pptx.validate.schema",
+            "input": str(source),
+            "arguments": {},
+            "options": {"fidelity": "enhanced"},
+        })
+
+        assert result["status"] == status
+        assert result["operation"] == "pptx.validate.schema"
+        assert result["artifacts"][0]["role"] == "input"
+        assert result["validation"]["status"] == gate_outcome
+        assert result["validation"]["gates"][0]["id"] == "schema.full"
+        assert result["validation"]["gates"][0]["outcome"] == gate_outcome
+        assert runner.calls[0]["stdin_payload"]["input_path"].endswith("input.pptx")
+        assert any(
+            capability.operation == "pptx.validate.schema"
+            for capability in definition.capabilities
+        )
+        assert callable(definition.validators["schema"])
+
 
 # ---------------------------------------------------------------------------
 # find_callable catalog tests

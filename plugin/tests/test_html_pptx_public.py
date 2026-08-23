@@ -80,16 +80,22 @@ def test_capability_is_always_reported_but_unavailable_provider_is_not_callable(
     assert not output.exists()
 
 
-def test_html_operation_has_private_public_budget_without_relaxing_existing_commands(project_root: Path, tmp_path: Path):
+def test_provider_operations_have_private_public_budgets_without_relaxing_existing_commands(project_root: Path, tmp_path: Path):
     html_request = tmp_path / "html.json"
     html_request.write_text(json.dumps({"operation": "pptx.create.from-html"}), encoding="utf-8")
     normal_request = tmp_path / "normal.json"
     normal_request.write_text(json.dumps({"operation": "pptx.read"}), encoding="utf-8")
+    schema_request = tmp_path / "schema.json"
+    schema_request.write_text(json.dumps({"operation": "pptx.validate.schema"}), encoding="utf-8")
     supervisor = PublicCommandSupervisor(project_root, timeout_seconds=8.0)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(html_request))),
         tmp_path,
     ) == (60.0, 1_048_576)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(schema_request))),
+        tmp_path,
+    ) == (45.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(normal_request))),
         tmp_path,

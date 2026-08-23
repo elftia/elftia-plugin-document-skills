@@ -154,6 +154,11 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
         if "pptx" not in operation or operation in core:
             continue
         assert item["available"] or item["reason"], item
+    schema = operations["pptx.validate.schema"]
+    assert schema["providers"] in ([], ["dotnet-openxml"])
+    assert report["validation"]["schema"] == (
+        "available" if schema["available"] else "unavailable"
+    )
 
 
 def test_public_doctor_succeeds(project_root: Path) -> None:
@@ -252,8 +257,40 @@ def test_public_validate_reopens_valid_pptx(project_root: Path, public_created: 
     outcomes = {item["id"]: item["outcome"] for item in result["gates"]}
     assert result["status"] == "pass"
     assert outcomes["provider.reopen"] == "pass"
+    assert outcomes["operation.pptx-deep-validation"] == "pass"
     assert outcomes["visual.render"] == "unavailable"
     assert outcomes["schema.full"] == "unavailable"
+
+
+def test_public_schema_validation_is_honestly_provider_gated(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    capabilities = _public(project_root, "capabilities", "--json")
+    schema = next(
+        item
+        for item in capabilities["operations"]
+        if item["operation"] == "pptx.validate.schema"
+    )
+    before = sha256(public_created.read_bytes()).hexdigest()
+    request = _request(tmp_path, "schema.json", {
+        "schema_version": "1.0",
+        "operation": "pptx.validate.schema",
+        "input": str(public_created),
+        "arguments": {},
+        "options": {"fidelity": "enhanced"},
+    })
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert sha256(public_created.read_bytes()).hexdigest() == before
+    if schema["available"]:
+        assert result["status"] == "success"
+        assert result["provider_chain"] == ["dotnet-openxml"]
+        assert result["validation"]["gates"][0]["id"] == "schema.full"
+        assert result["validation"]["gates"][0]["outcome"] == "pass"
+    else:
+        assert result["status"] == "unavailable"
 
 
 def test_public_unknown_operation_rejected(project_root: Path, tmp_path: Path) -> None:
@@ -323,6 +360,12 @@ def test_public_create_reopens_real_native_objects(project_root: Path, tmp_path:
     assert creation["charts"][0]["editable"] is True
     outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}
     assert outcomes["visual.render"] == "unavailable"
+    capabilities = _public(project_root, "capabilities", "--json")
+    assert outcomes["schema.full"] == (
+        "pass"
+        if capabilities["validation"]["schema"] == "available"
+        else "unavailable"
+    )
     presentation = Presentation(output)
     assert len(presentation.slides) == 2
     shapes = list(presentation.slides[1].shapes)

@@ -91,11 +91,16 @@ def create_pptx(
     has_chart = bool(charts)
     has_image = bool(images)
     has_table = any(s.get("table") for s in slides_data)
-    has_notes = any(s.get("notes") for s in slides_data)
+    note_slide_numbers = [
+        index
+        for index, slide in enumerate(slides_data, 1)
+        if slide.get("notes")
+    ]
+    has_notes = bool(note_slide_numbers)
     layout_count = len(LAYOUT_RECIPES)
 
     parts["[Content_Types].xml"] = _build_content_types(
-        len(slides_data), images, charts, has_notes, layout_count
+        len(slides_data), images, charts, note_slide_numbers, layout_count
     )
     parts["_rels/.rels"] = _build_root_rels()
     parts["ppt/_rels/presentation.xml.rels"] = _build_presentation_rels(
@@ -169,7 +174,7 @@ def _build_content_types(
     slide_count: int,
     images: list[dict[str, Any]],
     charts: list[dict[str, Any]],
-    has_notes: bool,
+    note_slide_numbers: list[int],
     layout_count: int,
 ) -> bytes:
     root = Element(f"{{{_CONTENT_TYPES_NS}}}Types")
@@ -210,12 +215,12 @@ def _build_content_types(
         "PartName": "/ppt/theme/theme1.xml",
         "ContentType": "application/vnd.openxmlformats-officedocument.theme+xml",
     })
-    if has_notes:
+    if note_slide_numbers:
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
             "PartName": "/ppt/notesMasters/notesMaster1.xml",
             "ContentType": "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml",
         })
-        for i in range(1, slide_count + 1):
+        for i in note_slide_numbers:
             SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
                 "PartName": f"/ppt/notesSlides/notesSlide{i}.xml",
                 "ContentType": "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml",

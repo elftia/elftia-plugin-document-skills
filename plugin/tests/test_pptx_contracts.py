@@ -11,16 +11,35 @@ from document_skills_core.formats.pptx.contracts import (
 )
 
 
-def test_pptx_operations_preserve_existing_four_and_add_html_conversion():
+def test_pptx_operations_preserve_existing_surface_and_add_validators():
     assert PPTX_OPERATIONS == frozenset(
         {
             "pptx.read",
             "pptx.inspect.structure",
+            "pptx.validate.schema",
             "pptx.create",
             "pptx.edit",
             "pptx.create.from-html",
         }
     )
+
+
+def test_parse_schema_validation_is_read_only_and_bounded(tmp_path: Path):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.validate.schema",
+        "input": str(tmp_path / "deck.pptx"),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": "pptx.validate.schema",
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / "report.pptx"),
+            "arguments": {},
+        })
 
 
 def test_parse_from_html_minimal_request_defaults(tmp_path: Path):

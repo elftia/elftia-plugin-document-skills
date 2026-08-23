@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.validation import validate_artifact
 
 from .constants import NS
+from .deep_validation import validate_deep_package
 from .design_validation import assert_typed_design
 from .mapping import map_slides
 from .package import OpcPackage, PreservationManifest
@@ -588,13 +589,17 @@ def _required_report(
     source_sha256: str | None = None,
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] | None = None,
 ) -> dict[str, Any]:
+    deep_assertions = [
+        ("pptx-deep-validation", validate_deep_package),
+        *(assertions or []),
+    ]
     report = validate_artifact(
         path,
         expected_format="pptx",
         source_path=source,
         source_sha256=source_sha256,
         reopen=reopen_pptx,
-        assertions=assertions,
+        assertions=deep_assertions,
         visual_available=False,
         schema_available=False,
     )

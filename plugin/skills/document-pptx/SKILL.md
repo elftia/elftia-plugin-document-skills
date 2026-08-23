@@ -6,8 +6,9 @@ description: Read, inspect, create, edit, and validate PPTX presentations throug
 # PPTX presentations
 
 Use this Skill for `.pptx` requests. The Core implementation reads, inspects,
-creates, edits, and validates PPTX packages through direct OOXML — no
-python-pptx, PptxGenJS, LibreOffice, or .NET round-trip.
+creates, edits, and performs mandatory package validation through direct OOXML.
+It does not depend on python-pptx or PptxGenJS. LibreOffice rendering and
+.NET/OpenXML schema validation are optional, capability-gated enhancements.
 
 ## Commands
 
@@ -24,6 +25,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 |---|---|---|
 | `pptx.read` | no | Structured slide/shape/text-frame/table/chart/media/notes/layout projection |
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
+| `pptx.validate.schema` | no | Provider-gated OpenXML SDK schema report for an existing `.pptx` |
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx` template reuse |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.edit` | yes (distinct output) | Transactional slide CRUD/copy/reorder plus native shape/text/image/table/chart/notes/link/action edits |
@@ -69,6 +71,20 @@ against the original inputs before mutation, and any failure prevents output
 publication. Hyperlinks are internal slide jumps only; actions are the closed
 first/last/next/previous set and never execute external content.
 
+## Validation
+
+Every create/edit route, including HTML conversion, must pass the deep Core
+package gate before promotion. The standalone `validate --input ... --json`
+command exposes the same check as `operation.pptx-deep-validation`. Its graph,
+chart/workbook, inventory, and static-layout evidence is described in
+`references/validation.md`.
+
+Use `pptx.validate.schema` only after capabilities reports it available. This
+read-only operation requires the `dotnet-openxml` provider. Provider absence is
+reported as `unavailable`; schema errors produce `failed` with a required
+`schema.full` gate. For create/edit operations, schema is optional while the
+provider is absent, but becomes a required promotion gate when it is callable.
+
 ## Key policies
 
 - **Distinct output:** All mutations require an explicit output path separate
@@ -103,8 +119,11 @@ first/last/next/previous set and never execute external content.
   templates, executable relationships), and external targets are rejected under
   the normal policy. Use `pptx.inspect.structure` for inert inventory of
   suspicious packages.
-- **Visual/render/schema validation:** These gates report `unavailable` without
-  LibreOffice/.NET. They never become `pass` or increase fidelity.
+- **Visual validation:** It reports `unavailable` without LibreOffice and never
+  becomes `pass` from structural or DOM evidence alone.
+- **Schema validation:** It reports `unavailable` without .NET/OpenXML. A
+  callable provider must actually validate the candidate; provider failure or
+  schema errors block promotion.
 
 ## Result interpretation
 
