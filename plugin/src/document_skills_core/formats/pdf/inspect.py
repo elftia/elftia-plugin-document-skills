@@ -14,6 +14,7 @@ from .actions import ActionClassification, classify_actions
 from .byte_preflight import PdfByteLimits, preflight_pdf
 from .mapping import map_acroform_fields, map_annotations, map_embedded_files, map_outlines
 from .object_model import parse_pdf
+from .page_labels import project_page_labels
 from .page_tree import walk_pages
 from .projection import project_object_inventory
 from .resources import inventory_fonts, inventory_images
@@ -120,6 +121,14 @@ def inspect_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[d
             "qualified_name": f.qualified_name,
             "field_type": f.field_type,
             "flags": f.flags,
+            "value": f.value,
+            "default_value": f.default_value,
+            "required": f.required,
+            "readonly": f.readonly,
+            "options": list(f.options),
+            "page": f.page,
+            "widget": f.widget,
+            "has_appearance": f.has_appearance,
             "annotation_rect": list(f.annotation_rect) if f.annotation_rect else None,
         }
         for f in fields
@@ -130,8 +139,12 @@ def inspect_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[d
     annot_inventory = [
         {
             "page": a.page,
+            "index": a.index,
             "subtype": a.subtype,
             "rectangle": list(a.rectangle) if a.rectangle else None,
+            "contents": a.contents,
+            "title": a.title,
+            "color": list(a.color) if a.color else None,
             "action_kind": a.action_kind,
         }
         for a in annotations
@@ -185,6 +198,7 @@ def inspect_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[d
         "actions": action_inventory,
         "embedded_files": ef_inventory,
         "outlines": outline_inventory,
+        "page_labels": project_page_labels(model, len(pages)),
         "dangerous_content_present": any(a.is_external or a.is_executable for a in actions),
         "security_summary": _project_security_summary(actions, ef_inventory, preflight.encrypted),
     }

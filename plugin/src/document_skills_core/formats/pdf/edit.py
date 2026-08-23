@@ -24,6 +24,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .object_model import IndirectReference, PdfDict, parse_pdf, PdfObjectModel
 from .page_tree import walk_pages
+from .trailer import trailer_bytes
 
 
 def edit_pdf(
@@ -36,35 +37,101 @@ def edit_pdf(
     Returns (operation_result, preservation_manifest).
     """
     primitives = arguments["primitives"]
-    if len(primitives) > 1:
-        raise DocumentSkillsError(
-            ErrorCode.REQUEST_INVALID,
-            "Core PDF edit currently processes one primitive per invocation.",
-            status="invalid_request",
-        )
-    primitive = primitives[0]
+    from .edit_pipeline import run_edit_pipeline
+
+    return run_edit_pipeline(
+        input_path,
+        output_path,
+        primitives,
+        run_primitive=_edit_primitive,
+        build_manifest=_build_manifest,
+    )
+
+
+def _edit_primitive(
+    model: PdfObjectModel,
+    primitive: dict[str, Any],
+    output_path: Path,
+    input_hashes: dict[int, str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Apply one primitive to one parsed staged input."""
     prim_type = primitive["type"]
 
-    model = parse_pdf(input_path)
-    input_hashes = model.object_hashes()
-
     if prim_type == "merge":
-        operation_result, manifest = _edit_merge(model, primitive, output_path, input_hashes)
+        return _edit_merge(model, primitive, output_path, input_hashes)
     elif prim_type == "split":
-        operation_result, manifest = _edit_split(model, primitive, output_path, input_hashes)
+        return _edit_split(model, primitive, output_path, input_hashes)
     elif prim_type == "rotate":
-        operation_result, manifest = _edit_rotate(model, primitive, output_path, input_hashes)
+        return _edit_rotate(model, primitive, output_path, input_hashes)
     elif prim_type == "watermark":
-        operation_result, manifest = _edit_watermark(model, primitive, output_path, input_hashes)
+        return _edit_watermark(model, primitive, output_path, input_hashes)
     elif prim_type == "form_fill":
-        operation_result, manifest = _edit_form_fill(model, primitive, output_path, input_hashes)
-    else:
-        raise DocumentSkillsError(
-            ErrorCode.REQUEST_INVALID,
-            f"Unknown edit primitive: {prim_type}",
-            status="invalid_request",
+        return _edit_form_fill(model, primitive, output_path, input_hashes)
+    elif prim_type == "metadata_update":
+        from .metadata_edit import update_metadata
+
+        return update_metadata(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
         )
-    return operation_result, manifest
+    elif prim_type == "outline":
+        from .outlines_edit import edit_outline
+
+        return edit_outline(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
+        )
+    elif prim_type == "annotation":
+        from .annotations_edit import edit_annotation
+
+        return edit_annotation(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
+        )
+    elif prim_type == "page_sequence":
+        from .page_sequence_edit import edit_page_sequence
+
+        return edit_page_sequence(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
+        )
+    elif prim_type == "page_labels":
+        from .page_labels import edit_page_labels
+
+        return edit_page_labels(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
+        )
+    elif prim_type == "redact_text":
+        from .redaction import redact_literal_text
+
+        return redact_literal_text(
+            model,
+            primitive,
+            output_path,
+            input_hashes,
+            build_manifest=_build_manifest,
+        )
+    raise DocumentSkillsError(
+        ErrorCode.REQUEST_INVALID,
+        f"Unknown edit primitive: {prim_type}",
+        status="invalid_request",
+    )
 
 
 def _edit_merge(
@@ -102,7 +169,8 @@ def _edit_merge(
     # and collect its page-leaf object numbers in document order.
     per_input: list[tuple[PdfObjectModel, dict[int, int], list[int]]] = []
     all_page_refs: list[int] = []  # new obj numbers of page leaves in order
-    for m in all_models:
+    output_info_ref = None
+    for model_index, m in enumerate(all_models):
         m_pages = walk_pages(m)
         # Collect the transitive closure of objects reachable from page leaves
         # (pages, their resources, contents, fonts, images, annotations, etc.)
@@ -110,6 +178,8 @@ def _edit_merge(
         # Catalog/Pages intermediate nodes, which we replace with our own.
         page_obj_nums = [p.obj_num for p in m_pages]
         closure = _transitive_closure(m, page_obj_nums)
+        if model_index == 0 and m.trailer.info is not None:
+            closure.add(m.trailer.info.obj_num)
         # Build the renumbering map
         mapping: dict[int, int] = {}
         for old_num in sorted(closure):
@@ -119,6 +189,8 @@ def _edit_merge(
         per_input.append((m, mapping, page_obj_nums))
         for p in m_pages:
             all_page_refs.append(mapping[p.obj_num])
+        if model_index == 0 and m.trailer.info is not None:
+            output_info_ref = mapping[m.trailer.info.obj_num]
 
     # Build the merged PDF bytes
     merged_bytes = _build_renumbered_pdf(
@@ -127,6 +199,7 @@ def _edit_merge(
         page_refs=all_page_refs,
         per_input=per_input,
         max_obj=next_obj - 1,
+        info_ref=output_info_ref,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(merged_bytes)
@@ -173,6 +246,8 @@ def _edit_split(
 
     retained_obj_nums = [p.obj_num for p in retained]
     closure = _transitive_closure(model, retained_obj_nums)
+    if model.trailer.info is not None:
+        closure.add(model.trailer.info.obj_num)
     removed_from_closure = set(model.objects) - closure
 
     # Build renumbering map for retained objects
@@ -184,6 +259,11 @@ def _edit_split(
         mapping[old_num] = next_obj
         next_obj += 1
     page_refs = [mapping[n] for n in retained_obj_nums]
+    output_info_ref = (
+        mapping[model.trailer.info.obj_num]
+        if model.trailer.info is not None
+        else None
+    )
 
     # Build the split PDF
     split_bytes = _build_renumbered_pdf(
@@ -192,6 +272,7 @@ def _edit_split(
         page_refs=page_refs,
         per_input=[(model, mapping, retained_obj_nums)],
         max_obj=next_obj - 1,
+        info_ref=output_info_ref,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(split_bytes)
@@ -348,6 +429,7 @@ def _build_renumbered_pdf(
     page_refs: list[int],
     per_input: list[tuple[PdfObjectModel, dict[int, int], list[int]]],
     max_obj: int,
+    info_ref: int | None,
 ) -> bytes:
     """Assemble a complete PDF with Catalog + Pages + renumbered objects.
 
@@ -402,8 +484,9 @@ def _build_renumbered_pdf(
     for i in range(1, max_obj + 1):
         offset = offsets.get(i, 0)
         xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
+    info_entry = f" /Info {info_ref} 0 R" if info_ref is not None else ""
     xref.extend(
-        f"trailer\n<< /Size {max_obj + 1} /Root {catalog_num} 0 R >>\n"
+        f"trailer\n<< /Size {max_obj + 1} /Root {catalog_num} 0 R{info_entry} >>\n"
         f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
     )
     return header + bytes(body) + bytes(xref)
@@ -535,10 +618,8 @@ def _copy_with_rotation(
     for i in range(1, max_obj + 1):
         offset = offsets.get(i, 0)
         xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(
-        f"trailer\n<< /Size {max_obj + 1} /Root {model.catalog_ref.obj_num} 0 R >>\n"
-        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
-    )
+    xref.extend(trailer_bytes(model, size=max_obj + 1))
+    xref.extend(f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
     return header + bytes(body) + bytes(xref)
 
 
@@ -548,96 +629,16 @@ def _edit_watermark(
     output: Path,
     input_hashes: dict[int, str],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Watermark: add text-showing operators to targeted pages' content streams."""
-    from .page_tree import walk_pages
+    """Watermark: add text operators plus an effective opacity resource."""
+    from .watermark import apply_text_watermark
 
-    pages = walk_pages(model)
-    target_pages = set(primitive["pages"])
-    text = primitive["text"]
-    changed: set[int] = set()
-
-    # Identify content stream objects for targeted pages
-    content_to_change: set[int] = set()
-    for page in pages:
-        if page.page_number in target_pages:
-            for ref in page.contents:
-                content_to_change.add(ref.obj_num)
-
-    output_bytes = _copy_with_watermark(model, content_to_change, text, changed)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(output_bytes)
-
-    output_model = parse_pdf(output)
-    output_hashes = output_model.object_hashes()
-    manifest = _build_manifest(input_hashes, output_hashes, changed=changed, added=set(), removed=set())
-    operation_result = {
-        "primitive": "watermark",
-        "text": text,
-        "pages": sorted(target_pages),
-        "preservation": manifest,
-    }
-    return operation_result, manifest
-
-
-def _copy_with_watermark(
-    model: PdfObjectModel,
-    content_objs: set[int],
-    text: str,
-    changed: set[int],
-) -> bytes:
-    """Copy model with watermark added to specified content streams."""
-    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-    body = bytearray()
-    offsets: dict[int, int] = {}
-    wm_text = text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-    watermark_ops = (
-        f"\nq\n0.7 g\nBT\n/F1 48 Tf\n0.707 0.707 -0.707 0.707 200 300 Tm\n({wm_text}) Tj\nET\nQ\n"
-    ).encode("latin-1", errors="replace")
-
-    for orig_num in sorted(model.objects):
-        obj = model.objects[orig_num]
-        if orig_num in content_objs:
-            # Append watermark operators to content stream
-            payload = obj.payload_bytes
-            # Find 'endstream' and inject before it
-            if obj.is_stream:
-                insert_pos = payload.rfind(b"endstream")
-                if insert_pos > 0:
-                    # Update /Length
-                    import re
-                    new_payload = (
-                        payload[:insert_pos]
-                        + watermark_ops
-                        + payload[insert_pos:]
-                    )
-                    # Adjust stream length
-                    length_diff = len(watermark_ops)
-                    new_payload = re.sub(
-                        rb"/Length\s+(\d+)",
-                        lambda m: f"/Length {int(m.group(1)) + length_diff}".encode("ascii"),
-                        new_payload,
-                        count=1,
-                    )
-                    offsets[orig_num] = len(header) + len(body)
-                    body.extend(new_payload + b"\n")
-                    changed.add(orig_num)
-                    continue
-        offsets[orig_num] = len(header) + len(body)
-        body.extend(obj.payload_bytes + b"\n")
-
-    xref_offset = len(header) + len(body)
-    max_obj = max(offsets.keys()) if offsets else 0
-    xref = bytearray(b"xref\n")
-    xref.extend(f"0 {max_obj + 1}\n".encode("ascii"))
-    xref.extend(b"0000000000 65535 f\r\n")
-    for i in range(1, max_obj + 1):
-        offset = offsets.get(i, 0)
-        xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(
-        f"trailer\n<< /Size {max_obj + 1} /Root {model.catalog_ref.obj_num} 0 R >>\n"
-        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    return apply_text_watermark(
+        model,
+        primitive,
+        output,
+        input_hashes,
+        build_manifest=_build_manifest,
     )
-    return header + bytes(body) + bytes(xref)
 
 
 def _edit_form_fill(
@@ -646,83 +647,16 @@ def _edit_form_fill(
     output: Path,
     input_hashes: dict[int, str],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Form fill: rewrite targeted AcroForm field /V entries."""
-    fields = primitive["fields"]
-    changed: set[int] = set()
+    """Form fill: update values plus deterministic widget appearances."""
+    from .forms import fill_acroform
 
-    # Find field objects matching the qualified names
-    target_objs: dict[int, bytes] = {}
-    for obj_num, obj in model.objects.items():
-        val = model.resolve(obj.value)
-        from .object_model import PdfDict
-        if isinstance(val, PdfDict):
-            ft = val.get("/FT")
-            t_name = val.get("/T")
-            if ft is not None and isinstance(t_name, str):
-                t_clean = t_name if isinstance(t_name, str) else str(t_name)
-                for field_name, field_value in fields.items():
-                    if t_clean == field_name:
-                        # Rewrite /V entry
-                        payload = obj.payload_bytes
-                        escaped = field_value.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-                        if b"/V" in payload:
-                            import re
-                            new_payload = re.sub(
-                                rb"/V\s*\([^)]*\)",
-                                f"/V ({escaped})".encode("latin-1"),
-                                payload,
-                            )
-                            target_objs[obj_num] = new_payload
-                        else:
-                            target_objs[obj_num] = payload.replace(
-                                b">>", f"/V ({escaped}) >>".encode("latin-1")
-                            )
-                        changed.add(obj_num)
-                        break
-
-    output_bytes = _copy_with_form_values(model, target_objs)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_bytes(output_bytes)
-
-    output_model = parse_pdf(output)
-    output_hashes = output_model.object_hashes()
-    manifest = _build_manifest(input_hashes, output_hashes, changed=changed, added=set(), removed=set())
-    operation_result = {
-        "primitive": "form_fill",
-        "fields_filled": list(fields.keys()),
-        "preservation": manifest,
-    }
-    return operation_result, manifest
-
-
-def _copy_with_form_values(
-    model: PdfObjectModel,
-    target_objs: dict[int, bytes],
-) -> bytes:
-    """Copy model with modified field objects."""
-    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-    body = bytearray()
-    offsets: dict[int, int] = {}
-
-    for orig_num in sorted(model.objects):
-        obj = model.objects[orig_num]
-        payload = target_objs.get(orig_num, obj.payload_bytes)
-        offsets[orig_num] = len(header) + len(body)
-        body.extend(payload + b"\n")
-
-    xref_offset = len(header) + len(body)
-    max_obj = max(offsets.keys()) if offsets else 0
-    xref = bytearray(b"xref\n")
-    xref.extend(f"0 {max_obj + 1}\n".encode("ascii"))
-    xref.extend(b"0000000000 65535 f\r\n")
-    for i in range(1, max_obj + 1):
-        offset = offsets.get(i, 0)
-        xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(
-        f"trailer\n<< /Size {max_obj + 1} /Root {model.catalog_ref.obj_num} 0 R >>\n"
-        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    return fill_acroform(
+        model,
+        primitive,
+        output,
+        input_hashes,
+        build_manifest=_build_manifest,
     )
-    return header + bytes(body) + bytes(xref)
 
 
 def _build_manifest(

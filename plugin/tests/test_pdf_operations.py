@@ -48,11 +48,32 @@ def _document() -> dict[str, Any]:
             {
                 "blocks": [
                     {"type": "heading", "text": "Page Two", "style": None, "table": None, "image": None, "shape": None},
-                    {"type": "image", "text": None, "style": None, "table": None, "image": {"filename": "logo.png", "content_type": "image/png"}, "shape": None},
                     {"type": "vector_shape", "text": None, "style": None, "table": None, "image": None, "shape": {"kind": "rectangle", "x": 72, "y": 72, "width": 200, "height": 100, "stroke": None, "fill": None}},
                 ],
                 "metadata": None,
             },
+        ],
+    }
+
+
+def _minimal_text_document(text: str) -> dict[str, Any]:
+    return {
+        "metadata": {"title": "Minimal", "author": "Elftia", "subject": ""},
+        "page_size": "A4",
+        "pages": [
+            {
+                "blocks": [
+                    {
+                        "type": "paragraph",
+                        "text": text,
+                        "style": None,
+                        "table": None,
+                        "image": None,
+                        "shape": None,
+                    }
+                ],
+                "metadata": None,
+            }
         ],
     }
 
@@ -80,7 +101,7 @@ class TestCreate:
         assert destination.stat().st_size > 0
         assert result["page_count"] == 2
         assert result["structures"]["table"] is True
-        assert result["structures"]["image"] is True
+        assert result["structures"]["image"] is False
         assert result["structures"]["vector_shape"] is True
         assert result["structures"]["metadata"] is True
 
@@ -89,6 +110,50 @@ class TestCreate:
         create_pdf(destination, _document())
         report = validate_created(destination, _document())
         assert report["status"] == "pass"
+
+    def test_create_validation_rejects_missing_requested_text(self, tmp_path: Path):
+        destination = tmp_path / "test.pdf"
+        create_pdf(destination, _minimal_text_document("Created text"))
+
+        with pytest.raises(DocumentSkillsError) as exc:
+            validate_created(
+                destination,
+                _minimal_text_document("Different requested text"),
+            )
+
+        assert exc.value.code is ErrorCode.VALIDATION_FAILED
+
+    def test_create_validation_rejects_missing_requested_vector_shape(
+        self,
+        tmp_path: Path,
+    ):
+        destination = tmp_path / "test.pdf"
+        actual_document = _minimal_text_document("Created text")
+        expected_document = _minimal_text_document("Created text")
+        expected_document["pages"][0]["blocks"].append(
+            {
+                "type": "vector_shape",
+                "text": None,
+                "style": None,
+                "table": None,
+                "image": None,
+                "shape": {
+                    "kind": "rectangle",
+                    "x": 72,
+                    "y": 72,
+                    "width": 100,
+                    "height": 50,
+                    "stroke": None,
+                    "fill": None,
+                },
+            }
+        )
+        create_pdf(destination, actual_document)
+
+        with pytest.raises(DocumentSkillsError) as exc:
+            validate_created(destination, expected_document)
+
+        assert exc.value.code is ErrorCode.VALIDATION_FAILED
 
     def test_created_pdf_reopens(self, created_pdf: Path):
         result = reopen_pdf(created_pdf)

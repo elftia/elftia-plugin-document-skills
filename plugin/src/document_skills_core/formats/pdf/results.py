@@ -61,14 +61,14 @@ def read_validation(
             "visual.render",
             "unavailable",
             required=False,
-            evidence={"reason": "Poppler/LibreOffice visual validation is not implemented."},
+            evidence={"reason": "No accepted visual-render provider was used for this operation."},
             warnings=["Optional visual validation is unavailable."],
         ),
         gate_record(
             "ocr.text",
             "unavailable",
             required=False,
-            evidence={"reason": "Tesseract OCR is not implemented."},
+            evidence={"reason": "No accepted OCR provider was used for this operation."},
             warnings=["Optional OCR validation is unavailable."],
         ),
         gate_record(
@@ -129,14 +129,14 @@ def mutation_validation(
             "visual.render",
             "unavailable",
             required=False,
-            evidence={"reason": "Poppler/LibreOffice visual validation is not implemented."},
+            evidence={"reason": "No accepted visual-render provider was used for this operation."},
             warnings=["Optional visual validation is unavailable."],
         ),
         gate_record(
             "ocr.text",
             "unavailable",
             required=False,
-            evidence={"reason": "Tesseract OCR is not implemented."},
+            evidence={"reason": "No accepted OCR provider was used for this operation."},
             warnings=["Optional OCR validation is unavailable."],
         ),
         gate_record(

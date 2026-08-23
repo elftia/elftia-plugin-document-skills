@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.table.extract",
+  "input": "<source.pdf>",
+  "arguments": {
+    "pages": [1],
+    "min_rows": 2,
+    "min_columns": 2,
+    "max_tables": 100
+  }
+}

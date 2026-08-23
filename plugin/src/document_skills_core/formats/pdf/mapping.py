@@ -6,10 +6,12 @@ Module provenance: original Elftia-authored clean-room implementation.
 from dataclasses import dataclass
 from typing import Any
 
+from document_skills_core.core.contracts.errors import DocumentSkillsError
+
 from .actions import ActionClassification, classify_actions
 from .content_streams import TextBlock, extract_content_stream, walk_text_operators
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
-from .page_tree import PageInfo
+from .page_tree import PageInfo, walk_pages
 from .resources import FontInfo, inventory_fonts, inventory_images, ImageInfo
 
 
@@ -20,6 +22,14 @@ class AcroFieldInfo:
     field_type: str
     flags: int
     value_type: str
+    value: Any
+    default_value: Any
+    required: bool
+    readonly: bool
+    options: tuple[str, ...]
+    page: int | None
+    widget: bool
+    has_appearance: bool
     annotation_rect: tuple[float, float, float, float] | None
 
 
@@ -27,8 +37,12 @@ class AcroFieldInfo:
 class AnnotationInfo:
     """Annotation inventory entry."""
     page: int
+    index: int
     subtype: str
     rectangle: tuple[float, float, float, float] | None
+    contents: str | None
+    title: str | None
+    color: tuple[float, float, float] | None
     action_kind: str | None
 
 
@@ -65,7 +79,7 @@ def map_acroform_fields(model: PdfObjectModel) -> list[AcroFieldInfo]:
     """Inventory AcroForm fields."""
     try:
         catalog_obj = model.get_object(model.catalog_ref)
-        catalog = model.resolve(catalog_obj.value)
+        catalog = catalog_obj.value
     except Exception:
         return []
     if not isinstance(catalog, PdfDict):
@@ -74,7 +88,7 @@ def map_acroform_fields(model: PdfObjectModel) -> list[AcroFieldInfo]:
     if isinstance(acroform, IndirectReference):
         try:
             af_obj = model.get_object(acroform)
-            acroform = model.resolve(af_obj.value)
+            acroform = af_obj.value
         except Exception:
             return []
     if not isinstance(acroform, PdfDict):
@@ -82,25 +96,31 @@ def map_acroform_fields(model: PdfObjectModel) -> list[AcroFieldInfo]:
     fields = acroform.get("/Fields")
     if not isinstance(fields, list):
         return []
+    page_numbers = {page.obj_num: page.page_number for page in _safe_pages(model)}
     result: list[AcroFieldInfo] = []
     for field_ref in fields:
         if isinstance(field_ref, IndirectReference):
             try:
                 f_obj = model.get_object(field_ref)
-                f_val = model.resolve(f_obj.value)
+                f_val = f_obj.value
                 if isinstance(f_val, PdfDict):
-                    result.append(_build_field_info(f_val))
+                    result.append(_build_field_info(f_val, page_numbers, model))
             except Exception:
                 pass
     return result
 
 
-def _build_field_info(d: PdfDict) -> AcroFieldInfo:
+def _build_field_info(
+    d: PdfDict,
+    page_numbers: dict[int, int],
+    model: PdfObjectModel,
+) -> AcroFieldInfo:
     """Build an AcroFieldInfo from a field dictionary."""
     ft = d.get("/FT", "/Unknown")
     name = d.get("/T", "")
     flags = d.get("/Ff", 0)
     value = d.get("/V")
+    default_value = d.get("/DV")
     value_type = type(value).__name__ if value is not None else "null"
     rect = d.get("/Rect")
     annotation_rect = None
@@ -109,23 +129,85 @@ def _build_field_info(d: PdfDict) -> AcroFieldInfo:
             annotation_rect = (float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3]))
         except (TypeError, ValueError):
             pass
+    numeric_flags = int(flags) if isinstance(flags, int) else 0
+    widgets = _field_widgets(model, d)
     field_type = "text"
     ft_str = str(ft) if isinstance(ft, str) else ""
     if ft_str == "/Tx":
         field_type = "text"
     elif ft_str == "/Btn":
-        field_type = "checkbox"
+        field_type = "radio" if numeric_flags & 32768 else "checkbox"
     elif ft_str == "/Ch":
         field_type = "choice"
     elif ft_str == "/Sig":
         field_type = "signature"
+    options_value = d.get("/Opt")
+    options = tuple(
+        str(option)
+        for option in options_value
+    ) if isinstance(options_value, list) else ()
+    if field_type == "radio":
+        options = tuple(sorted({
+            state.removeprefix("/")
+            for widget in widgets
+            for state in _appearance_states(widget)
+            if state != "/Off"
+        }))
+    page_ref = d.get("/P")
+    if not isinstance(page_ref, IndirectReference) and widgets:
+        page_ref = widgets[0].get("/P")
+    page = page_numbers.get(page_ref.obj_num) if isinstance(page_ref, IndirectReference) else None
+    subtype = d.get("/Subtype")
     return AcroFieldInfo(
         qualified_name=str(name) if isinstance(name, str) else "",
         field_type=field_type,
-        flags=int(flags) if isinstance(flags, int) else 0,
+        flags=numeric_flags,
         value_type=value_type,
+        value=value,
+        default_value=default_value,
+        required=bool(numeric_flags & 2),
+        readonly=bool(numeric_flags & 1),
+        options=options,
+        page=page,
+        widget=subtype == "/Widget" or bool(widgets),
+        has_appearance=d.get("/AP") is not None or any(
+            widget.get("/AP") is not None for widget in widgets
+        ),
         annotation_rect=annotation_rect,
     )
+
+
+def _field_widgets(model: PdfObjectModel, field: PdfDict) -> list[PdfDict]:
+    kids = field.get("/Kids")
+    if not isinstance(kids, list):
+        return []
+    widgets: list[PdfDict] = []
+    for kid in kids:
+        if not isinstance(kid, IndirectReference):
+            continue
+        value = model.get_object(kid).value
+        if isinstance(value, PdfDict) and value.get("/Subtype") == "/Widget":
+            widgets.append(value)
+    return widgets
+
+
+def _appearance_states(widget: PdfDict) -> list[str]:
+    appearance = widget.get("/AP")
+    if not isinstance(appearance, PdfDict):
+        return []
+    normal = appearance.get("/N")
+    if not isinstance(normal, PdfDict):
+        return []
+    return list(normal.entries)
+
+
+def _safe_pages(model: PdfObjectModel) -> list[PageInfo]:
+    from .page_tree import walk_pages
+
+    try:
+        return walk_pages(model)
+    except DocumentSkillsError:
+        return []
 
 
 def map_annotations(model: PdfObjectModel, pages: list[PageInfo]) -> list[AnnotationInfo]:
@@ -133,7 +215,7 @@ def map_annotations(model: PdfObjectModel, pages: list[PageInfo]) -> list[Annota
     result: list[AnnotationInfo] = []
     for page in pages:
         annots = _get_page_annotations(model, page)
-        for annot_val in annots:
+        for index, annot_val in enumerate(annots, start=1):
             if isinstance(annot_val, PdfDict):
                 subtype = annot_val.get("/Subtype", "/Unknown")
                 rect = annot_val.get("/Rect")
@@ -148,10 +230,23 @@ def map_annotations(model: PdfObjectModel, pages: list[PageInfo]) -> list[Annota
                 if isinstance(action, PdfDict):
                     s = action.get("/S", "")
                     action_kind = str(s) if isinstance(s, str) else None
+                contents = annot_val.get("/Contents")
+                title = annot_val.get("/T")
+                color_value = annot_val.get("/C")
+                color = None
+                if isinstance(color_value, list) and len(color_value) == 3:
+                    try:
+                        color = tuple(float(component) for component in color_value)
+                    except (TypeError, ValueError):
+                        pass
                 result.append(AnnotationInfo(
                     page=page.page_number,
+                    index=index,
                     subtype=str(subtype) if isinstance(subtype, str) else "/Unknown",
                     rectangle=rectangle,
+                    contents=contents if isinstance(contents, str) else None,
+                    title=title if isinstance(title, str) else None,
+                    color=color,
                     action_kind=action_kind,
                 ))
     return result
@@ -162,20 +257,26 @@ def _get_page_annotations(model: PdfObjectModel, page: PageInfo) -> list:
     page_obj = model.objects.get(page.obj_num)
     if page_obj is None:
         return []
-    page_val = model.resolve(page_obj.value)
+    page_val = page_obj.value
     if not isinstance(page_val, PdfDict):
         return []
     annots = page_val.get("/Annots")
-    if isinstance(annots, list):
-        return annots
-    return []
+    if not isinstance(annots, list):
+        return []
+    resolved = []
+    for annotation in annots:
+        if isinstance(annotation, IndirectReference):
+            annotation = model.get_object(annotation).value
+        if isinstance(annotation, PdfDict):
+            resolved.append(annotation)
+    return resolved
 
 
 def map_outlines(model: PdfObjectModel) -> list[OutlineInfo]:
     """Inventory outline/bookmark items."""
     try:
         catalog_obj = model.get_object(model.catalog_ref)
-        catalog = model.resolve(catalog_obj.value)
+        catalog = catalog_obj.value
     except Exception:
         return []
     if not isinstance(catalog, PdfDict):
@@ -184,12 +285,13 @@ def map_outlines(model: PdfObjectModel) -> list[OutlineInfo]:
     if isinstance(outlines, IndirectReference):
         try:
             o_obj = model.get_object(outlines)
-            outlines = model.resolve(o_obj.value)
+            outlines = o_obj.value
         except Exception:
             return []
     if not isinstance(outlines, PdfDict):
         return []
     result: list[OutlineInfo] = []
+    page_numbers = {page.obj_num: page.page_number for page in walk_pages(model)}
     first = outlines.get("/First")
     visited: set[int] = set()
     current = first
@@ -199,15 +301,23 @@ def map_outlines(model: PdfObjectModel) -> list[OutlineInfo]:
         visited.add(current.obj_num)
         try:
             item_obj = model.get_object(current)
-            item_val = model.resolve(item_obj.value)
+            item_val = item_obj.value
         except Exception:
             break
         if not isinstance(item_val, PdfDict):
             break
         title = item_val.get("/Title", "")
+        destination = item_val.get("/Dest")
+        destination_page = None
+        if (
+            isinstance(destination, list)
+            and destination
+            and isinstance(destination[0], IndirectReference)
+        ):
+            destination_page = page_numbers.get(destination[0].obj_num)
         result.append(OutlineInfo(
             title=str(title) if isinstance(title, str) else "",
-            destination_page=None,
+            destination_page=destination_page,
             action_kind=None,
         ))
         current = item_val.get("/Next")

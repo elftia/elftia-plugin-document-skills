@@ -21,6 +21,7 @@ from .mapping import (
     map_text_blocks,
 )
 from .object_model import parse_pdf
+from .page_labels import project_page_labels
 from .page_tree import walk_pages
 from .projection import (
     project_document_info,
@@ -44,7 +45,7 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
     if preflight.encrypted:
         raise DocumentSkillsError(
             ErrorCode.ARCHIVE_UNSAFE,
-            "PDF is encrypted; decryption is not implemented in Core.",
+            "PDF is encrypted; use explicit pdf.decrypt before structured reading.",
         )
     model = parse_pdf(path, limits)
     # Security check: reject documents with dangerous actions
@@ -121,6 +122,14 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
                 "field_type": f.field_type,
                 "flags": f.flags,
                 "value_type": f.value_type,
+                "value": f.value,
+                "default_value": f.default_value,
+                "required": f.required,
+                "readonly": f.readonly,
+                "options": list(f.options),
+                "page": f.page,
+                "widget": f.widget,
+                "has_appearance": f.has_appearance,
                 "annotation_rect": list(f.annotation_rect) if f.annotation_rect else None,
             }
             for f in field_infos
@@ -133,8 +142,12 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
         annotations = [
             {
                 "page": a.page,
+                "index": a.index,
                 "subtype": a.subtype,
                 "rectangle": list(a.rectangle) if a.rectangle else None,
+                "contents": a.contents,
+                "title": a.title,
+                "color": list(a.color) if a.color else None,
                 "action_kind": a.action_kind,
             }
             for a in annot_infos
@@ -167,10 +180,22 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
         "pages": page_infos,
         "fonts_by_page": fonts_by_page,
         "images_by_page": images_by_page,
+        "text_blocks": [
+            {
+                "page": block.page,
+                "bbox": list(block.bbox),
+                "text": block.text,
+                "font": block.font_name,
+                "size": block.font_size,
+                "color": list(block.color),
+            }
+            for block in text_blocks
+        ],
         "text_by_page": text_by_page,
         "acroform_fields": fields,
         "annotations": annotations,
         "outlines": outline_list,
+        "page_labels": project_page_labels(model, len(pages)),
         "embedded_files": embedded_files,
     }
     return operation_result, warnings

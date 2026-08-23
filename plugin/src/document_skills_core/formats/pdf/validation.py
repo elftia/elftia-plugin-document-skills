@@ -3,6 +3,7 @@
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
@@ -10,8 +11,11 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.validation import validate_artifact
 
 from .byte_preflight import PdfByteLimits, preflight_pdf
+from .content_streams import extract_content_stream
+from .mapping import map_text_blocks
 from .object_model import parse_pdf
 from .page_tree import walk_pages
+from .resources import inventory_images
 
 
 def validate_created(path: Path, document: dict[str, Any]) -> dict[str, Any]:
@@ -72,29 +76,110 @@ def _assert_created(path: Path, document: dict[str, Any]) -> dict[str, Any]:
     expected_count = len(document.get("pages", []))
     if len(pages) != expected_count:
         failures.append("page-count")
-    if len(pages) < 2:
-        failures.append("minimum-2-pages")
 
-    # Check for at least one table, image, vector shape in structures
-    structures = set()
-    for page_data in document.get("pages", []):
-        for block in page_data.get("blocks", []):
-            structures.add(block.get("type"))
+    expected_text = _requested_text_counts(document)
+    mapped_text = map_text_blocks(model, pages)
+    missing_text = _missing_requested_text(document, mapped_text)
+    if missing_text:
+        failures.append("requested-text")
 
-    if "table" not in structures:
-        failures.append("table")
-    if "image" not in structures:
-        failures.append("image")
-    if "vector_shape" not in structures:
-        failures.append("vector_shape")
+    expected_structures = _requested_structure_counts(document)
+    content = b"\n".join(
+        extract_content_stream(model, page.contents, page.page_number)
+        for page in pages
+    )
+    actual_structures = Counter({
+        block_type: content.count(f"%DS-BLOCK:{block_type}".encode("ascii"))
+        for block_type in expected_structures
+    })
+    actual_structures["image"] = sum(
+        len(inventory_images(model, page.resources))
+        for page in pages
+    )
+    missing_structures = sorted(
+        block_type
+        for block_type, count in expected_structures.items()
+        if actual_structures[block_type] < count
+    )
+    if missing_structures:
+        failures.append("requested-structure")
 
     if failures:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
             "Created PDF does not satisfy the document contract.",
-            details={"missing_or_mismatched": failures},
+            details={
+                "missing_or_mismatched": failures,
+                "missing_text": missing_text,
+                "missing_structures": missing_structures,
+            },
         )
-    return {"pages": len(pages), "requested_structure": True}
+    return {
+        "pages": len(pages),
+        "requested_structure": True,
+        "requested_text_blocks": sum(expected_text.values()),
+        "requested_structure_counts": dict(expected_structures),
+    }
+
+
+def _requested_text_counts(document: dict[str, Any]) -> Counter[str]:
+    requested: Counter[str] = Counter()
+    for page in document.get("pages", []):
+        for block in page.get("blocks", []):
+            block_type = block.get("type")
+            text = block.get("text")
+            if block_type in {"heading", "paragraph"} and text:
+                requested[text] += 1
+            if block_type != "table":
+                continue
+            table = block.get("table") or {}
+            for row in table.get("rows", []):
+                for cell in row.get("cells", []):
+                    if cell:
+                        requested[str(cell)] += 1
+    return requested
+
+
+def _missing_requested_text(
+    document: dict[str, Any],
+    mapped_text: list[Any],
+) -> list[str]:
+    """Accept exact text blocks or request text reconstructed after wrapping."""
+    page_text: dict[int, str] = {}
+    for page_number in range(1, len(document.get("pages", [])) + 1):
+        page_text[page_number] = _normalized_text(
+            " ".join(block.text for block in mapped_text if block.page == page_number)
+        )
+    missing: list[str] = []
+    for page_number, page in enumerate(document.get("pages", []), start=1):
+        requested_items: list[str] = []
+        for block in page.get("blocks", []):
+            if block.get("type") in {"heading", "paragraph"} and block.get("text"):
+                requested_items.append(str(block["text"]))
+            if block.get("type") == "table":
+                for row in (block.get("table") or {}).get("rows", []):
+                    requested_items.extend(str(cell) for cell in row.get("cells", []) if cell)
+        for text in requested_items:
+            normalized = _normalized_text(text)
+            if normalized and normalized in page_text[page_number]:
+                page_text[page_number] = page_text[page_number].replace(normalized, "", 1)
+                continue
+            missing.append(text)
+    return sorted(missing)
+
+
+def _normalized_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _requested_structure_counts(document: dict[str, Any]) -> Counter[str]:
+    requested: Counter[str] = Counter()
+    for page in document.get("pages", []):
+        for block in page.get("blocks", []):
+            block_type = block.get("type")
+            if block_type in {"table", "image", "vector_shape"}:
+                requested[block_type] += 1
+    return requested
 
 
 def _assert_preservation(manifest: dict[str, Any]) -> dict[str, Any]:

@@ -14,7 +14,7 @@ from document_skills_core.formats.pdf.contracts import (
 )
 
 
-def test_pdf_operations_set_is_exactly_five():
+def test_pdf_operations_set_includes_provider_security_and_optimization():
     assert PDF_OPERATIONS == frozenset(
         {
             "pdf.read",
@@ -22,6 +22,13 @@ def test_pdf_operations_set_is_exactly_five():
             "pdf.create",
             "pdf.edit",
             "pdf.rewrite.apply",
+            "pdf.images.extract",
+            "pdf.encrypt",
+            "pdf.decrypt",
+            "pdf.compress",
+            "pdf.render",
+            "pdf.ocr",
+            "pdf.table.extract",
         }
     )
 
@@ -149,8 +156,39 @@ def test_parse_rewrite_requires_blocks():
         })
 
 
-def test_parse_create_requires_two_pages():
-    with pytest.raises(DocumentSkillsError):
+def test_parse_create_accepts_one_nonblank_page():
+    parsed = parse_pdf_request({
+        "schema_version": "1.0",
+        "operation": "pdf.create",
+        "output": "out.pdf",
+        "arguments": {
+            "document": {
+                "metadata": {"title": "T", "author": "A", "subject": ""},
+                "page_size": "A4",
+                "pages": [
+                    {
+                        "blocks": [
+                            {
+                                "type": "paragraph",
+                                "text": "Text",
+                                "style": None,
+                                "table": None,
+                                "image": None,
+                                "shape": None,
+                            }
+                        ],
+                        "metadata": None,
+                    }
+                ],
+            }
+        },
+    })
+
+    assert len(parsed.arguments["document"]["pages"]) == 1
+
+
+def test_parse_create_rejects_implicit_blank_page():
+    with pytest.raises(DocumentSkillsError) as exc:
         parse_pdf_request({
             "schema_version": "1.0",
             "operation": "pdf.create",
@@ -163,6 +201,27 @@ def test_parse_create_requires_two_pages():
                 }
             },
         })
+
+    assert exc.value.details["field"] == "pages.0.allow_blank"
+
+
+def test_parse_create_accepts_explicit_blank_page():
+    parsed = parse_pdf_request({
+        "schema_version": "1.0",
+        "operation": "pdf.create",
+        "output": "out.pdf",
+        "arguments": {
+            "document": {
+                "metadata": {"title": "T", "author": "A", "subject": ""},
+                "page_size": "A4",
+                "pages": [
+                    {"blocks": [], "metadata": None, "allow_blank": True}
+                ],
+            }
+        },
+    })
+
+    assert parsed.arguments["document"]["pages"][0]["allow_blank"] is True
 
 
 def test_parse_read_defaults():
@@ -186,3 +245,73 @@ def test_parse_inspect_defaults():
     })
     assert parsed.arguments["include_hashes"] is True
     assert parsed.arguments["max_objects"] >= 1
+
+
+def test_parse_encrypt_accepts_only_strong_bounded_distinct_secrets():
+    parsed = parse_pdf_request({
+        "schema_version": "1.0",
+        "operation": "pdf.encrypt",
+        "input": "in.pdf",
+        "output": "out.pdf",
+        "arguments": {
+            "user_password": "reader-secret",
+            "owner_password": "owner-secret",
+            "algorithm": "AES-256-R5",
+            "permissions": ["print", "extract"],
+            "encrypt_metadata": True,
+        },
+    })
+
+    assert parsed.arguments["algorithm"] == "AES-256-R5"
+    assert parsed.arguments["permissions"] == ["extract", "print"]
+
+    for arguments in (
+        {
+            "user_password": "same-secret",
+            "owner_password": "same-secret",
+        },
+        {
+            "user_password": "u" * 128,
+            "owner_password": "owner-secret",
+        },
+    ):
+        with pytest.raises(DocumentSkillsError) as exc:
+            parse_pdf_request({
+                "schema_version": "1.0",
+                "operation": "pdf.encrypt",
+                "input": "in.pdf",
+                "output": "out.pdf",
+                "arguments": arguments,
+            })
+        assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
+def test_parse_encrypt_rejects_weak_algorithm_before_output():
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_pdf_request({
+            "schema_version": "1.0",
+            "operation": "pdf.encrypt",
+            "input": "in.pdf",
+            "output": "out.pdf",
+            "arguments": {
+                "user_password": "reader-secret",
+                "owner_password": "owner-secret",
+                "algorithm": "RC4-128",
+            },
+        })
+
+    assert exc.value.code.value == "DS_ENHANCEMENT_REQUIRED"
+
+
+@pytest.mark.parametrize("mode", ["balanced", "aggressive"])
+def test_parse_compress_keeps_unimplemented_lossy_modes_honest(mode: str):
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_pdf_request({
+            "schema_version": "1.0",
+            "operation": "pdf.compress",
+            "input": "in.pdf",
+            "output": "out.pdf",
+            "arguments": {"mode": mode},
+        })
+
+    assert exc.value.code.value == "DS_ENHANCEMENT_REQUIRED"

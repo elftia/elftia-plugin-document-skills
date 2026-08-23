@@ -1,6 +1,6 @@
-"""Five-operation PDF dispatch and shared transactional mutation.
+"""Core PDF dispatch and shared transactional output handling.
 
-Operations: pdf.read, pdf.inspect.structure, pdf.create, pdf.edit, pdf.rewrite.apply
+Includes structured read/inspect, create/edit/rewrite, and image extraction.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
@@ -23,10 +23,13 @@ from document_skills_core.core.io.temp_roots import OperationTempRoot
 from .contracts import ParsedPdfRequest, parse_pdf_request
 from .create import create_pdf
 from .edit import edit_pdf
+from .image_extraction_archive import validate_image_archive
+from .images_extract import extract_pdf_images
 from .inspect import inspect_pdf
 from .read import read_pdf
 from .results import read_validation, success_result
 from .rewrite import rewrite_apply_pdf
+from .table_extract import extract_pdf_tables
 from .transaction import promote_candidate, write_candidate_result
 from .validation import (
     validate_created,
@@ -36,7 +39,7 @@ from .validation import (
 
 
 class PdfService:
-    """Five-operation PDF dispatch and transactional mutation."""
+    """Core PDF dispatch and transactional output handling."""
 
     def __init__(self, project_root: Path, libreoffice=None) -> None:
         self.project_root = project_root.resolve()
@@ -73,6 +76,10 @@ class PdfService:
             return self._create(parsed)
         if operation == "pdf.edit":
             return self._edit(parsed)
+        if operation == "pdf.images.extract":
+            return self._images_extract(parsed)
+        if operation == "pdf.table.extract":
+            return self._table_extract(parsed)
         return self._rewrite_apply(parsed)
 
     def _read(self, request: ParsedPdfRequest) -> dict[str, Any]:
@@ -170,6 +177,63 @@ class PdfService:
                 error, source_record.path, source_record.sha256
             )
             raise
+
+    def _images_extract(self, request: ParsedPdfRequest) -> dict[str, Any]:
+        assert request.input_path is not None
+        assert request.output_path is not None
+        assert_distinct_paths(request.input_path, request.output_path, in_place=False)
+        source_record = file_record(request.input_path, "input")
+        destination = destination_snapshot(request.output_path)
+        try:
+            with OperationTempRoot() as private_root:
+                staged = private_root / "extracted-images.zip"
+                operation_result = extract_pdf_images(
+                    request.input_path,
+                    staged,
+                    request.arguments,
+                )
+                validation = validate_image_archive(
+                    staged,
+                    operation_result,
+                    source=request.input_path,
+                    source_sha256=source_record.sha256,
+                )
+                result = write_candidate_result(
+                    self.schemas,
+                    request,
+                    staged,
+                    validation,
+                    operation_result,
+                    warnings=[],
+                    source=source_record,
+                )
+                return promote_candidate(
+                    request,
+                    staged,
+                    result,
+                    source=source_record,
+                    destination=destination,
+                )
+        except Exception as error:
+            merge_source_preservation_failure(
+                error,
+                source_record.path,
+                source_record.sha256,
+            )
+            raise
+
+    def _table_extract(self, request: ParsedPdfRequest) -> dict[str, Any]:
+        assert request.input_path is not None
+        source = file_record(request.input_path, "input")
+        operation_result = extract_pdf_tables(request.input_path, request.arguments)
+        assert_source_preserved(source.path, source.sha256)
+        return success_result(
+            request,
+            artifacts=[source.as_dict()],
+            operation_result=operation_result,
+            warnings=[],
+            validation=read_validation("operation.table-extraction", operation_result),
+        )
 
     def _rewrite_apply(self, request: ParsedPdfRequest) -> dict[str, Any]:
         assert request.input_path is not None

@@ -22,6 +22,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .content_streams import extract_content_stream, walk_text_operators, TextBlock
 from .object_model import IndirectReference, PdfObjectModel, parse_pdf
 from .page_tree import walk_pages
+from .trailer import trailer_bytes
 
 
 def rewrite_apply_pdf(
@@ -222,10 +223,8 @@ def _copy_with_rewrite(
     for i in range(1, max_obj + 1):
         offset = offsets.get(i, 0)
         xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(
-        f"trailer\n<< /Size {max_obj + 1} /Root {model.catalog_ref.obj_num} 0 R >>\n"
-        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
-    )
+    xref.extend(trailer_bytes(model, size=max_obj + 1))
+    xref.extend(f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
     return header + bytes(body) + bytes(xref)
 
 

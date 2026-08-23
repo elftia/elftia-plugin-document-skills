@@ -13,7 +13,7 @@ from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
-from .byte_preflight import PdfByteLimits, decode_stream
+from .byte_preflight import PdfByteLimits
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
 
 
@@ -63,21 +63,12 @@ def extract_content_stream(
     limits: PdfByteLimits | None = None,
 ) -> bytes:
     """Concatenate and return the decoded content stream for a page."""
-    budget = limits or PdfByteLimits()
     chunks: list[bytes] = []
     for ref in content_refs:
         obj = model.get_object(ref)
         if obj.is_stream and isinstance(obj.value, tuple):
-            dict_val, stream_data = obj.value
-            if isinstance(dict_val, PdfDict):
-                filter_spec = dict_val.get("/Filter")
-                filters: list[str] = []
-                if isinstance(filter_spec, str):
-                    filters = [filter_spec]
-                elif isinstance(filter_spec, list):
-                    filters = [f for f in filter_spec if isinstance(f, str)]
-                if filters:
-                    stream_data = decode_stream(stream_data, filters, budget)
+            _dict_val, stream_data = obj.value
+            # PdfObjectModel stores stream bytes after its bounded filter decode.
             chunks.append(stream_data)
         elif isinstance(obj.value, PdfDict):
             pass  # empty stream
@@ -101,7 +92,7 @@ def walk_text_operators(
     gs = GraphicsState()
     op_count = 0
     # Parse operators using a tokenizer
-    operators = _tokenize_content_stream(content)
+    operators = tokenize_content_stream(content)
     for op, operands in operators:
         op_count += 1
         if op_count > max_operators:
@@ -197,7 +188,7 @@ def _make_block(page: int, op: str, text: str, ts: TextState, gs: GraphicsState)
     )
 
 
-def _tokenize_content_stream(content: bytes) -> list[tuple[str, list[Any]]]:
+def tokenize_content_stream(content: bytes) -> list[tuple[str, list[Any]]]:
     """Tokenize a PDF content stream into (operator, operands) pairs."""
     operators: list[tuple[str, list[Any]]] = []
     pos = 0

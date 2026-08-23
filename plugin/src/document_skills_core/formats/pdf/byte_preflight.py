@@ -174,6 +174,7 @@ def decode_stream(
         )
     decoded = raw_stream
     for filter_name in filters:
+        filter_name = filter_name.removeprefix("/")
         if filter_name not in SUPPORTED_FILTERS:
             raise DocumentSkillsError(
                 ErrorCode.ARCHIVE_UNSAFE,
@@ -223,6 +224,11 @@ def _apply_filter(data: bytes, filter_name: str, budget: PdfByteLimits) -> bytes
         )
     if filter_name == "RunLengthDecode":
         return _decode_run_length(data)
+    if filter_name == "DCTDecode":
+        # JPEG codestreams remain compressed. Their marker/dimension policy is
+        # validated before embedding; the PDF parser inventories the stream
+        # without treating a non-lossless codec as a text/content decoder.
+        return data
     raise DocumentSkillsError(
         ErrorCode.ARCHIVE_UNSAFE,
         f"Unsupported decode filter: {filter_name}",

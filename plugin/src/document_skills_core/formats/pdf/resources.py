@@ -123,7 +123,14 @@ def inventory_images(model: PdfObjectModel, resources: PdfDict | None) -> list[I
     for name, xobj_val in xobject.entries.items():
         if isinstance(xobj_val, IndirectReference):
             obj = model.get_object(xobj_val)
-            xobj_val = model.resolve(obj.value)
+            if (
+                obj.is_stream
+                and isinstance(obj.value, tuple)
+                and isinstance(obj.value[0], PdfDict)
+            ):
+                xobj_val = obj.value[0]
+            else:
+                xobj_val = model.resolve(obj.value)
         if isinstance(xobj_val, PdfDict):
             sub_type = xobj_val.get("/Subtype")
             if sub_type == "/Image":

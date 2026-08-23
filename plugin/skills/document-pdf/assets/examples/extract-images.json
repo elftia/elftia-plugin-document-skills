@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.images.extract",
+  "input": "<source.pdf>",
+  "output": "<images.zip>",
+  "arguments": {
+    "pages": [1],
+    "max_images": 100,
+    "max_total_bytes": 67108864
+  }
+}

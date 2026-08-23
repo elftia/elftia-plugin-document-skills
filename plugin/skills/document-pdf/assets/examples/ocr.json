@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.ocr",
+  "input": "<source.pdf>",
+  "output": "<ocr-sidecars.zip>",
+  "arguments": {
+    "pages": [1],
+    "dpi": 300,
+    "languages": ["eng"],
+    "skip_text_pages": true,
+    "max_pixels": 40000000,
+    "max_total_bytes": 67108864
+  }
+}
