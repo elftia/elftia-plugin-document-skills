@@ -41,18 +41,18 @@ test('scene capture fails closed when Chromium omits paint evidence', async (con
   );
 });
 
-test('scene capture imports and deduplicates hash-bound local and data images with crop evidence', async (context) => {
+test('scene capture imports and deduplicates hash-bound local images with crop evidence', async (context) => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'document-skills-scene-'));
   context.after(() => fs.rm(temporary, { recursive: true, force: true }));
   const bytes = tinyPng();
   await fs.writeFile(path.join(temporary, 'pixel.png'), bytes);
   const items = [
     imageItem('local', 'capture-local', 0, 'pixel.png'),
-    imageItem('data', 'capture-data', 1, `data:image/png;base64,${bytes.toString('base64')}`),
+    imageItem('duplicate', 'capture-duplicate', 1, 'pixel.png'),
   ];
   const page = fakePage(rawDeck(items), snapshot([
     ['capture-local', 1],
-    ['capture-data', 2],
+    ['capture-duplicate', 2],
   ]));
 
   const scene = await captureScene(
@@ -109,11 +109,44 @@ test('scene capture uses the requested element only for raster fallback', async 
   assert.equal(scene.assets[0].purpose, 'element-fallback');
 });
 
-test('scene capture rejects malformed data image and decoded-pixel overflow with stable reasons', async (context) => {
+test('scene capture converts a bounded local SVG image to an evidenced element fallback', async (context) => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'document-skills-scene-'));
   context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(
+    path.join(temporary, 'vector.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="red"/></svg>',
+  );
+  const vector = imageItem('vector', 'capture-vector', 0, 'vector.svg');
+  vector.image_width = 20;
+  vector.image_height = 10;
+  const screenshotSelectors = [];
+  const page = fakePage(
+    rawDeck([vector]),
+    snapshot([['capture-vector', 1]]),
+    screenshotSelectors,
+  );
+
+  const scene = await captureScene(
+    page,
+    temporary,
+    path.join(temporary, 'private'),
+    'element-rasterize',
+    [],
+  );
+
+  const captured = scene.slides[0].items[0];
+  assert.equal(captured.capture_outcome, 'rasterized');
+  assert.equal(captured.reason, 'image_svg_raster_fallback');
+  assert.equal(scene.assets[0].purpose, 'element-fallback');
+  assert.deepEqual(screenshotSelectors, ['[data-elftia-capture-id="capture-vector"]']);
+});
+
+test('scene capture rejects data images and decoded-pixel overflow with stable reasons', async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'document-skills-scene-'));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  await fs.writeFile(path.join(temporary, 'pixel.png'), tinyPng());
   const malformed = imageItem('malformed', 'capture-malformed', 0, 'data:image/png;base64,AAAAA===');
-  const excessive = imageItem('excessive', 'capture-excessive', 1, `data:image/png;base64,${tinyPng().toString('base64')}`);
+  const excessive = imageItem('excessive', 'capture-excessive', 1, 'pixel.png');
   excessive.image_width = 10_000;
   excessive.image_height = 10_000;
   const page = fakePage(rawDeck([malformed, excessive]), snapshot([
@@ -130,7 +163,7 @@ test('scene capture rejects malformed data image and decoded-pixel overflow with
   );
 
   assert.deepEqual(scene.slides[0].items.map((entry) => entry.reason), [
-    'image_data_url_invalid',
+    'image_data_url_blocked',
     'image_image_pixel_limit',
   ]);
   assert.ok(scene.slides[0].items.every((entry) => entry.capture_outcome === 'rejected'));
@@ -220,7 +253,8 @@ test('scene capture rejects DOM, text, image-count, and non-finite geometry ceil
     /scene_limit/,
   );
 
-  const imageSource = `data:image/png;base64,${tinyPng().toString('base64')}`;
+  await fs.writeFile(path.join(temporary, 'counted.png'), tinyPng());
+  const imageSource = 'counted.png';
   const images = Array.from({ length: 513 }, (_value, index) => (
     imageItem(`image-${index}`, `capture-image-${index}`, index, imageSource)
   ));
@@ -305,6 +339,7 @@ function item(sourceId, captureId, domIndex, zIndex) {
     color: 'rgb(0, 0, 0)',
     text_align: 'left',
     line_height: 'normal',
+    letter_spacing: 'normal',
   };
   return {
     source_id: sourceId,
@@ -326,6 +361,7 @@ function item(sourceId, captureId, domIndex, zIndex) {
     radius: 0,
     text: sourceId,
     text_style: style,
+    text_insets: { left: 0, top: 0, right: 0, bottom: 0 },
     paragraphs: [{ runs: [{ text: sourceId, style }] }],
     requested_font: 'Arial',
     font_evidence: {

@@ -23,12 +23,14 @@ def validate_scene_visuals(
     if evidence is None or evidence.available is not True:
         return _visual_gate(
             "unavailable",
+            scene=scene,
             reason="LibreOffice visual validation is unavailable.",
             version=version,
         )
     if not scene.visual_sources:
         return _visual_gate(
             "unavailable",
+            scene=scene,
             reason="Browser source screenshots are unavailable.",
             version=version,
         )
@@ -37,6 +39,7 @@ def validate_scene_visuals(
     except AttributeError:
         return _visual_gate(
             "unavailable",
+            scene=scene,
             reason="LibreOffice render consultation is unavailable.",
             version=version,
         )
@@ -52,6 +55,7 @@ def validate_scene_visuals(
             if type(rendered) is not bytes or not rendered:
                 return _visual_gate(
                     "fail",
+                    scene=scene,
                     reason="libreoffice-render-failed",
                     version=version,
                     comparisons=comparisons,
@@ -62,6 +66,7 @@ def validate_scene_visuals(
     except Exception as error:
         return _visual_gate(
             "fail",
+            scene=scene,
             reason="visual-comparison-failed",
             version=version,
             comparisons=comparisons,
@@ -70,6 +75,7 @@ def validate_scene_visuals(
     passed = all(item["within_thresholds"] is True for item in comparisons)
     return _visual_gate(
         "pass" if passed else "fail",
+        scene=scene,
         reason=None if passed else "visual-threshold-exceeded",
         version=version,
         comparisons=comparisons,
@@ -129,6 +135,7 @@ def _evidence_version(evidence: Any) -> str | None:
 def _visual_gate(
     outcome: str,
     *,
+    scene: NormalizedScene,
     reason: str | None,
     version: str | None,
     comparisons: list[dict[str, Any]] | None = None,
@@ -138,6 +145,9 @@ def _visual_gate(
         "slides_compared": len(comparisons or []),
         "thresholds": visual_thresholds(),
         "comparisons": comparisons or [],
+        "context": _scene_context(scene),
+        "exemptions": [],
+        "exemption_policy": "No automatic visual exemptions; context is explanatory only.",
     }
     if reason is not None:
         evidence["reason"] = reason
@@ -155,3 +165,20 @@ def _visual_gate(
         evidence=evidence,
         warnings=warnings,
     )
+
+
+def _scene_context(scene: NormalizedScene) -> dict[str, Any]:
+    font = scene.diagnostics.get("font_evidence", {})
+    rasterized = scene.diagnostics.get("fidelity", {}).get("rasterized", {})
+    font_samples = font.get("samples", [])
+    return {
+        "font_substitutions": int(font.get("substitutions", 0)),
+        "font_substitution_samples": [
+            sample for sample in font_samples
+            if sample.get("substitution") is not None
+        ],
+        "fallback_elements": int(rasterized.get("count", 0)),
+        "fallback_area": float(rasterized.get("area", 0.0)),
+        "fallback_samples": list(rasterized.get("samples", [])),
+        "fallback_samples_truncated": int(rasterized.get("truncated", 0)),
+    }

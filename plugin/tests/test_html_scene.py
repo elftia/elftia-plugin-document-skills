@@ -35,6 +35,7 @@ STYLE = {
     "color": "rgb(0, 0, 0)",
     "text_align": "left",
     "line_height": "normal",
+    "letter_spacing": "normal",
 }
 
 
@@ -59,6 +60,7 @@ def _item(source_id: str = "item", **overrides):
         "radius": 0,
         "text": "Hello",
         "text_style": STYLE,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [{
             "runs": [{"text": "Hello", "style": STYLE}],
             "alignment": "left",
@@ -266,6 +268,7 @@ def test_normalizer_classifies_approximations_and_simple_pseudo(tmp_path: Path):
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(parse_scene_deck(_raw([item]), tmp_path, 1024))
@@ -330,6 +333,7 @@ def test_normalizer_suppresses_subtrees_independent_of_paint_order_and_parent_ps
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(

@@ -199,7 +199,14 @@ def _picture(
 
 def _text_body(shape: Element, item: dict[str, Any]) -> None:
     body = SubElement(shape, f"{{{_P}}}txBody")
-    SubElement(body, f"{{{_A}}}bodyPr", {"wrap": "square", "lIns": "0", "tIns": "0", "rIns": "0", "bIns": "0"})
+    insets = item["text_insets"]
+    SubElement(body, f"{{{_A}}}bodyPr", {
+        "wrap": "square",
+        "lIns": str(_emu(insets["left"])),
+        "tIns": str(_emu(insets["top"])),
+        "rIns": str(_emu(insets["right"])),
+        "bIns": str(_emu(insets["bottom"])),
+    })
     SubElement(body, f"{{{_A}}}lstStyle")
     default_style = item["text_style"]
     paragraphs = item["paragraphs"] or [{
@@ -227,6 +234,9 @@ def _text_body(shape: Element, item: dict[str, Any]) -> None:
                 run_properties["u"] = "sng"
             if "line-through" in str(style.get("text_decoration")):
                 run_properties["strike"] = "sngStrike"
+            spacing = _character_spacing(style.get("letter_spacing"))
+            if spacing is not None:
+                run_properties["spc"] = str(spacing)
             run_pr = SubElement(run, f"{{{_A}}}rPr", run_properties)
             _fill(run_pr, style.get("color"), item["opacity"])
             family = str(style.get("font_family") or "Arial").split(",", 1)[0].strip(" '\"")[:64]
@@ -246,6 +256,13 @@ def _line_spacing(paragraph_properties: Element, value: Any) -> None:
     spacing = max(100, min(40_000, int(round(float(match.group(1)) * 50))))
     line_spacing = SubElement(paragraph_properties, f"{{{_A}}}lnSpc")
     SubElement(line_spacing, f"{{{_A}}}spcPts", {"val": str(spacing)})
+
+
+def _character_spacing(value: Any) -> int | None:
+    match = re.fullmatch(r"(-?\d+(?:\.\d+)?)px", str(value))
+    if match is None:
+        return None
+    return max(-40_000, min(40_000, int(round(float(match.group(1)) * 75))))
 
 
 def _transform(parent: Element, item: dict[str, Any]) -> None:

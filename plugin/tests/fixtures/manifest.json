@@ -349,7 +349,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "68fff7d8f3c876fb0bb58d9da0fc1643718c1eb163f302211113c505231c596e"
+      "sha256": "114833b086127bf028f21535ddbb695ec1bb17456ec18d78c4eb9c6ea83b98ac"
     },
     {
       "authorship": "original-elftia",
@@ -362,7 +362,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "0a130ade45102b91c4f11067a0a8ddf9bbe0d7a6dfcc8f22317e87803a90544b"
+      "sha256": "c78af497c63084539b9af5a36d52b4b4ba7b670307f17d56c454e0310e4c146f"
     },
     {
       "authorship": "original-elftia",
@@ -401,7 +401,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "1f99571f5da57b2003e59ad981c8542c46567a79c9d169f2fc2156234926df28"
+      "sha256": "0907bc27b0397302b56c01d112e99c6cc37026a5b99b05ef2dee7fd901581c8a"
     }
   ],
   "schema_version": "1.0"

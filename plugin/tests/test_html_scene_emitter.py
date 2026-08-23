@@ -159,6 +159,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
         "font_size": 32,
         "font_weight": "700",
         "color": "rgba(200, 10, 20, 0.5)",
+        "letter_spacing": "2px",
     }
     second_style = {
         **text_box["text_style"],
@@ -183,6 +184,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
                 "line_height": "normal",
             },
         ],
+        text_insets={"left": 10, "top": 20, "right": 30, "bottom": 40},
     )
     output = tmp_path / "text.pptx"
 
@@ -195,6 +197,15 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
     with zipfile.ZipFile(output) as archive:
         slide = fromstring(archive.read("ppt/slides/slide1.xml"))
     paragraphs = list(slide.iter(f"{{{NS['a']}}}p"))
+    body_properties = slide.find(f".//{{{NS['a']}}}bodyPr")
+    assert body_properties is not None
+    assert body_properties.attrib == {
+        "wrap": "square",
+        "lIns": "63500",
+        "tIns": "127000",
+        "rIns": "190500",
+        "bIns": "254000",
+    }
     assert len(paragraphs) == 2
     assert paragraphs[0].find(f"{{{NS['a']}}}pPr").get("algn") == "ctr"
     assert paragraphs[1].find(f"{{{NS['a']}}}pPr").get("algn") == "r"
@@ -204,6 +215,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
     first_properties = first_run.find(f"{{{NS['a']}}}rPr")
     assert first_properties.get("sz") == "1600"
     assert first_properties.get("b") == "1"
+    assert first_properties.get("spc") == "150"
     assert first_properties.find(f"{{{NS['a']}}}latin").get("typeface") == "Aptos"
     alpha = first_properties.find(f"{{{NS['a']}}}solidFill/{{{NS['a']}}}srgbClr/{{{NS['a']}}}alpha")
     assert alpha is not None and alpha.get("val") == "25000"
@@ -420,6 +432,7 @@ def _item(
         "color": "rgb(0, 0, 0)",
         "text_align": "left",
         "line_height": "normal",
+        "letter_spacing": "normal",
     }
     return {
         "source_id": source_id,
@@ -441,6 +454,7 @@ def _item(
         "radius": 0,
         "text": "",
         "text_style": style,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [],
         "requested_font": "Arial",
         "font_evidence": {

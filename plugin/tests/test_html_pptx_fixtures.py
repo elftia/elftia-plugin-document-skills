@@ -141,7 +141,7 @@ def test_fallback_and_adversarial_fixture_matrix_is_explicit(project_root: Path)
     cases = _json(fixtures / "html-pptx-cases.expected.json")
     fallback = cases["fallback"]["cases"]
     assert set(fallback.values()) == {
-        "box_shadow_omitted",
+        "css_box_shadow",
         "complex_pseudo_element",
         "css_background_image",
         "css_filter",
@@ -158,7 +158,7 @@ def test_fallback_and_adversarial_fixture_matrix_is_explicit(project_root: Path)
         "file-url-blocked",
         "parent-traversal",
         "symlink-escape",
-        "malformed-data-url",
+        "data-url-blocked",
         "asset-count-limit",
         "image-pixel-limit",
         "dom-node-limit",
@@ -195,7 +195,7 @@ def test_real_browser_classifies_repository_fallback_fixture(
             for slide in captured.slides
             for item in slide["items"]
         }
-        assert by_id["box-shadow"]["approximations"] == ["box_shadow_omitted"]
+        assert by_id["box-shadow"]["reason"] == "css_box_shadow"
         assert by_id["gradient"]["reason"] == "css_background_image"
         assert by_id["filter"]["reason"] == "css_filter"
         assert by_id["clip"]["reason"] == "css_clip_path"
@@ -213,9 +213,8 @@ def test_real_browser_classifies_repository_fallback_fixture(
         )
         normalized = normalize_scene(first_slide)
         assert normalized.diagnostics["outcomes"] == {
-            "approximated": 1,
             "native": 1,
-            "rasterized": 5,
+            "rasterized": 6,
         }
 
 
@@ -268,6 +267,7 @@ def test_real_browser_keeps_adversarial_fixture_static_and_blocks_resources(
         )
         assert captured.blocked_resources["by_reason"] == {
             "custom_scheme_blocked": 1,
+            "data_url_blocked": 1,
             "file_url_blocked": 1,
             "path_escape": 1,
             "remote_url_blocked": 1,

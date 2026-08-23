@@ -37,7 +37,7 @@
   "observed": {
     "asset_bytes": 92,
     "assets": 1,
-    "capture_bytes": 15760,
+    "capture_bytes": 17038,
     "dom_nodes": 8,
     "images": 1,
     "paint_items": 6,
@@ -98,12 +98,19 @@
           "rotation": 0,
           "source_id": "slide-1-back",
           "text": "",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"
@@ -162,12 +169,19 @@
           "rotation": 0,
           "source_id": "slide-1-front",
           "text": "",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"
@@ -229,6 +243,7 @@
                     "font_size": 64,
                     "font_style": "normal",
                     "font_weight": "400",
+                    "letter_spacing": "normal",
                     "line_height": "76.8px",
                     "text_align": "left",
                     "text_decoration": "none"
@@ -242,6 +257,7 @@
                     "font_size": 64,
                     "font_style": "normal",
                     "font_weight": "700",
+                    "letter_spacing": "normal",
                     "line_height": "76.8px",
                     "text_align": "left",
                     "text_decoration": "none"
@@ -255,6 +271,7 @@
                     "font_size": 64,
                     "font_style": "normal",
                     "font_weight": "400",
+                    "letter_spacing": "normal",
                     "line_height": "76.8px",
                     "text_align": "left",
                     "text_decoration": "none"
@@ -272,12 +289,19 @@
           "rotation": 0,
           "source_id": "slide-1-title",
           "text": "Native editable deck",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"
@@ -341,12 +365,19 @@
           "rotation": 0,
           "source_id": "slide-1-image",
           "text": "",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"
@@ -416,12 +447,19 @@
           "rotation": 0,
           "source_id": "slide-2-shape",
           "text": "",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"
@@ -483,6 +521,7 @@
                     "font_size": 64,
                     "font_style": "normal",
                     "font_weight": "400",
+                    "letter_spacing": "normal",
                     "line_height": "76.8px",
                     "text_align": "left",
                     "text_decoration": "none"
@@ -502,6 +541,7 @@
                     "font_size": 64,
                     "font_style": "italic",
                     "font_weight": "400",
+                    "letter_spacing": "normal",
                     "line_height": "76.8px",
                     "text_align": "left",
                     "text_decoration": "none"
@@ -519,12 +559,19 @@
           "rotation": 0,
           "source_id": "slide-2-title",
           "text": "Second slide\nmixed run",
+          "text_insets": {
+            "bottom": 0,
+            "left": 0,
+            "right": 0,
+            "top": 0
+          },
           "text_style": {
             "color": "rgb(20, 40, 80)",
             "font_family": "Arial",
             "font_size": 64,
             "font_style": "normal",
             "font_weight": "400",
+            "letter_spacing": "normal",
             "line_height": "76.8px",
             "text_align": "left",
             "text_decoration": "none"

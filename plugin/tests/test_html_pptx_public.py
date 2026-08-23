@@ -1,6 +1,5 @@
 """Public capability, unavailable, budget, and representative HTML conversion tests."""
 
-import base64
 import hashlib
 import json
 from pathlib import Path
@@ -225,9 +224,10 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
     )
     if not operation["available"]:
         pytest.skip(operation["reason"])
-    image = base64.b64encode(
+    image_name = "review-image.png"
+    (tmp_path / image_name).write_bytes(
         (project_root / "tests/fixtures/html-native-image.png").read_bytes()
-    ).decode()
+    )
     source = tmp_path / "review-cases.html"
     source.write_text(
         f"""<!doctype html><meta charset="utf-8"><style>
@@ -246,7 +246,7 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
         </style><section class="slide"><div class="outer"><div class="inner">
         <div class="shape" data-pptx-id="nested-shape"></div>
         <div class="text" data-pptx-id="nested-text">Editable</div>
-        <img data-pptx-id="nested-image" src="data:image/png;base64,{image}">
+        <img data-pptx-id="nested-image" src="{image_name}">
         </div></div><div class="asym" data-pptx-id="asym-shape"></div>
         <div class="card" data-pptx-id="card">Body</div>
         <div class="complex" data-pptx-id="complex"></div></section>""",
