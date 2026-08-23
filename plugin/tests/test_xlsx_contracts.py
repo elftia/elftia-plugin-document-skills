@@ -20,6 +20,7 @@ def test_xlsx_operations_set_is_complete():
             "xlsx.edit",
             "xlsx.recalculate",
             "xlsx.convert",
+            "xlsx.template.instantiate",
         }
     )
 

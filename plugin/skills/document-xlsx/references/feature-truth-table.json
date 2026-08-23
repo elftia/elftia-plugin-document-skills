@@ -4,7 +4,8 @@
     "xlsx.read": {
       "available": [
         "static_formula_syntax_and_reference_report",
-        "formula_type_classification"
+        "formula_type_classification",
+        "xlsm_inert_vba_read"
       ],
       "limitations": [
         "static_analysis_is_not_a_calculation_engine"
@@ -13,7 +14,8 @@
     "xlsx.inspect.structure": {
       "available": [
         "inert_formula_type_classification",
-        "external_formula_inventory"
+        "external_formula_inventory",
+        "xlsm_vba_and_signature_inventory"
       ]
     },
     "xlsx.create": {
@@ -94,7 +96,10 @@
         "workbook_properties",
         "recalculation_policy_auto_required_skip",
         "static_formula_syntax_and_reference_validation",
-        "formula_type_classification"
+        "formula_type_classification",
+        "xlsm_keep_vba_copy_through",
+        "vba_relationship_and_signature_preservation",
+        "macro_signature_invalidation_disclosure"
       ],
       "enhancement_required": [
         "sheet_copy_with_related_objects",
@@ -133,13 +138,32 @@
         "bounded_streaming_and_resource_limits",
         "semantic_loss_reporting",
         "source_preservation",
-        "atomic_promotion"
+        "atomic_promotion",
+        "legacy_xls_to_xlsx_via_libreoffice"
       ],
       "limitations": [
         "delimited_output_is_single_sheet",
         "xlsx_objects_and_styles_are_not_tabular",
         "evaluated_formula_cache_is_not_recalculated",
         "shared_array_data_table_formula_conversion_fails_closed"
+      ],
+      "unavailable_without": [
+        "libreoffice_for_legacy_xls_conversion"
+      ]
+    },
+    "xlsx.template.instantiate": {
+      "available": [
+        "xltx_to_xlsx",
+        "xltm_to_xlsm_keep_vba",
+        "optional_bounded_edits",
+        "vba_relationship_and_signature_preservation",
+        "macro_signature_invalidation_disclosure",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "macro_enabled_template_recalculation_is_skipped",
+        "template_code_and_macros_are_never_executed"
       ]
     }
   }

@@ -10,6 +10,11 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.contracts.models import gate_record
 
 from .constants import NS
+from .format_policy import (
+    allowed_inert_categories,
+    assert_package_matches_path,
+    format_id,
+)
 from .mapping import map_workbook
 from .package import OpcPackage
 from .projection import project_tables
@@ -66,7 +71,13 @@ def analyze_formulas(
     package = OpcPackage.open(
         path,
         allow_dangerous_inventory=allow_dangerous_inventory,
+        allowed_inert_categories=(
+            None
+            if allow_dangerous_inventory
+            else allowed_inert_categories(format_id(path))
+        ),
     )
+    assert_package_matches_path(path, package.workbook_format)
     workbook = map_workbook(package)
     sheet_names = {sheet["name"].casefold() for sheet in workbook["sheets"]}
     defined_names = {

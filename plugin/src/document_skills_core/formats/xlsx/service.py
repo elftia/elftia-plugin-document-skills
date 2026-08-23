@@ -20,15 +20,24 @@ from .conversion_operation import execute_conversion
 from .create import create_xlsx
 from .edit import edit_xlsx
 from .formula_analysis import validate_formula_analysis
+from .format_policy import allowed_inert_categories
 from .formula_state import (
     build_formula_state_summary,
     should_downgrade,
 )
 from .inspect import inspect_xlsx
-from .read import read_xlsx
+from .macro_policy import (
+    signature_degradation,
+    signature_invalidated,
+    signature_warnings,
+    validate_macro_preservation,
+    with_macro_preservation_gate,
+)
+from .package import OpcPackage
+from .read_operation import execute_read
 from .recalculation import compare_final_preservation
 from .recalculation_operation import execute_recalculation
-from .recalculation_service import RecalculationOutcome, recalculate_candidate
+from .recalculation_service import recalculate_candidate
 from .results import (
     read_validation,
     success_result,
@@ -41,6 +50,7 @@ from .service_support import (
     outcome_provider,
 )
 from .transaction import promote_candidate, write_candidate_result
+from .template_operation import execute_template_instantiation
 from .validation import (
     assert_edits_applied,
     validate_created,
@@ -77,7 +87,7 @@ class XlsxService:
                 status="invalid_request",
             )
         if operation == "xlsx.read":
-            return self._read(parsed)
+            return execute_read(parsed, libreoffice=self.libreoffice)
         if operation == "xlsx.inspect.structure":
             return self._inspect(parsed)
         if operation == "xlsx.create":
@@ -85,80 +95,17 @@ class XlsxService:
         if operation == "xlsx.edit":
             return self._edit(parsed)
         if operation == "xlsx.convert":
-            return execute_conversion(parsed, schemas=self.schemas)
+            return execute_conversion(
+                parsed,
+                schemas=self.schemas,
+                libreoffice=self.libreoffice,
+            )
+        if operation == "xlsx.template.instantiate":
+            return execute_template_instantiation(parsed, schemas=self.schemas)
         return execute_recalculation(
             parsed,
             schemas=self.schemas,
             libreoffice=self.libreoffice,
-        )
-
-    def _read(self, request: ParsedXlsxRequest) -> dict[str, Any]:
-        assert request.input_path is not None
-        source = file_record(request.input_path, "input")
-        operation_result, warnings = read_xlsx(request.input_path, request.arguments)
-        assert_source_preserved(source.path, source.sha256)
-        if request.arguments["include_formulas"]:
-            with OperationTempRoot() as private_root:
-                outcome = recalculate_candidate(
-                    request.input_path,
-                    private_root,
-                    libreoffice=self.libreoffice,
-                    policy="auto",
-                    formula_cells=operation_result.get("formula_state", {}).get(
-                        "cells", {}
-                    ),
-                )
-        else:
-            outcome = RecalculationOutcome(
-                request.input_path,
-                {},
-                None,
-                {
-                    "outcome": "not_run",
-                    "policy": "auto",
-                    "reason": "request-excluded-formulas",
-                    "formula_cells": 0,
-                },
-                [],
-            )
-        formula_cells = outcome.formula_cells
-        recalculation_provider = outcome_provider(outcome)
-        operation_result["formula_state"]["cells"] = formula_cells
-        formula_summary = build_formula_state_summary(
-            formula_cells,
-            recalculation_provider=recalculation_provider,
-        )
-        operation_result["formula_state"]["summary"] = formula_summary
-        operation_result["recalculation"] = outcome.evidence
-        degraded = should_downgrade(formula_summary)
-        formula_analysis, validation = validate_formula_analysis(
-            request.input_path,
-            read_validation("operation.structured-read", operation_result),
-            required=False,
-        )
-        operation_result["formula_analysis"] = formula_analysis
-        validation = with_recalculation_gate(validation, outcome.evidence)
-        if formula_analysis["categories"]["external_reference"]:
-            raise DocumentSkillsError(
-                ErrorCode.ARCHIVE_UNSAFE,
-                "External-workbook formulas require inert structural inspection.",
-                details={"formula_analysis": formula_analysis},
-                validation=validation,
-            )
-        return success_result(
-            request,
-            artifacts=[source.as_dict()],
-            operation_result=operation_result,
-            warnings=warnings,
-            validation=validation,
-            status="degraded" if degraded else "success",
-            degraded=degraded,
-            degradations=formula_degradations(
-                degraded,
-                "Formulas require recalculation by an accepted provider.",
-            ),
-            achieved_fidelity="enhanced" if outcome.provider_chain else "core",
-            provider_chain=outcome.provider_chain,
         )
 
     def _inspect(self, request: ParsedXlsxRequest) -> dict[str, Any]:
@@ -286,7 +233,7 @@ class XlsxService:
         destination = destination_snapshot(request.output_path)
         try:
             with OperationTempRoot() as private_root:
-                staged = private_root / "edited.xlsx"
+                staged = private_root / f"edited{request.output_path.suffix.casefold()}"
                 operation_result, manifest = edit_xlsx(
                     request.input_path, staged, request.arguments
                 )
@@ -305,6 +252,25 @@ class XlsxService:
                         source=request.input_path,
                     ),
                 )
+                macro_evidence = None
+                if request.input_path.suffix.casefold() == ".xlsm":
+                    source_package = OpcPackage.open(
+                        request.input_path,
+                        allowed_inert_categories=allowed_inert_categories("xlsm"),
+                    )
+                    output_package = OpcPackage.open(
+                        staged,
+                        allowed_inert_categories=allowed_inert_categories("xlsm"),
+                    )
+                    macro_evidence = validate_macro_preservation(
+                        source_package,
+                        output_package,
+                        package_mutated=True,
+                    )
+                    validation = with_macro_preservation_gate(
+                        validation,
+                        macro_evidence,
+                    )
                 formula_analysis, validation = validate_formula_analysis(
                     staged,
                     validation,
@@ -354,12 +320,15 @@ class XlsxService:
                 operation_result["preservation"] = final_manifest.as_dict()
                 operation_result["recalculation"] = outcome.evidence
                 operation_result["formula_analysis"] = formula_analysis
+                if macro_evidence is not None:
+                    operation_result["macro"] = macro_evidence
                 formula_summary = build_formula_state_summary(
                     outcome.formula_cells,
                     recalculation_provider=outcome_provider(outcome),
                 )
                 operation_result["formula_state"]["summary"] = formula_summary
-                degraded = should_downgrade(formula_summary)
+                formula_degraded = should_downgrade(formula_summary)
+                degraded = formula_degraded or signature_invalidated(macro_evidence)
                 validation = with_formula_gate(validation, operation_result)
                 validation = with_recalculation_gate(
                     validation,
@@ -375,13 +344,20 @@ class XlsxService:
                     outcome.candidate,
                     validation,
                     operation_result,
-                    warnings=[],
+                    warnings=signature_warnings(macro_evidence),
                     source=source_record,
                     status="degraded" if degraded else "success",
                     degraded=degraded,
-                    degradations=formula_degradations(
-                        degraded,
-                        "Edited formulas require recalculation by an accepted provider.",
+                    degradations=(
+                        formula_degradations(
+                            formula_degraded,
+                            "Edited formulas require recalculation by an accepted provider.",
+                        )
+                        + (
+                            [signature_degradation()]
+                            if signature_invalidated(macro_evidence)
+                            else []
+                        )
                     ),
                     achieved_fidelity="enhanced" if outcome.provider_chain else "core",
                     provider_chain=outcome.provider_chain,

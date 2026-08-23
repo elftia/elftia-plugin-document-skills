@@ -1,15 +1,16 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, edit, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx` and bounded tabular conversion requests. The Core capability supports six operations:
+Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, and bounded tabular conversion requests. The Core capability supports seven operations:
 `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
-`xlsx.recalculate`, plus `xlsx.convert`. The public contract and validation run through the frozen
+`xlsx.recalculate`, plus `xlsx.convert` and `xlsx.template.instantiate`. The public contract and validation run through the frozen
 uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
-required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas.
+required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas or
+when `xlsx.convert` explicitly converts legacy `.xls` input to `.xlsx`.
 
 ## Formula-state policy
 
@@ -56,8 +57,10 @@ shared-string metadata. It also projects per-sheet views/print settings, inert i
 hyperlinks, legacy cell notes, and core/extended workbook properties.
 The `formula_analysis` report records static issues and special formula categories without
 claiming calculated-value correctness.
-Uses the normal reject-mode security policy; active/external content returns `DS_ARCHIVE_UNSAFE`
-and directs the caller to structural inspection.
+`.xlsx` uses the normal reject-mode security policy. `.xlsm` permits only inert VBA inventory;
+VBA is neither parsed nor executed, and formula recalculation is forced to `skip`. XLM, ActiveX,
+OLE, DDE, external targets, executable parts, or external formulas still return
+`DS_ARCHIVE_UNSAFE` and direct the caller to structural inspection.
 
 ### xlsx.inspect.structure
 
@@ -66,7 +69,8 @@ strings, styles, tables, data validations, conditional formats, pivot caches, ex
 native charts/drawings, dangerous content, and unknown parts
 without executing or dereferencing anything. Worksheet print metadata, hyperlinks, cell notes,
 and workbook properties are included in the inert projection. Formula categories and external
-formula references are reported inertly. Never authorizes mutation.
+formula references are reported inertly. For `.xlsm`, VBA/signature parts, hashes, and exact
+relationships are inventoried without cryptographic verification. Never authorizes mutation.
 
 ### xlsx.create
 
@@ -129,6 +133,13 @@ deletion with inbound references/related objects, and sheet copy with related ob
 `enhancement_required`. Plain worksheet copy is available. See
 [`references/edits.md`](references/edits.md) for the closed primitive fields and examples.
 
+For `.xlsm`, input and output must both use `.xlsm`, `keep_vba: true` is mandatory, and
+`recalculation` is fixed to `skip`. Mutation copy-through proves VBA payload hashes plus VBA and
+signature relationships are unchanged. The Core never verifies or executes macro code. When a
+signature is present, any package mutation reports `invalidated_by_package_mutation`, emits a
+warning/degradation, and never implies that the preserved signature remains valid. See
+[`references/macro-templates.md`](references/macro-templates.md).
+
 ### xlsx.recalculate
 
 Requires distinct `input` and `output` paths and accepts an empty `arguments` object. For a
@@ -158,6 +169,22 @@ typed metadata, null representation, timezone typing, or injection escaping—is
 `diagnostics.operation_result.semantic_losses`, canonical degradations, and warnings. Any loss
 makes the promoted result `degraded`; it is never presented as lossless conversion.
 
+Legacy `.xls` is input-only and converts only to `.xlsx`. This path accepts no tabular value,
+sheet, encoding, or delimiter options; it requires callable LibreOffice, reopens the produced
+OOXML, performs consumer and static-formula validation, rejects any VBA/XLM/active/external
+provider output, preserves the `.xls` source, and promotes atomically. It always reports the
+`legacy-provider-conversion` compatibility loss and real LibreOffice provider diagnostics.
+
+### xlsx.template.instantiate
+
+Instantiates `.xltx` to `.xlsx` or `.xltm` to `.xlsm` by copy-through and an exact workbook main
+content-type transition. It accepts an optional non-empty `edits` array using the same bounded
+typed primitives as `xlsx.edit`; `recalculation` is currently fixed to `skip`. `.xltm` requires
+explicit `keep_vba: true`. VBA/signature payloads and relationships are preserved exactly, macro
+code is never executed, and a preserved signature is explicitly reported invalid after the
+package mutation. Any reverse or cross-extension pairing fails contract validation. See
+[`references/macro-templates.md`](references/macro-templates.md).
+
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression
 tests execute every feature marked `available` through this Skill's `scripts/run.py` and reopen
@@ -168,7 +195,7 @@ the promoted artifact with an independent consumer.
 | Status | Meaning |
 | --- | --- |
 | `success` | All required gates pass; no formulas require recalculation. |
-| `degraded` | Required gates pass, but formula recalculation remains outstanding or conversion reports explicit semantic loss. |
+| `degraded` | Required gates pass, but formula recalculation remains outstanding, conversion reports semantic loss, or a preserved macro signature was invalidated by mutation. |
 | `enhancement_required` | The request requires an unimplemented optional provider. |
 | `unavailable` | A required provider, such as LibreOffice for explicit formula recalculation, is unavailable; no output is promoted. |
 | `invalid_request` | Request arguments are invalid; no file is mutated. |
@@ -176,5 +203,6 @@ the promoted artifact with an independent consumer.
 
 ## Distinct output rule
 
-Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, and `xlsx.convert`, output
+Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, `xlsx.convert`,
+and `xlsx.template.instantiate`, output
 resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.

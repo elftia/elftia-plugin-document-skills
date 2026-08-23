@@ -15,6 +15,7 @@ from document_skills_core.formats.xlsx.constants import NS
 from document_skills_core.formats.xlsx.create import create_xlsx
 from document_skills_core.formats.xlsx.mapping import map_workbook
 from document_skills_core.formats.xlsx.package import OpcPackage
+from tests.support.xlsx_macro_fixture import create_package_fixture
 
 
 def _strip_style_children(path: Path) -> None:
@@ -266,6 +267,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                 "available": [
                     "static_formula_syntax_and_reference_report",
                     "formula_type_classification",
+                    "xlsm_inert_vba_read",
                 ],
                 "limitations": [
                     "static_analysis_is_not_a_calculation_engine",
@@ -275,6 +277,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                 "available": [
                     "inert_formula_type_classification",
                     "external_formula_inventory",
+                    "xlsm_vba_and_signature_inventory",
                 ],
             },
             "xlsx.create": {
@@ -356,6 +359,9 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "recalculation_policy_auto_required_skip",
                     "static_formula_syntax_and_reference_validation",
                     "formula_type_classification",
+                    "xlsm_keep_vba_copy_through",
+                    "vba_relationship_and_signature_preservation",
+                    "macro_signature_invalidation_disclosure",
                 ],
                 "enhancement_required": [
                     "sheet_copy_with_related_objects",
@@ -395,12 +401,31 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "semantic_loss_reporting",
                     "source_preservation",
                     "atomic_promotion",
+                    "legacy_xls_to_xlsx_via_libreoffice",
                 ],
                 "limitations": [
                     "delimited_output_is_single_sheet",
                     "xlsx_objects_and_styles_are_not_tabular",
                     "evaluated_formula_cache_is_not_recalculated",
                     "shared_array_data_table_formula_conversion_fails_closed",
+                ],
+                "unavailable_without": [
+                    "libreoffice_for_legacy_xls_conversion",
+                ],
+            },
+            "xlsx.template.instantiate": {
+                "available": [
+                    "xltx_to_xlsx",
+                    "xltm_to_xlsm_keep_vba",
+                    "optional_bounded_edits",
+                    "vba_relationship_and_signature_preservation",
+                    "macro_signature_invalidation_disclosure",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "limitations": [
+                    "macro_enabled_template_recalculation_is_skipped",
+                    "template_code_and_macros_are_never_executed",
                 ],
             },
         },
@@ -1106,7 +1131,103 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.edit" in operations
     assert "xlsx.recalculate" in operations
     assert "xlsx.convert" in operations
+    assert "xlsx.template.instantiate" in operations
     assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
+
+
+def test_public_macro_read_and_edit_preserve_inert_vba(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    source = create_package_fixture(tmp_path / "public-macro.xlsm", "xlsm", signed=True)
+    read_request = _request(
+        tmp_path,
+        "public-macro-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.read",
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+    output = tmp_path / "public-macro-edited.xlsm"
+    edit_request = _request(
+        tmp_path,
+        "public-macro-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "keep_vba": True,
+                "recalculation": "skip",
+                "edits": [
+                    {
+                        "sheet": "Sheet1",
+                        "type": "cell_value",
+                        "ref": "A1",
+                        "value": "15",
+                    }
+                ],
+            },
+        },
+    )
+
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    edit_result = _public(project_root, "run", "--request", str(edit_request))
+
+    assert read_result["status"] in {"success", "degraded"}
+    assert read_result["diagnostics"]["operation_result"]["macro"][
+        "vba_execution"
+    ] == "not_executed"
+    assert edit_result["status"] == "degraded"
+    macro = edit_result["diagnostics"]["operation_result"]["macro"]
+    assert macro["vba_payload"] == "preserved"
+    assert macro["signature_state"] == "invalidated_by_package_mutation"
+    assert output.is_file()
+    reopened = load_workbook(output, data_only=False, keep_vba=True)
+    assert reopened["Sheet1"]["A1"].value == 15
+    assert reopened.vba_archive is not None
+    reopened.vba_archive.close()
+    reopened.close()
+
+
+def test_public_template_instantiation_reopens_output(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    source = create_package_fixture(tmp_path / "public-template.xltx", "xltx")
+    output = tmp_path / "public-template-output.xlsx"
+    request = _request(
+        tmp_path,
+        "public-template.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.template.instantiate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"recalculation": "skip"},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] in {"success", "degraded"}
+    assert result["provider_chain"] == ["core-python"]
+    assert OpcPackage.open(output).workbook_format == "xlsx"
+    assert any(
+        gate["id"] == "operation.template-content-type-transition"
+        and gate["outcome"] == "pass"
+        for gate in result["validation"]["gates"]
+    )
+    reopened = load_workbook(output, data_only=False)
+    assert reopened.sheetnames == ["Sheet1"]
+    reopened.close()
 
 
 def test_public_convert_csv_to_canonical_json(

@@ -10,6 +10,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import FORMULA_STATE_RECALCULATED, NS
 from .formula_state import build_formula_cell_state
+from .format_policy import allowed_inert_categories, format_id
 from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 
@@ -110,7 +111,14 @@ def compare_final_preservation(
 
 
 def formula_count(path: Path) -> int:
-    return len(_formula_records(OpcPackage.open(path)))
+    return len(
+        _formula_records(
+            OpcPackage.open(
+                path,
+                allowed_inert_categories=allowed_inert_categories(format_id(path)),
+            )
+        )
+    )
 
 
 def _formula_records(package: OpcPackage) -> dict[str, dict[str, Any]]:

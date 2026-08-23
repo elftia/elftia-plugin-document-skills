@@ -19,6 +19,11 @@ from .formula_state import (
     build_formula_cell_state,
     normalize_ref,
 )
+from .format_policy import (
+    allowed_inert_categories,
+    assert_package_matches_path,
+    format_id,
+)
 from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 from .shared_strings import read_shared_strings
@@ -43,7 +48,11 @@ def edit_xlsx(
 
     Returns (operation_result, manifest).
     """
-    package = OpcPackage.open(source)
+    package = OpcPackage.open(
+        source,
+        allowed_inert_categories=allowed_inert_categories(format_id(source)),
+    )
+    assert_package_matches_path(source, package.workbook_format)
     edits = arguments.get("edits", [])
     parts = dict(package.parts)
     shared = read_shared_strings(parts)
@@ -286,7 +295,12 @@ def edit_xlsx(
 def _structural_formula_state(path: str | Path) -> dict[str, dict[str, Any]]:
     """Reopen structural output so formula keys and text use final coordinates."""
 
-    mapped = map_workbook(OpcPackage.open(path))
+    mapped = map_workbook(
+        OpcPackage.open(
+            path,
+            allowed_inert_categories=allowed_inert_categories(format_id(path)),
+        )
+    )
     result: dict[str, dict[str, Any]] = {}
     for ref_key, record in mapped.get("formula_cells", {}).items():
         formula = record.get("formula", "")

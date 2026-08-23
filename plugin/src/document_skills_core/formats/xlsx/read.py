@@ -7,6 +7,12 @@ from document_skills_core.core.io.core_properties import project_core_properties
 
 from .annotations import project_comments
 from .formula_state import build_formula_state_summary
+from .format_policy import (
+    allowed_inert_categories,
+    assert_package_matches_path,
+    format_id,
+)
+from .macro_policy import macro_read_evidence
 from .mapping import map_workbook
 from .package import OpcPackage
 from .projection import (
@@ -28,7 +34,11 @@ def read_xlsx(
     arguments: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Read an XLSX workbook and return (operation_result, warnings)."""
-    package = OpcPackage.open(path)
+    package = OpcPackage.open(
+        path,
+        allowed_inert_categories=allowed_inert_categories(format_id(path)),
+    )
+    assert_package_matches_path(path, package.workbook_format)
     include_formulas = arguments.get("include_formulas", True)
     max_rows = arguments.get("max_rows", 5_000)
     max_cells = arguments.get("max_cells_per_sheet", 10_000)
@@ -128,4 +138,6 @@ def read_xlsx(
             "summary": formula_summary,
         },
     }
+    if package.workbook_format == "xlsm":
+        operation_result["macro"] = macro_read_evidence(package)
     return operation_result, warnings

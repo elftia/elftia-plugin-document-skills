@@ -10,6 +10,11 @@ from document_skills_core.core.validation import validate_artifact
 from .annotations import project_comments
 from .formula_state import assert_invariant
 from .constants import NS
+from .format_policy import (
+    allowed_inert_categories,
+    assert_package_matches_path,
+    format_id,
+)
 from .mapping import map_workbook
 from .package import OpcPackage, PreservationManifest
 from .projection import (
@@ -43,6 +48,15 @@ def validate_created(
     return _required_report(path, assertions=assertions)
 
 
+def validate_converted(path: Path) -> dict[str, Any]:
+    """Reopen a provider-converted workbook without assuming authored semantics."""
+
+    return _required_report(
+        path,
+        assertions=[("consumer-package-conformance", _assert_consumer_package)],
+    )
+
+
 def validate_mutation(
     path: Path,
     *,
@@ -74,7 +88,7 @@ def validate_mutation(
 
 def reopen_xlsx(path: Path) -> dict[str, Any]:
     """Reopen an XLSX package and verify its required structures."""
-    package = OpcPackage.open(path)
+    package = _open_candidate(path)
     workbook = map_workbook(package)
     return {
         "parts": len(package.parts),
@@ -102,7 +116,7 @@ def assert_edits_applied(
 ) -> dict[str, Any]:
     """Reopen a staged mutation and prove every bounded edit took effect."""
 
-    package = OpcPackage.open(path)
+    package = _open_candidate(path)
     mapped = map_workbook(package)
     sheets = {sheet["name"]: sheet for sheet in mapped.get("sheets", [])}
     rename_map = {
@@ -447,7 +461,7 @@ def _expected_cell_refs(
     source: Path,
     edits: list[dict[str, Any]],
 ) -> dict[str, set[str]]:
-    mapped = map_workbook(OpcPackage.open(source))
+    mapped = map_workbook(_open_candidate(source))
     expected = {
         sheet["name"]: _mapped_cell_refs(sheet)
         for sheet in mapped.get("sheets", [])
@@ -661,7 +675,7 @@ def _assert_created(
     *,
     creation: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    package = OpcPackage.open(path)
+    package = _open_candidate(path)
     mapped = map_workbook(package)
     failures: list[str] = []
 
@@ -988,7 +1002,7 @@ def _numeric_range(ref: str) -> tuple[int, int]:
 def _assert_consumer_package(path: Path) -> dict[str, Any]:
     """Reject the known malformed style table that Excel repairs/rejects."""
 
-    package = OpcPackage.open(path)
+    package = _open_candidate(path)
     styles = package.xml("xl/styles.xml")
     expected_children = {
         "fonts": ("font", 1),
@@ -1091,3 +1105,12 @@ def _required_report(
             validation=report,
         )
     return report
+
+
+def _open_candidate(path: Path) -> OpcPackage:
+    package = OpcPackage.open(
+        path,
+        allowed_inert_categories=allowed_inert_categories(format_id(path)),
+    )
+    assert_package_matches_path(path, package.workbook_format)
+    return package

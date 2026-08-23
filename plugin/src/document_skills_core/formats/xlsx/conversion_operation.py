@@ -31,6 +31,7 @@ from .conversion_text import (
     write_delimited,
 )
 from .conversion_xlsx import read_xlsx_dataset, write_xlsx_dataset
+from .legacy_conversion import execute_legacy_conversion
 from .transaction import promote_candidate, write_candidate_result
 
 
@@ -38,8 +39,15 @@ def execute_conversion(
     request: ParsedXlsxRequest,
     *,
     schemas: SchemaCatalog,
+    libreoffice: Any = None,
 ) -> dict[str, Any]:
     assert request.input_path is not None and request.output_path is not None
+    if request.arguments["source_format"] == "xls":
+        return execute_legacy_conversion(
+            request,
+            schemas=schemas,
+            libreoffice=libreoffice,
+        )
     assert_distinct_paths(request.input_path, request.output_path, in_place=False)
     source_record = file_record(request.input_path, "input")
     destination = destination_snapshot(request.output_path)

@@ -17,6 +17,7 @@ from .constants import (
     MAX_SHEETS,
 )
 from .conversion_contract import assert_format_suffix, parse_conversion_arguments
+from .format_policy import READ_FORMATS, TEMPLATE_OUTPUTS
 from .style_contract import (
     custom_number_format_id,
     parse_color,
@@ -34,6 +35,7 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.edit",
         "xlsx.recalculate",
         "xlsx.convert",
+        "xlsx.template.instantiate",
     }
 )
 
@@ -114,16 +116,12 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         if operation == "xlsx.convert"
         else None
     )
-    if parsed_conversion is not None:
-        assert input_path is not None and output_path is not None
-        assert_format_suffix(input_path.suffix, parsed_conversion["source_format"], "input")
-        assert_format_suffix(output_path.suffix, parsed_conversion["target_format"], "output")
-    else:
-        if input_path is not None and input_path.suffix.casefold() != ".xlsx":
-            _invalid("XLSX input path must use the .xlsx extension.", field="input")
-        if output_path is not None and output_path.suffix.casefold() != ".xlsx":
-            _invalid("XLSX output path must use the .xlsx extension.", field="output")
-    if operation in {"xlsx.edit", "xlsx.recalculate", "xlsx.convert"}:
+    if operation in {
+        "xlsx.edit",
+        "xlsx.recalculate",
+        "xlsx.convert",
+        "xlsx.template.instantiate",
+    }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -139,8 +137,98 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.create": _parse_create,
         "xlsx.edit": _parse_edit,
         "xlsx.recalculate": _parse_recalculate,
+        "xlsx.template.instantiate": _parse_template,
     }[operation](arguments)
+    _validate_operation_paths(
+        operation,
+        input_path,
+        output_path,
+        parsed,
+        arguments,
+    )
     return ParsedXlsxRequest(operation, input_path, output_path, parsed, fidelity)
+
+
+def _validate_operation_paths(
+    operation: str,
+    input_path: Path | None,
+    output_path: Path | None,
+    parsed: dict[str, Any],
+    raw_arguments: dict[str, Any],
+) -> None:
+    if operation == "xlsx.convert":
+        assert input_path is not None and output_path is not None
+        assert_format_suffix(input_path.suffix, parsed["source_format"], "input")
+        assert_format_suffix(output_path.suffix, parsed["target_format"], "output")
+        return
+    input_format = input_path.suffix.casefold().lstrip(".") if input_path else None
+    output_format = output_path.suffix.casefold().lstrip(".") if output_path else None
+    if operation in {"xlsx.read", "xlsx.inspect.structure"}:
+        if input_format not in READ_FORMATS:
+            _invalid(
+                "XLSX read/inspection input must use .xlsx or .xlsm.",
+                field="input",
+            )
+        return
+    if operation == "xlsx.create":
+        if output_format != "xlsx":
+            _invalid("XLSX creation output must use .xlsx.", field="output")
+        return
+    if operation == "xlsx.recalculate":
+        if input_format != "xlsx" or output_format != "xlsx":
+            _invalid("XLSX recalculation currently requires .xlsx input/output.")
+        return
+    if operation == "xlsx.template.instantiate":
+        expected_output = TEMPLATE_OUTPUTS.get(input_format or "")
+        if expected_output is None or output_format != expected_output:
+            _invalid(
+                "Template instantiation requires .xltx to .xlsx or .xltm to .xlsm.",
+            )
+        _validate_vba_request(
+            macro_enabled=input_format == "xltm",
+            parsed=parsed,
+            raw_arguments=raw_arguments,
+        )
+        if raw_arguments.get("recalculation", "skip") != "skip":
+            _invalid(
+                "Template instantiation currently only accepts recalculation: skip.",
+                field="recalculation",
+            )
+        parsed["recalculation"] = "skip"
+        return
+    if input_format not in READ_FORMATS or output_format != input_format:
+        _invalid("XLSX edit input/output extensions must both be .xlsx or both be .xlsm.")
+    _validate_vba_request(
+        macro_enabled=input_format == "xlsm",
+        parsed=parsed,
+        raw_arguments=raw_arguments,
+    )
+
+
+def _validate_vba_request(
+    *,
+    macro_enabled: bool,
+    parsed: dict[str, Any],
+    raw_arguments: dict[str, Any],
+) -> None:
+    if macro_enabled:
+        if parsed["keep_vba"] is not True:
+            _invalid(
+                "Macro-enabled mutation requires explicit keep_vba: true.",
+                field="keep_vba",
+            )
+        if raw_arguments.get("recalculation", "skip") != "skip":
+            _invalid(
+                "Macro-enabled mutation only accepts recalculation: skip.",
+                field="recalculation",
+            )
+        parsed["recalculation"] = "skip"
+        return
+    if "keep_vba" in raw_arguments:
+        _invalid(
+            "keep_vba is only valid for .xlsm/.xltm mutation.",
+            field="keep_vba",
+        )
 
 
 def _parse_read(value: dict[str, Any]) -> dict[str, Any]:
@@ -179,7 +267,7 @@ def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"edits", "expected_edits", "recalculation"})
+    _exact_keys(value, {"edits", "expected_edits", "recalculation", "keep_vba"})
     edits = value.get("edits")
     if type(edits) is not list or not edits or len(edits) > MAX_EDIT_OPS:
         _invalid("edits must be a non-empty bounded array.", field="edits")
@@ -581,12 +669,27 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         "edits": parsed_edits,
         "expected_edits": expected,
         "recalculation": _recalculation_policy(value.get("recalculation")),
+        "keep_vba": _boolean(value.get("keep_vba", False), "keep_vba"),
     }
 
 
 def _parse_recalculate(value: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(value, set())
     return {}
+
+
+def _parse_template(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, {"edits", "expected_edits", "recalculation", "keep_vba"})
+    if "edits" in value:
+        return _parse_edit(value)
+    if "expected_edits" in value:
+        _invalid("expected_edits requires a non-empty edits array.", field="expected_edits")
+    return {
+        "edits": [],
+        "expected_edits": None,
+        "recalculation": _recalculation_policy(value.get("recalculation")),
+        "keep_vba": _boolean(value.get("keep_vba", False), "keep_vba"),
+    }
 
 
 def _recalculation_policy(value: Any) -> str:

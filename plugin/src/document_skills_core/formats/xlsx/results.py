@@ -51,7 +51,11 @@ def read_validation(
             "xlsx.package-security",
             "pass",
             evidence={
-                "policy": "reject" if "sheets" in operation_result else "inert"
+                "policy": (
+                    "allow-inert-vba"
+                    if "macro" in operation_result and "sheets" in operation_result
+                    else ("reject" if "sheets" in operation_result else "inert")
+                )
             },
         ),
         gate_record(

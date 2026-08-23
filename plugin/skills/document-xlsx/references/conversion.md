@@ -1,6 +1,7 @@
 # XLSX and tabular conversion
 
-`xlsx.convert` converts among `xlsx`, `csv`, `tsv`, and `json`. It always requires distinct
+`xlsx.convert` converts among `xlsx`, `csv`, `tsv`, and `json`, and explicitly converts legacy
+`.xls` input to `.xlsx` through LibreOffice. It always requires distinct
 `input` and `output` paths whose extensions match `source_format` and `target_format`.
 
 ```json
@@ -102,3 +103,28 @@ conversion also drops tables, charts, validations, comments, and other non-cell 
 differences, selected-sheet drops, null-to-blank mapping, timezone-as-text mapping, and injection
 escaping are recorded as `semantic_losses`, warnings, and degradations. Loss-bearing output is
 validly promoted with status `degraded`, never mislabeled as lossless success.
+
+## Legacy `.xls` input
+
+Legacy conversion is a separate provider-required path:
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": "xlsx.convert",
+  "input": "legacy.xls",
+  "output": "converted.xlsx",
+  "arguments": {
+    "source_format": "xls",
+    "target_format": "xlsx"
+  }
+}
+```
+
+Only `.xls` → `.xlsx` is accepted. `sheet`, `source`, `target`, and `values` options are rejected
+because LibreOffice performs a workbook conversion rather than Core tabular projection. The
+provider output must pass ZIP/XML security, SpreadsheetML identity, consumer reopen, style-table,
+and static-formula gates. VBA, XLM, active objects, DDE, and external targets in provider output
+fail closed. Successful output is always `degraded` with `legacy-provider-conversion`; the result
+reports `provider_chain: ["libreoffice"]` at the Core service seam (the public facade also records
+`core-python`).

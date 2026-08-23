@@ -6,12 +6,13 @@ from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
-FORMATS = frozenset({"xlsx", "csv", "tsv", "json"})
+FORMATS = frozenset({"xlsx", "csv", "tsv", "json", "xls"})
 FORMAT_SUFFIXES = {
     "xlsx": frozenset({".xlsx"}),
     "csv": frozenset({".csv"}),
     "tsv": frozenset({".tsv", ".tab"}),
     "json": frozenset({".json"}),
+    "xls": frozenset({".xls"}),
 }
 TEXT_FORMATS = frozenset({"csv", "tsv", "json"})
 ENCODINGS = frozenset(
@@ -28,6 +29,26 @@ def parse_conversion_arguments(value: dict[str, Any]) -> dict[str, Any]:
     )
     source_format = _choice(value.get("source_format"), FORMATS, "source_format")
     target_format = _choice(value.get("target_format"), FORMATS, "target_format")
+    if target_format == "xls":
+        _invalid("Legacy .xls is input-only and cannot be a conversion target.")
+    if source_format == "xls":
+        if target_format != "xlsx":
+            _invalid("Legacy .xls conversion only targets .xlsx.", field="target_format")
+        unsupported = sorted(set(value).intersection({"sheet", "source", "target", "values"}))
+        if unsupported:
+            _invalid(
+                "Legacy .xls conversion does not accept tabular conversion options.",
+                unknown=unsupported,
+            )
+        return {
+            "source_format": source_format,
+            "target_format": target_format,
+            "sheet": None,
+            "source": {},
+            "target": {},
+            "values": {},
+            "limits": _parse_limits(value.get("limits", {})),
+        }
     source = _parse_source_options(value.get("source", {}), source_format)
     target = _parse_target_options(value.get("target", {}), target_format)
     values = _parse_value_options(value.get("values", {}), target_format)

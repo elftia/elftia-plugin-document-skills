@@ -5,6 +5,8 @@ from typing import Any
 
 from .annotations import project_comments
 from .constants import CALC_CHAIN_PART, NS, SHARED_STRINGS_PART, STYLES_PART
+from .format_policy import assert_package_matches_path
+from .macro_policy import macro_read_evidence
 from .package import OpcPackage
 from .projection import (
     project_charts,
@@ -30,6 +32,7 @@ def inspect_xlsx(
     but never executed or followed.
     """
     package = OpcPackage.open(path, allow_dangerous_inventory=True)
+    assert_package_matches_path(path, package.workbook_format)
     include_hashes = arguments.get("include_hashes", True)
     warnings: list[dict[str, Any]] = []
 
@@ -130,6 +133,8 @@ def inspect_xlsx(
             },
         },
     }
+    if package.workbook_format in {"xlsm", "xltm"}:
+        operation_result["macro"] = macro_read_evidence(package)
     return operation_result, warnings
 
 
