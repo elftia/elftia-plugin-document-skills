@@ -166,12 +166,13 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
     assert report["validation"]["schema"] == (
         "available" if schema["available"] else "unavailable"
     )
-    for operation in ("pptx.convert.pdf", "pptx.render"):
+    for operation in ("pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"):
         item = operations[operation]
         assert item["providers"] in ([], ["libreoffice"])
         assert item["fidelity"] == ("enhanced" if item["available"] else "none")
     libreoffice_available = operations["pptx.render"]["available"]
     assert operations["pptx.convert.pdf"]["available"] is libreoffice_available
+    assert operations["pptx.convert.legacy"]["available"] is libreoffice_available
     assert report["validation"]["visual"] == (
         "available" if libreoffice_available else "unavailable"
     )

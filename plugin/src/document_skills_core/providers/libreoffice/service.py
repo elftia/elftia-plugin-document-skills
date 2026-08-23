@@ -78,7 +78,7 @@ class LibreOfficeProvider:
             return self._do_render(Path(request["input"]))
         if operation == "libreoffice.read-legacy":
             return self._do_legacy(Path(request["input"]), request.get("target_format"))
-        if operation in {"pptx.convert.pdf", "pptx.render"}:
+        if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
             return execute_pptx_libreoffice_operation(
                 operation,
                 request,
@@ -215,6 +215,7 @@ def build_libreoffice_provider(
             Capability("libreoffice.render-image", "enhanced", validation_strength=1),
             Capability("libreoffice.read-legacy", "enhanced", validation_strength=1),
             Capability("pptx.convert.pdf", "enhanced", validation_strength=3),
+            Capability("pptx.convert.legacy", "enhanced", validation_strength=3),
             Capability("pptx.render", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,

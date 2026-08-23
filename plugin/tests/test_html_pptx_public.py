@@ -92,6 +92,11 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
         json.dumps({"operation": "pptx.convert.pdf"}),
         encoding="utf-8",
     )
+    legacy_request = tmp_path / "legacy.json"
+    legacy_request.write_text(
+        json.dumps({"operation": "pptx.convert.legacy"}),
+        encoding="utf-8",
+    )
     render_request = tmp_path / "render.json"
     render_request.write_text(
         json.dumps({"operation": "pptx.render"}),
@@ -108,6 +113,10 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     ) == (45.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(convert_request))),
+        tmp_path,
+    ) == (60.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(legacy_request))),
         tmp_path,
     ) == (60.0, 2_097_152)
     assert supervisor._command_limits(

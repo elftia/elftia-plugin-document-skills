@@ -20,6 +20,7 @@ from document_skills_core.formats.pdf.validation import reopen_pdf
 
 from .contracts import ParsedPptxRequest, parse_pptx_request
 from .deep_validation import validate_deep_package
+from .legacy_conversion import convert_legacy_ppt
 from .package import OpcPackage, write_deterministic_zip
 from .png_compare import inspect_png
 from .render_validation import (
@@ -58,6 +59,13 @@ def execute_pptx_libreoffice_operation(
         )
     if operation == "pptx.convert.pdf":
         return _convert_pdf(parsed, runner, project_root=project_root, version=version)
+    if operation == "pptx.convert.legacy":
+        return convert_legacy_ppt(
+            parsed,
+            runner,
+            project_root=project_root,
+            version=version,
+        )
     if operation == "pptx.render":
         return _render_bundle(parsed, runner, project_root=project_root, version=version)
     raise DocumentSkillsError(
@@ -297,7 +305,7 @@ def _render_slide_images(
 
 
 def _stage_source(source: Path, expected_sha256: str, private_root: Path) -> Path:
-    staged = private_root / "input.pptx"
+    staged = private_root / f"input{source.suffix.casefold()}"
     shutil.copyfile(source, staged)
     if sha256_file(staged) != expected_sha256:
         raise DocumentSkillsError(

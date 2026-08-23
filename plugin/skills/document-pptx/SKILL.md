@@ -5,8 +5,9 @@ description: Plan, read, inspect, create, edit, render, convert, and validate PP
 
 # PPTX presentations
 
-Use this Skill for `.pptx` presentations, `.potx` template bases, and explicit
-`.pptm` keep-VBA edits. The Core implementation reads, inspects,
+Use this Skill for `.pptx` presentations, `.potx` template bases, explicit
+`.pptm` keep-VBA edits, and explicit LibreOffice conversion of legacy `.ppt`.
+The Core implementation reads, inspects,
 creates, edits, and performs mandatory package validation through direct OOXML.
 It does not depend on python-pptx or PptxGenJS. LibreOffice rendering and
 .NET/OpenXML schema validation are optional, capability-gated enhancements.
@@ -28,6 +29,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.inspect.structure` | no | Inert package inventory — parts, relationships, masters, layouts, themes, charts, media |
 | `pptx.render` | yes (distinct `.zip` output) | LibreOffice-gated full-deck PDF plus one PNG per slide and a hash manifest |
 | `pptx.convert.pdf` | yes (distinct `.pdf` output) | LibreOffice-gated PDF conversion with source-slide/output-page correspondence |
+| `pptx.convert.legacy` | yes (distinct `.pptx` output) | LibreOffice-gated semantic conversion from bounded legacy `.ppt`; no exact source-visual claim |
 | `pptx.validate.schema` | no | Provider-gated OpenXML SDK schema report for an existing `.pptx` |
 | `pptx.outline.create` | yes (distinct `.json` output) | Versioned planning JSON that explicitly does not claim to be a presentation |
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
@@ -47,10 +49,11 @@ The fixed-canvas/local-asset contract, exact request, safe fallback policy, and
 diagnostic interpretation are in
 `references/html-to-editable-pptx.md`.
 
-## LibreOffice rendering and PDF conversion
+## LibreOffice rendering and conversion
 
-Probe capabilities before promising `pptx.render` or `pptx.convert.pdf`; both
-are exposed only when the `libreoffice` provider is callable. Read
+Probe capabilities before promising `pptx.render`, `pptx.convert.pdf`, or
+`pptx.convert.legacy`; all are exposed only when the LibreOffice provider is
+callable. Read
 `references/rendering.md` for their exact requests, bounded output formats, and
 validation evidence. Provider absence returns `unavailable` and never creates
 the requested output.
@@ -154,7 +157,7 @@ provider is absent, but becomes a required promotion gate when it is callable.
 | Status | Meaning |
 |---|---|
 | `success` | All required Core gates passed |
-| `degraded` | Core succeeded; optional capability unavailable |
+| `degraded` | Required gates passed, but a disclosed semantic difference or optional capability gap remains |
 | `invalid_request` | Operation arguments invalid; no file mutated |
 | `failed` | A required gate failed; no output promoted |
 | `unavailable` | Required provider/capability unavailable; no output created |

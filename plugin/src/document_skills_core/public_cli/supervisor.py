@@ -28,6 +28,7 @@ _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
 _LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
 _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
+_LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
 _LIBREOFFICE_RENDER_OPERATION = "pptx.render"
 _LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
 _PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
@@ -203,7 +204,10 @@ class PublicCommandSupervisor:
                 return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
             if (
                 type(value) is dict
-                and value.get("operation") == _LIBREOFFICE_CONVERT_OPERATION
+                and value.get("operation") in {
+                    _LIBREOFFICE_CONVERT_OPERATION,
+                    _LIBREOFFICE_LEGACY_OPERATION,
+                }
             ):
                 return (
                     max(self.timeout_seconds, _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS),

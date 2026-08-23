@@ -20,6 +20,7 @@ PPTX_OPERATIONS = frozenset(
         "pptx.inspect.structure",
         "pptx.render",
         "pptx.convert.pdf",
+        "pptx.convert.legacy",
         "pptx.validate.schema",
         "pptx.outline.create",
         "pptx.create",
@@ -69,7 +70,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     elif operation in {"pptx.create.from-html", "pptx.create.from-markdown"}:
         if input_path is None or output_path is None:
             _invalid("PPTX content reconstruction requires input and output paths.")
-    elif operation in {"pptx.convert.pdf", "pptx.render"}:
+    elif operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
         if input_path is None or output_path is None:
             _invalid("LibreOffice PPTX output requires input and output paths.")
     elif input_path is None or output_path is None:
@@ -79,6 +80,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-markdown": {".markdown", ".md"},
         "pptx.edit": {".pptm", ".pptx"},
         "pptx.inspect.structure": {".pptm", ".pptx"},
+        "pptx.convert.legacy": {".ppt"},
     }.get(operation, {".pptx"})
     if input_path is not None and input_path.suffix.casefold() not in expected_input_suffixes:
         expected = ", ".join(sorted(expected_input_suffixes))
@@ -100,7 +102,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
             f"{operation} output must use the {expected_output_suffix} extension.",
             field="output",
         )
-    if operation in {"pptx.convert.pdf", "pptx.edit", "pptx.render"}:
+    if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.edit", "pptx.render"}:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -116,6 +118,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.inspect.structure": _parse_inspect,
         "pptx.render": _parse_provider_output,
         "pptx.convert.pdf": _parse_provider_output,
+        "pptx.convert.legacy": _parse_provider_output,
         "pptx.outline.create": parse_outline_arguments,
         "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,

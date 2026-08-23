@@ -1,7 +1,7 @@
-# LibreOffice PPTX outputs
+# LibreOffice PPTX outputs and legacy conversion
 
 Use these operations only when `capabilities --json` reports them available
-through the `libreoffice` provider. Availability requires a detected executable
+through the LibreOffice provider. Availability requires a detected executable
 that successfully answers the bounded version probe. The provider uses a
 private per-operation user profile and a contained headless process; it does
 not use the user's normal LibreOffice profile.
@@ -23,6 +23,33 @@ The input must be `.pptx`, the output must be a distinct `.pdf`, and arguments
 are empty. Before invoking LibreOffice, the staged source passes the mandatory
 deep PPTX package gate. The generated PDF must reopen and its page count must
 equal the source slide count before atomic promotion.
+
+## Legacy PPT semantic conversion
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": "pptx.convert.legacy",
+  "input": "legacy.ppt",
+  "output": "converted.pptx",
+  "arguments": {},
+  "options": { "fidelity": "enhanced" }
+}
+```
+
+The input must be a `.ppt`, the output must be a distinct `.pptx`, and
+arguments are empty. The source is bounded to 128 MiB and must pass a Compound
+File Binary magic and header preflight before LibreOffice receives a private
+staged copy. Macros are never executed; LibreOffice runs under the same
+macro-disabled, isolated profile policy as the other operations.
+
+The generated `.pptx` must pass the standard OOXML reopen gate and the deep
+package validator before atomic promotion. A successful conversion reports
+`degraded` because this is semantic reconstruction: diagnostics set
+`semantic_conversion` to `true` and `source_visual_preservation_claimed` to
+`false`. It does not claim pixel-identical preservation of the binary source.
+Provider failure, timeout, malformed output, or a failed gate preserves both
+the source and any prior destination.
 
 ## Render evidence bundle
 

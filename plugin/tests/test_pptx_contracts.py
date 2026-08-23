@@ -18,6 +18,7 @@ def test_pptx_operations_preserve_existing_surface_and_add_validators():
             "pptx.inspect.structure",
             "pptx.render",
             "pptx.convert.pdf",
+            "pptx.convert.legacy",
             "pptx.validate.schema",
             "pptx.outline.create",
             "pptx.create",
@@ -125,6 +126,38 @@ def test_parse_libreoffice_outputs_are_distinct_and_bounded(
             "output": str(tmp_path / output_name),
             "arguments": {"unknown": True},
         })
+
+
+def test_parse_legacy_conversion_requires_ppt_to_distinct_pptx(
+    tmp_path: Path,
+):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.convert.legacy",
+        "input": str(tmp_path / "legacy.ppt"),
+        "output": str(tmp_path / "converted.pptx"),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    assert parsed.input_path == tmp_path / "legacy.ppt"
+    assert parsed.output_path == tmp_path / "converted.pptx"
+
+    invalid_cases = [
+        {"input": "legacy.pptx", "output": "converted.pptx", "arguments": {}},
+        {"input": "legacy.ppt", "output": "converted.ppt", "arguments": {}},
+        {
+            "input": "legacy.ppt",
+            "output": "converted.pptx",
+            "arguments": {"unknown": True},
+        },
+    ]
+    for case in invalid_cases:
+        with pytest.raises(DocumentSkillsError):
+            parse_pptx_request({
+                "schema_version": "1.0",
+                "operation": "pptx.convert.legacy",
+                **case,
+            })
 
 
 @pytest.mark.parametrize(
