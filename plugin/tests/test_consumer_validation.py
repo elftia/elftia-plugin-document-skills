@@ -956,6 +956,9 @@ def _known_good(tmp_path: Path, format_id: str) -> tuple[Path, dict[str, Any]]:
         sheet.title = "Data"
         sheet["A1"] = "Independent XLSX"
         sheet["B1"] = 10
+        workbook.properties.title = ""
+        workbook.properties.creator = ""
+        workbook.properties.subject = ""
         workbook.save(artifact)
         return artifact, {
             "sheets": ["Data"],
@@ -971,8 +974,6 @@ def _known_good(tmp_path: Path, format_id: str) -> tuple[Path, dict[str, Any]]:
         slide.placeholders[1].text = "Portable consumer text"
         presentation.save(artifact)
         return artifact, {"slide_count": 1, "text": ["Independent PPTX"]}
-    import fitz
-
     artifact = tmp_path / "independent.pdf"
     reference = tmp_path / "independent.expected-render.pdf"
     _write_pdf(artifact, "Independent PDF", include_image=True)

@@ -27,6 +27,7 @@ object response = subcommand switch
     "--comments-add" => CommentsAdd(request),
     "--template-apply" => TemplateApply(request),
     "--schema-validate" => SchemaValidate(request),
+    "--xlsx-schema-validate" => SpreadsheetSchemaValidate(request),
     _ => new { error = $"Unknown subcommand: {subcommand}" },
 };
 
@@ -54,19 +55,19 @@ static object RevisionsRead(JsonElement request)
 
     foreach (var ins in body.Descendants<InsertedRun>())
     {
-        revisions.Add(new { id = ins.Id?.Value ?? "", type = "insertion", author = ins.Author?.Value ?? "", date = ins.Date?.Value ?? "" });
+        revisions.Add(new { id = ins.Id?.Value ?? "", type = "insertion", author = ins.Author?.Value ?? "", date = OpenXmlDate(ins.Date) });
     }
     foreach (var del in body.Descendants<DeletedRun>())
     {
-        revisions.Add(new { id = del.Id?.Value ?? "", type = "deletion", author = del.Author?.Value ?? "", date = del.Date?.Value ?? "" });
+        revisions.Add(new { id = del.Id?.Value ?? "", type = "deletion", author = del.Author?.Value ?? "", date = OpenXmlDate(del.Date) });
     }
     foreach (var moveTo in body.Descendants<MoveFromRun>())
     {
-        revisions.Add(new { id = moveTo.Id?.Value ?? "", type = "move-from", author = moveTo.Author?.Value ?? "", date = moveTo.Date?.Value ?? "" });
+        revisions.Add(new { id = moveTo.Id?.Value ?? "", type = "move-from", author = moveTo.Author?.Value ?? "", date = OpenXmlDate(moveTo.Date) });
     }
     foreach (var moveFrom in body.Descendants<MoveToRun>())
     {
-        revisions.Add(new { id = moveFrom.Id?.Value ?? "", type = "move-to", author = moveFrom.Author?.Value ?? "", date = moveFrom.Date?.Value ?? "" });
+        revisions.Add(new { id = moveFrom.Id?.Value ?? "", type = "move-to", author = moveFrom.Author?.Value ?? "", date = OpenXmlDate(moveFrom.Date) });
     }
     return new { revisions };
 }
@@ -161,7 +162,7 @@ static object CommentsRead(JsonElement request)
         if (filterAuthor is not null && author != filterAuthor) continue;
         var text = string.Join("", comment.Elements<Paragraph>()
             .SelectMany(p => p.Descendants<Text>()).Select(t => t.Text));
-        comments.Add(new { id = cid, author, date = comment.Date?.Value ?? "", text });
+        comments.Add(new { id = cid, author, date = OpenXmlDate(comment.Date), text });
     }
     return new { comments };
 }
@@ -198,7 +199,7 @@ static object CommentsAdd(JsonElement request)
     {
         Id = commentId,
         Author = author,
-        Date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+        Date = new DateTimeValue(DateTime.UtcNow),
     };
     newComment.AppendChild(new Paragraph(new Run(new Text(text))));
     commentsPart.Comments.Append(newComment);
@@ -232,16 +233,12 @@ static object TemplateApply(JsonElement request)
             var alias = sdt.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
             if (alias is not null && variables.TryGetValue(alias, out var value))
             {
-                var content = sdt.GetFirstChild<SdtContent>();
-                if (content is not null)
+                var run = sdt.Descendants<Run>().FirstOrDefault();
+                if (run is not null)
                 {
-                    var run = content.GetFirstChild<Paragraph>()?.GetFirstChild<Run>();
-                    if (run is not null)
-                    {
-                        run.RemoveAllChildren<Text>();
-                        run.AppendChild(new Text(value));
-                        applied.Add(alias);
-                    }
+                    run.RemoveAllChildren<Text>();
+                    run.AppendChild(new Text(value));
+                    applied.Add(alias);
                 }
             }
         }
@@ -267,4 +264,37 @@ static object SchemaValidate(JsonElement request)
     }).ToList();
 
     return new { valid = errors.Count == 0, errors };
+}
+
+static object SpreadsheetSchemaValidate(JsonElement request)
+{
+    var inputPath = request.GetProperty("input_path").GetString()!;
+    var maxErrors = request.TryGetProperty("max_errors", out var requestedMax)
+        ? Math.Clamp(requestedMax.GetInt32(), 1, 1000)
+        : 100;
+    using var doc = SpreadsheetDocument.Open(inputPath, false);
+    var validator = new OpenXmlValidator();
+    var validationErrors = validator.Validate(doc).Take(maxErrors + 1).ToList();
+    var errors = validationErrors.Take(maxErrors).Select(e => new
+    {
+        part = e.Part?.GetType().Name ?? "",
+        path = e.Path?.XPath ?? "",
+        description = e.Description,
+        error_type = e.ErrorType.ToString(),
+    }).ToList();
+
+    return new
+    {
+        valid = errors.Count == 0,
+        errors,
+        max_errors = maxErrors,
+        truncated = validationErrors.Count > maxErrors,
+    };
+}
+
+static string OpenXmlDate(DateTimeValue? value)
+{
+    return value is null
+        ? ""
+        : value.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
 }

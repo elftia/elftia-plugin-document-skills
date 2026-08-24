@@ -1,8 +1,8 @@
 <!-- OpenXmlHelper — C# helper for the dotnet-openxml enhancement provider.
 
   Module provenance: original Elftia-authored clean-room implementation.
-  This project is invoked ONLY through the contained ProcessRunner via
-  ``dotnet run --project <helper> --``. The DocumentFormat.OpenXml package
+  This project is invoked ONLY through the contained ProcessRunner with a
+  validated helper project and separated subcommand. The DocumentFormat.OpenXml package
   is resolved from the user's NuGet cache at runtime; it is NEVER bundled.
   The helper does NOT execute macros, VBA, DDE, or external-data refresh.
 -->

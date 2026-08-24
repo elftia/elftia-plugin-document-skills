@@ -32,6 +32,7 @@ _TIMEOUTS: dict[str, float] = {
     "--comments-add": 30.0,
     "--template-apply": 60.0,
     "--schema-validate": 30.0,
+    "--xlsx-schema-validate": 30.0,
 }
 
 
@@ -98,7 +99,7 @@ class DotnetOpenXmlRunner:
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "dotnet executable is not resolved.",
             )
-        payload_bytes = _check_stdin(stdin_payload)
+        _check_stdin(stdin_payload)
         argv = _build_argv(self._helper_dir, subcommand)
         resolved_timeout = timeout_seconds or _TIMEOUTS.get(subcommand, 30.0)
         resolved_limit = output_limit or OUTPUT_LIMIT

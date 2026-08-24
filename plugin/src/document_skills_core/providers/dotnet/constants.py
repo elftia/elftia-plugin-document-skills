@@ -22,6 +22,7 @@ ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({
     "--comments-add",
     "--template-apply",
     "--schema-validate",
+    "--xlsx-schema-validate",
 })
 
 # Default per-operation timeouts (seconds).
