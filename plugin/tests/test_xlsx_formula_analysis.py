@@ -292,7 +292,13 @@ def test_external_formula_read_fails_closed_but_inspect_reports_inertly(
         def __init__(self) -> None:
             self.calls = 0
 
-        def recalculate_xlsx_artifact(self, _input_path: Path) -> None:
+        def recalculate_xlsx_artifact(
+            self,
+            _input_path: Path,
+            *,
+            policy: str,
+        ) -> None:
+            assert policy in {"auto", "required"}
             self.calls += 1
 
     provider = RecordingProvider()

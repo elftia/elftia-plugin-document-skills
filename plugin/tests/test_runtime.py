@@ -31,6 +31,7 @@ from document_skills_core.core.process import (
 )
 from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice.constants import platform_known_paths
+from document_skills_core.providers.libreoffice.quota import hard_quota_capability
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -207,7 +208,8 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         if Path(path).is_file()
     ]
     assert libreoffice["required"] is False
-    if known_launchers:
+    quota_supported = hard_quota_capability().supported
+    if known_launchers and quota_supported:
         assert libreoffice["available"] is True, libreoffice
         assert libreoffice["reason"] is None
         assert libreoffice["version"]
@@ -216,6 +218,8 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         assert libreoffice["available"] is False
         assert libreoffice["reason"]
         assert libreoffice["path"] is None
+        if known_launchers:
+            assert "hard quota" in libreoffice["reason"].lower()
     assert optional["dotnet-openxml"]["available"] is False
     if command[0] == "doctor":
         assert report["status"] == "healthy"
@@ -332,6 +336,112 @@ def test_timeout_crash_and_invalid_json_are_contained(project_root):
     )
     assert "topsecret" not in secret.stderr
     assert "<redacted>" in secret.stderr
+
+
+def test_runtime_check_cannot_extend_process_deadline(project_root):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    started = time.monotonic()
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", "import time; time.sleep(10)"],
+            timeout_seconds=0.1,
+            runtime_check=lambda: time.sleep(1.0),
+        )
+
+    assert failure.value.code == ErrorCode.PROCESS_TIMEOUT
+    assert time.monotonic() - started < 0.75
+
+
+def test_runtime_check_exception_is_typed_and_terminates_descendant(
+    project_root,
+    tmp_path,
+):
+    child_pid_path = tmp_path / "runtime-check-child.pid"
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    parent_script = (
+        "import pathlib, subprocess, sys, time\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+        "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='ascii')\n"
+        "time.sleep(30)\n"
+    )
+
+    def reject_after_child_starts() -> None:
+        if child_pid_path.is_file():
+            raise RuntimeError("private runtime-check failure")
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", parent_script, str(child_pid_path)],
+            timeout_seconds=5.0,
+            runtime_check=reject_after_child_starts,
+        )
+
+    assert failure.value.code == ErrorCode.PROVIDER_FAILED
+    assert failure.value.details["reason_category"] == "runtime_check_failed"
+    assert "private runtime-check failure" not in str(failure.value)
+    child_pid = int(child_pid_path.read_text(encoding="ascii"))
+    deadline = time.monotonic() + 2.0
+    while _process_is_alive(child_pid) and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert _process_is_alive(child_pid) is False
+
+
+def test_runtime_check_runs_once_more_after_process_exit(project_root):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    calls = 0
+
+    def fail_post_exit_check() -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            time.sleep(0.1)
+            return
+        raise RuntimeError("post-exit runtime check failed")
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", "pass"],
+            timeout_seconds=2.0,
+            runtime_check=fail_post_exit_check,
+        )
+
+    assert failure.value.code == ErrorCode.PROVIDER_FAILED
+    assert failure.value.details["reason_category"] == "runtime_check_failed"
+    assert calls == 2
+
+
+def _process_is_alive(pid: int) -> bool:
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+    import ctypes
+
+    process = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+    if not process:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        if not ctypes.windll.kernel32.GetExitCodeProcess(
+            process,
+            ctypes.byref(exit_code),
+        ):
+            return False
+        return exit_code.value == 259
+    finally:
+        ctypes.windll.kernel32.CloseHandle(process)
 
 
 def test_facade_contains_detector_provider_and_invalid_result_failures(

@@ -9,28 +9,30 @@ Module provenance: original Elftia-authored clean-room implementation.
 """
 
 from collections.abc import Callable
+import os
 from pathlib import Path
 from typing import Protocol
+import uuid
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
-from ...core.io.temp_roots import OperationTempRoot
 from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
     HEADLESS_PREFIX,
     OUTPUT_LIMIT,
-    TIMEOUT_CONVERT,
-    TIMEOUT_LEGACY,
-    TIMEOUT_RECALC,
-    TIMEOUT_RENDER,
     USER_INSTALLATION_PREFIX,
 )
 from .output import (
-    assert_output_capacity,
     assert_output_within_limit,
     output_limit,
-    output_runtime_check,
+    output_runtime_observer,
+    read_provider_output,
+)
+from .quota import (
+    HardQuotaBackend,
+    capture_directory_identity,
+    require_hard_quota_backend,
 )
 
 
@@ -60,9 +62,11 @@ class LibreOfficeRunner:
         runner: _ContainedRunner | None = None,
         *,
         policy: ProcessPolicy | None = None,
+        quota_backend: HardQuotaBackend | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         self._executable: Path | None = None
+        self._quota_backend = quota_backend
         if runner is not None:
             self._runner = runner
             if isinstance(runner, ProcessRunner):
@@ -88,7 +92,7 @@ class LibreOfficeRunner:
         target_format: str,
         output_dir: Path,
         *,
-        timeout_seconds: float | None = None,
+        timeout_seconds: float,
     ) -> Path:
         """Convert ``input_path`` to ``target_format`` via headless soffice.
 
@@ -100,26 +104,26 @@ class LibreOfficeRunner:
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "LibreOffice executable is not resolved.",
             )
-        if timeout_seconds is None:
-            timeout_seconds = _timeout_for_format(target_format)
-        output_limit(target_format)
-        assert_output_capacity(output_dir, target_format)
-        expected = output_dir.resolve() / (input_path.stem + "." + target_format)
-        runtime_check = output_runtime_check(
-            output_dir,
-            expected,
-            target_format,
-        )
-        with OperationTempRoot() as private_root:
-            profile_root = private_root / "libreoffice-profile"
-            profile_root.mkdir(mode=0o700)
+        artifact_limit = output_limit(target_format)
+        backend = require_hard_quota_backend(self._quota_backend)
+        output_root = output_dir.resolve(strict=True)
+        output_identity = capture_directory_identity(output_root)
+        expected_name = input_path.stem + "." + target_format
+        expected = output_root / expected_name
+        with backend.open(byte_limit=artifact_limit) as session:
+            provider_expected = session.output_dir / expected_name
+            runtime_check = output_runtime_observer(
+                session.output_dir,
+                provider_expected,
+                target_format,
+            )
             argv = _build_argv(
-                profile_root,
+                session.profile_dir,
                 "--convert-to",
                 target_format,
                 "--outdir",
-                str(output_dir.resolve()),
-                str(input_path.resolve()),
+                str(session.output_dir),
+                str(input_path.resolve(strict=True)),
             )
             self._runner.run(
                 "libreoffice",
@@ -130,14 +134,41 @@ class LibreOfficeRunner:
                 output_limit=OUTPUT_LIMIT,
                 runtime_check=runtime_check,
             )
-        if not expected.is_file():
+            session.validate_final_tree(expected_name=expected_name)
+            payload = read_provider_output(provider_expected, target_format)
+        if capture_directory_identity(output_root) != output_identity:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
-                "LibreOffice conversion produced no output file.",
-                details={"expected": expected.name},
+                "LibreOffice destination directory identity changed.",
             )
+        _atomic_publish(payload, expected)
         assert_output_within_limit(expected, target_format)
         return expected
+
+
+def _atomic_publish(payload: bytes, destination: Path) -> None:
+    """Publish one already-bounded provider artifact from trusted Python."""
+
+    temporary = destination.parent / (
+        f".{destination.name}.{uuid.uuid4().hex}.provider-output.tmp"
+    )
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except OSError as error:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice output could not be published safely.",
+            details={"reason": type(error).__name__},
+        ) from error
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _build_argv(profile_root: Path, *operation_args: str) -> list[str]:
@@ -195,13 +226,3 @@ def _validate_argv(argv: list[str]) -> None:
                 "LibreOffice argv contains a forbidden macro/DDE token.",
                 details={"token": forbidden},
             )
-
-
-def _timeout_for_format(target_format: str) -> float:
-    if target_format == "xlsx":
-        return TIMEOUT_RECALC
-    if target_format == "pdf":
-        return TIMEOUT_CONVERT
-    if target_format == "png":
-        return TIMEOUT_RENDER
-    return TIMEOUT_LEGACY

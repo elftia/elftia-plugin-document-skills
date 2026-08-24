@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.io.temp_roots import OperationTempRoot
+from .constants import TIMEOUT_LEGACY
 from .input_snapshot import private_libreoffice_input
 from .output import read_provider_output
 from .runner import LibreOfficeRunner
@@ -66,5 +67,10 @@ def convert_legacy_snapshot(
     with OperationTempRoot() as private_root:
         output_dir = private_root / "output"
         output_dir.mkdir()
-        output = runner.convert(input_snapshot, target_format, output_dir)
+        output = runner.convert(
+            input_snapshot,
+            target_format,
+            output_dir,
+            timeout_seconds=TIMEOUT_LEGACY,
+        )
         return read_provider_output(output, target_format)

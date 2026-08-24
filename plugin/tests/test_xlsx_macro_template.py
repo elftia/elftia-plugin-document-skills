@@ -443,7 +443,8 @@ def test_legacy_xls_conversion_rejects_macro_enabled_provider_output(
 
 
 class _MustNotRunProvider:
-    def recalculate_xlsx_artifact(self, _path: Path) -> None:
+    def recalculate_xlsx_artifact(self, _path: Path, *, policy: str) -> None:
+        assert policy in {"auto", "required"}
         raise AssertionError("Macro-enabled reads must not invoke LibreOffice.")
 
 

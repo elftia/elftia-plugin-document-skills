@@ -358,6 +358,40 @@ def test_public_worker_grants_provider_operations_bounded_time(
     }
 
 
+def test_public_worker_distinguishes_auto_and_required_recalculation_time(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    supervisor = PublicCommandSupervisor(project_root, timeout_seconds=8.0)
+    requests = {
+        "auto": {
+            "operation": "xlsx.create",
+            "arguments": {"recalculation": "auto"},
+        },
+        "required": {
+            "operation": "xlsx.create",
+            "arguments": {"recalculation": "required"},
+        },
+        "explicit": {"operation": "xlsx.recalculate", "arguments": {}},
+        "legacy": {"operation": "xlsx.convert", "arguments": {}},
+    }
+    observed = {}
+    for name, payload in requests.items():
+        request = tmp_path / f"{name}.json"
+        request.write_text(json.dumps(payload), encoding="utf-8")
+        observed[name] = supervisor._command_limits(
+            PublicCommand("run", ("run", "--request", str(request))),
+            tmp_path,
+        )
+
+    assert observed == {
+        "auto": (8.0, 2_097_152),
+        "required": (45.0, 2_097_152),
+        "explicit": (45.0, 2_097_152),
+        "legacy": (45.0, 2_097_152),
+    }
+
+
 def test_libreoffice_pdf_filter_name_reopens_through_bounded_flate_decoder() -> None:
     content = b"BT /F1 12 Tf (LibreOffice) Tj ET"
     assert decode_stream(zlib.compress(content), ["/FlateDecode"]) == content

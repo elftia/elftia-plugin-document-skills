@@ -25,10 +25,10 @@ FORBIDDEN_TOKENS: frozenset[str] = frozenset({
     "--cmd", ".bas", ".xba", "--unaccept", "macro:", "DDE", "DDELINK",
 })
 
-# Default per-operation timeouts (seconds).  Optional recalculation must finish
-# or return a typed timeout well inside the public worker's fixed 8-second
-# budget so ``auto`` can truthfully fall back to the Core artifact.
-TIMEOUT_RECALC: float = 3.0
+# Default per-operation timeouts (seconds).  Only optional/auto recalculation
+# uses the short budget needed to fall back inside the public worker deadline.
+TIMEOUT_RECALC_OPTIONAL: float = 3.0
+TIMEOUT_RECALC_REQUIRED: float = 30.0
 TIMEOUT_CONVERT: float = 30.0
 TIMEOUT_RENDER: float = 30.0
 TIMEOUT_LEGACY: float = 30.0

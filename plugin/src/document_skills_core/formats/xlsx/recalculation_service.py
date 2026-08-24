@@ -109,7 +109,10 @@ def recalculate_candidate(
             reason="provider-not-configured",
         )
     try:
-        provider_result = libreoffice.recalculate_xlsx_artifact(candidate)
+        provider_result = libreoffice.recalculate_xlsx_artifact(
+            candidate,
+            policy=policy,
+        )
     except DocumentSkillsError as error:
         if policy == "required":
             raise

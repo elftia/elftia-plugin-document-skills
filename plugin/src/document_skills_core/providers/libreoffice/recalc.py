@@ -37,18 +37,26 @@ class RecalculatedXlsx:
 def recalculate_xlsx(
     input_xlsx: Path,
     runner: LibreOfficeRunner,
+    *,
+    timeout_seconds: float,
 ) -> dict[str, Any]:
     """Recalculate XLSX formulas via headless convert-to-xlsx.
 
     Returns a dict mapping ``sheet!cell`` references to their recalculated
     cached value strings. NO macro is executed.
     """
-    return recalculate_xlsx_artifact(input_xlsx, runner).cached_values
+    return recalculate_xlsx_artifact(
+        input_xlsx,
+        runner,
+        timeout_seconds=timeout_seconds,
+    ).cached_values
 
 
 def recalculate_xlsx_artifact(
     input_xlsx: Path,
     runner: LibreOfficeRunner,
+    *,
+    timeout_seconds: float,
 ) -> RecalculatedXlsx:
     """Return the isolated converted artifact plus its formula/value projection."""
 
@@ -56,12 +64,18 @@ def recalculate_xlsx_artifact(
         input_xlsx,
         operation="libreoffice.recalc-xlsx",
     ) as snapshot:
-        return recalculate_xlsx_snapshot_artifact(snapshot.path, runner)
+        return recalculate_xlsx_snapshot_artifact(
+            snapshot.path,
+            runner,
+            timeout_seconds=timeout_seconds,
+        )
 
 
 def recalculate_xlsx_snapshot_artifact(
     input_snapshot: Path,
     runner: LibreOfficeRunner,
+    *,
+    timeout_seconds: float,
 ) -> RecalculatedXlsx:
     """Recalculate an already screened private XLSX snapshot without restaging."""
 
@@ -72,6 +86,7 @@ def recalculate_xlsx_snapshot_artifact(
             input_snapshot,
             "xlsx",
             output_dir,
+            timeout_seconds=timeout_seconds,
         )
         formulas = _extract_formula_records(converted)
         return RecalculatedXlsx(

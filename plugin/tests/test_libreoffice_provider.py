@@ -11,8 +11,11 @@ import stat
 import struct
 import sys
 import zipfile
+from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
+from threading import Event
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
@@ -24,6 +27,7 @@ from document_skills_core.core.capabilities import (
     ProviderId,
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.core.io.temp_roots import OperationTempRoot
 from document_skills_core.core.process import (
     ProcessPolicy,
     ProcessResult,
@@ -43,6 +47,11 @@ from document_skills_core.providers.libreoffice.constants import (
 )
 from document_skills_core.providers.libreoffice.convert import convert_to_pdf
 from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
+from document_skills_core.providers.libreoffice.quota import (
+    HardQuotaCapability,
+    capture_directory_identity,
+    validate_final_quota_tree,
+)
 from document_skills_core.providers.libreoffice.recalc import recalculate_xlsx
 from document_skills_core.providers.libreoffice.runner import (
     LibreOfficeRunner,
@@ -132,6 +141,49 @@ class FakeHangingRunner:
             ErrorCode.PROCESS_TIMEOUT,
             "LibreOffice exceeded its time budget.",
         )
+
+
+class _TestHardQuotaSession:
+    def __init__(self, root: Path, byte_limit: int, entry_limit: int) -> None:
+        self.root = root
+        self.output_dir = root / "output"
+        self.profile_dir = root / "profile"
+        self.output_dir.mkdir()
+        self.profile_dir.mkdir()
+        self.root_identity = capture_directory_identity(root)
+        self.output_identity = capture_directory_identity(self.output_dir)
+        self.byte_limit = byte_limit
+        self.entry_limit = entry_limit
+
+    def validate_final_tree(self, *, expected_name):
+        return validate_final_quota_tree(
+            root=self.root,
+            root_identity=self.root_identity,
+            output_dir=self.output_dir,
+            output_identity=self.output_identity,
+            expected_name=expected_name,
+            byte_limit=self.byte_limit,
+            entry_limit=self.entry_limit,
+        )
+
+
+class _TestHardQuotaBackend:
+    def capability(self):
+        return HardQuotaCapability(
+            backend_id="test-enforced-tree",
+            platform="test",
+            reason_category="available",
+            reason="Test-only bounded tree.",
+            aggregate_byte_limit=True,
+            entry_count_limit=True,
+            private_namespace=True,
+            fail_closed_activation=True,
+        )
+
+    @contextmanager
+    def open(self, *, byte_limit, entry_limit=4096):
+        with OperationTempRoot() as root:
+            yield _TestHardQuotaSession(root, byte_limit, entry_limit)
 
 
 # ---------------------------------------------------------------------------
@@ -294,12 +346,52 @@ class TestConstants:
 # Detector tests
 # ---------------------------------------------------------------------------
 
+
+class _SupportedHardQuotaBackend:
+    def capability(self) -> HardQuotaCapability:
+        return HardQuotaCapability(
+            backend_id="test-hard-quota",
+            platform="test",
+            reason_category="supported",
+            reason="test backend supplies the complete hard-quota contract",
+            aggregate_byte_limit=True,
+            entry_count_limit=True,
+            private_namespace=True,
+            fail_closed_activation=True,
+        )
+
+    def open(self, **kwargs):
+        raise AssertionError("detector tests must not activate the quota backend")
+
+
+_SUPPORTED_HARD_QUOTA_BACKEND = _SupportedHardQuotaBackend()
+
+
 class TestDetector:
+    def test_detector_fails_closed_without_hard_quota_backend(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"callable-but-uncontained")
+
+        class MustNotProbeRunner:
+            def run(self, *args, **kwargs):
+                raise AssertionError("version probe must wait for hard-quota support")
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        detector = LibreOfficeDetector(project_root, runner=MustNotProbeRunner())
+
+        evidence = detector.detect()
+
+        assert evidence.available is False
+        assert "hard" in (evidence.reason or "").lower()
+        assert "quota" in (evidence.reason or "").lower()
+
     @pytest.mark.skipif(
         sys.platform != "win32",
         reason="Windows standard-install launcher integration",
     )
-    def test_default_registry_detects_standard_windows_console_launcher(
+    def test_default_registry_reports_hard_quota_unavailable_before_probe(
         self, project_root, monkeypatch
     ):
         standard_launchers = [
@@ -318,9 +410,10 @@ class TestDetector:
         provider = registry.providers[str(ProviderId.LIBREOFFICE)]
         state = registry.detect(provider)
 
-        assert state["available"] is True, state
-        assert Path(state["path"]).samefile(installed)
-        assert registry.find_callable(ProviderId.LIBREOFFICE) is True
+        assert state["available"] is False, state
+        assert state["path"] is None
+        assert "hard quota" in state["reason"].lower()
+        assert registry.find_callable(ProviderId.LIBREOFFICE) is False
 
     def test_production_factory_shares_libreoffice_allowlist_policy(
         self, project_root, tmp_path, monkeypatch
@@ -339,7 +432,10 @@ class TestDetector:
             "which",
             lambda name: str(executable) if name == "soffice" else None,
         )
-        definition, provider = build_libreoffice_provider(project_root)
+        definition, provider = build_libreoffice_provider(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
         provider.detector._runner = ProbeRunner()
 
         evidence = definition.detect()
@@ -351,9 +447,16 @@ class TestDetector:
             executable,
         ) == executable.absolute()
 
-    def test_callable_version_probe_parses_version(self, project_root, monkeypatch):
+    def test_callable_version_probe_parses_version(
+        self, project_root, tmp_path, monkeypatch
+    ):
         """Callable soffice --version → available with parsed version."""
-        detector = LibreOfficeDetector(project_root)
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"callable-libreoffice")
+        detector = LibreOfficeDetector(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
 
         class FakeRunner:
             def __init__(self):
@@ -367,7 +470,7 @@ class TestDetector:
                     0, "LibreOffice 25.8.0.0 1234567890", "", 100
                 )
 
-        monkeypatch.setattr(shutil_module(), "which", lambda name: "/fake/soffice")
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
         fake_runner = FakeRunner()
         detector._runner = fake_runner
         evidence = detector.detect()
@@ -378,47 +481,337 @@ class TestDetector:
         assert cached is evidence
         assert fake_runner.calls == 1
 
+    def test_cached_candidate_reprobes_after_same_path_replacement(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"benign-launcher")
+
+        class ReplacingProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+                return ProcessResult(1, "", "replacement rejected", 1)
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        probe_runner = ReplacingProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        initial = detector.detect()
+        executable.write_bytes(b"unprobed-replacement-launcher")
+        replaced = detector.detect()
+
+        assert initial.available is True
+        assert replaced.available is False
+        assert "exited" in (replaced.reason or "")
+        assert probe_runner.calls == 2
+
+    def test_positive_cache_reprobes_after_ttl(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"stable-launcher")
+        now = [100.0]
+
+        class CountingProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        probe_runner = CountingProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+            cache_ttl_seconds=10.0,
+            clock=lambda: now[0],
+        )
+
+        initial = detector.detect()
+        now[0] = 109.0
+        cached = detector.detect()
+        now[0] = 110.0
+        refreshed = detector.detect()
+
+        assert cached is initial
+        assert refreshed is not initial
+        assert refreshed.available is True
+        assert probe_runner.calls == 2
+
+    def test_negative_detection_observes_later_install(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        installed = [False]
+
+        class ProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        monkeypatch.setattr(
+            shutil_module(),
+            "which",
+            lambda _name: str(executable) if installed[0] else None,
+        )
+        monkeypatch.setattr(
+            "document_skills_core.providers.libreoffice.detector.platform_known_paths",
+            lambda: [],
+        )
+        probe_runner = ProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        absent = detector.detect()
+        executable.write_bytes(b"new-install")
+        installed[0] = True
+        available = detector.detect()
+
+        assert absent.available is False
+        assert available.available is True
+        assert probe_runner.calls == 1
+
+    def test_concurrent_detection_runs_one_effective_probe(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"stable-concurrent-launcher")
+        probe_started = Event()
+        release_probe = Event()
+
+        class BlockingProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                probe_started.set()
+                assert release_probe.wait(2.0)
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        probe_runner = BlockingProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(detector.detect) for _ in range(8)]
+            assert probe_started.wait(2.0)
+            release_probe.set()
+            evidence = [future.result(timeout=2.0) for future in futures]
+
+        assert all(item.available for item in evidence)
+        assert all(item is evidence[0] for item in evidence)
+        assert probe_runner.calls == 1
+
+    def test_symlink_retarget_reprobes_candidate(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        first_target = tmp_path / "soffice-first"
+        second_target = tmp_path / "soffice-second"
+        candidate = tmp_path / "soffice"
+        first_target.write_bytes(b"first-launcher")
+        second_target.write_bytes(b"second-launcher")
+        try:
+            candidate.symlink_to(first_target)
+        except OSError as error:
+            pytest.skip(f"symlink creation is unavailable: {type(error).__name__}")
+
+        class RetargetProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+                return ProcessResult(1, "", "retarget rejected", 1)
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(candidate))
+        probe_runner = RetargetProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        initial = detector.detect()
+        candidate.unlink()
+        candidate.symlink_to(second_target)
+        retargeted = detector.detect()
+
+        assert initial.available is True
+        assert retargeted.available is False
+        assert probe_runner.calls == 2
+
+    def test_operation_binding_rejects_replacement_before_conversion(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"probed-launcher")
+
+        class ProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        class ReplacingOperationRunner:
+            def __init__(self):
+                self.set_calls = 0
+                self.convert_calls = 0
+
+            def set_executable(self, _executable):
+                self.set_calls += 1
+                executable.write_bytes(b"replacement-during-operation-binding")
+
+            def convert(self, *args, **kwargs):
+                self.convert_calls += 1
+                raise AssertionError("unprobed replacement must not execute")
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        probe_runner = ProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+        operation_runner = ReplacingOperationRunner()
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=detector,
+            runner=operation_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        initial = detector.detect()
+        result = provider.execute(
+            "libreoffice.convert-pdf",
+            {"input": str(tmp_path / "input.docx"), "options": {}},
+        )
+
+        assert initial.available is True
+        assert result["status"] == "failed"
+        assert operation_runner.set_calls == 1
+        assert operation_runner.convert_calls == 0
+        assert probe_runner.calls == 1
+
+    def test_transient_probe_failure_is_not_permanently_cached(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"transient-launcher")
+
+        class RecoveringProbeRunner:
+            def __init__(self):
+                self.calls = 0
+
+            def run(self, *args, **kwargs):
+                self.calls += 1
+                if self.calls == 1:
+                    return ProcessResult(1, "", "transient failure", 1)
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
+        probe_runner = RecoveringProbeRunner()
+        detector = LibreOfficeDetector(
+            project_root,
+            runner=probe_runner,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
+
+        failed = detector.detect()
+        recovered = detector.detect()
+
+        assert failed.available is False
+        assert recovered.available is True
+        assert probe_runner.calls == 2
+
     def test_executable_absent_returns_unavailable(self, project_root, monkeypatch):
         import shutil as sh
         monkeypatch.setattr(sh, "which", lambda name: None)
         monkeypatch.setattr(Path, "is_file", lambda self: False)
-        detector = LibreOfficeDetector(project_root)
+        detector = LibreOfficeDetector(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
         evidence = detector.detect()
         assert evidence.available is False
         assert evidence.reason is not None
         assert "candidate" in evidence.reason.lower()
 
-    def test_nonzero_exit_returns_unavailable(self, project_root, monkeypatch):
+    def test_nonzero_exit_returns_unavailable(
+        self, project_root, tmp_path, monkeypatch
+    ):
         import shutil as sh
-        monkeypatch.setattr(sh, "which", lambda name: "/fake/soffice")
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"nonzero-launcher")
+        monkeypatch.setattr(sh, "which", lambda _name: str(executable))
 
         class FakeRunner:
             def run(self, *a, **kw):
                 return ProcessResult(1, "", "error", 50)
 
-        detector = LibreOfficeDetector(project_root)
+        detector = LibreOfficeDetector(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
         detector._runner = FakeRunner()
         evidence = detector.detect()
         assert evidence.available is False
         assert "exited" in evidence.reason
 
-    def test_unparseable_version_returns_unavailable(self, project_root, monkeypatch):
+    def test_unparseable_version_returns_unavailable(
+        self, project_root, tmp_path, monkeypatch
+    ):
         import shutil as sh
-        monkeypatch.setattr(sh, "which", lambda name: "/fake/soffice")
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"unparseable-launcher")
+        monkeypatch.setattr(sh, "which", lambda _name: str(executable))
 
         class FakeRunner:
             def run(self, *a, **kw):
                 return ProcessResult(0, "Weird Office 1.0", "", 50)
 
-        detector = LibreOfficeDetector(project_root)
+        detector = LibreOfficeDetector(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
         detector._runner = FakeRunner()
         evidence = detector.detect()
         assert evidence.available is False
         assert "unparseable" in evidence.reason
 
-    def test_timeout_returns_unavailable(self, project_root, monkeypatch):
+    def test_timeout_returns_unavailable(
+        self, project_root, tmp_path, monkeypatch
+    ):
         import shutil as sh
-        monkeypatch.setattr(sh, "which", lambda name: "/fake/soffice")
+        executable = tmp_path / "soffice"
+        executable.write_bytes(b"timeout-launcher")
+        monkeypatch.setattr(sh, "which", lambda _name: str(executable))
 
         class FakeRunner:
             def run(self, *a, **kw):
@@ -426,7 +819,10 @@ class TestDetector:
                     ErrorCode.PROCESS_TIMEOUT, "probe timed out"
                 )
 
-        detector = LibreOfficeDetector(project_root)
+        detector = LibreOfficeDetector(
+            project_root,
+            quota_backend=_SUPPORTED_HARD_QUOTA_BACKEND,
+        )
         detector._runner = FakeRunner()
         evidence = detector.detect()
         assert evidence.available is False
@@ -443,6 +839,41 @@ def shutil_module():
 # ---------------------------------------------------------------------------
 
 class TestRunnerContainment:
+    def test_runner_fails_before_launch_without_hard_quota_backend(
+        self, project_root, tmp_path
+    ):
+        calls = 0
+
+        class MustNotRun:
+            def run(self, *args, **kwargs):
+                nonlocal calls
+                calls += 1
+                raise AssertionError("LibreOffice must not launch without hard quota")
+
+        executable = tmp_path / "soffice.exe"
+        executable.write_bytes(b"placeholder")
+        input_file = tmp_path / "input.docx"
+        input_file.write_bytes(b"input")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        runner = LibreOfficeRunner(
+            project_root,
+            executable=executable,
+            runner=MustNotRun(),
+        )
+
+        with pytest.raises(DocumentSkillsError) as failure:
+            runner.convert(
+                input_file,
+                "pdf",
+                output_dir,
+                timeout_seconds=30.0,
+            )
+
+        assert failure.value.code == ErrorCode.PROVIDER_UNAVAILABLE
+        assert calls == 0
+        assert list(output_dir.iterdir()) == []
+
     def test_libreoffice_runtime_sources_pass_execution_boundary_audit(
         self, project_root
     ):
@@ -618,10 +1049,11 @@ class TestRunnerContainment:
             project_root,
             executable=executable,
             runner=FakeProcessRunner(),
+            quota_backend=_TestHardQuotaBackend(),
         )
 
-        runner.convert(input_file, "pdf", output_dir)
-        runner.convert(input_file, "pdf", output_dir)
+        runner.convert(input_file, "pdf", output_dir, timeout_seconds=30.0)
+        runner.convert(input_file, "pdf", output_dir, timeout_seconds=30.0)
 
         assert profile_args[0] != profile_args[1]
         assert profile_paths[0] != profile_paths[1]
@@ -640,23 +1072,32 @@ class TestRunnerContainment:
                 captured["args"] = args
                 captured["timeout"] = kwargs.get("timeout_seconds")
                 captured["output_limit"] = kwargs.get("output_limit")
+                target_format = args[args.index("--convert-to") + 1]
+                child_output_dir = Path(args[args.index("--outdir") + 1])
+                child_input = Path(args[-1])
+                (child_output_dir / f"{child_input.stem}.{target_format}").write_bytes(
+                    b"converted"
+                )
                 return ProcessResult(0, "", "", 10)
 
         executable = tmp_path / "soffice.exe"
         executable.write_bytes(b"placeholder")
         runner = LibreOfficeRunner(
-            project_root, executable=executable, runner=FakeProcessRunner()
+            project_root,
+            executable=executable,
+            runner=FakeProcessRunner(),
+            quota_backend=_TestHardQuotaBackend(),
         )
         import tempfile
         outdir = Path(tempfile.gettempdir()) / "test_lo_out"
         outdir.mkdir(exist_ok=True)
         input_file = outdir / "test.xlsx"
         input_file.write_bytes(b"fake")
-        runner.convert(input_file, "xlsx", outdir)
+        runner.convert(input_file, "xlsx", outdir, timeout_seconds=17.0)
         assert captured["cwd"] == project_root.resolve()
         assert captured["shell"] is False
         assert isinstance(captured["args"], list)
-        assert captured["timeout"] is not None
+        assert captured["timeout"] == 17.0
         assert captured["output_limit"] > 0
 
     @pytest.mark.parametrize(
@@ -749,6 +1190,7 @@ class TestRunnerContainment:
             project_root,
             executable=placeholder,
             runner=ProgressiveWriterProcessRunner(),
+            quota_backend=_TestHardQuotaBackend(),
         )
 
         with pytest.raises(DocumentSkillsError) as exc:
@@ -756,7 +1198,7 @@ class TestRunnerContainment:
 
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
         assert exc.value.details["output_limit"] == artifact_limit
-        assert progressive_output.stat().st_size > artifact_limit
+        assert not expected_output.exists()
         assert not completion_marker.exists()
 
     def test_env_sanitized_by_process_runner(self, project_root):
@@ -1119,6 +1561,22 @@ class TestConsultationMatrix:
             )
         assert crash.value.code == ErrorCode.PROVIDER_FAILED
 
+    def test_required_legacy_xls_conversion_uses_normal_budget(
+        self, project_root, tmp_path
+    ):
+        input_file = tmp_path / "budgeted.xls"
+        input_file.write_bytes(_legacy_compound_bytes("xls"))
+        runner = FakeCallableRunner(canned_data=b"PK fake xlsx")
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        provider.convert_legacy_required(input_file, target_format="xlsx")
+
+        assert runner.calls[-1]["timeout"] == 30.0
+
 
 # ---------------------------------------------------------------------------
 # XLSX service integration tests
@@ -1289,6 +1747,63 @@ class TestXlsxServiceIntegration:
         summary = result["diagnostics"]["operation_result"]["formula_state"]["summary"]
         assert summary["recalculation_provider"] == "unavailable"
 
+    def test_slow_recalculation_uses_short_auto_and_normal_required_budgets(
+        self, project_root, fake_xlsx, tmp_path
+    ):
+        class SimulatedFourSecondRunner(FakeCallableRunner):
+            def convert(
+                self,
+                input_path,
+                target_format,
+                output_dir,
+                *,
+                timeout_seconds=None,
+            ):
+                self.calls.append(
+                    {
+                        "input": str(input_path),
+                        "format": target_format,
+                        "output_dir": str(output_dir),
+                        "timeout": timeout_seconds,
+                    }
+                )
+                if timeout_seconds is None or timeout_seconds < 4.0:
+                    raise DocumentSkillsError(
+                        ErrorCode.PROCESS_TIMEOUT,
+                        "Simulated four-second recalculation exceeded its budget.",
+                    )
+                output = output_dir / (Path(input_path).stem + "." + target_format)
+                output.write_bytes(self._canned_data)
+                return output
+
+        runner = SimulatedFourSecondRunner(canned_path=fake_xlsx)
+        _, libreoffice = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+        service = XlsxService(project_root, libreoffice=libreoffice)
+
+        auto_result = service.execute("xlsx.read", self._read_request(fake_xlsx))
+        required_output = tmp_path / "required-recalculated.xlsx"
+        required_result = service.execute(
+            "xlsx.recalculate",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.recalculate",
+                "input": str(fake_xlsx),
+                "output": str(required_output),
+                "arguments": {},
+                "options": {"fidelity": "core", "in_place": False},
+            },
+        )
+
+        assert auto_result["diagnostics"]["operation_result"]["recalculation"][
+            "outcome"
+        ] == "unavailable"
+        assert required_result["status"] == "success"
+        assert [call["timeout"] for call in runner.calls] == [3.0, 30.0]
+
 
 # ---------------------------------------------------------------------------
 # Provider execute dispatcher tests
@@ -1369,6 +1884,6 @@ class TestNoMacroArgv:
         """The recalc argv contains --convert-to xlsx and no macro tokens."""
         canned_xlsx = fake_xlsx
         runner = FakeCallableRunner(canned_path=canned_xlsx)
-        recalculate_xlsx(fake_xlsx, runner)
+        recalculate_xlsx(fake_xlsx, runner, timeout_seconds=3.0)
         assert len(runner.calls) == 1
         assert runner.calls[0]["format"] == "xlsx"

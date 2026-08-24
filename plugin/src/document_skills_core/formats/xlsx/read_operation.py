@@ -144,7 +144,12 @@ def execute_read(
 
 
 class _ScreenedRecalculationProvider(Protocol):
-    def recalculate_screened_xlsx_artifact(self, input_path: Path) -> Any: ...
+    def recalculate_screened_xlsx_artifact(
+        self,
+        input_path: Path,
+        *,
+        policy: str,
+    ) -> Any: ...
 
 
 class _ScreenedProvider:
@@ -153,9 +158,17 @@ class _ScreenedProvider:
     def __init__(self, provider: _ScreenedRecalculationProvider) -> None:
         self._provider = provider
 
-    def recalculate_xlsx_artifact(self, input_path: Path) -> Any:
+    def recalculate_xlsx_artifact(
+        self,
+        input_path: Path,
+        *,
+        policy: str,
+    ) -> Any:
         assert_provider_formula_safe(input_path)
-        return self._provider.recalculate_screened_xlsx_artifact(input_path)
+        return self._provider.recalculate_screened_xlsx_artifact(
+            input_path,
+            policy=policy,
+        )
 
 
 def _screened_provider(

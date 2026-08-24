@@ -20,7 +20,13 @@ class ArtifactProvider:
         self.payload = payload
         self.calls = 0
 
-    def recalculate_xlsx_artifact(self, _input_path: Path) -> RecalculatedXlsx:
+    def recalculate_xlsx_artifact(
+        self,
+        _input_path: Path,
+        *,
+        policy: str,
+    ) -> RecalculatedXlsx:
+        assert policy in {"auto", "required"}
         self.calls += 1
         return RecalculatedXlsx(self.payload, {})
 
@@ -30,9 +36,30 @@ class FailingProvider:
         self.code = code
         self.calls = 0
 
-    def recalculate_xlsx_artifact(self, _input_path: Path) -> RecalculatedXlsx:
+    def recalculate_xlsx_artifact(
+        self,
+        _input_path: Path,
+        *,
+        policy: str,
+    ) -> RecalculatedXlsx:
+        assert policy in {"auto", "required"}
         self.calls += 1
         raise DocumentSkillsError(self.code, "Injected provider failure.")
+
+
+class PolicyAwareProvider:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+        self.policies: list[str] = []
+
+    def recalculate_xlsx_artifact(
+        self,
+        _input_path: Path,
+        *,
+        policy: str,
+    ) -> RecalculatedXlsx:
+        self.policies.append(policy)
+        return RecalculatedXlsx(self.payload, {})
 
 
 def _workbook(
@@ -149,6 +176,25 @@ def test_create_auto_accepts_provider_and_reopens_cached_value(
     assert formula["cells"]["Sheet1!A3"]["state"] == "recalculated"
     assert formula["summary"]["recalculation_provider"] == "libreoffice"
     assert _formula_record(output)["cached_value"] == "30"
+
+
+@pytest.mark.parametrize("policy", ["auto", "required"])
+def test_recalculation_operation_passes_explicit_policy_to_provider(
+    project_root: Path,
+    tmp_path: Path,
+    policy: str,
+) -> None:
+    artifact = _write_workbook(tmp_path / f"provider-{policy}.xlsx", cached_value="30")
+    provider = PolicyAwareProvider(artifact.read_bytes())
+    output = tmp_path / f"policy-{policy}.xlsx"
+
+    result = XlsxService(project_root, libreoffice=provider).execute(
+        "xlsx.create",
+        _create_request(output, policy=policy),
+    )
+
+    assert result["status"] == "success"
+    assert provider.policies == [policy]
 
 
 @pytest.mark.parametrize(
@@ -304,6 +350,8 @@ def test_explicit_recalculate_preserves_source_unknown_part_and_is_deterministic
 
     assert first_result["status"] == "success"
     assert first_result["provider_chain"] == ["libreoffice"]
+    assert second_result["status"] == "success"
+    assert second_result["provider_chain"] == ["libreoffice"]
     assert source.read_bytes() == source_bytes
     assert OpcPackage.open(first).parts[
         "opaque/provider-must-not-rewrite.bin"

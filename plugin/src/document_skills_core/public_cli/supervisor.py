@@ -27,9 +27,13 @@ _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
 _PROVIDER_OPERATION_TIMEOUTS = {
+    "xlsx.convert": 45.0,
+    "xlsx.recalculate": 45.0,
     "xlsx.render": 45.0,
     "xlsx.validate.schema": 45.0,
 }
+_RECALCULATION_POLICY_OPERATIONS = {"xlsx.create", "xlsx.edit"}
+_REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 45.0
 _PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
 
 
@@ -201,6 +205,16 @@ class PublicCommandSupervisor:
                 return max(
                     self.timeout_seconds,
                     _PROVIDER_OPERATION_TIMEOUTS[operation],
+                ), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _RECALCULATION_POLICY_OPERATIONS
+                and type(value.get("arguments")) is dict
+                and value["arguments"].get("recalculation") == "required"
+            ):
+                return max(
+                    self.timeout_seconds,
+                    _REQUIRED_RECALCULATION_TIMEOUT_SECONDS,
                 ), MAX_WORKER_BYTES
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass

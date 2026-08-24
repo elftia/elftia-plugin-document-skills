@@ -6,6 +6,7 @@ Module provenance: original Elftia-authored clean-room implementation.
 from pathlib import Path
 
 from ...core.io.temp_roots import OperationTempRoot
+from .constants import TIMEOUT_CONVERT
 from .input_snapshot import private_libreoffice_input
 from .output import read_provider_output
 from .runner import LibreOfficeRunner
@@ -36,5 +37,10 @@ def convert_snapshot_to_pdf(
     with OperationTempRoot() as private_root:
         output_dir = private_root / "output"
         output_dir.mkdir()
-        output = runner.convert(input_snapshot, "pdf", output_dir)
+        output = runner.convert(
+            input_snapshot,
+            "pdf",
+            output_dir,
+            timeout_seconds=TIMEOUT_CONVERT,
+        )
         return read_provider_output(output, "pdf")

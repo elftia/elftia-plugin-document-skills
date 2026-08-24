@@ -1,9 +1,13 @@
-"""Bounded reads for files produced by LibreOffice."""
+"""Post-process validation for files produced by LibreOffice.
+
+The observer in this module may detect an anomaly early, but neither polling
+nor a free-space check is a hard quota.  Process launch is separately gated by
+``libreoffice.quota`` and its aggregate storage contract.
+"""
 
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 from collections.abc import Callable
 from pathlib import Path
@@ -85,32 +89,17 @@ def assert_output_within_limit(path: Path, target_format: str) -> None:
         _oversized(metadata.st_size, limit, target_format)
 
 
-def assert_output_capacity(output_dir: Path, target_format: str) -> None:
-    """Refuse to launch when the private filesystem cannot hold one bounded output."""
-
-    limit = output_limit(target_format)
-    try:
-        free = shutil.disk_usage(output_dir).free
-    except OSError as error:
-        raise DocumentSkillsError(
-            ErrorCode.PROVIDER_FAILED,
-            "LibreOffice output filesystem capacity could not be checked.",
-            details={"reason": type(error).__name__},
-        ) from error
-    if free < limit:
-        raise DocumentSkillsError(
-            ErrorCode.PROVIDER_FAILED,
-            "LibreOffice output filesystem lacks the bounded artifact capacity.",
-            details={"available_bytes": free, "required_bytes": limit},
-        )
-
-
-def output_runtime_check(
+def output_runtime_observer(
     output_dir: Path,
     expected_output: Path,
     target_format: str,
 ) -> Callable[[], None]:
-    """Return a stat-only check that bounds files while LibreOffice is running."""
+    """Return a best-effort early anomaly observer.
+
+    A child may complete a large write between observations.  This callback is
+    defense in depth only and must never authorize process launch or be cited
+    as an aggregate hard-storage quota.
+    """
 
     root = output_dir.resolve()
     expected_name = expected_output.name
