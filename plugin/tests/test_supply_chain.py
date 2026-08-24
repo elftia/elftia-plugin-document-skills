@@ -55,43 +55,35 @@ def test_provenance_covers_implementation_modules(project_root, tmp_path):
     assert len(report["mapping_sha256"]) == 64
 
 
-def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
+def test_historical_review_reports_are_hash_pinned_reviewed_data(
     project_root, tmp_path
 ):
-    root = _copy_audit_project(project_root, tmp_path / "core-docx-review")
-    report_name = "core-docx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
+    root = _copy_audit_project(project_root, tmp_path / "historical-review")
+    bind_test_review(root)
     report = audit_provenance(root)
     assert report["review_attestations"] == 1
 
     manifest = json.loads(
         (root / "provenance" / "modules.json").read_text(encoding="utf-8")
     )
-    core_record = next(
-        record
-        for record in manifest["metadata_exclusions"]
-        if record["artifact"] == f"provenance/reviews/{report_name}"
+    artifact = "provenance/reviews/core-docx-review-cycle-round-1.md"
+    historical = next(
+        record for record in manifest["data_classifications"]
+        if record["artifact"] == artifact
     )
-    reviewers = {manifest["review_attestations"][0]["reviewer"]}
-    validate_metadata_exclusion(root, core_record, reviewers)
-
-    unexpected = {
-        **core_record,
-        "artifact": "provenance/reviews/core-docx-review-cycle-round-2.md",
+    assert historical["classification"] == "reviewed-data"
+    assert historical["sha256"] == hashlib.sha256((root / artifact).read_bytes()).hexdigest()
+    assert artifact not in {
+        record["artifact"] for record in manifest["metadata_exclusions"]
     }
-    with pytest.raises(
-        AssertionError,
-        match="outside the exact self-reference allowlist",
-    ):
-        validate_metadata_exclusion(root, unexpected, reviewers)
 
 
-def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
+def test_current_review_metadata_binding_uses_an_exact_allowlist(
     project_root, tmp_path
 ):
-    root = _copy_audit_project(project_root, tmp_path / "core-pptx-review")
-    report_name = "core-pptx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
+    root = _copy_audit_project(project_root, tmp_path / "current-review")
+    report_name = "document-skills-0.5.3-unified-pptx-provenance-review.md"
+    bind_test_review(root)
     report = audit_provenance(root)
     assert report["review_attestations"] == 1
 
@@ -108,7 +100,7 @@ def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
 
     unexpected = {
         **core_record,
-        "artifact": "provenance/reviews/core-pptx-review-cycle-round-2.md",
+        "artifact": "provenance/reviews/document-skills-0.5.3-unified-pptx-provenance-review-round-2.md",
     }
     with pytest.raises(
         AssertionError,

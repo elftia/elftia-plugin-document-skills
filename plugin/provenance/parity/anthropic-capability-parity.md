@@ -7,14 +7,12 @@ capabilities are cited by **capability name only**.  NO Anthropic restricted
 prompt, script, schema, template, fixture, reference, or derived expression
 is copied.  Selected GAP implementations are independently authored from
 public Office Open XML / PDF ISO 32000 file-format specifications and
-Elftia's own code.  Adopted MiniMax MIT-licensed code (where applicable) is
-documented in `THIRD_PARTY_NOTICES.md` and the module-level provenance.
+Elftia's own code. No adopted source is present in this release; a future
+adoption would require both `THIRD_PARTY_NOTICES.md` and module-level provenance.
 
 The implementation sources are:
 
 * Public OPC / OOXML (ECMA-376) and PDF (ISO 32000-2) format specifications.
-* MiniMax MIT-licensed code adopted under `src/document_skills_core/`
-  (documented per-module in `provenance/modules.json`).
 * Original Elftia-authored clean-room code.
 
 ## Status legend

@@ -9,7 +9,7 @@ from tools.regenerate_provenance import regenerate
 def bind_test_review(
     root: Path,
     *,
-    report_name: str = "foundation-review-cycle-round-1.md",
+    report_name: str = "document-skills-0.5.3-unified-pptx-provenance-review.md",
 ) -> None:
     report_path = root / "provenance" / "reviews" / report_name
     if not report_path.exists():
