@@ -18,8 +18,30 @@ EDIT_TYPES = frozenset({
     "slide_duplicate",
     "slide_move",
     "slide_reorder",
+    "slide_size",
     "slide_text",
 }).union(OBJECT_EDIT_TYPES)
+
+_SLIDE_SIZE_TYPES = {
+    "35mm",
+    "A3",
+    "A4",
+    "B4ISO",
+    "B4JIS",
+    "B5ISO",
+    "B5JIS",
+    "banner",
+    "custom",
+    "hagakiCard",
+    "ledger",
+    "letter",
+    "overhead",
+    "screen16x10",
+    "screen16x9",
+    "screen4x3",
+}
+_MIN_SLIDE_COORDINATE = 914_400
+_MAX_SLIDE_COORDINATE = 51_206_400
 
 
 def parse_edit(edit: dict[str, Any], index: int) -> dict[str, Any]:
@@ -29,6 +51,36 @@ def parse_edit(edit: dict[str, Any], index: int) -> dict[str, Any]:
     if edit_type in OBJECT_EDIT_TYPES:
         return parse_object_edit(edit, index)
     field = f"edits.{index}"
+    if edit_type == "slide_size":
+        _exact_keys(edit, {"size", "type"}, field)
+        size = edit.get("size")
+        if type(size) is not dict:
+            _invalid("slide_size requires a size object.", field=f"{field}.size")
+        _exact_keys(size, {"cx", "cy", "type"}, f"{field}.size")
+        size_type = _text(size.get("type"), f"{field}.size.type", False)
+        if size_type not in _SLIDE_SIZE_TYPES:
+            _invalid(
+                "Unsupported PresentationML slide-size type.",
+                field=f"{field}.size.type",
+            )
+        return {
+            "size": {
+                "cx": _integer(
+                    size.get("cx"),
+                    _MIN_SLIDE_COORDINATE,
+                    _MAX_SLIDE_COORDINATE,
+                    f"{field}.size.cx",
+                ),
+                "cy": _integer(
+                    size.get("cy"),
+                    _MIN_SLIDE_COORDINATE,
+                    _MAX_SLIDE_COORDINATE,
+                    f"{field}.size.cy",
+                ),
+                "type": size_type,
+            },
+            "type": edit_type,
+        }
     if edit_type == "slide_add":
         _exact_keys(edit, {"position", "slide", "type"}, field)
         slide = edit.get("slide")

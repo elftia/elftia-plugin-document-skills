@@ -207,6 +207,11 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         if type(edit) is not dict:
             _invalid("Each edit must be an object.", field=f"edits.{index}")
         parsed_edits.append(parse_edit(edit, index))
+    if sum(edit["type"] == "slide_size" for edit in parsed_edits) > 1:
+        _invalid(
+            "A PPTX edit transaction accepts at most one deck-level slide_size change.",
+            field="edits",
+        )
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)

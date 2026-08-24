@@ -149,6 +149,7 @@
     "src/document_skills_core/formats/pptx/service.py",
     "src/document_skills_core/formats/pptx/slide_graph.py",
     "src/document_skills_core/formats/pptx/slide_render.py",
+    "src/document_skills_core/formats/pptx/slide_size.py",
     "src/document_skills_core/formats/pptx/static_layout_validation.py",
     "src/document_skills_core/formats/pptx/template_create.py",
     "src/document_skills_core/formats/pptx/transaction.py",

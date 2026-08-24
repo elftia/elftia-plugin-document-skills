@@ -21,6 +21,7 @@ from .object_edit import apply_object_edit
 from .object_xml import object_hash, select_object
 from .package import OpcPackage, PreservationManifest
 from .slide_graph import add_slide, copy_slide, delete_slide
+from .slide_size import apply_slide_size, validate_slide_object_bounds
 
 _P = NS["p"]
 _A = NS["a"]
@@ -49,6 +50,7 @@ def edit_pptx(
     reorder_evidence: list[dict[str, Any]] = []
     lifecycle_evidence: list[dict[str, Any]] = []
     object_evidence: list[dict[str, Any]] = []
+    slide_size_evidence: dict[str, Any] | None = None
     added_image_bytes = 0
 
     has_reorder = any(e["type"] in {"slide_move", "slide_reorder"} for e in edits)
@@ -61,6 +63,10 @@ def edit_pptx(
         if edit_type == "slide_add":
             evidence = add_slide(target, edit["slide"], edit.get("position"))
             lifecycle_evidence.append({"type": edit_type, **evidence})
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+
+        elif edit_type == "slide_size":
+            slide_size_evidence = apply_slide_size(target, edit["size"])
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
 
         elif edit_type == "slide_text":
@@ -135,6 +141,11 @@ def edit_pptx(
             object_evidence.append(evidence)
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
 
+    if slide_size_evidence is not None:
+        slide_size_evidence.update(
+            validate_slide_object_bounds(target, slide_size_evidence["after"])
+        )
+
     manifest = target.emit(destination)
 
     operation_result: dict[str, Any] = {
@@ -147,6 +158,8 @@ def edit_pptx(
         operation_result["slide_lifecycle"] = lifecycle_evidence
     if object_evidence:
         operation_result["object_edits"] = object_evidence
+    if slide_size_evidence is not None:
+        operation_result["slide_size"] = slide_size_evidence
     if vba_source is not None:
         operation_result["macro_copy_through"] = validate_vba_copy_through(
             package,

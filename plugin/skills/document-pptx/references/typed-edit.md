@@ -62,9 +62,23 @@ not the whole slide.
 | `slide_duplicate` | `slide` | Optional `position`; deep-copies slide-local media/chart/notes dependencies |
 | `slide_copy` | `source_slide` | Optional local `.pptx` `source` and `position`; cross-deck copy imports the contained dependency graph |
 | `slide_move` / `slide_reorder` | `slide`, `position` | Changes presentation order without rewriting slide payloads |
+| `slide_size` | `size` | One deck-level change per transaction; requires bounded integer `cx`/`cy` plus a supported PresentationML `type` and fails if any final slide object is unresolved or out of bounds |
 
 `slide_delete`, `slide_duplicate`, `slide_copy`, and reorder operations accept
 an optional slide-level `precondition_sha256`.
+
+Slide size is never selected by slide number. The explicit deck-level form is:
+
+```json
+{
+  "type": "slide_size",
+  "size": {"cx": 12192000, "cy": 6858000, "type": "screen16x9"}
+}
+```
+
+The edit does not implicitly scale or move content. It validates the final
+transaction state, including inherited placeholder geometry, before emitting
+the candidate and reports the previous/new size plus checked-object counts.
 
 ## Object primitives
 

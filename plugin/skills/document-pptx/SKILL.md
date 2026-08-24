@@ -86,7 +86,9 @@ preserves content semantics, not source visual styling.
 For slide or object edits, read `references/typed-edit.md`. Slide lifecycle
 primitives add, delete, duplicate, copy, and move/reorder slides; cross-deck
 copy carries the contained layout/master/theme/media/chart/notes dependency
-graph. Object selectors use slide number plus stable shape id and/or exact name,
+graph. The separate deck-level `slide_size` primitive never scales content and
+fails closed unless every final object boundary fits. Object selectors use
+slide number plus stable shape id and/or exact name,
 optionally narrowed by native type. `pptx.read` returns a reusable selector and
 `precondition_sha256` for every projected top-level object.
 

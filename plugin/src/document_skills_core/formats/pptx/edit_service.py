@@ -15,9 +15,11 @@ from document_skills_core.core.io.temp_roots import OperationTempRoot
 from .contracts import ParsedPptxRequest
 from .edit import edit_pptx
 from .lifecycle_validation import validate_slide_lifecycle
+from .macro_policy import open_presentation_package
 from .object_contracts import OBJECT_EDIT_TYPES
 from .object_validation import validate_object_edits
 from .schema_validation import validate_schema_gate, with_schema_gate
+from .slide_size import validate_slide_object_bounds
 from .transaction import promote_candidate, write_candidate_result
 from .validation import validate_mutation, validate_reorder
 
@@ -51,6 +53,7 @@ def execute_pptx_edit(
             }
             has_lifecycle = any(edit["type"] in lifecycle_types for edit in edits)
             has_objects = any(edit["type"] in OBJECT_EDIT_TYPES for edit in edits)
+            has_slide_size = any(edit["type"] == "slide_size" for edit in edits)
             assertion = _edit_assertion(
                 staged,
                 request,
@@ -59,6 +62,7 @@ def execute_pptx_edit(
                 only_reorder=only_reorder,
                 has_lifecycle=has_lifecycle,
                 has_objects=has_objects,
+                has_slide_size=has_slide_size,
             )
             validation = validate_mutation(
                 staged,
@@ -115,6 +119,7 @@ def _edit_assertion(
     only_reorder: bool,
     has_lifecycle: bool,
     has_objects: bool,
+    has_slide_size: bool,
 ):
     if only_reorder:
         return lambda _candidate: validate_reorder(
@@ -122,7 +127,7 @@ def _edit_assertion(
             source=request.input_path,
             allow_vba=keep_vba,
         )
-    if not (has_lifecycle or has_objects):
+    if not (has_lifecycle or has_objects or has_slide_size):
         return None
 
     def assertion(_candidate: Path) -> dict[str, Any]:
@@ -141,6 +146,17 @@ def _edit_assertion(
                 edits=request.arguments["edits"],
                 operation_result=operation_result,
                 allow_vba=keep_vba,
+            )
+        if has_slide_size:
+            size_evidence = operation_result.get("slide_size", {})
+            size = size_evidence.get("after", {})
+            evidence["slide_size"] = validate_slide_object_bounds(
+                open_presentation_package(
+                    staged,
+                    allow_vba=keep_vba,
+                    candidate=True,
+                ),
+                size,
             )
         return evidence
 
