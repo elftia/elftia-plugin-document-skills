@@ -328,8 +328,16 @@ def _parse_content_types_stream(source_stream: BinaryIO) -> dict[str, str]:
                         content_type_count=declaration_count,
                         content_type_limit=MAX_PARTS,
                     )
+            else:
+                _unsafe("OPC content-type declarations must be empty.")
             continue
         if depth == 2:
+            if (
+                len(element)
+                or (element.text and element.text.strip())
+                or (element.tail and element.tail.strip())
+            ):
+                _unsafe("OPC content-type declarations must be empty.")
             content_type = element.attrib.get("ContentType", "")
             if element.tag == _CONTENT_TYPE_OVERRIDE_TAG:
                 key = _content_type_override_key(
@@ -341,8 +349,10 @@ def _parse_content_types_stream(source_stream: BinaryIO) -> dict[str, str]:
             else:
                 _unsafe("Unknown OPC content-type declaration.")
             if not key or not content_type or key in result:
-                _unsafe("Invalid or duplicate OPC content-type entry.", key=key)
+                _unsafe("Invalid or duplicate OPC content-type entry.")
             result[key] = content_type
+        elif depth == 1 and element.text and element.text.strip():
+            _unsafe("OPC content-types root may contain only declarations.")
         element.clear()
         depth -= 1
     if not root_seen:
@@ -355,21 +365,16 @@ def _content_type_override_key(
     identities: dict[tuple[str, ...], str],
 ) -> str:
     if not raw.startswith("/") or raw.startswith("//") or "\\" in raw:
-        _unsafe("Invalid OPC content-type override path.", part=raw)
+        _unsafe("Invalid OPC content-type override path.")
     try:
         identity = PORTABLE_PATH_POLICY.parse_relative(raw[1:])
     except (TypeError, UnicodeError, ValueError) as error:
         _unsafe(
             "OPC content-type override path is not portable.",
-            part=raw,
             reason=type(error).__name__,
         )
     if identity.keys in identities:
-        _unsafe(
-            "Duplicate or normalized-alias OPC content-type override.",
-            part=raw,
-            alias_of=identities[identity.keys],
-        )
+        _unsafe("Duplicate or normalized-alias OPC content-type override.")
     key = f"/{'/'.join(identity.components)}"
     identities[identity.keys] = key
     return key
@@ -377,13 +382,12 @@ def _content_type_override_key(
 
 def _content_type_default_key(extension: str) -> str:
     if not extension or any(marker in extension for marker in ("/", "\\", ".")):
-        _unsafe("Invalid OPC content-type extension.", extension=extension)
+        _unsafe("Invalid OPC content-type extension.")
     try:
         normalized = PORTABLE_PATH_POLICY.component_key(extension)
     except (TypeError, UnicodeError, ValueError) as error:
         _unsafe(
             "OPC content-type extension is not portable.",
-            extension=extension,
             reason=type(error).__name__,
         )
     return f"*.{normalized}"

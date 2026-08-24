@@ -363,8 +363,21 @@ def test_libreoffice_pdf_filter_name_reopens_through_bounded_flate_decoder() -> 
     assert decode_stream(zlib.compress(content), ["/FlateDecode"]) == content
 
 
+@pytest.mark.parametrize(
+    ("formula", "expected_token"),
+    [
+        ('WEBSERVICE("http://127.0.0.1:9/secret")', "WEBSERVICE"),
+        (
+            '_xlfn._xlws.WEBSERVICE("http://127.0.0.1:9/secret")',
+            "WEBSERVICE",
+        ),
+        ("cmd|" + ("A" * 1024) + "!A1", "DDE_LINK"),
+    ],
+)
 def test_active_formula_is_rejected_before_libreoffice_render(
     tmp_path: Path,
+    formula: str,
+    expected_token: str,
 ) -> None:
     source = tmp_path / "active.xlsx"
     create_xlsx(
@@ -375,7 +388,7 @@ def test_active_formula_is_rejected_before_libreoffice_render(
                 "name": "Data",
                 "rows": [{"cells": [{
                     "ref": "A1",
-                    "formula": 'WEBSERVICE("http://127.0.0.1:9/secret")',
+                    "formula": formula,
                     "type": "n",
                 }]}],
                 "number_formats": [],
@@ -387,7 +400,7 @@ def test_active_formula_is_rejected_before_libreoffice_render(
     with pytest.raises(DocumentSkillsError) as caught:
         assert_provider_formula_safe(source)
     assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
-    assert caught.value.details["tokens"] == ["WEBSERVICE"]
+    assert caught.value.details["tokens"] == [expected_token]
 
 
 def test_render_provider_receives_the_screened_private_snapshot(
@@ -760,7 +773,7 @@ def test_render_content_type_ceiling_precedes_dangerous_inventory(
     }
 
 
-def test_render_ignores_nested_content_type_declarations_in_inventory(
+def test_render_rejects_nested_content_type_declarations_before_inventory(
     qa_xlsx: Path,
 ) -> None:
     from document_skills_core.formats.xlsx import render_package
@@ -800,10 +813,134 @@ def test_render_ignores_nested_content_type_declarations_in_inventory(
         for info, payload in members.values():
             archive.writestr(info, payload)
 
-    index = render_package.RenderPackageIndex.open(qa_xlsx)
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details == {}
 
-    assert index.content_types["*.nestedwrapper"] == "application/x-safe-wrapper"
-    assert index.security["counts"]["vba"] == 0
+
+def test_render_rejects_nonempty_content_type_declaration(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    declaration = SubElement(
+        content_types,
+        "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+        {
+            "Extension": "nonempty",
+            "ContentType": "application/x-safe-nonempty",
+        },
+    )
+    declaration.text = "attacker-controlled-content"
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details == {}
+
+
+def test_render_content_type_errors_do_not_retain_attacker_input(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    SubElement(
+        content_types,
+        "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+        {
+            "Extension": ("attacker" * 8192) + "/",
+            "ContentType": "application/x-invalid",
+        },
+    )
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details == {}
+
+
+@pytest.mark.parametrize(
+    "malformation",
+    ["unknown-child", "root-text", "declaration-tail"],
+)
+def test_render_rejects_invalid_content_type_root_content(
+    qa_xlsx: Path,
+    malformation: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    if malformation == "unknown-child":
+        SubElement(content_types, "{urn:attacker}Unexpected")
+    elif malformation == "root-text":
+        content_types.text = "attacker-controlled-content"
+    else:
+        declaration = SubElement(
+            content_types,
+            "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+            {
+                "Extension": "tail",
+                "ContentType": "application/x-safe-tail",
+            },
+        )
+        declaration.tail = "attacker-controlled-content"
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    def reject_inventory(*_args, **_kwargs):
+        raise AssertionError("malformed content types reached security inventory")
+
+    monkeypatch.setattr(
+        render_package,
+        "spreadsheet_security_inventory",
+        reject_inventory,
+    )
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details == {}
 
 
 def test_render_ignores_relationship_elements_outside_rels_parts(

@@ -12,6 +12,11 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 _REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 _CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+_CONTENT_TYPES_ROOT = f"{{{_CONTENT_TYPES_NS}}}Types"
+_CONTENT_TYPE_DECLARATIONS = {
+    f"{{{_CONTENT_TYPES_NS}}}Default",
+    f"{{{_CONTENT_TYPES_NS}}}Override",
+}
 _DDE_PATTERN = re.compile(r"(?i)\bDDE(?:AUTO)?\b")
 _WORD_NAMESPACES = {
     "http://purl.oclc.org/ooxml/wordprocessingml/main",
@@ -178,6 +183,7 @@ def _classify_xml_stream(
 ) -> int:
     root_seen = False
     is_relationship_part = name.casefold().endswith(".rels")
+    is_content_types_part = name == "[Content_Types].xml"
     complex_fields: list[list[str] | None] = []
     depth = 0
     for event, element in iterparse(
@@ -189,6 +195,15 @@ def _classify_xml_stream(
     ):
         if event == "start":
             depth += 1
+            if is_content_types_part:
+                if depth == 1:
+                    if element.tag != _CONTENT_TYPES_ROOT:
+                        _invalid_content_types()
+                elif depth == 2:
+                    if element.tag not in _CONTENT_TYPE_DECLARATIONS:
+                        _invalid_content_types()
+                else:
+                    _invalid_content_types()
             if not root_seen:
                 root_seen = True
                 root_name = _normalized_terminal(_split_tag(element.tag)[1])
@@ -199,13 +214,17 @@ def _classify_xml_stream(
                     })
             continue
         namespace, terminal = _split_tag(element.tag)
-        if (
-            name == "[Content_Types].xml"
-            and depth == 2
-            and namespace == _CONTENT_TYPES_NS
-        ):
-            if terminal in {"Default", "Override"}:
+        if is_content_types_part:
+            if depth == 2:
+                if (
+                    len(element)
+                    or (element.text and element.text.strip())
+                    or (element.tail and element.tail.strip())
+                ):
+                    _invalid_content_types()
                 _classify_content_type(categories, element)
+            elif depth == 1 and element.text and element.text.strip():
+                _invalid_content_types()
         elif is_relationship_part and element.tag == f"{_REL_NS}Relationship":
             relationship_count += 1
             if (
@@ -229,6 +248,13 @@ def _classify_xml_stream(
         if fragments is not None:
             _classify_dde_instruction(categories, name, "".join(fragments))
     return relationship_count
+
+
+def _invalid_content_types() -> None:
+    raise DocumentSkillsError(
+        ErrorCode.ARCHIVE_UNSAFE,
+        "OPC content-types declarations must be direct and empty.",
+    )
 
 
 def _classify_content_type(

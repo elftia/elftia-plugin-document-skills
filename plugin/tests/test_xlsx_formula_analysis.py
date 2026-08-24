@@ -210,9 +210,15 @@ def test_formula_analysis_gate_is_optional_for_read_and_required_for_mutation(
     "formula",
     [
         'WEBSERVICE("http://127.0.0.1:9/secret")',
+        '_xlfn._xlws.WEBSERVICE("http://127.0.0.1:9/secret")',
+        (
+            '_xlws._xlfn._xlws._xlfn.WEBSERVICE('
+            '"http://127.0.0.1:9/secret")'
+        ),
         'RTD("server",,"topic")',
         'HYPERLINK("https://example.invalid", "click")',
         "cmd|' /C calc'!A1",
+        "cmd|" + ("A" * 513) + "!A1",
     ],
 )
 def test_active_provider_formulas_fail_closed_before_mutation(

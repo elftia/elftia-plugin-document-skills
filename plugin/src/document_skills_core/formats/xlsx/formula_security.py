@@ -14,13 +14,12 @@ from .format_policy import allowed_inert_categories, format_id
 from .render_package import RenderPackageIndex
 
 _ACTIVE_FUNCTION = re.compile(
-    r"(?<![A-Za-z0-9_.])(?:_xlfn\.|_xlws\.)?"
+    r"(?<![A-Za-z0-9_.])(?:(?:_xlfn|_xlws)\.)*"
     r"(?P<name>WEBSERVICE|RTD|DDE|HYPERLINK|IMAGE|STOCKHISTORY|"
     r"SQL\.REQUEST|CALL|REGISTER(?:\.ID)?|EXEC|FIELDVALUE|"
     r"CUBE(?:MEMBER|VALUE|SET|RANKEDMEMBER|KPIMEMBER))\s*\(",
     re.IGNORECASE,
 )
-_DDE_LINK = re.compile(r"\|[^!\r\n]{0,512}!", re.IGNORECASE)
 _FORMULA_ELEMENTS = {
     "calculatedColumnFormula",
     "definedName",
@@ -40,9 +39,21 @@ def active_formula_tokens(formula: str) -> tuple[str, ...]:
         match.group("name").upper()
         for match in _ACTIVE_FUNCTION.finditer(masked)
     }
-    if _DDE_LINK.search(masked):
+    if _has_dde_link(masked):
         tokens.add("DDE_LINK")
     return tuple(sorted(tokens))
+
+
+def _has_dde_link(value: str) -> bool:
+    topic_started = False
+    for character in value:
+        if character == "|":
+            topic_started = True
+        elif character in "\r\n":
+            topic_started = False
+        elif character == "!" and topic_started:
+            return True
+    return False
 
 
 def assert_provider_formula_safe(
