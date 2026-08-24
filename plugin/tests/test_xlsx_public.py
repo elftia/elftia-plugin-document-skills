@@ -428,6 +428,27 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "template_code_and_macros_are_never_executed",
                 ],
             },
+            "xlsx.summary.aggregate": {
+                "available": [
+                    "ordinary_summary_sheet",
+                    "group_by",
+                    "sum_average_min_max",
+                    "count_nonblank_and_distinct",
+                    "multi_key_sort",
+                    "top_n",
+                    "native_table_output",
+                    "stored_value_type_preservation",
+                    "explicit_cached_formula_policy",
+                    "xlsm_keep_vba_copy_through",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "limitations": [
+                    "ordinary_summary_is_not_native_pivot",
+                    "formula_caches_are_not_recalculated",
+                    "formatted_dates_group_as_stored_values",
+                ],
+            },
         },
     }
 
@@ -1132,6 +1153,7 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.recalculate" in operations
     assert "xlsx.convert" in operations
     assert "xlsx.template.instantiate" in operations
+    assert "xlsx.summary.aggregate" in operations
     assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
 
 
@@ -1227,6 +1249,163 @@ def test_public_template_instantiation_reopens_output(
     )
     reopened = load_workbook(output, data_only=False)
     assert reopened.sheetnames == ["Sheet1"]
+    reopened.close()
+
+
+def test_public_summary_aggregate_reopens_ordinary_native_table(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook, load_workbook
+
+    source = tmp_path / "public-summary-source.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet.append(["Region", "Category", "Revenue", "Units"])
+    sheet.append(["001", "A", 10, 2])
+    sheet.append(["010", "A", 20, 4])
+    sheet.append(["001", "B", 15, 3])
+    sheet.append(["010", "B", 5, 1])
+    sheet.append(["100", "C", 1, 1])
+    workbook.save(source)
+    workbook.close()
+    output = tmp_path / "public-summary.xlsx"
+    request = _request(
+        tmp_path,
+        "public-summary.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.summary.aggregate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "source": {"sheet": "Data", "range": "A1:D6"},
+                "group_by": ["Region"],
+                "aggregates": [
+                    {"column": "Revenue", "function": "sum", "as": "Revenue Total"},
+                    {"column": "Units", "function": "average", "as": "Units Average"},
+                    {"column": "Revenue", "function": "min", "as": "Revenue Minimum"},
+                    {"column": "Revenue", "function": "max", "as": "Revenue Maximum"},
+                    {"function": "count", "as": "Rows"},
+                    {
+                        "column": "Category",
+                        "function": "count_nonblank",
+                        "as": "Categories Nonblank",
+                    },
+                    {
+                        "column": "Category",
+                        "function": "count_distinct",
+                        "as": "Categories Distinct",
+                    },
+                ],
+                "sort": [
+                    {"column": "Revenue Total", "direction": "desc"},
+                    {"column": "Region", "direction": "asc"},
+                ],
+                "top_n": 2,
+                "target": {
+                    "sheet": "Summary",
+                    "start_cell": "A1",
+                    "table_name": "PublicSummary",
+                },
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    summary = result["diagnostics"]["operation_result"]["summary"]
+    assert summary["kind"] == "ordinary_table"
+    assert summary["native_pivot"] is False
+    reopened = load_workbook(output, data_only=False)
+    assert reopened["Summary"]["A2"].value == "001"
+    assert reopened["Summary"]["B2"].value == 25
+    assert reopened["Summary"]["C2"].value == 2.5
+    assert reopened["Summary"]["D2"].value == 10
+    assert reopened["Summary"]["E2"].value == 15
+    assert reopened["Summary"]["F2"].value == 2
+    assert reopened["Summary"]["G2"].value == 2
+    assert reopened["Summary"]["H2"].value == 2
+    assert reopened["Summary"].tables["PublicSummary"].ref == "A1:H3"
+    assert not reopened["Summary"]._pivots
+    reopened.close()
+
+
+def test_public_summary_cached_formula_xlsm_preserves_vba(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    workbook = {
+        "metadata": {},
+        "sheets": [
+            {
+                "name": "Data",
+                "rows": [
+                    {
+                        "cells": [
+                            {"ref": "A1", "value": "Region", "type": "s"},
+                            {"ref": "B1", "value": "Revenue", "type": "s"},
+                            {"ref": "A2", "value": "East", "type": "s"},
+                            {
+                                "ref": "B2",
+                                "formula": "5+5",
+                                "cached_value": "10",
+                                "type": "n",
+                            },
+                        ]
+                    }
+                ],
+                "number_formats": [],
+            }
+        ],
+        "defined_names": [],
+        "tables": [],
+    }
+    source = create_package_fixture(
+        tmp_path / "public-summary-macro.xlsm",
+        "xlsm",
+        signed=True,
+        workbook=workbook,
+    )
+    output = tmp_path / "public-summary-macro-output.xlsm"
+    request = _request(
+        tmp_path,
+        "public-summary-macro.json",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.summary.aggregate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "source": {"sheet": "Data", "range": "A1:B2"},
+                "group_by": ["Region"],
+                "aggregates": [
+                    {"column": "Revenue", "function": "sum", "as": "Revenue Total"}
+                ],
+                "sort": [{"column": "Revenue Total", "direction": "desc"}],
+                "top_n": 1,
+                "target": {"sheet": "Summary", "table_name": "MacroSummary"},
+                "formula_policy": "cached",
+                "keep_vba": True,
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "degraded"
+    operation_result = result["diagnostics"]["operation_result"]
+    assert operation_result["summary"]["source"]["formula_cells_used"] == ["Data!B2"]
+    assert operation_result["macro"]["vba_payload"] == "preserved"
+    reopened = load_workbook(output, data_only=False, keep_vba=True)
+    assert reopened["Summary"]["A2"].value == "East"
+    assert reopened["Summary"]["B2"].value == 10
+    assert reopened.vba_archive is not None
+    reopened.vba_archive.close()
     reopened.close()
 
 

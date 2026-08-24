@@ -1,13 +1,14 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, edit, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, summarize, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, and bounded tabular conversion requests. The Core capability supports seven operations:
+Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, grouped summaries, and bounded tabular conversion requests. The Core capability supports eight operations:
 `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
-`xlsx.recalculate`, plus `xlsx.convert` and `xlsx.template.instantiate`. The public contract and validation run through the frozen
+`xlsx.recalculate`, plus `xlsx.convert`, `xlsx.template.instantiate`, and
+`xlsx.summary.aggregate`. The public contract and validation run through the frozen
 uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
 required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas or
 when `xlsx.convert` explicitly converts legacy `.xls` input to `.xlsx`.
@@ -28,7 +29,8 @@ from a closed enum:
 through an accepted recalculation provider.** Create/edit default to `recalculation: "auto"`:
 without LibreOffice they still publish the validated Core artifact and honestly retain the
 stale/never/recalculation-required state. Such outstanding formulas produce `degraded` plus an
-`outstanding-formula-recalculation` degradation. See
+`outstanding-formula-recalculation` degradation. Summary aggregation that explicitly consumes
+formula caches also reports `summary-cached-formula-values`. See
 [`references/recalculation.md`](references/recalculation.md) for policy and gate details.
 
 Every formula-bearing read/create/edit/recalculate candidate also receives conservative static
@@ -140,6 +142,21 @@ signature is present, any package mutation reports `invalidated_by_package_mutat
 warning/degradation, and never implies that the preserved signature remains valid. See
 [`references/macro-templates.md`](references/macro-templates.md).
 
+### xlsx.summary.aggregate
+
+Builds an ordinary grouped summary worksheet and native table in a distinct output. It supports
+one or more group columns, `sum`/`average`/`min`/`max`/row count/nonblank count/distinct count,
+stable multi-key sorting, and deterministic top-N. Source and output bounds are explicit; text
+keys such as leading-zero identifiers remain text. Numeric text is accepted only with explicit
+`numeric_policy: "coerce-text"`.
+
+This operation is **not a native pivot table**. The result and validation gates report
+`summary.kind: "ordinary_table"` and `native_pivot: false`; the new sheet is verified to have no
+pivot relationship. Formula source cells are rejected by default. Explicit
+`formula_policy: "cached"` uses only present stored results and emits a degradation because no
+calculation engine verified them. `.xlsm` requires `keep_vba: true` and retains the normal inert
+macro/signature preservation evidence. See [`references/summary.md`](references/summary.md).
+
 ### xlsx.recalculate
 
 Requires distinct `input` and `output` paths and accepts an empty `arguments` object. For a
@@ -204,5 +221,5 @@ the promoted artifact with an independent consumer.
 ## Distinct output rule
 
 Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, `xlsx.convert`,
-and `xlsx.template.instantiate`, output
+`xlsx.template.instantiate`, and `xlsx.summary.aggregate`, output
 resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.

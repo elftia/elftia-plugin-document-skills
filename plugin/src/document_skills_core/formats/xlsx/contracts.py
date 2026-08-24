@@ -26,6 +26,7 @@ from .style_contract import (
     parse_style,
 )
 from .structural_refs import has_external_workbook_reference
+from .summary_contract import parse_summary_arguments
 
 XLSX_OPERATIONS = frozenset(
     {
@@ -36,6 +37,7 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.recalculate",
         "xlsx.convert",
         "xlsx.template.instantiate",
+        "xlsx.summary.aggregate",
     }
 )
 
@@ -121,6 +123,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.recalculate",
         "xlsx.convert",
         "xlsx.template.instantiate",
+        "xlsx.summary.aggregate",
     }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
@@ -138,6 +141,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.edit": _parse_edit,
         "xlsx.recalculate": _parse_recalculate,
         "xlsx.template.instantiate": _parse_template,
+        "xlsx.summary.aggregate": parse_summary_arguments,
     }[operation](arguments)
     _validate_operation_paths(
         operation,
@@ -197,7 +201,7 @@ def _validate_operation_paths(
         parsed["recalculation"] = "skip"
         return
     if input_format not in READ_FORMATS or output_format != input_format:
-        _invalid("XLSX edit input/output extensions must both be .xlsx or both be .xlsm.")
+        _invalid("XLSX mutation input/output extensions must both be .xlsx or both be .xlsm.")
     _validate_vba_request(
         macro_enabled=input_format == "xlsm",
         parsed=parsed,

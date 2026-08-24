@@ -49,6 +49,7 @@ from .service_support import (
     formula_degradations,
     outcome_provider,
 )
+from .summary_operation import execute_summary_aggregate
 from .transaction import promote_candidate, write_candidate_result
 from .template_operation import execute_template_instantiation
 from .validation import (
@@ -102,6 +103,8 @@ class XlsxService:
             )
         if operation == "xlsx.template.instantiate":
             return execute_template_instantiation(parsed, schemas=self.schemas)
+        if operation == "xlsx.summary.aggregate":
+            return execute_summary_aggregate(parsed, schemas=self.schemas)
         return execute_recalculation(
             parsed,
             schemas=self.schemas,

@@ -23,9 +23,10 @@ def create_package_fixture(
     *,
     signed: bool = False,
     external_target: bool = False,
+    workbook: dict | None = None,
 ) -> Path:
     base = path.parent / f"{path.stem}-base.xlsx"
-    create_xlsx(base, _workbook())
+    create_xlsx(base, _workbook() if workbook is None else workbook)
     package = OpcPackage.open(base)
     content_types = package.xml(CONTENT_TYPES)
     workbook_override = next(

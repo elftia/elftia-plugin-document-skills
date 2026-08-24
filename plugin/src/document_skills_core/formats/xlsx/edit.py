@@ -115,6 +115,7 @@ def edit_xlsx(
                 invalidated,
                 sheet_name,
                 use_shared_strings=use_shared_strings,
+                declared_type=edit.get("cell_value_type"),
             )
             if edit.get("style"):
                 _apply_cell_style(sheet_root, ref, edit["style"], style_registry)
@@ -324,6 +325,7 @@ def _apply_cell_value(
     sheet_name: str,
     *,
     use_shared_strings: bool,
+    declared_type: str | None = None,
 ) -> None:
     """Apply a cell value edit, preserving existing style."""
     sheet_data = sheet_root.find(f"{{{_MAIN_NS}}}sheetData")
@@ -337,29 +339,50 @@ def _apply_cell_value(
         cell.remove(child)
     # Set new value
     if value is not None:
-        # Try numeric first
-        try:
-            float(value)
-            cell.attrib.pop("t", None)
+        if declared_type == "string":
+            _write_string_value(cell, value, shared, use_shared_strings)
+        elif declared_type == "boolean":
+            if value not in {"0", "1"}:
+                _invalid_edit("Boolean cell values must be 0 or 1.", value=value)
+            cell.attrib["t"] = "b"
             v = SubElement(cell, f"{{{_MAIN_NS}}}v")
             v.text = value
-        except ValueError:
-            if use_shared_strings:
-                if value not in shared:
-                    shared.append(value)
-                cell.attrib["t"] = "s"
+        elif declared_type in {None, "number"}:
+            try:
+                float(value)
+                cell.attrib.pop("t", None)
                 v = SubElement(cell, f"{{{_MAIN_NS}}}v")
-                v.text = str(shared.index(value))
-            else:
-                cell.attrib["t"] = "inlineStr"
-                inline = SubElement(cell, f"{{{_MAIN_NS}}}is")
-                text = SubElement(inline, f"{{{_MAIN_NS}}}t")
-                text.text = value
+                v.text = value
+            except ValueError:
+                if declared_type == "number":
+                    _invalid_edit("Numeric cell value is invalid.", value=value)
+                _write_string_value(cell, value, shared, use_shared_strings)
+        else:
+            _invalid_edit("Internal cell value type is invalid.", cell_value_type=declared_type)
     # Restore style
     if old_style is not None:
         cell.attrib["s"] = old_style
     # Check if this cell is a precedent of any formula and invalidate
     _invalidate_dependents(ref, sheet_name, formula_cells, invalidated)
+
+
+def _write_string_value(
+    cell: Element,
+    value: str,
+    shared: list[str],
+    use_shared_strings: bool,
+) -> None:
+    if use_shared_strings:
+        if value not in shared:
+            shared.append(value)
+        cell.attrib["t"] = "s"
+        payload = SubElement(cell, f"{{{_MAIN_NS}}}v")
+        payload.text = str(shared.index(value))
+        return
+    cell.attrib["t"] = "inlineStr"
+    inline = SubElement(cell, f"{{{_MAIN_NS}}}is")
+    text = SubElement(inline, f"{{{_MAIN_NS}}}t")
+    text.text = value
 
 
 def _apply_cell_formula(
