@@ -6,6 +6,7 @@ Module provenance: original Elftia-authored clean-room implementation.
 from pathlib import Path
 
 from ...core.io.temp_roots import OperationTempRoot
+from ...formats.xlsx.formula_security import assert_provider_formula_safe
 from .runner import LibreOfficeRunner
 
 
@@ -18,6 +19,8 @@ def convert_to_pdf(
     Returns the converted PDF bytes. The caller reopens and validates
     the output through the existing PDF validators before promotion.
     """
+    if Path(input_document).suffix.casefold() in {".xlsx", ".xlsm"}:
+        assert_provider_formula_safe(input_document)
     with OperationTempRoot() as private_root:
         staged_input = private_root / ("input" + Path(input_document).suffix)
         staged_input.write_bytes(Path(input_document).read_bytes())

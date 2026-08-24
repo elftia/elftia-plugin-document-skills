@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ...core.io.temp_roots import OperationTempRoot
+from ...formats.xlsx.formula_security import assert_provider_formula_safe
 from ...formats.xlsx.mapping import map_workbook
 from ...formats.xlsx.package import OpcPackage
 from .runner import LibreOfficeRunner
@@ -50,6 +51,7 @@ def recalculate_xlsx_artifact(
 ) -> RecalculatedXlsx:
     """Return the isolated converted artifact plus its formula/value projection."""
 
+    assert_provider_formula_safe(input_xlsx)
     with OperationTempRoot() as private_root:
         staged_input = private_root / "input.xlsx"
         staged_input.write_bytes(Path(input_xlsx).read_bytes())

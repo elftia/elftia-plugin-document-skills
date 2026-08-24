@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
+from ...core.io.temp_roots import OperationTempRoot
 from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
@@ -22,6 +23,7 @@ from .constants import (
     TIMEOUT_LEGACY,
     TIMEOUT_RECALC,
     TIMEOUT_RENDER,
+    USER_INSTALLATION_PREFIX,
 )
 
 
@@ -80,21 +82,25 @@ class LibreOfficeRunner:
             )
         if timeout_seconds is None:
             timeout_seconds = _timeout_for_format(target_format)
-        argv = _build_argv(
-            "--convert-to",
-            target_format,
-            "--outdir",
-            str(output_dir.resolve()),
-            str(input_path.resolve()),
-        )
-        self._runner.run(
-            "libreoffice",
-            self._executable,
-            argv,
-            cwd=self.project_root,
-            timeout_seconds=timeout_seconds,
-            output_limit=OUTPUT_LIMIT,
-        )
+        with OperationTempRoot() as private_root:
+            profile_root = private_root / "libreoffice-profile"
+            profile_root.mkdir(mode=0o700)
+            argv = _build_argv(
+                profile_root,
+                "--convert-to",
+                target_format,
+                "--outdir",
+                str(output_dir.resolve()),
+                str(input_path.resolve()),
+            )
+            self._runner.run(
+                "libreoffice",
+                self._executable,
+                argv,
+                cwd=self.project_root,
+                timeout_seconds=timeout_seconds,
+                output_limit=OUTPUT_LIMIT,
+            )
         expected = output_dir.resolve() / (input_path.stem + "." + target_format)
         if not expected.is_file():
             raise DocumentSkillsError(
@@ -105,37 +111,61 @@ class LibreOfficeRunner:
         return expected
 
 
-def _build_argv(*operation_args: str) -> list[str]:
+def _build_argv(profile_root: Path, *operation_args: str) -> list[str]:
     """Build the full argv: headless prefix + operation args, validated."""
-    argv = [*HEADLESS_PREFIX, *operation_args]
+    profile_uri = profile_root.resolve().as_uri()
+    argv = [
+        *HEADLESS_PREFIX,
+        f"{USER_INSTALLATION_PREFIX}{profile_uri}",
+        *operation_args,
+    ]
     _validate_argv(argv)
     return argv
 
 
 def _validate_argv(argv: list[str]) -> None:
-    """Reject forbidden tokens and require an accepted subcommand prefix."""
-    joined = " ".join(argv)
+    """Require the fixed prefix, one private profile, and an accepted command."""
+    prefix_length = len(HEADLESS_PREFIX)
+    if argv[:prefix_length] != HEADLESS_PREFIX:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv does not begin with the required headless flags.",
+        )
+    profile_args = [
+        token for token in argv if token.startswith(USER_INSTALLATION_PREFIX)
+    ]
+    profile_index = prefix_length
+    expected_command_index = profile_index + 1
+    if (
+        len(profile_args) != 1
+        or len(argv) <= profile_index
+        or argv[profile_index] != profile_args[0]
+        or not profile_args[0][len(USER_INSTALLATION_PREFIX):].startswith("file:///")
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv requires one local file-URI user profile before the command.",
+        )
+    if (
+        len(argv) <= expected_command_index
+        or argv[expected_command_index] not in ACCEPTED_SUBCOMMANDS
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv does not begin with an accepted subcommand.",
+            details={
+                "argv": [tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS]
+            },
+        )
+    operation_argv = argv[expected_command_index:]
+    joined_operation = " ".join(operation_argv)
     for forbidden in FORBIDDEN_TOKENS:
-        if forbidden.lower() in joined.lower():
+        if forbidden.lower() in joined_operation.lower():
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
                 "LibreOffice argv contains a forbidden macro/DDE token.",
                 details={"token": forbidden},
             )
-    non_flag = next((tok for tok in argv if not tok.startswith("-")), None)
-    if non_flag is None:
-        first_sub = next(
-            (tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS), None
-        )
-    else:
-        first_sub = None
-    has_accepted = any(tok in ACCEPTED_SUBCOMMANDS for tok in argv)
-    if not has_accepted:
-        raise DocumentSkillsError(
-            ErrorCode.PROVIDER_FAILED,
-            "LibreOffice argv does not begin with an accepted subcommand.",
-            details={"argv": [tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS]},
-        )
 
 
 def _timeout_for_format(target_format: str) -> float:

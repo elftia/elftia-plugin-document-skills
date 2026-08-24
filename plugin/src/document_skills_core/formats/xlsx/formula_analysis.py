@@ -15,6 +15,7 @@ from .format_policy import (
     assert_package_matches_path,
     format_id,
 )
+from .formula_security import active_formula_tokens
 from .mapping import map_workbook
 from .package import OpcPackage
 from .projection import project_tables
@@ -51,6 +52,7 @@ _NAME_RE = re.compile(
 _FORMULA_ERRORS = ("#REF!", "#DIV/0!", "#VALUE!", "#NAME?", "#N/A", "#NUM!")
 _KNOWN_CONSTANTS = {"FALSE", "TRUE"}
 _CATEGORY_NAMES = (
+    "active_provider",
     "normal",
     "shared",
     "array",
@@ -197,6 +199,18 @@ def validate_formula_analysis(
         ),
         "gates": gates,
     }
+    active_issues = [
+        issue
+        for issue in analysis["issues"]
+        if issue["code"] == "formula-active-provider-unsupported"
+    ]
+    if required and active_issues:
+        raise DocumentSkillsError(
+            ErrorCode.ARCHIVE_UNSAFE,
+            "Active or network-capable formulas are not accepted for XLSX mutation.",
+            details={"formula_issues": active_issues},
+            validation=gated,
+        )
     if required and not analysis["valid"]:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
@@ -209,6 +223,8 @@ def validate_formula_analysis(
 
 def _categories(formula: str, formula_type: str) -> list[str]:
     categories: set[str] = set()
+    if active_formula_tokens(formula):
+        categories.add("active_provider")
     if formula_type == "shared":
         categories.add("shared")
     elif formula_type == "array":
@@ -239,6 +255,8 @@ def _analyze_text(
     issues = _syntax_issues(formula, ref=ref, allow_empty=formula_type == "shared")
     counts = {"cell_or_range": 0, "defined_name": 0, "structured": 0, "external": 0}
     masked = _mask_strings(formula)
+    for token in active_formula_tokens(formula):
+        issues.append(_issue(ref, "formula-active-provider-unsupported", token))
     occupied = [False] * len(masked)
     for match in _EXTERNAL_RE.finditer(masked):
         counts["external"] += 1

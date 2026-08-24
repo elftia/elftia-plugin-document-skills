@@ -3,6 +3,7 @@
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+import re
 import sys
 
 # Headless argument prefix — always present for every LibreOffice invocation.
@@ -10,10 +11,12 @@ HEADLESS_PREFIX: list[str] = [
     "--headless",
     "--norestore",
     "--nofirststartwizard",
-    "--nolockcheck",
 ]
 
-# Accepted subcommand prefixes (the first non-flag token in the argv).
+# Every invocation supplies a unique private profile through this argument.
+USER_INSTALLATION_PREFIX: str = "-env:UserInstallation="
+
+# Accepted operation commands, placed immediately after the private-profile argument.
 # Anything else (e.g. --cmd, .bas/.xba paths, DDE args) is rejected.
 ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({"--convert-to", "--cat", "--print-to-file"})
 
@@ -36,8 +39,6 @@ OUTPUT_LIMIT: int = 1_048_576
 VERSION_PROBE_OUTPUT_LIMIT: int = 16_384
 
 # Version regex — permissive; parses the dotted version after "LibreOffice".
-import re
-
 VERSION_REGEX = re.compile(r"LibreOffice\s+([0-9]+(?:\.[0-9]+)+)")
 
 # Executable names to probe on PATH.

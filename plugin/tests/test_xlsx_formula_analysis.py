@@ -5,7 +5,7 @@ from xml.etree.ElementTree import tostring
 
 import pytest
 
-from document_skills_core.core.contracts.errors import DocumentSkillsError
+from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.formats.xlsx.constants import NS
 from document_skills_core.formats.xlsx.contracts import parse_xlsx_request
 from document_skills_core.formats.xlsx.create import create_xlsx
@@ -204,6 +204,35 @@ def test_formula_analysis_gate_is_optional_for_read_and_required_for_mutation(
     with pytest.raises(DocumentSkillsError) as caught:
         validate_formula_analysis(path, validation, required=True)
     assert caught.value.validation["status"] == "fail"
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        'WEBSERVICE("http://127.0.0.1:9/secret")',
+        'RTD("server",,"topic")',
+        'HYPERLINK("https://example.invalid", "click")',
+        "cmd|' /C calc'!A1",
+    ],
+)
+def test_active_provider_formulas_fail_closed_before_mutation(
+    tmp_path: Path,
+    formula: str,
+) -> None:
+    path = _write(tmp_path / "active.xlsx", [("B2", formula)])
+    report = analyze_formulas(path)
+    assert report["valid"] is False
+    assert report["categories"]["active_provider"] == 1
+    assert "formula-active-provider-unsupported" in {
+        issue["code"] for issue in report["issues"]
+    }
+    with pytest.raises(DocumentSkillsError) as caught:
+        validate_formula_analysis(
+            path,
+            {"schema_version": "1.0", "status": "pass", "gates": []},
+            required=True,
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
 
 
 def test_create_static_formula_failure_prevents_promotion(

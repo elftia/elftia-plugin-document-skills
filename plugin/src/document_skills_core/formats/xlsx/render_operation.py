@@ -18,7 +18,10 @@ from document_skills_core.core.validation import validate_artifact
 from document_skills_core.formats.pdf.validation import reopen_pdf
 
 from .contracts import parse_xlsx_request
+from .formula_security import assert_provider_formula_safe
+from .render_package import RenderPackageIndex
 from .render_sampling import sample_render_source
+from .source_snapshot import stage_source_snapshot
 from .transaction import promote_candidate, write_candidate_result
 
 
@@ -43,13 +46,17 @@ def execute_render(
     source = file_record(parsed.input_path, "input")
     destination = destination_snapshot(parsed.output_path)
     try:
-        source_evidence, warnings = sample_render_source(
-            parsed.input_path,
-            parsed.arguments,
-        )
         with OperationTempRoot() as private_root:
+            provider_source = stage_source_snapshot(source, private_root)
+            package = RenderPackageIndex.open(provider_source)
+            source_evidence, warnings = sample_render_source(
+                provider_source,
+                parsed.arguments,
+                package=package,
+            )
+            assert_provider_formula_safe(provider_source, package=package)
             staged = private_root / "rendered.pdf"
-            staged.write_bytes(converter(parsed.input_path))
+            staged.write_bytes(converter(provider_source))
             validation = validate_artifact(
                 staged,
                 expected_format="pdf",

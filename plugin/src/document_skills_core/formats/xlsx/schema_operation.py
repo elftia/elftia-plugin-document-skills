@@ -12,6 +12,7 @@ from document_skills_core.core.io.paths import (
     file_record,
     merge_source_preservation_failure,
 )
+from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import parse_xlsx_request
 from .format_policy import (
@@ -21,6 +22,7 @@ from .format_policy import (
 )
 from .package import OpcPackage
 from .results import success_result
+from .source_snapshot import stage_source_snapshot
 
 
 def execute_schema_validation(
@@ -41,17 +43,19 @@ def execute_schema_validation(
     assert parsed.input_path is not None
     source = file_record(parsed.input_path, "input")
     try:
-        package = OpcPackage.open(
-            parsed.input_path,
-            allowed_inert_categories=allowed_inert_categories(
-                format_id(parsed.input_path)
-            ),
-        )
-        assert_package_matches_path(parsed.input_path, package.workbook_format)
-        schema = validator(
-            parsed.input_path,
-            parsed.arguments["max_errors"],
-        )
+        with OperationTempRoot() as private_root:
+            provider_source = stage_source_snapshot(source, private_root)
+            package = OpcPackage.open(
+                provider_source,
+                allowed_inert_categories=allowed_inert_categories(
+                    format_id(parsed.input_path)
+                ),
+            )
+            assert_package_matches_path(parsed.input_path, package.workbook_format)
+            schema = validator(
+                provider_source,
+                parsed.arguments["max_errors"],
+            )
         assert_source_preserved(source.path, source.sha256)
     except Exception as error:
         merge_source_preservation_failure(error, source.path, source.sha256)
@@ -61,6 +65,7 @@ def execute_schema_validation(
     errors = schema["errors"]
     truncated = schema.get("truncated", False)
     field_truncations = schema.get("field_truncations", 0)
+    file_format = schema["file_format"]
     validation = _schema_validation_report(
         valid=valid,
         errors=errors,
@@ -68,6 +73,7 @@ def execute_schema_validation(
         field_truncations=field_truncations,
         source_sha256=source.sha256,
         package=package,
+        file_format=file_format,
     )
     operation_result = {
         "schema": {
@@ -77,6 +83,7 @@ def execute_schema_validation(
             "max_errors": parsed.arguments["max_errors"],
             "truncated": truncated,
             "field_truncations": field_truncations,
+            "file_format": file_format,
         }
     }
     result = success_result(
@@ -111,6 +118,7 @@ def _schema_validation_report(
     field_truncations: int,
     source_sha256: str,
     package: OpcPackage,
+    file_format: str,
 ) -> dict[str, Any]:
     gates = [
         gate_record(
@@ -131,6 +139,7 @@ def _schema_validation_report(
                 "error_count": len(errors),
                 "truncated": truncated,
                 "field_truncations": field_truncations,
+                "file_format": file_format,
             },
         ),
         gate_record(

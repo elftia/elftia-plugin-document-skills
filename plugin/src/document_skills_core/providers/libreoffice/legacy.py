@@ -5,6 +5,7 @@ Module provenance: original Elftia-authored clean-room implementation.
 
 from pathlib import Path
 
+from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.io.temp_roots import OperationTempRoot
 from .runner import LibreOfficeRunner
 
@@ -26,9 +27,16 @@ def read_or_convert_legacy(
     If ``target_format`` is ``"pdf"``, converts to PDF instead.
     Returns the converted file bytes.
     """
-    suffix = Path(input_document).suffix.lower()
+    suffix = Path(input_document).suffix.casefold()
+    if suffix not in _LEGACY_TARGETS:
+        raise DocumentSkillsError(
+            ErrorCode.REQUEST_INVALID,
+            "LibreOffice legacy conversion accepts only DOC, XLS, or PPT input.",
+            status="invalid_request",
+            details={"suffix": suffix},
+        )
     if target_format is None:
-        target_format = _LEGACY_TARGETS.get(suffix, "pdf")
+        target_format = _LEGACY_TARGETS[suffix]
     with OperationTempRoot() as private_root:
         staged_input = private_root / ("input" + suffix)
         staged_input.write_bytes(Path(input_document).read_bytes())

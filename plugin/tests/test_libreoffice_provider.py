@@ -6,20 +6,21 @@ to exercise the wiring, honesty, and containment.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-import json
+import os
 from pathlib import Path
+import stat
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pytest
 
 from document_skills_core.core.capabilities import (
-    Capability,
     DetectionEvidence,
-    Provider,
     ProviderCatalog,
     ProviderId,
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.process import ProcessPolicy, ProcessResult, ProcessRunner
+from document_skills_core.core.process import ProcessResult
 from document_skills_core.formats.xlsx.constants import FORMULA_STATE_RECALCULATED
 from document_skills_core.formats.xlsx.service import XlsxService
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
@@ -27,6 +28,7 @@ from document_skills_core.providers.libreoffice.constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
     HEADLESS_PREFIX,
+    USER_INSTALLATION_PREFIX,
     platform_known_paths,
 )
 from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
@@ -163,6 +165,7 @@ class TestConstants:
         assert "--headless" in HEADLESS_PREFIX
         assert "--norestore" in HEADLESS_PREFIX
         assert "--nofirststartwizard" in HEADLESS_PREFIX
+        assert "--nolockcheck" not in HEADLESS_PREFIX
 
     def test_accepted_subcommands_excludes_cmd(self):
         assert "--cmd" not in ACCEPTED_SUBCOMMANDS
@@ -272,36 +275,141 @@ class TestRunnerContainment:
         """Macro-execution arguments are rejected before spawning."""
         with pytest.raises(DocumentSkillsError) as exc:
             _validate_argv(
-                [*HEADLESS_PREFIX, "--cmd", "macro:///Standard.Module1.Recalc"]
+                [
+                    *HEADLESS_PREFIX,
+                    f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                    "--cmd",
+                    "macro:///Standard.Module1.Recalc",
+                ]
             )
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
 
     def test_bas_token_rejected(self):
         with pytest.raises(DocumentSkillsError) as exc:
-            _validate_argv([*HEADLESS_PREFIX, "--convert-to", "file.bas"])
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                "file.bas",
+            ])
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
 
     def test_xba_token_rejected(self):
         with pytest.raises(DocumentSkillsError) as exc:
-            _validate_argv([*HEADLESS_PREFIX, "--convert-to", "file.xba"])
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                "file.xba",
+            ])
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
 
     def test_dde_token_rejected(self):
         with pytest.raises(DocumentSkillsError) as exc:
-            _validate_argv([*HEADLESS_PREFIX, "--convert-to", "DDE:link"])
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                "DDE:link",
+            ])
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
 
     def test_no_accepted_subcommand_rejected(self):
         with pytest.raises(DocumentSkillsError) as exc:
-            _validate_argv([*HEADLESS_PREFIX, "--unknown-flag", "file.xlsx"])
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--unknown-flag",
+                "file.xlsx",
+            ])
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
 
-    def test_valid_convert_to_argv_accepted(self):
+    def test_valid_convert_to_argv_accepted(self, tmp_path):
+        profile_root = tmp_path / "profile with spaces #1"
         argv = _build_argv(
+            profile_root,
             "--convert-to", "xlsx", "--outdir", "/tmp", "input.xlsx"
         )
         assert "--headless" in argv
         assert "--convert-to" in argv
+        profile_arg = argv[len(HEADLESS_PREFIX)]
+        assert profile_arg == (
+            f"{USER_INSTALLATION_PREFIX}{profile_root.resolve().as_uri()}"
+        )
+        assert "%20" in profile_arg
+        assert "%23" in profile_arg
+
+    def test_profile_must_precede_accepted_subcommand(self):
+        profile_arg = f"{USER_INSTALLATION_PREFIX}file:///private/profile"
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                "--convert-to",
+                profile_arg,
+                "xlsx",
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_duplicate_profile_arguments_are_rejected(self):
+        profile_arg = f"{USER_INSTALLATION_PREFIX}file:///private/profile"
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                profile_arg,
+                profile_arg,
+                "--convert-to",
+                "xlsx",
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_runner_uses_unique_private_live_profile_per_call(
+        self, project_root, tmp_path
+    ):
+        profile_paths: list[Path] = []
+        profile_args: list[str] = []
+
+        class FakeProcessRunner:
+            def run(self, provider_id, executable, args, **kwargs):
+                profile_arg = args[len(HEADLESS_PREFIX)]
+                assert profile_arg.startswith(USER_INSTALLATION_PREFIX)
+                profile_uri = profile_arg[len(USER_INSTALLATION_PREFIX):]
+                parsed = urlsplit(profile_uri)
+                assert parsed.scheme == "file"
+                assert parsed.netloc == ""
+                profile_path = Path(url2pathname(parsed.path)).resolve()
+                assert profile_path.is_dir()
+                assert profile_path.parent.is_dir()
+                if os.name != "nt":
+                    assert stat.S_IMODE(profile_path.stat().st_mode) == 0o700
+                    assert stat.S_IMODE(profile_path.parent.stat().st_mode) == 0o700
+                assert args[len(HEADLESS_PREFIX) + 1] == "--convert-to"
+                profile_paths.append(profile_path)
+                profile_args.append(profile_arg)
+
+                target_format = args[args.index("--convert-to") + 1]
+                output_dir = Path(args[args.index("--outdir") + 1])
+                input_path = Path(args[-1])
+                (output_dir / f"{input_path.stem}.{target_format}").write_bytes(
+                    b"converted"
+                )
+                return ProcessResult(0, "", "", 10)
+
+        input_file = tmp_path / "input.docx"
+        input_file.write_bytes(b"fake")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        runner = LibreOfficeRunner(
+            project_root,
+            executable="/fake/soffice",
+            runner=FakeProcessRunner(),
+        )
+
+        runner.convert(input_file, "pdf", output_dir)
+        runner.convert(input_file, "pdf", output_dir)
+
+        assert profile_args[0] != profile_args[1]
+        assert profile_paths[0] != profile_paths[1]
+        assert all(not profile.exists() for profile in profile_paths)
 
     def test_runner_convert_uses_project_root_cwd(self, project_root, monkeypatch):
         """The runner passes cwd=project_root to the ProcessRunner."""
@@ -483,6 +591,31 @@ class TestConsultationMatrix:
             runner=FakeCallableRunner(),
         )
         assert provider.try_render_to_image(input_file) is None
+
+    @pytest.mark.parametrize(
+        "operation",
+        ["libreoffice.render-image", "libreoffice.read-legacy"],
+    )
+    def test_xlsx_cannot_bypass_spreadsheet_preflight_through_other_operations(
+        self,
+        project_root,
+        tmp_path,
+        operation,
+    ):
+        input_file = tmp_path / "active.xlsx"
+        input_file.write_bytes(b"unscreened xlsx")
+        runner = FakeCallableRunner()
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        result = provider.execute(operation, {"input": str(input_file)})
+
+        assert result["status"] == "invalid_request"
+        assert result["errors"][0]["code"] == "DS_REQUEST_INVALID"
+        assert runner.calls == []
 
     def test_legacy_present_returns_bytes(self, project_root, tmp_path):
         input_file = tmp_path / "input.doc"

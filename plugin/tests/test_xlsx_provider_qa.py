@@ -3,7 +3,9 @@
 import hashlib
 import json
 from pathlib import Path
+from xml.etree.ElementTree import SubElement, fromstring, tostring
 import zlib
+import zipfile
 
 import pytest
 
@@ -12,13 +14,26 @@ from document_skills_core.core.capabilities import (
     ProviderCatalog,
 )
 from document_skills_core.core.capabilities.reports import build_capabilities
-from document_skills_core.core.contracts.errors import DocumentSkillsError
+from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.process import ProcessResult
 from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.byte_preflight import decode_stream
 from document_skills_core.formats.pdf.validation import reopen_pdf
 from document_skills_core.formats.xlsx.create import create_xlsx
+from document_skills_core.formats.xlsx.constants import (
+    CONTENT_TYPES,
+    MAX_PARTS,
+    NS,
+    PACKAGE_RELS,
+    REL_TABLE,
+    WORKBOOK_MAIN,
+    WORKBOOK_RELS,
+)
+from document_skills_core.formats.xlsx.formula_security import (
+    assert_provider_formula_safe,
+)
+from document_skills_core.formats.xlsx.render_operation import execute_render
 from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
 from document_skills_core.public_cli.protocol import PublicCommand
@@ -144,7 +159,12 @@ def test_dotnet_xlsx_schema_success_is_public_and_source_preserving(
     qa_xlsx: Path,
 ) -> None:
     source_hash = hashlib.sha256(qa_xlsx.read_bytes()).hexdigest()
-    runner = _DotnetRunner({"valid": True, "errors": [], "truncated": False})
+    runner = _DotnetRunner({
+        "valid": True,
+        "errors": [],
+        "truncated": False,
+        "file_format": "Microsoft365",
+    })
     definition, _provider = build_dotnet_provider(
         project_root,
         detector=_CallableDetector("/fake/dotnet"),
@@ -166,8 +186,10 @@ def test_dotnet_xlsx_schema_success_is_public_and_source_preserving(
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
     assert gates["schema.full"]["outcome"] == "pass"
     assert gates["schema.full"]["validator"] == "dotnet-openxml"
+    assert gates["schema.full"]["evidence"]["file_format"] == "Microsoft365"
     assert runner.calls[0]["subcommand"] == "--xlsx-schema-validate"
     assert runner.calls[0]["payload"]["max_errors"] == 25
+    assert Path(runner.calls[0]["payload"]["input_path"]) != qa_xlsx
     assert hashlib.sha256(qa_xlsx.read_bytes()).hexdigest() == source_hash
 
 
@@ -184,6 +206,7 @@ def test_dotnet_xlsx_schema_invalid_retains_bounded_error_report(
             "error_type": "Schema",
         }],
         "truncated": False,
+        "file_format": "Microsoft365",
     })
     definition, _provider = build_dotnet_provider(
         project_root,
@@ -338,3 +361,726 @@ def test_public_worker_grants_provider_operations_bounded_time(
 def test_libreoffice_pdf_filter_name_reopens_through_bounded_flate_decoder() -> None:
     content = b"BT /F1 12 Tf (LibreOffice) Tj ET"
     assert decode_stream(zlib.compress(content), ["/FlateDecode"]) == content
+
+
+def test_active_formula_is_rejected_before_libreoffice_render(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "active.xlsx"
+    create_xlsx(
+        source,
+        {
+            "metadata": {},
+            "sheets": [{
+                "name": "Data",
+                "rows": [{"cells": [{
+                    "ref": "A1",
+                    "formula": 'WEBSERVICE("http://127.0.0.1:9/secret")',
+                    "type": "n",
+                }]}],
+                "number_formats": [],
+            }],
+            "defined_names": [],
+            "tables": [],
+        },
+    )
+    with pytest.raises(DocumentSkillsError) as caught:
+        assert_provider_formula_safe(source)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details["tokens"] == ["WEBSERVICE"]
+
+
+def test_render_provider_receives_the_screened_private_snapshot(
+    project_root: Path,
+    qa_xlsx: Path,
+    qa_pdf: Path,
+    tmp_path: Path,
+) -> None:
+    original_bytes = qa_xlsx.read_bytes()
+    received: list[Path] = []
+
+    def mutate_original_after_preflight(provider_source: Path) -> bytes:
+        received.append(provider_source)
+        qa_xlsx.write_bytes(b"unscreened replacement")
+        assert provider_source != qa_xlsx
+        assert provider_source.read_bytes() == original_bytes
+        return qa_pdf.read_bytes()
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(qa_xlsx),
+                "output": str(tmp_path / "not-promoted.pdf"),
+                "arguments": {},
+            },
+            project_root=project_root,
+            converter=mutate_original_after_preflight,
+        )
+    assert received
+    source_preservation = caught.value.details["source_preservation"]
+    assert source_preservation["status"] == "fail"
+    assert source_preservation["error"]["code"] == "DS_VALIDATION_FAILED"
+
+
+def test_render_sampling_streams_only_selected_sheets_and_bounded_cells(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from document_skills_core.formats.xlsx import render_sampling
+
+    source = tmp_path / "dense-many-sheet.xlsx"
+    create_xlsx(
+        source,
+        {
+            "metadata": {},
+            "sheets": [
+                {
+                    "name": f"Sheet{sheet_index + 1}",
+                    "rows": [
+                        {
+                            "cells": [
+                                {
+                                    "ref": f"{chr(ord('A') + column_index)}{row_index}",
+                                    "value": f"dense-{sheet_index}-{row_index}-{column_index}",
+                                    "type": "s",
+                                }
+                                for column_index in range(10)
+                            ]
+                        }
+                        for row_index in range(1, 21)
+                    ],
+                    "number_formats": [],
+                }
+                for sheet_index in range(12)
+            ],
+            "defined_names": [],
+            "tables": [],
+            "charts": [],
+        },
+    )
+
+    parsed_worksheets: list[str] = []
+    unselected_read_sizes: list[int] = []
+    sampled_cells = 0
+    original_read = zipfile.ZipFile.read
+    original_stream_read = zipfile.ZipExtFile.read
+    original_iterparse = render_sampling.iterparse
+    original_sample_cell = render_sampling._sample_cell
+
+    def reject_materialized_xml(archive, member, *args, **kwargs):
+        name = member.filename if isinstance(member, zipfile.ZipInfo) else member
+        if name.startswith("xl/") and name.endswith(".xml"):
+            raise AssertionError(f"SpreadsheetML XML was materialized: {name}")
+        return original_read(archive, member, *args, **kwargs)
+
+    def track_iterparse(source_stream, *args, **kwargs):
+        name = str(getattr(source_stream, "name", ""))
+        if name.startswith("xl/worksheets/") and name.endswith(".xml"):
+            parsed_worksheets.append(name)
+        return original_iterparse(source_stream, *args, **kwargs)
+
+    def track_stream_read(source_stream, size=-1):
+        name = str(getattr(source_stream, "name", ""))
+        if (
+            name.startswith("xl/worksheets/")
+            and name.endswith(".xml")
+            and name != "xl/worksheets/sheet1.xml"
+        ):
+            unselected_read_sizes.append(size)
+        return original_stream_read(source_stream, size)
+
+    def count_sampled_cell(element, row_style_index: int):
+        nonlocal sampled_cells
+        sampled_cells += 1
+        return original_sample_cell(element, row_style_index)
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", reject_materialized_xml)
+    monkeypatch.setattr(zipfile.ZipExtFile, "read", track_stream_read)
+    monkeypatch.setattr(render_sampling, "iterparse", track_iterparse)
+    monkeypatch.setattr(render_sampling, "_sample_cell", count_sampled_cell)
+
+    evidence, _warnings = render_sampling.sample_render_source(
+        source,
+        {"max_sheets": 1, "max_cells_per_sheet": 7, "max_findings": 10},
+    )
+
+    assert parsed_worksheets == ["xl/worksheets/sheet1.xml"]
+    assert unselected_read_sizes
+    assert all(0 < size <= 64 * 1024 for size in unselected_read_sizes)
+    assert sampled_cells == 7
+    assert evidence["sheet_count"] == 12
+    assert evidence["sampled_sheet_count"] == 1
+    assert evidence["truncated_sheet_count"] == 11
+    sample = evidence["samples"][0]
+    assert sample["sampled_cells"] == 7
+    assert sample["total_cells"] == 8
+    assert sample["total_cells_is_lower_bound"] is True
+    assert sample["cell_sampling_truncated"] is True
+
+    index = render_sampling.RenderPackageIndex.open(source)
+    assert not hasattr(index, "parts")
+    assert not hasattr(index, "relationships")
+    assert all(not isinstance(value, bytes) for value in vars(index).values())
+
+
+def test_formula_preflight_streams_workbook_xml_without_opc_parts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from document_skills_core.formats.xlsx import formula_security, package
+
+    source = tmp_path / "active-streamed.xlsx"
+    create_xlsx(
+        source,
+        {
+            "metadata": {},
+            "sheets": [{
+                "name": "Data",
+                "rows": [{"cells": [{
+                    "ref": "A1",
+                    "formula": 'WEBSERVICE("http://127.0.0.1:9/secret")',
+                    "type": "n",
+                }]}],
+                "number_formats": [],
+            }],
+            "defined_names": [],
+            "tables": [],
+        },
+    )
+    parsed_worksheets: list[str] = []
+    original_read = zipfile.ZipFile.read
+    original_iterparse = formula_security.iterparse
+
+    def reject_materialized_xml(archive, member, *args, **kwargs):
+        name = member.filename if isinstance(member, zipfile.ZipInfo) else member
+        if name.startswith("xl/") and name.endswith(".xml"):
+            raise AssertionError(f"SpreadsheetML XML was materialized: {name}")
+        return original_read(archive, member, *args, **kwargs)
+
+    def track_iterparse(source_stream, *args, **kwargs):
+        name = str(getattr(source_stream, "name", ""))
+        if name.startswith("xl/worksheets/") and name.endswith(".xml"):
+            parsed_worksheets.append(name)
+        return original_iterparse(source_stream, *args, **kwargs)
+
+    def reject_opc_open(*_args, **_kwargs):
+        raise AssertionError("formula preflight used OpcPackage.open")
+
+    monkeypatch.setattr(zipfile.ZipFile, "read", reject_materialized_xml)
+    monkeypatch.setattr(formula_security, "iterparse", track_iterparse)
+    monkeypatch.setattr(package.OpcPackage, "open", reject_opc_open)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        assert_provider_formula_safe(source)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details["tokens"] == ["WEBSERVICE"]
+    assert parsed_worksheets == ["xl/worksheets/sheet1.xml"]
+
+
+def test_render_rejects_disguised_xlm_root_before_converter(
+    project_root: Path,
+    qa_xlsx: Path,
+    tmp_path: Path,
+) -> None:
+    _add_neutral_xml_part(
+        qa_xlsx,
+        part="xl/custom/provider.xml",
+        payload=(
+            f'<macroSheet xmlns="{NS["main"]}"><sheetData /></macroSheet>'
+        ).encode(),
+        relationship_part=WORKBOOK_RELS,
+        relationship_target="custom/provider.xml",
+    )
+    converter_calls: list[Path] = []
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(qa_xlsx),
+                "output": str(tmp_path / "not-rendered.pdf"),
+                "arguments": {},
+            },
+            project_root=project_root,
+            converter=lambda path: converter_calls.append(path) or b"not used",
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    inventory = caught.value.details["security_inventory"]
+    assert inventory["counts"]["xlm"] == 1
+    assert converter_calls == []
+
+
+def test_render_rejects_malformed_non_xl_xml_before_converter(
+    project_root: Path,
+    qa_xlsx: Path,
+    tmp_path: Path,
+) -> None:
+    _add_neutral_xml_part(
+        qa_xlsx,
+        part="customXml/item1.xml",
+        payload=b"<neutral>",
+        relationship_part=PACKAGE_RELS,
+        relationship_target="customXml/item1.xml",
+    )
+    converter_calls: list[Path] = []
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(qa_xlsx),
+                "output": str(tmp_path / "not-rendered.pdf"),
+                "arguments": {},
+            },
+            project_root=project_root,
+            converter=lambda path: converter_calls.append(path) or b"not used",
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert converter_calls == []
+
+
+def test_render_relationship_count_is_bounded_and_not_retained(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    relationships = fromstring(members[WORKBOOK_RELS][1])
+    existing = len(relationships)
+    relationship_limit = MAX_PARTS * 2
+    for index in range(relationship_limit + 1 - existing):
+        SubElement(
+            relationships,
+            f"{{{NS['rels']}}}Relationship",
+            {
+                "Id": f"rOverflow{index}",
+                "Type": (
+                    "http://schemas.openxmlformats.org/officeDocument/2006/"
+                    "relationships/customXml"
+                ),
+                "Target": f"https://example.invalid/{index}",
+                "TargetMode": "External",
+            },
+        )
+    _replace_member(members, WORKBOOK_RELS, tostring(relationships))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details["relationship_limit"] == relationship_limit
+    assert "security_inventory" not in caught.value.details
+
+
+def test_render_content_type_count_is_bounded(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    for index in range(MAX_PARTS + 1 - len(content_types)):
+        SubElement(
+            content_types,
+            "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+            {
+                "Extension": f"safe{index}",
+                "ContentType": f"application/x-safe-{index}",
+            },
+        )
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details["content_type_count"] == MAX_PARTS + 1
+    assert caught.value.details["content_type_limit"] == MAX_PARTS
+
+
+def test_render_content_type_ceiling_precedes_dangerous_inventory(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    for index in range(MAX_PARTS + 1 - len(content_types)):
+        SubElement(
+            content_types,
+            "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+            {
+                "Extension": f"macro{index}",
+                "ContentType": (
+                    "application/vnd.ms-excel.sheet.macroEnabled."
+                    f"overflow-{index}"
+                ),
+            },
+        )
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        render_package.RenderPackageIndex.open(qa_xlsx)
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert caught.value.details == {
+        "content_type_count": MAX_PARTS + 1,
+        "content_type_limit": MAX_PARTS,
+    }
+
+
+def test_render_ignores_nested_content_type_declarations_in_inventory(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    with zipfile.ZipFile(qa_xlsx) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    wrapper = SubElement(
+        content_types,
+        "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+        {
+            "Extension": "nestedwrapper",
+            "ContentType": "application/x-safe-wrapper",
+        },
+    )
+    for index in range(MAX_PARTS + 1):
+        SubElement(
+            wrapper,
+            "{http://schemas.openxmlformats.org/package/2006/content-types}Default",
+            {
+                "Extension": f"nestedmacro{index}",
+                "ContentType": (
+                    "application/vnd.ms-excel.sheet.macroEnabled."
+                    f"nested-{index}"
+                ),
+            },
+        )
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    with zipfile.ZipFile(
+        qa_xlsx,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+    index = render_package.RenderPackageIndex.open(qa_xlsx)
+
+    assert index.content_types["*.nestedwrapper"] == "application/x-safe-wrapper"
+    assert index.security["counts"]["vba"] == 0
+
+
+def test_render_ignores_relationship_elements_outside_rels_parts(
+    qa_xlsx: Path,
+) -> None:
+    from document_skills_core.formats.xlsx import render_package
+
+    root = fromstring(b"<container />")
+    for index in range(MAX_PARTS * 2 + 1):
+        SubElement(
+            root,
+            f"{{{NS['rels']}}}Relationship",
+            {
+                "Id": f"rFake{index}",
+                "Type": (
+                    "http://schemas.openxmlformats.org/officeDocument/2006/"
+                    "relationships/customXml"
+                ),
+                "Target": f"https://example.invalid/{index}",
+                "TargetMode": "External",
+            },
+        )
+    _add_neutral_xml_part(
+        qa_xlsx,
+        part="customXml/fake-relationships.xml",
+        payload=tostring(root),
+        relationship_part=PACKAGE_RELS,
+        relationship_target="customXml/fake-relationships.xml",
+    )
+
+    index = render_package.RenderPackageIndex.open(qa_xlsx)
+
+    assert index.security["counts"]["external_targets"] == 0
+    assert index.relationship_count < MAX_PARTS * 2
+
+
+@pytest.mark.parametrize(
+    "malformation",
+    [
+        "missing-sheet-rid",
+        "missing-relationship",
+        "wrong-relationship-type",
+        "missing-target",
+        "wrong-content-type",
+    ],
+)
+def test_render_rejects_malformed_sheet_relationship_before_converter(
+    project_root: Path,
+    qa_xlsx: Path,
+    tmp_path: Path,
+    malformation: str,
+) -> None:
+    _malform_sheet_binding(qa_xlsx, malformation)
+    converter_calls: list[Path] = []
+
+    def converter(path: Path) -> bytes:
+        converter_calls.append(path)
+        return b"converter must not run"
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(qa_xlsx),
+                "output": str(tmp_path / "not-rendered.pdf"),
+                "arguments": {"max_sheets": 1},
+            },
+            project_root=project_root,
+            converter=converter,
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert converter_calls == []
+
+
+def test_render_validates_unselected_sheet_binding_before_sampling_limit(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "two-sheets.xlsx"
+    create_xlsx(
+        source,
+        {
+            "metadata": {},
+            "sheets": [
+                {
+                    "name": name,
+                    "rows": [{"cells": [{"ref": "A1", "value": name, "type": "s"}]}],
+                    "number_formats": [],
+                }
+                for name in ("Selected", "NotSelected")
+            ],
+            "defined_names": [],
+            "tables": [],
+            "charts": [],
+        },
+    )
+    _malform_sheet_binding(source, "duplicate-target")
+    converter_calls: list[Path] = []
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(source),
+                "output": str(tmp_path / "not-rendered.pdf"),
+                "arguments": {"max_sheets": 1},
+            },
+            project_root=project_root,
+            converter=lambda path: converter_calls.append(path) or b"not used",
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert converter_calls == []
+
+
+@pytest.mark.parametrize(
+    "malformation",
+    [
+        "invalid-column-width",
+        "nonfinite-column-width",
+        "invalid-row-style",
+        "malformed-worksheet-xml",
+    ],
+)
+def test_render_wraps_streamed_worksheet_parse_errors_as_archive_unsafe(
+    project_root: Path,
+    qa_xlsx: Path,
+    tmp_path: Path,
+    malformation: str,
+) -> None:
+    _malform_worksheet_xml(qa_xlsx, malformation)
+    converter_calls: list[Path] = []
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        execute_render(
+            {
+                "operation": "xlsx.render",
+                "input": str(qa_xlsx),
+                "output": str(tmp_path / "not-rendered.pdf"),
+                "arguments": {},
+            },
+            project_root=project_root,
+            converter=lambda path: converter_calls.append(path) or b"not used",
+        )
+    assert caught.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert converter_calls == []
+
+
+def _malform_sheet_binding(path: Path, malformation: str) -> None:
+    with zipfile.ZipFile(path) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    workbook = fromstring(members[WORKBOOK_MAIN][1])
+    sheets = workbook.findall(f"{{{NS['main']}}}sheets/{{{NS['main']}}}sheet")
+    assert sheets
+    sheet = sheets[0]
+    relationship_id = sheet.attrib[f"{{{NS['r']}}}id"]
+    relationships = fromstring(members[WORKBOOK_RELS][1])
+    relationships_by_id = {
+        node.attrib.get("Id"): node for node in relationships
+    }
+    relationship = relationships_by_id[relationship_id]
+    content_types = fromstring(members[CONTENT_TYPES][1])
+
+    if malformation == "missing-sheet-rid":
+        del sheet.attrib[f"{{{NS['r']}}}id"]
+        _replace_member(members, WORKBOOK_MAIN, tostring(workbook))
+    elif malformation == "missing-relationship":
+        relationships.remove(relationship)
+        _replace_member(members, WORKBOOK_RELS, tostring(relationships))
+    elif malformation == "wrong-relationship-type":
+        relationship.attrib["Type"] = REL_TABLE
+        _replace_member(members, WORKBOOK_RELS, tostring(relationships))
+    elif malformation == "missing-target":
+        relationship.attrib["Target"] = "worksheets/missing.xml"
+        _replace_member(members, WORKBOOK_RELS, tostring(relationships))
+    elif malformation == "wrong-content-type":
+        override = next(
+            node
+            for node in content_types
+            if node.attrib.get("PartName") == "/xl/worksheets/sheet1.xml"
+        )
+        override.attrib["ContentType"] = "application/xml"
+        _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    elif malformation == "duplicate-target":
+        assert len(sheets) == 2
+        second_id = sheets[1].attrib[f"{{{NS['r']}}}id"]
+        relationships_by_id[second_id].attrib["Target"] = relationship.attrib["Target"]
+        _replace_member(members, WORKBOOK_RELS, tostring(relationships))
+    else:
+        raise AssertionError(f"unknown malformation: {malformation}")
+
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+
+def _malform_worksheet_xml(path: Path, malformation: str) -> None:
+    sheet_part = "xl/worksheets/sheet1.xml"
+    with zipfile.ZipFile(path) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    if malformation == "malformed-worksheet-xml":
+        _replace_member(members, sheet_part, b"<worksheet>")
+    else:
+        worksheet = fromstring(members[sheet_part][1])
+        if malformation in {"invalid-column-width", "nonfinite-column-width"}:
+            node = worksheet.find(f"{{{NS['main']}}}cols/{{{NS['main']}}}col")
+            assert node is not None
+            node.attrib["width"] = (
+                "not-a-float"
+                if malformation == "invalid-column-width"
+                else "NaN"
+            )
+        elif malformation == "invalid-row-style":
+            node = worksheet.find(
+                f"{{{NS['main']}}}sheetData/{{{NS['main']}}}row"
+            )
+            assert node is not None
+            node.attrib["s"] = "not-an-integer"
+        else:
+            raise AssertionError(f"unknown malformation: {malformation}")
+        _replace_member(members, sheet_part, tostring(worksheet))
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for info, payload in members.values():
+            archive.writestr(info, payload)
+
+
+def _add_neutral_xml_part(
+    path: Path,
+    *,
+    part: str,
+    payload: bytes,
+    relationship_part: str,
+    relationship_target: str,
+) -> None:
+    with zipfile.ZipFile(path) as archive:
+        members = {
+            info.filename: (info, archive.read(info))
+            for info in archive.infolist()
+        }
+    content_types = fromstring(members[CONTENT_TYPES][1])
+    SubElement(
+        content_types,
+        "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
+        {"PartName": f"/{part}", "ContentType": "application/xml"},
+    )
+    _replace_member(members, CONTENT_TYPES, tostring(content_types))
+    relationships = fromstring(members[relationship_part][1])
+    SubElement(
+        relationships,
+        f"{{{NS['rels']}}}Relationship",
+        {
+            "Id": "rNeutralPayload",
+            "Type": (
+                "http://schemas.openxmlformats.org/officeDocument/2006/"
+                "relationships/customXml"
+            ),
+            "Target": relationship_target,
+        },
+    )
+    _replace_member(members, relationship_part, tostring(relationships))
+    info = zipfile.ZipInfo(part)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    members[part] = (info, payload)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for member_info, member_payload in members.values():
+            archive.writestr(member_info, member_payload)
+
+
+def _replace_member(
+    members: dict[str, tuple[zipfile.ZipInfo, bytes]],
+    name: str,
+    payload: bytes,
+) -> None:
+    info, _old_payload = members[name]
+    members[name] = (info, payload)
