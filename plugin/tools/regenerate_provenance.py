@@ -95,6 +95,12 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx_" in artifact.path
         or "docx-" in artifact.path
     )
+    is_xlsx = (
+        "/xlsx/" in artifact.path
+        or "document-xlsx" in artifact.path
+        or "xlsx_" in artifact.path
+        or "xlsx-" in artifact.path
+    )
     tests = html_profile[1] if html_profile else (
         ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
         if is_docx_consumer_gate
@@ -111,6 +117,15 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             "tests/test_supply_chain.py",
         ]
         if is_docx
+        else [
+            "tests/test_xlsx_contracts.py",
+            "tests/test_xlsx_operations.py",
+            "tests/test_xlsx_pivot.py",
+            "tests/test_xlsx_provider_qa.py",
+            "tests/test_xlsx_public.py",
+            "tests/test_supply_chain.py",
+        ]
+        if is_xlsx
         else
         [
             "tests/test_strategy2.py",
@@ -139,6 +154,8 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             if is_consumer_gate
             else "Rasen document-skills-core-docx"
             if is_docx
+            else "Rasen document-skills-core-xlsx"
+            if is_xlsx
             else "Rasen document-skills-foundation strategy-attempt-3"
         ),
         "implementation_source": "Original Elftia project code",
@@ -166,6 +183,11 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 "validation, Skill guidance, tests, or release evidence."
             )
             if is_docx
+            else (
+                "Original Core XLSX contract, package, projection, mutation, "
+                "provider validation/rendering, Skill guidance, tests, or release evidence."
+            )
+            if is_xlsx
             else (
                 "Strategy-attempt-3 semantic loader/reflection, command discovery, "
                 "portable release inventory, tests, or release evidence."

@@ -287,6 +287,28 @@ def test_consumer_gate_provenance_uses_current_direct_evidence(project_root):
     assert "tests/test_strategy3.py" in generator["artifact_tests"]
 
 
+def test_xlsx_provenance_uses_current_direct_evidence(project_root):
+    manifest, _digest = regenerate(project_root)
+    records = {record["module"]: record for record in manifest["modules"]}
+    expected_tests = [
+        "tests/test_xlsx_contracts.py",
+        "tests/test_xlsx_operations.py",
+        "tests/test_xlsx_pivot.py",
+        "tests/test_xlsx_provider_qa.py",
+        "tests/test_xlsx_public.py",
+        "tests/test_supply_chain.py",
+    ]
+    for path in (
+        "src/document_skills_core/formats/xlsx/render_operation.py",
+        "skills/document-xlsx/scripts/run.py",
+        "tests/test_xlsx_provider_qa.py",
+    ):
+        record = records[path]
+        assert record["requirement_source"] == "Rasen document-skills-core-xlsx"
+        assert "Core XLSX" in record["modifications"]
+        assert record["artifact_tests"] == expected_tests
+
+
 @pytest.mark.parametrize("relative", PORTABLE_HELPER_CASES)
 def test_portable_path_helper_rejects_all_aliases(relative):
     with pytest.raises(ValueError):

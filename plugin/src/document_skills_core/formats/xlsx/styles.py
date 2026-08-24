@@ -431,8 +431,6 @@ def resolve_style_index(styles: dict[str, Any], style_index: int) -> dict[str, A
 
 def _write_font(parent: Element, record: dict[str, Any]) -> None:
     font = SubElement(parent, f"{{{_MAIN_NS}}}font")
-    SubElement(font, f"{{{_MAIN_NS}}}sz", attrib={"val": str(record.get("size", 11))})
-    SubElement(font, f"{{{_MAIN_NS}}}name", attrib={"val": record.get("name", "Calibri")})
     if record.get("bold"):
         SubElement(font, f"{{{_MAIN_NS}}}b")
     if record.get("italic"):
@@ -441,8 +439,10 @@ def _write_font(parent: Element, record: dict[str, Any]) -> None:
     if underline:
         attributes = {} if underline == "single" else {"val": underline}
         SubElement(font, f"{{{_MAIN_NS}}}u", attrib=attributes)
+    SubElement(font, f"{{{_MAIN_NS}}}sz", attrib={"val": str(record.get("size", 11))})
     if record.get("color"):
         SubElement(font, f"{{{_MAIN_NS}}}color", attrib={"rgb": record["color"]})
+    SubElement(font, f"{{{_MAIN_NS}}}name", attrib={"val": record.get("name", "Calibri")})
 
 
 def _write_fill(parent: Element, record: dict[str, Any]) -> None:

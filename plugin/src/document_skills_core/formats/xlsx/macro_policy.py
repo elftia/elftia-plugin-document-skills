@@ -93,14 +93,14 @@ def validate_macro_preservation(
     before = inventory_macro_content(source)
     after = inventory_macro_content(output)
     mismatches: list[str] = []
-    for field in (
-        "vba_parts",
-        "vba_relationships",
-        "signature_parts",
-        "signature_relationships",
-    ):
-        if getattr(before, field) != getattr(after, field):
-            mismatches.append(field)
+    if before.vba_parts != after.vba_parts:
+        mismatches.append("vba_parts")
+    if before.vba_relationships != after.vba_relationships:
+        mismatches.append("vba_relationships")
+    if before.signature_parts != after.signature_parts:
+        mismatches.append("signature_parts")
+    if before.signature_relationships != after.signature_relationships:
+        mismatches.append("signature_relationships")
     if mismatches:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,

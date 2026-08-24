@@ -92,12 +92,11 @@ def append_pivot_parts(
     sheet_rels_part = _relationship_part(target_sheet_part)
     sheet_rels_exists = sheet_rels_part in package.parts
     sheet_rels = package.xml(sheet_rels_part) if sheet_rels_exists else _relationships_root()
-    sheet_rel_id = _append_relationship(
+    _append_relationship(
         sheet_rels,
         REL_PIVOT_TABLE,
         posixpath.relpath(pivot_table_part, posixpath.dirname(target_sheet_part)),
     )
-    _append_worksheet_pivot_reference(worksheet, sheet_rel_id)
 
     _append_override(content_types, pivot_table_part, _PIVOT_TABLE_CONTENT_TYPE)
     _append_override(content_types, cache_definition_part, _CACHE_DEFINITION_CONTENT_TYPE)
@@ -162,19 +161,6 @@ def _append_workbook_cache(root: Element, cache_id: int, relationship_id: str) -
         f"{{{NS['main']}}}pivotCache",
         {"cacheId": str(cache_id), f"{{{NS['r']}}}id": relationship_id},
     )
-
-
-def _append_worksheet_pivot_reference(root: Element, relationship_id: str) -> None:
-    container = root.find(f"{{{NS['main']}}}pivotTableParts")
-    if container is None:
-        container = Element(f"{{{NS['main']}}}pivotTableParts")
-        _insert_before(root, container, {"extLst"})
-    SubElement(
-        container,
-        f"{{{NS['main']}}}pivotTablePart",
-        {f"{{{NS['r']}}}id": relationship_id},
-    )
-    container.attrib["count"] = str(len(container))
 
 
 def _append_relationship(root: Element, relationship_type: str, target: str) -> str:

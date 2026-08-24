@@ -42,6 +42,8 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.template.instantiate",
         "xlsx.summary.aggregate",
         "xlsx.pivot.create",
+        "xlsx.validate.schema",
+        "xlsx.render",
     }
 )
 
@@ -105,7 +107,11 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
     options = request.get("options", {})
     fidelity = options.get("fidelity", "core") if type(options) is dict else "core"
     in_place = options.get("in_place", False) if type(options) is dict else False
-    if operation in {"xlsx.read", "xlsx.inspect.structure"}:
+    if operation in {
+        "xlsx.read",
+        "xlsx.inspect.structure",
+        "xlsx.validate.schema",
+    }:
         if input_path is None:
             _invalid("This XLSX operation requires an input path.", field="input")
         if output_path is not None:
@@ -129,6 +135,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.template.instantiate",
         "xlsx.summary.aggregate",
         "xlsx.pivot.create",
+        "xlsx.render",
     }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
@@ -148,6 +155,8 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.template.instantiate": _parse_template,
         "xlsx.summary.aggregate": parse_summary_arguments,
         "xlsx.pivot.create": parse_pivot_arguments,
+        "xlsx.validate.schema": _parse_schema_validation,
+        "xlsx.render": _parse_render,
     }[operation](arguments)
     _validate_operation_paths(
         operation,
@@ -173,12 +182,20 @@ def _validate_operation_paths(
         return
     input_format = input_path.suffix.casefold().lstrip(".") if input_path else None
     output_format = output_path.suffix.casefold().lstrip(".") if output_path else None
-    if operation in {"xlsx.read", "xlsx.inspect.structure"}:
+    if operation in {
+        "xlsx.read",
+        "xlsx.inspect.structure",
+        "xlsx.validate.schema",
+    }:
         if input_format not in READ_FORMATS:
             _invalid(
                 "XLSX read/inspection input must use .xlsx or .xlsm.",
                 field="input",
             )
+        return
+    if operation == "xlsx.render":
+        if input_format != "xlsx" or output_format != "pdf":
+            _invalid("XLSX rendering requires .xlsx input and .pdf output.")
         return
     if operation == "xlsx.create":
         if output_format != "xlsx":
@@ -708,6 +725,24 @@ def _parse_recalculate(value: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _parse_schema_validation(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, {"max_errors"})
+    return {"max_errors": _integer(value.get("max_errors", 100), 1, 1_000)}
+
+
+def _parse_render(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, {"max_sheets", "max_cells_per_sheet", "max_findings"})
+    return {
+        "max_sheets": _integer(value.get("max_sheets", 50), 1, 100),
+        "max_cells_per_sheet": _integer(
+            value.get("max_cells_per_sheet", 1_000),
+            1,
+            10_000,
+        ),
+        "max_findings": _integer(value.get("max_findings", 100), 1, 1_000),
+    }
+
+
 def _parse_template(value: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(value, {"edits", "expected_edits", "recalculation", "keep_vba"})
     if "edits" in value:
@@ -813,7 +848,7 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
             parsed_cells = []
             for cell_idx, cell in enumerate(cells):
                 if type(cell) is not dict:
-                    _invalid(f"Cell must be an object.", field=f"sheets.{idx}.rows.{row_idx}.cells.{cell_idx}")
+                    _invalid("Cell must be an object.", field=f"sheets.{idx}.rows.{row_idx}.cells.{cell_idx}")
                 _exact_keys(cell, {"ref", "value", "formula", "type", "style", "cached_value"})
                 ref = _text(cell.get("ref", ""), "cell.ref", allow_empty=False)
                 cell_type = cell.get("type", "n")

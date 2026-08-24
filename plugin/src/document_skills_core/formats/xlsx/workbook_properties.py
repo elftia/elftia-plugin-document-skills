@@ -69,7 +69,6 @@ def build_app_properties(
 def _app_root(sheets: list[dict[str, Any]], metadata: dict[str, Any]) -> Element:
     root = Element(f"{{{_APP_NS}}}Properties")
     SubElement(root, f"{{{_APP_NS}}}Application").text = "Elftia Document Skills"
-    SubElement(root, f"{{{_APP_NS}}}SheetCount").text = str(len(sheets))
     for field, tag in _APP_FIELDS.items():
         value = metadata.get(field)
         if value is not None:

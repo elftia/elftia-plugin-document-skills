@@ -137,15 +137,7 @@ def _worksheet_reference_matches(package: OpcPackage, parts: PivotPackageParts) 
         ),
         None,
     )
-    if relationship is None:
-        return False
-    worksheet = package.xml(parts.target_sheet_part)
-    return any(
-        item.attrib.get(f"{{{NS['r']}}}id") == relationship.relationship_id
-        for item in worksheet.findall(
-            f".//{{{NS['main']}}}pivotTableParts/{{{NS['main']}}}pivotTablePart"
-        )
-    )
+    return relationship is not None
 
 
 def _cache_records_reference_matches(package: OpcPackage, parts: PivotPackageParts) -> bool:

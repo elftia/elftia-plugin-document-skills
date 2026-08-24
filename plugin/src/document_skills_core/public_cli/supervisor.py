@@ -26,6 +26,10 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
+_PROVIDER_OPERATION_TIMEOUTS = {
+    "xlsx.render": 45.0,
+    "xlsx.validate.schema": 45.0,
+}
 _PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
 
 
@@ -192,6 +196,12 @@ class PublicCommandSupervisor:
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
+            if type(value) is dict and value.get("operation") in _PROVIDER_OPERATION_TIMEOUTS:
+                operation = value["operation"]
+                return max(
+                    self.timeout_seconds,
+                    _PROVIDER_OPERATION_TIMEOUTS[operation],
+                ), MAX_WORKER_BYTES
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES

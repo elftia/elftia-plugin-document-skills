@@ -19,11 +19,12 @@ from ...core.capabilities.catalog import (
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
+from ...formats.xlsx.schema_operation import execute_schema_validation
 from .comments import add_comment, read_comments
 from .detector import DotnetOpenXmlDetector
 from .revisions import accept_reject_revisions, read_revisions
 from .runner import DotnetOpenXmlRunner
-from .schema import validate_schema
+from .schema import validate_schema, validate_spreadsheet_schema
 from .template import apply_template_advanced
 
 
@@ -57,7 +58,17 @@ class DotnetOpenXmlProvider:
         try:
             return self._dispatch(operation, request)
         except DocumentSkillsError as error:
-            return make_error_result(operation, error, requested_fidelity="enhanced")
+            options = request.get("options", {})
+            requested_fidelity = (
+                options.get("fidelity", "core")
+                if type(options) is dict
+                else "unknown"
+            )
+            return make_error_result(
+                operation,
+                error,
+                requested_fidelity=requested_fidelity,
+            )
 
     def _dispatch(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         evidence = self.detector.detect()
@@ -82,6 +93,8 @@ class DotnetOpenXmlProvider:
             return self._do_template(Path(request["input"]), Path(request["output"]), request.get("variables", {}))
         if operation == "dotnet.docx.schema-validate":
             return self._do_schema(Path(request["input"]))
+        if operation == "xlsx.validate.schema":
+            return self._do_xlsx_schema(request)
         raise DocumentSkillsError(
             ErrorCode.OPERATION_UNKNOWN,
             f"Unknown dotnet-openxml operation: {operation}",
@@ -218,6 +231,17 @@ class DotnetOpenXmlProvider:
             diagnostics=result,
         )
 
+    def _do_xlsx_schema(self, request: dict[str, Any]) -> dict[str, Any]:
+        return execute_schema_validation(
+            request,
+            project_root=self.project_root,
+            validator=lambda path, max_errors: validate_spreadsheet_schema(
+                path,
+                self.runner,
+                max_errors=max_errors,
+            ),
+        )
+
 
 def _build_success(operation: str, *, diagnostics: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -257,6 +281,7 @@ def build_dotnet_provider(
             Capability("dotnet.docx.comments-add", "enhanced", validation_strength=1),
             Capability("dotnet.docx.template-apply", "enhanced", validation_strength=1),
             Capability("dotnet.docx.schema-validate", "enhanced", validation_strength=1),
+            Capability("xlsx.validate.schema", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,
         required=False,

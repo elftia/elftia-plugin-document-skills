@@ -162,6 +162,10 @@ def test_pivot_writes_complete_native_relationship_chain_and_reopens(
     )
 
     package = OpcPackage.open(output)
+    target_sheet = package.xml("xl/worksheets/sheet2.xml")
+    assert not target_sheet.findall(
+        ".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}pivotTableParts"
+    )
     projected = project_pivot_tables(package)
     assert projected == [{key: value for key, value in pivot.items() if key != "display_range" and key != "source"} | {
         "source": {"sheet": "Data", "range": "A1:D7"}

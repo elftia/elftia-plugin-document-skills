@@ -139,14 +139,14 @@ def _append_pivot_fields(root: Element, pivot: PivotBuild) -> None:
         axis = _axis_for_field(pivot, index)
         attributes = {"compact": "0", "showAll": "0"}
         if axis is not None:
-            axis_name, definition = axis
+            axis_name, sort_direction = axis
             attributes.update(
                 {
                     "axis": axis_name,
                     "defaultSubtotal": "0",
                     "sortType": (
                         "ascending"
-                        if getattr(definition, "sort", "asc") == "asc"
+                        if sort_direction == "asc"
                         else "descending"
                     ),
                 }
@@ -176,13 +176,13 @@ def _append_axis(root: Element, prefix: str, axis: PivotAxis) -> None:
     SubElement(grand, _tag("x"))
 
 
-def _axis_for_field(pivot: PivotBuild, index: int) -> tuple[str, PivotAxis] | None:
+def _axis_for_field(pivot: PivotBuild, index: int) -> tuple[str, str] | None:
     if pivot.row_axis.field_index == index:
-        return "axisRow", pivot.row_axis
+        return "axisRow", pivot.row_axis.sort
     if pivot.column_axis is not None and pivot.column_axis.field_index == index:
-        return "axisCol", pivot.column_axis
+        return "axisCol", pivot.column_axis.sort
     if pivot.page_filter is not None and pivot.page_filter.field_index == index:
-        return "axisPage", pivot.page_filter  # type: ignore[return-value]
+        return "axisPage", "asc"
     return None
 
 

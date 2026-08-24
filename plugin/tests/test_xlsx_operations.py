@@ -2,20 +2,18 @@
 
 import hashlib
 from pathlib import Path
+from xml.etree.ElementTree import fromstring
 import zipfile
 
 import pytest
 
-from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.core.contracts.schemas import SchemaCatalog
-from document_skills_core.formats.xlsx.constants import (
-    FORMULA_STATE_RECALCULATION_REQUIRED,
-    FORMULA_STATE_STALE,
-)
+from document_skills_core.formats.xlsx.constants import FORMULA_STATE_RECALCULATION_REQUIRED
 from document_skills_core.formats.xlsx.create import create_xlsx
 from document_skills_core.formats.xlsx.mapping import map_workbook
 from document_skills_core.formats.xlsx.package import OpcPackage
 from document_skills_core.formats.xlsx.service import XlsxService
+from document_skills_core.formats.xlsx.styles import StyleRegistry
 
 
 def _service(project_root: Path) -> XlsxService:
@@ -145,6 +143,47 @@ def _styled_workbook() -> dict:
     )
     sheet["number_formats"] = [{"id": 165, "code": "0.000"}]
     return workbook
+
+
+def test_generated_extended_properties_use_only_schema_members(tmp_path: Path) -> None:
+    output = tmp_path / "properties.xlsx"
+    workbook = _bounded_workbook()
+    workbook["metadata"].update({"company": "Elftia", "manager": "QA"})
+
+    create_xlsx(output, workbook)
+
+    with zipfile.ZipFile(output) as archive:
+        root = fromstring(archive.read("docProps/app.xml"))
+    names = [child.tag.rsplit("}", 1)[-1] for child in root]
+    assert names == ["Application", "Company", "Manager"]
+    assert "SheetCount" not in names
+
+
+def test_generated_font_children_follow_openxml_schema_order() -> None:
+    registry = StyleRegistry([])
+    registry.register({
+        "font": {
+            "bold": True,
+            "italic": True,
+            "underline": "single",
+            "size": 12,
+            "color": "FF112233",
+            "name": "Aptos",
+        }
+    })
+
+    root = fromstring(registry.build_xml())
+    fonts = root.find("{http://schemas.openxmlformats.org/spreadsheetml/2006/main}fonts")
+    assert fonts is not None
+    styled_font = list(fonts)[1]
+    assert [child.tag.rsplit("}", 1)[-1] for child in styled_font] == [
+        "b",
+        "i",
+        "u",
+        "sz",
+        "color",
+        "name",
+    ]
 
 
 @pytest.fixture

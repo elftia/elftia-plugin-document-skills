@@ -219,6 +219,38 @@
         "formula_caches_are_not_recalculated",
         "pivot_structural_edit_is_unavailable"
       ]
+    },
+    "xlsx.validate.schema": {
+      "available": [
+        "spreadsheetdocument_openxml_schema_validation",
+        "bounded_per_part_error_report",
+        "xlsx_and_inert_xlsm_read_only_validation",
+        "source_preservation"
+      ],
+      "limitations": [
+        "schema_validation_does_not_calculate_formulas_or_prove_visual_fidelity"
+      ],
+      "unavailable_without": [
+        "dotnet_openxml_provider"
+      ]
+    },
+    "xlsx.render": {
+      "available": [
+        "libreoffice_xlsx_to_pdf",
+        "pdf_reopen_validation",
+        "bounded_per_sheet_risk_sampling",
+        "hidden_data_wide_column_and_text_truncation_inventory",
+        "print_setup_table_and_chart_inventory",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "metadata_sampling_does_not_prove_per_object_visual_parity",
+        "render_output_is_pdf_only"
+      ],
+      "unavailable_without": [
+        "libreoffice_provider"
+      ]
     }
   }
 }

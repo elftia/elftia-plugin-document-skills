@@ -1,7 +1,6 @@
 """XLSX public command surface tests — frozen uv subprocess boundary."""
 
 import hashlib
-import io
 import json
 from pathlib import Path
 import subprocess
@@ -480,6 +479,38 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "target_sheet_must_be_new",
                     "formula_caches_are_not_recalculated",
                     "pivot_structural_edit_is_unavailable",
+                ],
+            },
+            "xlsx.validate.schema": {
+                "available": [
+                    "spreadsheetdocument_openxml_schema_validation",
+                    "bounded_per_part_error_report",
+                    "xlsx_and_inert_xlsm_read_only_validation",
+                    "source_preservation",
+                ],
+                "limitations": [
+                    "schema_validation_does_not_calculate_formulas_or_prove_visual_fidelity",
+                ],
+                "unavailable_without": [
+                    "dotnet_openxml_provider",
+                ],
+            },
+            "xlsx.render": {
+                "available": [
+                    "libreoffice_xlsx_to_pdf",
+                    "pdf_reopen_validation",
+                    "bounded_per_sheet_risk_sampling",
+                    "hidden_data_wide_column_and_text_truncation_inventory",
+                    "print_setup_table_and_chart_inventory",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "limitations": [
+                    "metadata_sampling_does_not_prove_per_object_visual_parity",
+                    "render_output_is_pdf_only",
+                ],
+                "unavailable_without": [
+                    "libreoffice_provider",
                 ],
             },
         },
@@ -1188,7 +1219,62 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.template.instantiate" in operations
     assert "xlsx.summary.aggregate" in operations
     assert "xlsx.pivot.create" in operations
-    assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
+    assert "xlsx.validate.schema" in operations
+    assert "xlsx.render" in operations
+    core_operations = set(operations) - {"xlsx.validate.schema", "xlsx.render"}
+    assert all(operations[name]["available"] for name in core_operations)
+    assert operations["xlsx.validate.schema"]["providers"] in (
+        [],
+        ["dotnet-openxml"],
+    )
+    assert operations["xlsx.render"]["providers"] in ([], ["libreoffice"])
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_name"),
+    [
+        ("xlsx.validate.schema", None),
+        ("xlsx.render", "provider-render.pdf"),
+    ],
+)
+def test_public_provider_operation_is_honestly_unavailable_when_not_callable(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+    operation: str,
+    output_name: str | None,
+) -> None:
+    capabilities = _public(project_root, "capabilities", "--json")
+    capability = next(
+        item for item in capabilities["operations"]
+        if item["operation"] == operation
+    )
+    if capability["available"]:
+        pytest.skip(f"{operation} is callable on this test machine")
+    payload = {
+        "schema_version": "1.0",
+        "operation": operation,
+        "input": str(public_created),
+        "arguments": {},
+    }
+    output = None if output_name is None else tmp_path / output_name
+    if output is not None:
+        payload["output"] = str(output)
+    request = _request(tmp_path, f"{operation}.json", payload)
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "unavailable"
+    assert result["provider_chain"] == []
+    assert result["errors"][0]["code"] == "DS_PROVIDER_UNAVAILABLE"
+    if output is not None:
+        assert not output.exists()
 
 
 def test_public_macro_read_and_edit_preserve_inert_vba(

@@ -1,17 +1,21 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, edit, summarize, pivot, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, summarize, pivot, instantiate, recalculate, convert, schema-validate, and render XLSX/tabular spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, grouped summaries, native pivots, and bounded tabular conversion requests. The Core capability supports nine operations:
+Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, grouped summaries, native pivots, bounded tabular conversion, schema validation, and PDF rendering requests. The public surface supports eleven operations:
 `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
 `xlsx.recalculate`, plus `xlsx.convert`, `xlsx.template.instantiate`, and
-`xlsx.summary.aggregate` and `xlsx.pivot.create`. The public contract and validation run through the frozen
+`xlsx.summary.aggregate`, `xlsx.pivot.create`, `xlsx.validate.schema`, and
+`xlsx.render`. The public contract and validation run through the frozen
 uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
 required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas or
-when `xlsx.convert` explicitly converts legacy `.xls` input to `.xlsx`.
+when `xlsx.convert` explicitly converts legacy `.xls` input to `.xlsx`; it is also the sole
+provider for `xlsx.render`. The .NET OpenXML provider is the sole provider for
+`xlsx.validate.schema`. Provider-only operations remain reported but unavailable when their
+provider is not callable.
 
 ## Formula-state policy
 
@@ -192,6 +196,32 @@ degraded because no calculation engine verified the stored value. `.xlsm` requir
 signature. See [`references/pivots.md`](references/pivots.md) for the complete request and
 current limits.
 
+### xlsx.validate.schema
+
+Runs the OpenXML SDK `OpenXmlValidator` against a read-only `SpreadsheetDocument`. It accepts
+`.xlsx` and inert `.xlsm`, no output path, and an optional bounded `max_errors` value from 1 to
+1000. The input first passes the Core package-security policy; `.xlsm` permits inert VBA only and
+never executes macro code. A valid workbook reports a required `schema.full: pass` gate whose
+validator is `dotnet-openxml`. An invalid workbook returns `failed`, retains the bounded per-part
+error report, and marks `schema.full: fail`. If .NET 8 plus the pinned OpenXML helper is not
+callable, the operation is `unavailable`; the Core does not substitute a package reopen for full
+schema validation.
+
+### xlsx.render
+
+Uses the isolated LibreOffice provider to convert a safe `.xlsx` input to a distinct `.pdf`
+output. The PDF is staged privately, reopened by the Core PDF parser, checked against the source
+hash, and atomically promoted. Only this completed provider path may report
+`visual.render: pass`, and that gate's claim is limited to “render produced and PDF reopened.”
+
+The operation also emits bounded per-sheet risk evidence controlled by `max_sheets`,
+`max_cells_per_sheet`, and `max_findings`. It inventories hidden sheets/rows/columns, unusually
+wide columns, potential unwrapped-text truncation, print setup, and declared table/chart counts.
+This metadata sampling does not prove Excel/LibreOffice parity or per-object visibility, and the
+result always says so. Current output is PDF only; PNG and per-sheet page attribution are not
+claimed. If LibreOffice is not callable, the operation is `unavailable` and no output is
+promoted. See [`references/provider-qa.md`](references/provider-qa.md).
+
 ### xlsx.recalculate
 
 Requires distinct `input` and `output` paths and accepts an empty `arguments` object. For a
@@ -239,7 +269,7 @@ package mutation. Any reverse or cross-extension pairing fails contract validati
 
 The normative operation/feature status is recorded in
 [`references/feature-truth-table.json`](references/feature-truth-table.json). Public regression
-tests execute every feature marked `available` through this Skill's `scripts/run.py` and reopen
+tests execute every feature marked `available` through this Skill's bundled public façade and reopen
 the promoted artifact with an independent consumer.
 
 ## Result status interpretation
@@ -256,5 +286,5 @@ the promoted artifact with an independent consumer.
 ## Distinct output rule
 
 Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, `xlsx.convert`,
-`xlsx.template.instantiate`, `xlsx.summary.aggregate`, and `xlsx.pivot.create`, output
+`xlsx.template.instantiate`, `xlsx.summary.aggregate`, `xlsx.pivot.create`, and `xlsx.render`, output
 resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.

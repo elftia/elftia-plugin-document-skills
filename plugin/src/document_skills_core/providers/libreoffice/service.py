@@ -19,6 +19,7 @@ from ...core.capabilities.catalog import (
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
+from ...formats.xlsx.render_operation import execute_render
 from .convert import convert_to_pdf
 from .detector import LibreOfficeDetector
 from .legacy import read_or_convert_legacy
@@ -58,7 +59,17 @@ class LibreOfficeProvider:
         try:
             return self._dispatch(operation, request)
         except DocumentSkillsError as error:
-            return make_error_result(operation, error, requested_fidelity="enhanced")
+            options = request.get("options", {})
+            requested_fidelity = (
+                options.get("fidelity", "core")
+                if type(options) is dict
+                else "unknown"
+            )
+            return make_error_result(
+                operation,
+                error,
+                requested_fidelity=requested_fidelity,
+            )
 
     def _dispatch(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         evidence = self.detector.detect()
@@ -77,6 +88,8 @@ class LibreOfficeProvider:
             return self._do_render(Path(request["input"]))
         if operation == "libreoffice.read-legacy":
             return self._do_legacy(Path(request["input"]), request.get("target_format"))
+        if operation == "xlsx.render":
+            return self._do_xlsx_render(request)
         raise DocumentSkillsError(
             ErrorCode.OPERATION_UNKNOWN,
             f"Unknown LibreOffice operation: {operation}",
@@ -199,6 +212,13 @@ class LibreOfficeProvider:
             diagnostics={"output_bytes": len(legacy_bytes)},
         )
 
+    def _do_xlsx_render(self, request: dict[str, Any]) -> dict[str, Any]:
+        return execute_render(
+            request,
+            project_root=self.project_root,
+            converter=lambda path: convert_to_pdf(path, self.runner),
+        )
+
 
 def _build_success(
     operation: str,
@@ -244,6 +264,7 @@ def build_libreoffice_provider(
             Capability("libreoffice.convert-pdf", "enhanced", validation_strength=1),
             Capability("libreoffice.render-image", "enhanced", validation_strength=1),
             Capability("libreoffice.read-legacy", "enhanced", validation_strength=1),
+            Capability("xlsx.render", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,
         required=False,

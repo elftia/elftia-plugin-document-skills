@@ -23,8 +23,73 @@ def test_xlsx_operations_set_is_complete():
             "xlsx.template.instantiate",
             "xlsx.summary.aggregate",
             "xlsx.pivot.create",
+            "xlsx.validate.schema",
+            "xlsx.render",
         }
     )
+
+
+def test_parse_schema_validation_is_read_only_and_bounded():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.validate.schema",
+        "input": "test.xlsm",
+        "arguments": {"max_errors": 250},
+    })
+    assert parsed.input_path == Path("test.xlsm").resolve()
+    assert parsed.output_path is None
+    assert parsed.arguments == {"max_errors": 250}
+
+    for arguments in ({"max_errors": 0}, {"max_errors": 1_001}, {"extra": True}):
+        with pytest.raises(DocumentSkillsError):
+            parse_xlsx_request({
+                "schema_version": "1.0",
+                "operation": "xlsx.validate.schema",
+                "input": "test.xlsx",
+                "arguments": arguments,
+            })
+
+
+def test_parse_render_requires_distinct_xlsx_to_pdf_and_bounded_sampling():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.render",
+        "input": "test.xlsx",
+        "output": "rendered.pdf",
+        "arguments": {
+            "max_sheets": 4,
+            "max_cells_per_sheet": 500,
+            "max_findings": 25,
+        },
+    })
+    assert parsed.arguments == {
+        "max_sheets": 4,
+        "max_cells_per_sheet": 500,
+        "max_findings": 25,
+    }
+
+    invalid_requests = [
+        {"input": "test.xlsm", "output": "rendered.pdf", "arguments": {}},
+        {"input": "test.xlsx", "output": "rendered.xlsx", "arguments": {}},
+        {
+            "input": "test.xlsx",
+            "output": "rendered.pdf",
+            "arguments": {"max_sheets": 101},
+        },
+        {
+            "input": "test.xlsx",
+            "output": "rendered.pdf",
+            "arguments": {},
+            "options": {"in_place": True},
+        },
+    ]
+    for fields in invalid_requests:
+        with pytest.raises(DocumentSkillsError):
+            parse_xlsx_request({
+                "schema_version": "1.0",
+                "operation": "xlsx.render",
+                **fields,
+            })
 
 
 def test_parse_read_rejects_unknown_argument():
