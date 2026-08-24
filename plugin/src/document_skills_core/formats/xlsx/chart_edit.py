@@ -261,8 +261,16 @@ def _assert_chart_references(context: Any, chart: dict[str, Any]) -> None:
     if chart["sheet"] not in context.sheet_parts:
         _invalid("Chart placement sheet was not found.", sheet=chart["sheet"])
     for series in chart["series"]:
-        for key in ("categories", "values", "x_values", "y_values"):
-            formula = series.get(key)
+        formulas = [
+            series.get(key)
+            for key in ("categories", "values", "x_values", "y_values", "bubble_sizes")
+        ]
+        formulas.extend(
+            error_bars.get(key)
+            for error_bars in series.get("error_bars", [])
+            for key in ("plus", "minus")
+        )
+        for formula in formulas:
             if formula is None:
                 continue
             sheet = formula.rsplit("!", 1)[0]

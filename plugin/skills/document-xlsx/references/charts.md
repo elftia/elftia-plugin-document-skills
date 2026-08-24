@@ -29,10 +29,29 @@ consumer before promotion.
 }
 ```
 
-Supported `type` values are `column`, `bar`, `line`, `pie`, and `scatter`. Scatter series use
-`x_values` and `y_values`; all other series use `categories` and `values`. Every range must be a
+Supported `type` values are `column`, `bar`, `line`, `pie`, `scatter`, `area`, `radar`, `bubble`,
+and `combo`. Scatter series use `x_values` and `y_values`; bubble series additionally require
+`bubble_sizes`; category charts use `categories` and `values`. Every range must be a
 one-dimensional, existing-sheet A1 range with equal point counts, and external-workbook ranges
-are rejected. Colors use six-digit RGB or eight-digit ARGB. Pie charts do not accept axis fields.
+are rejected. Colors use six-digit RGB or eight-digit ARGB. `style` is a built-in chart style id
+from 1 through 48; radar charts also accept `radar_style: "standard"|"marker"|"filled"`.
+
+Combo charts support column, line, and area series. Each series declares `chart_type`; optional
+`axis: "secondary"` binds that series to a real second axis pair. The chart-level
+`secondary_x_axis_*` and `secondary_y_axis_*` title/number-format fields are accepted only when
+a secondary series exists. At least one primary series and at least two distinct combo plot types
+are required.
+
+Non-pie/radar series may carry one `trendline` and bounded `error_bars`. Trendlines support
+linear, exponential, logarithmic, polynomial, power, and moving-average modes; polynomial order
+and moving-average period are explicit. Error bars support fixed, percentage, standard deviation,
+standard error, and custom plus/minus ranges. X-direction error bars are limited to scatter and
+bubble series. Custom error ranges must match the plotted point count.
+
+Chart readback reports the plot type(s), series-to-axis assignment, style, advanced series fields,
+and both axis pairs. Structural row/column edits rewrite category/value/x/y/bubble/custom-error
+references and drawing anchors; unsafe deletions fail closed. Series color and chart style are
+reopened after the mutation, not inferred from the request.
 
 `chart_add` carries a full `chart` object. `chart_update` uses `sheet` and the existing `name` as
 its selector and carries a full replacement `chart`; this is the safe series/range update path.

@@ -916,7 +916,14 @@ def _chart_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
             "y_axis_title",
             "x_axis_number_format",
             "y_axis_number_format",
+            "secondary_x_axis_title",
+            "secondary_y_axis_title",
+            "secondary_x_axis_number_format",
+            "secondary_y_axis_number_format",
             "data_labels",
+            "style",
+            "radar_style",
+            "bubble_scale",
         )
     ) and all(
         actual.get(field)

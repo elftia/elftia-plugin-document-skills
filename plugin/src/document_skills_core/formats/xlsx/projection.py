@@ -3,6 +3,7 @@
 from typing import Any
 
 from .chart import CHART_NS, DRAWING_MAIN_NS, DRAWING_NS
+from .chart_projection import project_charts
 from .constants import NS
 from .relationships import relationship_map
 from .styles import read_styles
@@ -206,7 +207,7 @@ def project_hyperlinks(
     return result
 
 
-def project_charts(package: Any) -> list[dict[str, Any]]:
+def _project_charts_legacy(package: Any) -> list[dict[str, Any]]:
     """Project native charts, anchors, series, axes, labels, and colors."""
 
     workbook = package.xml("xl/workbook.xml")

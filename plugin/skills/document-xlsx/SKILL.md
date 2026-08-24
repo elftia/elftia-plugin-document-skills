@@ -81,7 +81,8 @@ The current public contract supports multiple sheets, typed cell values, formula
 cached literals, workbook defined names, cell/row/column styles, custom number formats,
 row height/hiding, column width/hiding, native tables, data validations, and conditional
 formatting (`cellIs`, `expression`, color scales, data bars, and icon sets), native
-column/bar/line/pie/scatter charts, per-sheet view/page setup/header/footer/print ranges,
+column/bar/line/pie/scatter/area/radar/bubble charts, combo charts with secondary axes,
+trendlines/error bars, per-sheet view/page setup/header/footer/print ranges,
 inert internal hyperlinks, legacy cell notes, and workbook properties. Style and
 differential-style records are deduplicated, and existing cells resolve style precedence as
 column → row → cell override. Before an accepted provider runs, every created formula reports
@@ -107,8 +108,9 @@ Performs bounded cell value/formula edits, cell/row/column style and dimension e
 number-format addition, row/column insertion and deletion, sheet CRUD/reorder/copy, merge/
 unmerge, range clear, freeze panes, auto filters, print areas, manual page breaks, and defined-
 name CRUD, native table add/resize/rename/style/delete, and data-validation and conditional-
-format CRUD, plus native chart add/update/delete. Chart updates replace a named chart's complete
-typed definition, including its series ranges and anchor; unknown or ambiguous selectors fail
+format CRUD, plus basic and advanced native chart add/update/delete. Chart updates replace a named
+chart's complete typed definition, including its series ranges, plot/axis assignment, trendline,
+error bars, style, and anchor; unknown or ambiguous selectors fail
 before promotion. Existing style and differential-style tables are patched append-only: untargeted
 font/fill/border/xf records, themes, and indexed colors remain intact. Requires distinct input
 and output paths. Editing a precedent cell invalidates dependents to
