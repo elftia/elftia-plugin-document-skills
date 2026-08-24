@@ -97,6 +97,7 @@
     "src/document_skills_core/formats/pdf/transaction.py",
     "src/document_skills_core/formats/pdf/validation.py",
     "src/document_skills_core/formats/pptx/__init__.py",
+    "src/document_skills_core/formats/pptx/advanced_inventory.py",
     "src/document_skills_core/formats/pptx/chart.py",
     "src/document_skills_core/formats/pptx/chart_validation.py",
     "src/document_skills_core/formats/pptx/constants.py",

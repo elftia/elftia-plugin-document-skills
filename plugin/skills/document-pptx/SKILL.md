@@ -95,6 +95,13 @@ against the original inputs before mutation, and any failure prevents output
 publication. Hyperlinks are internal slide jumps only; actions are the closed
 first/last/next/previous set and never execute external content.
 
+## Advanced-object inventory
+
+Use `pptx.inspect.structure` for inert discovery of SmartArt/diagram parts,
+equations, audio/video, OLE, animations, transitions, and comment metadata.
+Read `references/advanced-inventory.md` before interpreting these records. They
+do not authorize playback, activation, execution, creation, or editing.
+
 ## Validation
 
 Every create/edit route, including HTML conversion, must pass the deep Core
