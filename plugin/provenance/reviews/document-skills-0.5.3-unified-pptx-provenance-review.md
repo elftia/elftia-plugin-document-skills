@@ -16,7 +16,7 @@ The approved mapping contains **411 release files**: **319** risky module record
 **89** exact-hash data classifications, **0** executable exclusions, and exactly
 **3** self-referential metadata exclusions. Its SHA-256 is:
 
-`e9388609e9d3f7825c96a390d2f7085b847c226e13ef9d238378f3a7599fe297`
+`e841e81fef207c64569af78d67f01c85c32c5a7d11d93b64fc68a74817920730`
 
 ## Reviewer
 
@@ -51,6 +51,10 @@ by the current mapping.
    manifest, notices, and repository history all say that no adopted source is present. The
    statement now truthfully says that this release has no adopted source and that future adoption
    requires notices plus module-level provenance.
+4. The full repository npm test exposed one stale Strategy2 parameterization that still expected
+   eight historical reports to be hashless metadata. It now asserts the current report is accepted
+   by both generator and validator semantics, while each historical path is rejected by both and
+   remains hash-pinned data. All nine exact affected cases passed before the final rebinding.
 
 ## Independent inventory and classification review
 

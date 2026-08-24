@@ -6889,7 +6889,7 @@
         "provenance/reviews/document-skills-0.5.3-unified-pptx-provenance-review.md"
       ],
       "reviewer": "OpenAI Codex independent provenance reviewer: unified-plugin-packaging/2026-08-24",
-      "sha256": "767c3ae92479e6e5541d09ade0e9b5e224669636e1981941e91473ffec0ffab8",
+      "sha256": "38c573311cc5e2cffff24f1ddbc13dfcddeca732e55b03cb17e6f221b72eb47c",
       "source_class": "original",
       "third_party_files": []
     },
@@ -7508,8 +7508,8 @@
       "identity_limitations": "This self-asserted reviewer cannot cryptographically prove the backing model, service principal, or human operator and does not establish remote-platform execution or replace final maintainer approval.",
       "report_evidence": "provenance/reviews/document-skills-0.5.3-unified-pptx-provenance-review.md",
       "report_name": "document-skills-0.5.3-unified-pptx-provenance-review.md",
-      "report_sha256": "c586da4ee8aaeab1d1208c50e56baf6ac0f72a95fc4c35b73a32e8671a8b2bab",
-      "reviewed_mapping_sha256": "e9388609e9d3f7825c96a390d2f7085b847c226e13ef9d238378f3a7599fe297",
+      "report_sha256": "df1306528a30a8e551b9560c77e524c4f8ecfb017aa6098f288085312881efd8",
+      "reviewed_mapping_sha256": "e841e81fef207c64569af78d67f01c85c32c5a7d11d93b64fc68a74817920730",
       "reviewer": "OpenAI Codex independent provenance reviewer: unified-plugin-packaging/2026-08-24",
       "role": "reviewer",
       "runtime": "codex",
