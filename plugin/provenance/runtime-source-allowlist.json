@@ -219,6 +219,7 @@
     "src/document_skills_core/providers/libreoffice/input_snapshot.py",
     "src/document_skills_core/providers/libreoffice/legacy.py",
     "src/document_skills_core/providers/libreoffice/output.py",
+    "src/document_skills_core/providers/libreoffice/quota.py",
     "src/document_skills_core/providers/libreoffice/recalc.py",
     "src/document_skills_core/providers/libreoffice/render.py",
     "src/document_skills_core/providers/libreoffice/runner.py",
