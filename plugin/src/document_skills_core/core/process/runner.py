@@ -24,7 +24,18 @@ from .streams import BoundedPipeCollector
 from .tree import ProcessTree
 
 _SECRET_PATTERN = re.compile(r"(?i)(token|secret|password|api[_-]?key)=\S+")
-_ENV_ALLOWLIST = ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL", "DOTNET_ROOT", "DOTNET_CLI_TELEMETRY_OPTOUT")
+_ENV_ALLOWLIST = (
+    "PATH",
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "LANG",
+    "LC_ALL",
+    "DOTNET_ROOT",
+    "DOTNET_CLI_TELEMETRY_OPTOUT",
+    "DOCUMENT_SKILLS_XLSX_CORE_ONLY",
+)
 _POST_KILL_WAIT_SECONDS = 1.0
 _STREAM_CLOSE_GRACE_SECONDS = 0.25
 

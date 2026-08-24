@@ -1,5 +1,6 @@
 """Foundation providers; optional descriptors register no unimplemented operations."""
 
+import os
 from pathlib import Path
 
 from document_skills_core import __version__
@@ -11,6 +12,7 @@ from document_skills_core.core.capabilities import (
     ProviderId,
 )
 from document_skills_core.core.capabilities.detectors import RuntimeDetectors
+from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.formats.docx.service import build_docx_service
 from document_skills_core.formats.pdf.service import build_pdf_service
 from document_skills_core.formats.pptx.service import build_pptx_service
@@ -18,6 +20,25 @@ from document_skills_core.formats.xlsx.service import build_xlsx_service
 from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
 from document_skills_core.providers.html_browser.provider import build_html_browser_provider
+
+_XLSX_CORE_ONLY_ENV = "DOCUMENT_SKILLS_XLSX_CORE_ONLY"
+
+
+def _xlsx_core_only_enabled() -> bool:
+    value = os.environ.get(_XLSX_CORE_ONLY_ENV)
+    if value is None or value == "0":
+        return False
+    if value == "1":
+        return True
+    raise DocumentSkillsError(
+        ErrorCode.REQUEST_INVALID,
+        f"{_XLSX_CORE_ONLY_ENV} must be unset, '0', or '1'.",
+        status="invalid_request",
+        details={
+            "setting": _XLSX_CORE_ONLY_ENV,
+            "allowed_values": ["0", "1"],
+        },
+    )
 
 
 def _build_composite_execute(docx_service, xlsx_service, pptx_service, pdf_service):
@@ -34,6 +55,7 @@ def _build_composite_execute(docx_service, xlsx_service, pptx_service, pdf_servi
 
 
 def build_default_registry(project_root: Path) -> ProviderCatalog:
+    xlsx_core_only = _xlsx_core_only_enabled()
     detectors = RuntimeDetectors(project_root)
     registry = ProviderCatalog()
     libreoffice_def, libreoffice_provider = build_libreoffice_provider(project_root)
@@ -45,7 +67,10 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
     docx_service = build_docx_service(
         project_root, libreoffice=libreoffice_provider, dotnet=dotnet_provider,
     )
-    xlsx_service = build_xlsx_service(project_root, libreoffice=libreoffice_provider)
+    xlsx_service = build_xlsx_service(
+        project_root,
+        libreoffice=None if xlsx_core_only else libreoffice_provider,
+    )
     pptx_service = build_pptx_service(project_root, libreoffice=libreoffice_provider)
     pdf_service = build_pdf_service(project_root, libreoffice=libreoffice_provider)
     composite_execute = _build_composite_execute(docx_service, xlsx_service, pptx_service, pdf_service)

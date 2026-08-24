@@ -77,6 +77,37 @@ and referenced header/footer stories. Scalar template substitution accepts only 
 ASCII/dot identifiers and uses the project-local Node backend privately through Python.
 `skills/document-docx/references/` contains the complete request/result and safety guidance.
 
+### XLSX
+
+The public Skill is `skills/document-xlsx/SKILL.md`; its entrypoint and detailed guidance live in
+`skills/document-xlsx/scripts/` and `skills/document-xlsx/references/`. The implementation is
+owned by `src/document_skills_core/formats/xlsx/`, with optional LibreOffice and .NET/OpenXML
+adapters isolated in `src/document_skills_core/providers/libreoffice/` and
+`src/document_skills_core/providers/dotnet/`.
+
+| Surface | Operations | Availability boundary |
+| --- | --- | --- |
+| Foundation Core | `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit` | Callable through `core-python`; create/edit may honestly degrade when optional recalculation is unavailable. |
+| Additional Core | `xlsx.recalculate`, `xlsx.convert`, `xlsx.template.instantiate`, `xlsx.summary.aggregate`, `xlsx.pivot.create` | Registered through `core-python`; formula recalculation and the legacy `.xls` conversion branch still require callable LibreOffice. |
+| Provider-only | `xlsx.validate.schema`, `xlsx.render` | Schema validation requires callable .NET/OpenXML; rendering requires callable LibreOffice. Missing providers report `unavailable` and do not promote output. |
+
+Formula cells expose only `recalculated`, `stale`, `never_calculated`, or
+`recalculation_required`. A stored cache is never treated as proof of correctness, and
+`recalculated` requires an accepted recalculation-provider result. Without that result,
+read/create/edit preserve the honest outstanding state and report degradation where applicable;
+explicit recalculation of a formula workbook is unavailable and promotes no output. A workbook
+with no formulas completes that operation as `not_applicable` without calling LibreOffice.
+
+Optional-provider source belongs to separately scoped enhancement Changes and is not established
+by this Core XLSX delivery. Source presence alone does not make LibreOffice callable: executable
+identity and a validated aggregate hard-quota backend must both pass. The shipped default quota
+backend is fail-closed and reports unavailable; size polling or free-disk checks never substitute
+for that capability. `xlsx.convert` otherwise remains Core for XLSX/CSV/TSV/canonical-JSON
+conversion. `xlsx.validate.schema` is callable only with .NET 8, the locked project helper, and
+its exact OpenXML dependency; a Core reopen is not reported as full schema validation. This
+documentation records producer behavior only and makes no claim that a host seeded the artifact,
+that either optional provider ran live, or that remote CI was observed.
+
 The PPTX surface adds browser-gated `pptx.create.from-html` to its existing read, inspect,
 typed-create, and edit operations. Python owns the public request, path policy, transaction,
 validation, and promotion. A private Node adapter uses exact `playwright-core@1.62.1` with a
