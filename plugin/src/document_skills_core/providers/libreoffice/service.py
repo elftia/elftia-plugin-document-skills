@@ -20,6 +20,7 @@ from ...core.capabilities.catalog import (
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
 from ...core.process import ProcessPolicy
+from ...formats.pptx.render_operations import execute_pptx_libreoffice_operation
 from ...formats.xlsx.render_operation import execute_render
 from .constants import TIMEOUT_RECALC_OPTIONAL, TIMEOUT_RECALC_REQUIRED
 from .convert import convert_snapshot_to_pdf, convert_to_pdf
@@ -112,6 +113,14 @@ class LibreOfficeProvider:
             return self._do_legacy(Path(request["input"]), request.get("target_format"))
         if operation == "xlsx.render":
             return self._do_xlsx_render(request)
+        if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
+            return execute_pptx_libreoffice_operation(
+                operation,
+                request,
+                self.runner,
+                project_root=self.project_root,
+                version=evidence.version,
+            )
         raise DocumentSkillsError(
             ErrorCode.OPERATION_UNKNOWN,
             f"Unknown LibreOffice operation: {operation}",
@@ -340,8 +349,12 @@ def build_libreoffice_provider(
             Capability("libreoffice.render-image", "enhanced", validation_strength=1),
             Capability("libreoffice.read-legacy", "enhanced", validation_strength=1),
             Capability("xlsx.render", "enhanced", validation_strength=3),
+            Capability("pptx.convert.pdf", "enhanced", validation_strength=3),
+            Capability("pptx.convert.legacy", "enhanced", validation_strength=3),
+            Capability("pptx.render", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,
+        validators={"visual": provider.try_render_to_image},
         required=False,
     )
     return definition, provider

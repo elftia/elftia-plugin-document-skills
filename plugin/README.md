@@ -108,9 +108,12 @@ its exact OpenXML dependency; a Core reopen is not reported as full schema valid
 documentation records producer behavior only and makes no claim that a host seeded the artifact,
 that either optional provider ran live, or that remote CI was observed.
 
-The PPTX surface adds browser-gated `pptx.create.from-html` to its existing read, inspect,
-typed-create, and edit operations. Python owns the public request, path policy, transaction,
-validation, and promotion. A private Node adapter uses exact `playwright-core@1.62.1` with a
+The PPTX surface adds browser-gated `pptx.create.from-html` to its read, inspect, typed-create,
+and edit operations. Typed create embeds bounded local PNG/JPEG/static GIF bytes and emits
+editable bar/column, line, pie, and scatter DrawingML charts with literal caches; missing or
+invalid assets fail closed instead of becoming placeholders. Python owns the public request,
+path policy, transaction, validation, and promotion. A private Node adapter uses exact
+`playwright-core@1.62.1` with a
 closed detector for a supported system Chrome/Chromium/Edge executable. It serves only the
 fixed 1920x1080 `.slide` deck and canonical descendant assets from a tokenized loopback origin,
 retains the browser sandbox, disables scripts/service workers, and blocks other resources.

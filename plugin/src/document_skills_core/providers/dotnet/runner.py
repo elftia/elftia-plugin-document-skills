@@ -17,8 +17,10 @@ from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
+    DOTNET_PRIVATE_ENVIRONMENT,
     HELPER_DIR_NAME,
     OUTPUT_LIMIT,
+    RUN_NO_BUILD_FLAG,
     RUN_NO_RESTORE_FLAG,
     STDIN_CEILING,
 )
@@ -50,6 +52,7 @@ class _ContainedRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         stdin_json: object | None = ...,
+        private_environment: tuple[str, ...] = ...,
     ) -> ProcessResult: ...
 
 
@@ -132,6 +135,7 @@ class DotnetOpenXmlRunner:
             timeout_seconds=resolved_timeout,
             output_limit=resolved_limit,
             stdin_json=stdin_payload,
+            private_environment=DOTNET_PRIVATE_ENVIRONMENT,
         )
 
 
@@ -140,6 +144,7 @@ def _build_argv(helper_dir: Path, subcommand: str) -> list[str]:
     return [
         "run",
         RUN_NO_RESTORE_FLAG,
+        RUN_NO_BUILD_FLAG,
         "--project",
         str(helper_dir),
         "--",
@@ -149,10 +154,15 @@ def _build_argv(helper_dir: Path, subcommand: str) -> list[str]:
 
 def _require_no_restore_argv(argv: list[str]) -> None:
     """Fail closed if a provider operation could implicitly restore NuGet."""
-    if not argv or argv[0] != "run" or RUN_NO_RESTORE_FLAG not in argv:
+    if (
+        not argv
+        or argv[0] != "run"
+        or RUN_NO_RESTORE_FLAG not in argv
+        or RUN_NO_BUILD_FLAG not in argv
+    ):
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
-            "Dotnet helper execution must disable implicit package restore.",
+            "Dotnet helper execution must disable implicit package restore and build.",
         )
 
 

@@ -211,9 +211,10 @@ def test_core_only_default_registry_seam_is_xlsx_only(
         observed["pdf"] = libreoffice
         return real_pdf_builder(root, libreoffice=libreoffice)
 
-    def capture_pptx_builder(root: Path, *, libreoffice=None):
+    def capture_pptx_builder(root: Path, *, libreoffice=None, dotnet=None):
         observed["pptx"] = libreoffice
-        return real_pptx_builder(root, libreoffice=libreoffice)
+        observed["pptx-dotnet"] = dotnet
+        return real_pptx_builder(root, libreoffice=libreoffice, dotnet=dotnet)
 
     def capture_xlsx_builder(root: Path, *, libreoffice=None):
         observed["xlsx"] = libreoffice
@@ -227,6 +228,7 @@ def test_core_only_default_registry_seam_is_xlsx_only(
 
     assert (observed["xlsx"] is not None) is expects_libreoffice
     assert all(observed[format_id] is not None for format_id in ("docx", "pdf", "pptx"))
+    assert observed["pptx-dotnet"] is not None
     assert "libreoffice" in registry.providers
 
 

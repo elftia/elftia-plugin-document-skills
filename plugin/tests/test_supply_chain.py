@@ -17,7 +17,11 @@ from tools.audit import (
 )
 from tools.audit_execution import _audit_dependency_manifests
 from tools.audit_provenance import provenance_modules
-from tools.provenance_records import mapping_digest, validate_metadata_exclusion
+from tools.provenance_records import (
+    CURRENT_REVIEW_ARTIFACT,
+    mapping_digest,
+    validate_metadata_exclusion,
+)
 from tools.supply_chain import build_sbom, canonical_json
 from tests.support.provenance_review_fixture import bind_test_review
 
@@ -147,12 +151,47 @@ def test_mapping_digest_excludes_review_self_reference_fields():
     assert mapping_digest(*mutated) == mapping_digest(*fixture)
 
 
-def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
+@pytest.mark.parametrize(
+    "report_name",
+    [
+        "core-docx-review-cycle-round-1.md",
+        "document-skills-core-xlsx-completion-review-cycle-round-1.md",
+    ],
+)
+def test_historical_review_reports_are_hash_pinned_reviewed_data(
+    project_root, tmp_path, report_name
+):
+    root = _copy_audit_project(
+        project_root,
+        tmp_path / f"historical-review-{report_name}",
+    )
+    bind_test_review(root)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
+
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    artifact = f"provenance/reviews/{report_name}"
+    historical = next(
+        record for record in manifest["data_classifications"]
+        if record["artifact"] == artifact
+    )
+    assert historical["classification"] == "reviewed-data"
+    assert historical["sha256"] == hashlib.sha256(
+        (root / artifact).read_bytes()
+    ).hexdigest()
+    assert artifact not in {
+        record["artifact"] for record in manifest["metadata_exclusions"]
+    }
+
+
+def test_current_review_metadata_binding_uses_an_exact_allowlist(
     project_root, tmp_path
 ):
-    root = _copy_audit_project(project_root, tmp_path / "core-docx-review")
-    report_name = "core-docx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
+    root = _copy_audit_project(project_root, tmp_path / "current-review")
+    report_name = Path(CURRENT_REVIEW_ARTIFACT).name
+    bind_test_review(root)
     report = audit_provenance(root)
     assert report["review_attestations"] == 1
 
@@ -169,74 +208,7 @@ def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
 
     unexpected = {
         **core_record,
-        "artifact": "provenance/reviews/core-docx-review-cycle-round-2.md",
-    }
-    with pytest.raises(
-        AssertionError,
-        match="outside the exact self-reference allowlist",
-    ):
-        validate_metadata_exclusion(root, unexpected, reviewers)
-
-
-def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
-    project_root, tmp_path
-):
-    root = _copy_audit_project(project_root, tmp_path / "core-pptx-review")
-    report_name = "core-pptx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
-    report = audit_provenance(root)
-    assert report["review_attestations"] == 1
-
-    manifest = json.loads(
-        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
-    )
-    core_record = next(
-        record
-        for record in manifest["metadata_exclusions"]
-        if record["artifact"] == f"provenance/reviews/{report_name}"
-    )
-    reviewers = {manifest["review_attestations"][0]["reviewer"]}
-    validate_metadata_exclusion(root, core_record, reviewers)
-
-    unexpected = {
-        **core_record,
-        "artifact": "provenance/reviews/core-pptx-review-cycle-round-2.md",
-    }
-    with pytest.raises(
-        AssertionError,
-        match="outside the exact self-reference allowlist",
-    ):
-        validate_metadata_exclusion(root, unexpected, reviewers)
-
-
-def test_core_xlsx_completion_review_metadata_binding_uses_an_exact_allowlist(
-    project_root, tmp_path
-):
-    root = _copy_audit_project(project_root, tmp_path / "core-xlsx-completion-review")
-    report_name = (
-        "document-skills-core-xlsx-completion-review-cycle-round-1.md"
-    )
-    bind_test_review(root, report_name=report_name)
-    report = audit_provenance(root)
-    assert report["review_attestations"] == 1
-
-    manifest = json.loads(
-        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
-    )
-    completion_record = next(
-        record
-        for record in manifest["metadata_exclusions"]
-        if record["artifact"] == f"provenance/reviews/{report_name}"
-    )
-    reviewers = {manifest["review_attestations"][0]["reviewer"]}
-    validate_metadata_exclusion(root, completion_record, reviewers)
-
-    unexpected = {
-        **completion_record,
-        "artifact": (
-            "provenance/reviews/"
-            "document-skills-core-xlsx-completion-review-cycle-round-2.md"
-        ),
+        "artifact": f"{CURRENT_REVIEW_ARTIFACT}.unexpected",
     }
     with pytest.raises(
         AssertionError,

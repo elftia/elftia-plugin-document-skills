@@ -14,6 +14,7 @@ from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
 from ..io.portable_paths import PORTABLE_PATH_POLICY
+from ..io.temp_roots import OperationTempRoot, cleanup_stale_roots
 from .executable import (
     ExecutableIdentity,
     ExecutableLaunchLease,
@@ -38,6 +39,13 @@ _ENV_ALLOWLIST = (
 )
 _POST_KILL_WAIT_SECONDS = 1.0
 _STREAM_CLOSE_GRACE_SECONDS = 0.25
+_PRIVATE_ENVIRONMENT_PATHS = {
+    "APPDATA": "app-data",
+    "DOTNET_CLI_HOME": "dotnet-cli-home",
+    "LOCALAPPDATA": "local-app-data",
+    "NUGET_PACKAGES": "nuget-packages",
+    "PROGRAMFILES(X86)": "program-files-x86",
+}
 
 
 class _RuntimeCheckWatcher:
@@ -239,6 +247,9 @@ class ProcessResult:
 class ProcessRunner:
     def __init__(self, policy: ProcessPolicy) -> None:
         self.policy = policy
+        self._private_environment_lock = threading.Lock()
+        self._private_environment_root: Path | None = None
+        self._private_environment_context: OperationTempRoot | None = None
 
     def run(
         self,
@@ -252,6 +263,7 @@ class ProcessRunner:
         timeout_seconds: float = 2.0,
         output_limit: int = 1_048_576,
         runtime_check: Callable[[], None] | None = None,
+        private_environment: tuple[str, ...] = (),
     ) -> ProcessResult:
         if script is not None:
             self._check_script(provider_id, script)
@@ -281,7 +293,7 @@ class ProcessRunner:
                 process = subprocess.Popen(
                     command,
                     cwd=isolated_cwd,
-                    env=self._minimal_environment(),
+                    env=self._process_environment(private_environment),
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -403,6 +415,108 @@ class ProcessRunner:
     @staticmethod
     def _minimal_environment() -> dict[str, str]:
         return {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
+
+    def _process_environment(
+        self,
+        private_environment: tuple[str, ...],
+    ) -> dict[str, str]:
+        environment = self._minimal_environment()
+        if not private_environment:
+            return environment
+        requested = set(private_environment)
+        if len(requested) != len(private_environment):
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment contains duplicate entries.",
+            )
+        unsupported = requested.difference(_PRIVATE_ENVIRONMENT_PATHS)
+        if unsupported:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment contains an unsupported entry.",
+                details={"entries": sorted(unsupported)},
+            )
+        root = self._ensure_private_environment_root()
+        for name in private_environment:
+            path = (root / _PRIVATE_ENVIRONMENT_PATHS[name]).resolve(strict=False)
+            if path.parent != root:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment escaped its managed root.",
+                )
+            try:
+                path.mkdir(mode=0o700, parents=False, exist_ok=True)
+            except OSError as error:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment could not be created safely.",
+                    details={"entry": name},
+                ) from error
+            if not path.is_dir() or path.is_symlink():
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment must be a real directory.",
+                    details={"entry": name},
+                )
+            environment[name] = str(path)
+        return environment
+
+    def _ensure_private_environment_root(self) -> Path:
+        with self._private_environment_lock:
+            if self._private_environment_root is not None:
+                return self._private_environment_root
+            base = (
+                self.policy.project_root
+                / ".document-skills-tmp"
+                / "document-skills-operations"
+            ).resolve(strict=False)
+            project_root = self.policy.project_root.resolve()
+            if not base.is_relative_to(project_root) or base.is_symlink():
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment base is not project-contained.",
+                )
+            cleanup_stale_roots(base=base)
+            context = OperationTempRoot(base=base)
+            try:
+                root = context.__enter__().resolve(strict=True)
+            except OSError as error:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment root could not be created safely.",
+                ) from error
+            if root.parent != base or root.is_symlink():
+                context.__exit__(None, None, None)
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment root is not managed.",
+                )
+            self._private_environment_context = context
+            self._private_environment_root = root
+            return root
+
+    def close(self) -> None:
+        """Clean the project-private process environment, if one was created."""
+
+        context = self._private_environment_context
+        self._private_environment_root = None
+        self._private_environment_context = None
+        if context is not None:
+            self._cleanup_private_environment(context)
+
+    def __del__(self) -> None:
+        """Best-effort cleanup for callers that do not use explicit close()."""
+
+        self.close()
+
+    @staticmethod
+    def _cleanup_private_environment(context: OperationTempRoot) -> None:
+        try:
+            context.__exit__(None, None, None)
+        except (DocumentSkillsError, OSError):
+            # A killed worker may leave this managed operation root for a later
+            # conservative stale-root cleanup; never broaden deletion here.
+            pass
 
     @staticmethod
     def _write_stdin(process: subprocess.Popen[bytes], payload: bytes | None) -> None:

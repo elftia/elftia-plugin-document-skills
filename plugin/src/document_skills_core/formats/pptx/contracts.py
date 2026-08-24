@@ -8,13 +8,23 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MAX_SLIDES
+from .content_contracts import parse_markdown_arguments, parse_outline_arguments
+from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
+from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
+from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
 PPTX_OPERATIONS = frozenset(
     {
         "pptx.read",
         "pptx.inspect.structure",
+        "pptx.render",
+        "pptx.convert.pdf",
+        "pptx.convert.legacy",
+        "pptx.validate.schema",
+        "pptx.outline.create",
         "pptx.create",
+        "pptx.create.from-markdown",
         "pptx.create.from-html",
         "pptx.edit",
     }
@@ -42,7 +52,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     options = request.get("options", {})
     fidelity = options.get("fidelity", "core") if type(options) is dict else "core"
     in_place = options.get("in_place", False) if type(options) is dict else False
-    if operation in {"pptx.read", "pptx.inspect.structure"}:
+    if operation in {"pptx.read", "pptx.inspect.structure", "pptx.validate.schema"}:
         if input_path is None:
             _invalid("This PPTX operation requires an input path.", field="input")
         if output_path is not None:
@@ -52,31 +62,53 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
             _invalid("PPTX creation requires an explicit output path.", field="output")
         if input_path is not None:
             _invalid("PPTX creation does not accept input.", field="input")
-    elif operation == "pptx.create.from-html":
+    elif operation == "pptx.outline.create":
+        if output_path is None:
+            _invalid("PPTX outline planning requires an explicit output path.", field="output")
+        if input_path is not None:
+            _invalid("PPTX outline planning does not accept input.", field="input")
+    elif operation in {"pptx.create.from-html", "pptx.create.from-markdown"}:
         if input_path is None or output_path is None:
-            _invalid("HTML conversion requires input and output paths.")
+            _invalid("PPTX content reconstruction requires input and output paths.")
+    elif operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
+        if input_path is None or output_path is None:
+            _invalid("LibreOffice PPTX output requires input and output paths.")
     elif input_path is None or output_path is None:
         _invalid("PPTX mutation requires distinct input and output paths.")
+    expected_input_suffixes = {
+        "pptx.create.from-html": {".htm", ".html"},
+        "pptx.create.from-markdown": {".markdown", ".md"},
+        "pptx.edit": {".pptm", ".pptx"},
+        "pptx.inspect.structure": {".pptm", ".pptx"},
+        "pptx.convert.legacy": {".ppt"},
+    }.get(operation, {".pptx"})
+    if input_path is not None and input_path.suffix.casefold() not in expected_input_suffixes:
+        expected = ", ".join(sorted(expected_input_suffixes))
+        _invalid(f"{operation} input must use one of: {expected}.", field="input")
+    expected_output_suffix = {
+        "pptx.convert.pdf": ".pdf",
+        "pptx.outline.create": ".json",
+        "pptx.render": ".zip",
+    }.get(
+        operation,
+        ".pptm" if operation == "pptx.edit" and input_path is not None
+        and input_path.suffix.casefold() == ".pptm" else ".pptx",
+    )
     if (
-        input_path is not None
-        and operation == "pptx.create.from-html"
-        and input_path.suffix.casefold() not in {".html", ".htm"}
+        output_path is not None
+        and output_path.suffix.casefold() != expected_output_suffix
     ):
-        _invalid("HTML conversion input must use the .html or .htm extension.", field="input")
-    if (
-        input_path is not None
-        and operation != "pptx.create.from-html"
-        and input_path.suffix.casefold() != ".pptx"
-    ):
-        _invalid("PPTX input path must use the .pptx extension.", field="input")
-    if output_path is not None and output_path.suffix.casefold() != ".pptx":
-        _invalid("PPTX output path must use the .pptx extension.", field="output")
-    if operation == "pptx.edit":
+        _invalid(
+            f"{operation} output must use the {expected_output_suffix} extension.",
+            field="output",
+        )
+    if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.edit", "pptx.render"}:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
                 ErrorCode.OUTPUT_EQUALS_INPUT,
-                "Core PPTX mutations require a distinct output and do not support in-place mode.",
+                "PPTX output operations require a distinct output and do not "
+                "support in-place mode.",
                 status="invalid_request",
             )
     elif in_place:
@@ -84,10 +116,34 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     parsed = {
         "pptx.read": _parse_read,
         "pptx.inspect.structure": _parse_inspect,
+        "pptx.render": _parse_provider_output,
+        "pptx.convert.pdf": _parse_provider_output,
+        "pptx.convert.legacy": _parse_provider_output,
+        "pptx.outline.create": parse_outline_arguments,
+        "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
+        "pptx.create.from-markdown": parse_markdown_arguments,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
+    if operation == "pptx.edit":
+        assert input_path is not None
+        macro_enabled = input_path.suffix.casefold() == ".pptm"
+        if macro_enabled and parsed["keep_vba"] is not True:
+            _invalid("PPTM editing requires explicit arguments.keep_vba: true.", field="keep_vba")
+        if not macro_enabled and parsed["keep_vba"] is True:
+            _invalid("keep_vba is accepted only for .pptm input and output.", field="keep_vba")
+    if (
+        operation in {"pptx.create", "pptx.create.from-markdown"}
+        and parsed.get("template") is not None
+        and output_path is not None
+        and same_path(parsed["template"], output_path)
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.OUTPUT_EQUALS_INPUT,
+            "PPTX template-as-base requires a distinct output path.",
+            status="invalid_request",
+        )
     return ParsedPptxRequest(operation, input_path, output_path, parsed, fidelity)
 
 
@@ -114,16 +170,35 @@ def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _parse_schema_validation(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, set())
+    return {}
+
+
+def _parse_provider_output(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, set())
+    return {}
+
+
 def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"deck"})
+    _exact_keys(value, {"deck", "template"})
     deck = value.get("deck")
     if type(deck) is not dict:
         _invalid("create requires a deck object.", field="deck")
-    return {"deck": _parse_deck(deck)}
+    template = _optional_path(value.get("template"), "template")
+    if template is not None:
+        if template.suffix.casefold() not in {".potx", ".pptx"}:
+            _invalid("PPTX template-as-base requires a .pptx or .potx file.", field="template")
+        if "theme" in deck:
+            _invalid(
+                "Template-as-base reuses the template theme and does not accept deck.theme.",
+                field="deck.theme",
+            )
+    return {"deck": parse_deck(deck), "template": template}
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"edits", "expected_edits"})
+    _exact_keys(value, {"edits", "expected_edits", "keep_vba"})
     edits = value.get("edits")
     if type(edits) is not list or not edits or len(edits) > MAX_EDIT_OPS:
         _invalid("edits must be a non-empty bounded array.", field="edits")
@@ -131,27 +206,24 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
     for index, edit in enumerate(edits):
         if type(edit) is not dict:
             _invalid("Each edit must be an object.", field=f"edits.{index}")
-        _exact_keys(edit, {"slide", "type", "ref", "value", "style"})
-        slide = _integer(edit.get("slide", 1), 1, MAX_SLIDES)
-        edit_type = edit.get("type")
-        if edit_type not in {"slide_text", "slide_reorder", "notes_text"}:
-            _invalid("Unknown edit type.", field=f"edits.{index}.type")
-        ref = _text(edit.get("ref", ""), f"edits.{index}.ref", allow_empty=True)
-        cell_value = _optional_text(edit.get("value"), f"edits.{index}.value")
-        style = edit.get("style")
-        if style is not None and type(style) is not dict:
-            _invalid("Style must be an object.", field=f"edits.{index}.style")
-        parsed_edits.append(
-            {"slide": slide, "type": edit_type, "ref": ref, "value": cell_value, "style": style}
+        parsed_edits.append(parse_edit(edit, index))
+    if sum(edit["type"] == "slide_size" for edit in parsed_edits) > 1:
+        _invalid(
+            "A PPTX edit transaction accepts at most one deck-level slide_size change.",
+            field="edits",
         )
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)
-    return {"edits": parsed_edits, "expected_edits": expected}
+    return {
+        "edits": parsed_edits,
+        "expected_edits": expected,
+        "keep_vba": _boolean(value.get("keep_vba", False), "keep_vba"),
+    }
 
 
-def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(deck, {"metadata", "slide_size", "slides"})
+def parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(deck, {"layout_tokens", "metadata", "slide_size", "slides", "theme"})
     metadata = deck.get("metadata")
     if type(metadata) is not dict:
         _invalid("deck.metadata must be an object.", field="metadata")
@@ -178,8 +250,9 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
     for idx, slide in enumerate(slides):
         if type(slide) is not dict:
             _invalid(f"Slide {idx} must be an object.", field=f"slides.{idx}")
-        _exact_keys(slide, {"layout", "title", "shapes", "table", "chart_reference", "image_reference", "notes"})
+        _exact_keys(slide, {"layout", "recipe", "title", "shapes", "table", "chart_reference", "image_reference", "notes"})
         layout = _text(slide.get("layout", "content"), f"slides.{idx}.layout")
+        recipe = parse_recipe(slide.get("recipe"), layout, f"slides.{idx}.recipe")
         title = _optional_text(slide.get("title"), f"slides.{idx}.title")
         shapes = slide.get("shapes", [])
         if type(shapes) is not list:
@@ -223,29 +296,18 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
                 parsed_cells = [_optional_text(c, f"cells.{c_idx}") if c is not None else None for c_idx, c in enumerate(table_cells)]
                 parsed_table_rows.append({"cells": parsed_cells})
             table = {"rows": parsed_table_rows}
-        chart_ref = slide.get("chart_reference")
-        if chart_ref is not None:
-            if type(chart_ref) is not dict:
-                _invalid(f"Slide {idx} chart_reference must be an object.", field=f"slides.{idx}.chart_reference")
-            _exact_keys(chart_ref, {"title", "chart_type"})
-            chart_ref = {
-                "title": _text(chart_ref.get("title", ""), "chart_reference.title"),
-                "chart_type": _text(chart_ref.get("chart_type", "bar"), "chart_reference.chart_type"),
-            }
-        image_ref = slide.get("image_reference")
-        if image_ref is not None:
-            if type(image_ref) is not dict:
-                _invalid(f"Slide {idx} image_reference must be an object.", field=f"slides.{idx}.image_reference")
-            _exact_keys(image_ref, {"filename", "content_type"})
-            image_ref = {
-                "filename": _text(image_ref.get("filename", "image.png"), "image_reference.filename"),
-                "content_type": _text(image_ref.get("content_type", "image/png"), "image_reference.content_type"),
-            }
+        chart_ref = parse_chart_reference(
+            slide.get("chart_reference"), f"slides.{idx}.chart_reference"
+        )
+        image_ref = parse_image_reference(
+            slide.get("image_reference"), f"slides.{idx}.image_reference"
+        )
         notes = slide.get("notes")
         if notes is not None:
             notes = _optional_text(notes, f"slides.{idx}.notes")
         parsed_slides.append({
             "layout": layout,
+            "recipe": recipe,
             "title": title,
             "shapes": parsed_shapes,
             "table": table,
@@ -254,9 +316,11 @@ def _parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
             "notes": notes,
         })
     return {
+        "layout_tokens": parse_layout_tokens(deck.get("layout_tokens"), "layout_tokens"),
         "metadata": parsed_meta,
         "slide_size": slide_size,
         "slides": parsed_slides,
+        "theme": parse_theme(deck.get("theme"), "theme"),
     }
 
 

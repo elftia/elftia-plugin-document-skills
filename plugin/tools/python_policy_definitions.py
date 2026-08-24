@@ -80,6 +80,7 @@ ALLOWED_STDLIB = {
     "time",
     "typing",
     "unicodedata",
+    "urllib",
     "uuid",
     "xml",
     "zipfile",

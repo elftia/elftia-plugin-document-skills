@@ -8,7 +8,11 @@ from document_skills_core.formats.pptx.service import build_html_pptx_service
 from .detector import HtmlBrowserDetector
 
 
-def build_html_browser_provider(project_root: Path, libreoffice=None) -> Provider:
+def build_html_browser_provider(
+    project_root: Path,
+    libreoffice=None,
+    dotnet=None,
+) -> Provider:
     detector = HtmlBrowserDetector(project_root)
     return Provider(
         id=ProviderId.HTML_BROWSER,
@@ -18,6 +22,7 @@ def build_html_browser_provider(project_root: Path, libreoffice=None) -> Provide
             project_root,
             detector,
             libreoffice=libreoffice,
+            dotnet=dotnet,
         ),
         capabilities=[
             Capability(

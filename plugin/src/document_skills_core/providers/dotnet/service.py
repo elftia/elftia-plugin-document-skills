@@ -18,7 +18,8 @@ from ...core.capabilities.catalog import (
     ProviderId,
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
-from ...core.contracts.models import make_error_result
+from ...core.contracts.models import gate_record, make_error_result
+from ...core.io.paths import assert_source_preserved, file_record
 from ...core.process import ProcessPolicy, ProcessRunner
 from ...formats.xlsx.schema_operation import execute_schema_validation
 from .comments import add_comment, read_comments
@@ -120,6 +121,8 @@ class DotnetOpenXmlProvider:
             return self._do_schema(Path(request["input"]))
         if operation == "xlsx.validate.schema":
             return self._do_xlsx_schema(request)
+        if operation == "pptx.validate.schema":
+            return self._do_pptx_schema(Path(request["input"]), request)
         raise DocumentSkillsError(
             ErrorCode.OPERATION_UNKNOWN,
             f"Unknown dotnet-openxml operation: {operation}",
@@ -255,6 +258,57 @@ class DotnetOpenXmlProvider:
             ),
         )
 
+    def _do_pptx_schema(
+        self,
+        input_path: Path,
+        request: dict[str, Any],
+    ) -> dict[str, Any]:
+        source = file_record(input_path, "input")
+        result = validate_schema(input_path, self.runner)
+        assert_source_preserved(source.path, source.sha256)
+        valid = result["valid"] is True
+        errors = result["errors"]
+        gate = gate_record(
+            "schema.full",
+            "pass" if valid else "fail",
+            required=True,
+            validator="dotnet-openxml",
+            evidence={
+                "error_count": len(errors),
+                "errors": errors[:100],
+                "valid": valid,
+            },
+        )
+        requested = request.get("options", {})
+        requested_fidelity = (
+            requested.get("fidelity", "core")
+            if type(requested) is dict
+            else "unknown"
+        )
+        return {
+            "schema_version": "1.0",
+            "status": "success" if valid else "failed",
+            "operation": "pptx.validate.schema",
+            "provider_chain": [],
+            "requested_fidelity": requested_fidelity,
+            "achieved_fidelity": "enhanced",
+            "degraded": False,
+            "degradations": [],
+            "artifacts": [source.as_dict()],
+            "validation": {
+                "schema_version": "1.0",
+                "status": "pass" if valid else "fail",
+                "gates": [gate],
+            },
+            "warnings": [],
+            "errors": [] if valid else [{
+                "code": ErrorCode.VALIDATION_FAILED.value,
+                "message": "OpenXML schema validation reported errors.",
+                "details": {"error_count": len(errors)},
+            }],
+            "diagnostics": {"dotnet-openxml": result},
+        }
+
 
 def _build_success(operation: str, *, diagnostics: dict[str, Any]) -> dict[str, Any]:
     return {
@@ -295,8 +349,10 @@ def build_dotnet_provider(
             Capability("dotnet.docx.template-apply", "enhanced", validation_strength=1),
             Capability("dotnet.docx.schema-validate", "enhanced", validation_strength=1),
             Capability("xlsx.validate.schema", "enhanced", validation_strength=3),
+            Capability("pptx.validate.schema", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,
+        validators={"schema": provider.try_validate_schema},
         required=False,
     )
     return definition, provider

@@ -10,13 +10,14 @@ from defusedxml.ElementTree import fromstring
 
 from ..contracts.errors import DocumentSkillsError
 from ..contracts.models import gate_record
-from ..io.archive import inspect_ooxml
+from ..io.archive import DangerousContentPolicy, inspect_ooxml
 from ..io.paths import sha256_file
 
 _OOXML_REQUIRED = {
     ".docx": "word/document.xml",
     ".xlsx": "xl/workbook.xml",
     ".pptx": "ppt/presentation.xml",
+    ".pptm": "ppt/presentation.xml",
 }
 _REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
@@ -103,6 +104,7 @@ def validate_artifact(
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] | None = None,
     visual_available: bool = False,
     schema_available: bool = False,
+    allow_dangerous_inventory: bool = False,
 ) -> dict[str, Any]:
     artifact = Path(path).resolve()
     extension = artifact.suffix.lower()
@@ -111,7 +113,17 @@ def validate_artifact(
     runner.run_gate("artifact.exists-size", lambda: _existence(artifact))
     runner.run_gate("artifact.magic-extension", lambda: _magic(artifact, format_id))
     if extension in _OOXML_REQUIRED:
-        runner.run_gate("ooxml.archive-xml", lambda: inspect_ooxml(artifact))
+        runner.run_gate(
+            "ooxml.archive-xml",
+            lambda: inspect_ooxml(
+                artifact,
+                dangerous_policy=(
+                    DangerousContentPolicy.PRESERVE_DISABLED
+                    if allow_dangerous_inventory
+                    else DangerousContentPolicy.REJECT
+                ),
+            ),
+        )
         runner.run_gate("ooxml.content-types", lambda: _content_types(artifact))
         runner.run_gate("ooxml.relationships", lambda: _relationships(artifact))
         runner.run_gate(

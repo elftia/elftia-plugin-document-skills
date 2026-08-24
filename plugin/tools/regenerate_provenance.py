@@ -13,7 +13,7 @@ from .html_pptx_provenance import (
     html_pptx_data_profile,
     html_pptx_module_profile,
 )
-from .provenance_records import mapping_digest
+from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
 from .release_inventory import release_artifacts
 
 PENDING_REVIEWER = "PENDING independent review"
@@ -435,22 +435,7 @@ def _is_metadata(path: str) -> bool:
     return path in {
         "provenance/audit-report.json",
         "provenance/modules.json",
-        "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
-        "provenance/reviews/core-docx-review-cycle-round-1.md",
-        "provenance/reviews/core-pdf-review-cycle-round-1.md",
-        "provenance/reviews/core-pptx-review-cycle-round-1.md",
-        "provenance/reviews/core-xlsx-review-cycle-round-1.md",
-        "provenance/reviews/docx-create-optional-content-review-cycle-round-1.md",
-        "provenance/reviews/document-skills-0.2.0-release.md",
-        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
-        "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
-        "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
-        "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
-        "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
-        "provenance/reviews/foundation-review-cycle-round-1.md",
-        "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
-        "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
-        "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
+        CURRENT_REVIEW_ARTIFACT,
     }
 
 

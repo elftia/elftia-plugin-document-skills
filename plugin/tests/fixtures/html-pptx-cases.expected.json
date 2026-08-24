@@ -8,7 +8,7 @@
       "file-url-blocked",
       "parent-traversal",
       "symlink-escape",
-      "malformed-data-url",
+      "data-url-blocked",
       "asset-count-limit",
       "image-pixel-limit",
       "dom-node-limit",
@@ -34,7 +34,7 @@
   },
   "fallback": {
     "cases": {
-      "box-shadow": "box_shadow_omitted",
+      "box-shadow": "css_box_shadow",
       "clip": "css_clip_path",
       "complex-pseudo": "complex_pseudo_element",
       "filter": "css_filter",

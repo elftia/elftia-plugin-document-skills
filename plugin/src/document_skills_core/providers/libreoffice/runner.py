@@ -21,6 +21,10 @@ from .constants import (
     FORBIDDEN_TOKENS,
     HEADLESS_PREFIX,
     OUTPUT_LIMIT,
+    TIMEOUT_CONVERT,
+    TIMEOUT_LEGACY,
+    TIMEOUT_RECALC_REQUIRED,
+    TIMEOUT_RENDER,
     USER_INSTALLATION_PREFIX,
 )
 from .output import (
@@ -92,7 +96,7 @@ class LibreOfficeRunner:
         target_format: str,
         output_dir: Path,
         *,
-        timeout_seconds: float,
+        timeout_seconds: float | None = None,
     ) -> Path:
         """Convert ``input_path`` to ``target_format`` via headless soffice.
 
@@ -104,6 +108,8 @@ class LibreOfficeRunner:
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "LibreOffice executable is not resolved.",
             )
+        if timeout_seconds is None:
+            timeout_seconds = _timeout_for_format(target_format)
         artifact_limit = output_limit(target_format)
         backend = require_hard_quota_backend(self._quota_backend)
         output_root = output_dir.resolve(strict=True)
@@ -125,7 +131,7 @@ class LibreOfficeRunner:
                 str(session.output_dir),
                 str(input_path.resolve(strict=True)),
             )
-            self._runner.run(
+            result = self._runner.run(
                 "libreoffice",
                 self._executable,
                 argv,
@@ -134,6 +140,12 @@ class LibreOfficeRunner:
                 output_limit=OUTPUT_LIMIT,
                 runtime_check=runtime_check,
             )
+            if result.returncode != 0:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "LibreOffice conversion exited non-zero.",
+                    details={"returncode": result.returncode},
+                )
             session.validate_final_tree(expected_name=expected_name)
             payload = read_provider_output(provider_expected, target_format)
         if capture_directory_identity(output_root) != output_identity:
@@ -226,3 +238,13 @@ def _validate_argv(argv: list[str]) -> None:
                 "LibreOffice argv contains a forbidden macro/DDE token.",
                 details={"token": forbidden},
             )
+
+
+def _timeout_for_format(target_format: str) -> float:
+    if target_format == "xlsx":
+        return TIMEOUT_RECALC_REQUIRED
+    if target_format == "pdf":
+        return TIMEOUT_CONVERT
+    if target_format == "png":
+        return TIMEOUT_RENDER
+    return TIMEOUT_LEGACY

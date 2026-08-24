@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
-from document_skills_core.formats.pptx.create import _PLACEHOLDER_PNG
 from document_skills_core.formats.pptx.scene import parse_scene_deck
 from document_skills_core.formats.pptx.scene_normalizer import normalize_scene
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 LIMITS = {
@@ -35,6 +35,7 @@ STYLE = {
     "color": "rgb(0, 0, 0)",
     "text_align": "left",
     "line_height": "normal",
+    "letter_spacing": "normal",
 }
 
 
@@ -59,6 +60,7 @@ def _item(source_id: str = "item", **overrides):
         "radius": 0,
         "text": "Hello",
         "text_style": STYLE,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [{
             "runs": [{"text": "Hello", "style": STYLE}],
             "alignment": "left",
@@ -132,16 +134,16 @@ def _raw(items, assets=None, blocked=None):
 
 
 def _asset(tmp_path: Path):
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
+    digest = hashlib.sha256(PNG_1X1).hexdigest()
     assets = tmp_path / "assets"
     assets.mkdir()
     filename = f"asset-{digest}.png"
-    (assets / filename).write_bytes(_PLACEHOLDER_PNG)
+    (assets / filename).write_bytes(PNG_1X1)
     return assets, {
         "id": digest,
         "filename": filename,
         "mime": "image/png",
-        "bytes": len(_PLACEHOLDER_PNG),
+        "bytes": len(PNG_1X1),
         "width": 1,
         "height": 1,
         "purpose": "element-fallback",
@@ -266,6 +268,7 @@ def test_normalizer_classifies_approximations_and_simple_pseudo(tmp_path: Path):
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(parse_scene_deck(_raw([item]), tmp_path, 1024))
@@ -330,6 +333,7 @@ def test_normalizer_suppresses_subtrees_independent_of_paint_order_and_parent_ps
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(

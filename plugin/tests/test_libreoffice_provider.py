@@ -1097,6 +1097,11 @@ class TestRunnerContainment:
         assert captured["cwd"] == project_root.resolve()
         assert captured["shell"] is False
         assert isinstance(captured["args"], list)
+        profiles = [
+            value for value in captured["args"]
+            if value.startswith("-env:UserInstallation=file:")
+        ]
+        assert len(profiles) == 1
         assert captured["timeout"] == 17.0
         assert captured["output_limit"] > 0
 
@@ -1200,6 +1205,46 @@ class TestRunnerContainment:
         assert exc.value.details["output_limit"] == artifact_limit
         assert not expected_output.exists()
         assert not completion_marker.exists()
+
+    def test_runner_rejects_nonzero_conversion_before_accepting_output(
+        self,
+        project_root,
+        tmp_path,
+    ):
+        class FakeProcessRunner:
+            def __init__(self):
+                self.timeout = None
+
+            def run(self, _provider_id, _executable, args, **kwargs):
+                self.timeout = kwargs.get("timeout_seconds")
+                target_format = args[args.index("--convert-to") + 1]
+                child_output_dir = Path(args[args.index("--outdir") + 1])
+                child_input = Path(args[-1])
+                (child_output_dir / f"{child_input.stem}.{target_format}").write_bytes(
+                    b"must-not-publish"
+                )
+                return ProcessResult(3, "", "failed", 10)
+
+        executable = tmp_path / "soffice.exe"
+        executable.write_bytes(b"placeholder")
+        process_runner = FakeProcessRunner()
+        runner = LibreOfficeRunner(
+            project_root,
+            executable=executable,
+            runner=process_runner,
+            quota_backend=_TestHardQuotaBackend(),
+        )
+        source = tmp_path / "source.pptx"
+        source.write_bytes(b"fake")
+        output = tmp_path / "output"
+        output.mkdir()
+
+        with pytest.raises(DocumentSkillsError) as captured:
+            runner.convert(source, "pdf", output)
+        assert captured.value.code == ErrorCode.PROVIDER_FAILED
+        assert captured.value.details["returncode"] == 3
+        assert process_runner.timeout == 30.0
+        assert not (output / "source.pdf").exists()
 
     def test_env_sanitized_by_process_runner(self, project_root):
         """The existing ProcessRunner sanitizes env — verify via its allowlist."""

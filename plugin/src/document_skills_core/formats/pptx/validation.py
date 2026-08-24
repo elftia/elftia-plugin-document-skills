@@ -9,20 +9,33 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.validation import validate_artifact
 
 from .constants import NS
+from .deep_validation import validate_deep_package
+from .design_validation import assert_typed_design
 from .mapping import map_slides
+from .macro_policy import open_presentation_package
 from .package import OpcPackage, PreservationManifest
 from .scene_emitter import EMU_PER_PIXEL, SLIDE_CX, SLIDE_CY
 from .scene_normalizer import NormalizedScene
 from .scene_opc_validation import generated_scene_opc_failures
+from .typed_validation import assert_typed_objects
 
 
 def validate_created(
     path: Path,
     deck: dict[str, Any],
+    creation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assertions = [
         ("consumer-package-conformance", _assert_consumer_package),
         ("create-semantics", lambda candidate: _assert_created(candidate, deck)),
+        (
+            "native-object-correspondence",
+            lambda candidate: assert_typed_objects(OpcPackage.open(candidate), deck, creation),
+        ),
+        (
+            "typed-design-correspondence",
+            lambda candidate: assert_typed_design(candidate, deck, creation),
+        ),
     ]
     return _required_report(path, assertions=assertions)
 
@@ -49,9 +62,17 @@ def validate_mutation(
     source_sha256: str,
     manifest: PreservationManifest,
     assertion: Callable[[Path], dict[str, Any]] | None = None,
+    allow_removals: bool = False,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] = [
-        ("part-preservation", lambda _candidate: _assert_preservation(manifest))
+        (
+            "part-preservation",
+            lambda _candidate: _assert_preservation(
+                manifest,
+                allow_removals=allow_removals,
+            ),
+        )
     ]
     if assertion is not None:
         assertions.append(("mutation-semantics", assertion))
@@ -60,6 +81,7 @@ def validate_mutation(
         source=source,
         source_sha256=source_sha256,
         assertions=assertions,
+        allow_vba=allow_vba,
     )
 
 
@@ -67,6 +89,7 @@ def validate_reorder(
     path: Path,
     *,
     source: Path,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
     """Structure-equality-on-reorder gate.
 
@@ -76,8 +99,8 @@ def validate_reorder(
     connectors, notes content, notes reference, slide-layout reference, and
     slide-master reference match the input modulo order.
     """
-    input_pkg = OpcPackage.open(source)
-    candidate_pkg = OpcPackage.open(path)
+    input_pkg = open_presentation_package(source, allow_vba=allow_vba)
+    candidate_pkg = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     input_slides = map_slides(input_pkg)
     candidate_slides = map_slides(candidate_pkg)
 
@@ -134,9 +157,9 @@ def validate_reorder(
     return {"slides_checked": len(candidate_slides), "structure_equal": True}
 
 
-def reopen_pptx(path: Path) -> dict[str, Any]:
+def reopen_pptx(path: Path, *, allow_vba: bool = False) -> dict[str, Any]:
     """Reopen a PPTX package and verify its required structures."""
-    package = OpcPackage.open(path)
+    package = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     slides = map_slides(package)
     return {
         "parts": len(package.parts),
@@ -449,8 +472,12 @@ def _in_bounds_emu_geometry(offset: dict[str, str], extent: dict[str, str]) -> b
     )
 
 
-def _assert_preservation(manifest: PreservationManifest) -> dict[str, Any]:
-    if manifest.removed:
+def _assert_preservation(
+    manifest: PreservationManifest,
+    *,
+    allow_removals: bool = False,
+) -> dict[str, Any]:
+    if manifest.removed and not allow_removals:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
             "A PPTX mutation removed package parts.",
@@ -565,16 +592,25 @@ def _required_report(
     source: Path | None = None,
     source_sha256: str | None = None,
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] | None = None,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
+    deep_assertions = [
+        (
+            "pptx-deep-validation",
+            lambda candidate: validate_deep_package(candidate, allow_vba=allow_vba),
+        ),
+        *(assertions or []),
+    ]
     report = validate_artifact(
         path,
         expected_format="pptx",
         source_path=source,
         source_sha256=source_sha256,
-        reopen=reopen_pptx,
-        assertions=assertions,
+        reopen=lambda candidate: reopen_pptx(candidate, allow_vba=allow_vba),
+        assertions=deep_assertions,
         visual_available=False,
         schema_available=False,
+        allow_dangerous_inventory=allow_vba,
     )
     if report["status"] != "pass":
         failed = [

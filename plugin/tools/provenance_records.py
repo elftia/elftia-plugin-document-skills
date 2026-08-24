@@ -7,6 +7,10 @@ from typing import Any
 
 
 _REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
+CURRENT_REVIEW_ARTIFACT = (
+    "provenance/reviews/"
+    "document-skills-0.5.3-unified-pptx-provenance-review.md"
+)
 
 
 def mapping_digest(
@@ -125,22 +129,7 @@ def validate_metadata_exclusion(
         artifact in {
             "provenance/audit-report.json",
             "provenance/modules.json",
-            "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
-            "provenance/reviews/core-docx-review-cycle-round-1.md",
-            "provenance/reviews/core-pdf-review-cycle-round-1.md",
-            "provenance/reviews/core-pptx-review-cycle-round-1.md",
-            "provenance/reviews/core-xlsx-review-cycle-round-1.md",
-            "provenance/reviews/docx-create-optional-content-review-cycle-round-1.md",
-            "provenance/reviews/document-skills-0.2.0-release.md",
-            "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
-            "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
-            "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
-            "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
-            "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
-            "provenance/reviews/foundation-review-cycle-round-1.md",
-            "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
-            "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
-            "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
+            CURRENT_REVIEW_ARTIFACT,
         },
         f"Metadata exclusion is outside the exact self-reference allowlist: {artifact}",
     )

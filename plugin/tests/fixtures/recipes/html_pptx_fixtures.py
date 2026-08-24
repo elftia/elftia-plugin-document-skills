@@ -69,7 +69,7 @@ def generate(output: Path) -> list[dict[str, object]]:
             "fallback": {
                 "html": fallback_html.name,
                 "cases": {
-                    "box-shadow": "box_shadow_omitted",
+                    "box-shadow": "css_box_shadow",
                     "complex-pseudo": "complex_pseudo_element",
                     "gradient": "css_background_image",
                     "filter": "css_filter",
@@ -89,7 +89,7 @@ def generate(output: Path) -> list[dict[str, object]]:
                     "file-url-blocked",
                     "parent-traversal",
                     "symlink-escape",
-                    "malformed-data-url",
+                    "data-url-blocked",
                     "asset-count-limit",
                     "image-pixel-limit",
                     "dom-node-limit",
@@ -288,6 +288,7 @@ def _item(
         "radius": 0,
         "text": text,
         "text_style": _style(),
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": ([{"runs": [{"text": text, "style": _style()}], "alignment": "left", "line_height": "normal"}] if text else []),
         "requested_font": "Arial",
         "font_evidence": {
@@ -326,6 +327,7 @@ def _style(**overrides: object) -> dict[str, object]:
         "color": "rgb(20, 40, 80)",
         "text_align": "left",
         "line_height": "76.8px",
+        "letter_spacing": "normal",
         **overrides,
     }
 

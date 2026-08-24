@@ -18,9 +18,10 @@ from document_skills_core.formats.pptx.validation import (
     validate_created,
     validate_reorder,
 )
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
-def _deck() -> dict[str, Any]:
+def _deck(image_path: Path) -> dict[str, Any]:
     return {
         "metadata": {"title": "Test Deck", "creator": "Elftia", "subject": "Testing"},
         "slide_size": {"cx": "9144000", "cy": "6858000", "type": "screen4x3"},
@@ -48,8 +49,17 @@ def _deck() -> dict[str, Any]:
                         {"cells": ["A2", "B2"]},
                     ]
                 },
-                "chart_reference": {"title": "Sales", "chart_type": "bar"},
-                "image_reference": {"filename": "image.png", "content_type": "image/png"},
+                "chart_reference": {
+                    "title": "Sales",
+                    "chart_type": "bar",
+                    "categories": ["Q1", "Q2"],
+                    "series": [{"name": "Revenue", "values": [10.0, 12.0]}],
+                },
+                "image_reference": {
+                    "path": image_path,
+                    "content_type": "image/png",
+                    "alt_text": "Embedded truth image",
+                },
                 "notes": "Content notes",
             },
         ],
@@ -57,29 +67,40 @@ def _deck() -> dict[str, Any]:
 
 
 @pytest.fixture
-def created_deck(tmp_path: Path) -> Path:
+def typed_deck(tmp_path: Path) -> dict[str, Any]:
+    image = tmp_path / "image.png"
+    image.write_bytes(PNG_1X1)
+    return _deck(image)
+
+
+@pytest.fixture
+def created_deck(tmp_path: Path, typed_deck: dict[str, Any]) -> Path:
     destination = tmp_path / "created.pptx"
-    create_pptx(destination, _deck())
+    create_pptx(destination, typed_deck)
     return destination
 
 
 class TestCreate:
-    def test_create_produces_valid_file(self, tmp_path: Path):
+    def test_create_produces_valid_file(self, tmp_path: Path, typed_deck: dict[str, Any]):
         destination = tmp_path / "test.pptx"
-        creation = create_pptx(destination, _deck())
+        creation = create_pptx(destination, typed_deck)
         assert destination.is_file()
         assert destination.stat().st_size > 0
         assert creation["slides"] == 2
-        assert creation["layouts"] == 2
+        assert creation["layouts"] == 7
         assert creation["has_chart"] is True
         assert creation["has_image"] is True
         assert creation["has_table"] is True
         assert creation["has_notes"] is True
+        assert creation["images"][0]["source_asset_sha256"]
+        assert creation["images"][0]["fallback"] == "native"
+        assert creation["charts"][0]["editable"] is True
+        assert creation["charts"][0]["data_storage"] == "literal-cache"
 
-    def test_created_deck_passes_consumer_package_validation(self, tmp_path: Path):
+    def test_created_deck_passes_consumer_package_validation(self, tmp_path: Path, typed_deck: dict[str, Any]):
         destination = tmp_path / "test.pptx"
-        create_pptx(destination, _deck())
-        report = validate_created(destination, _deck())
+        creation = create_pptx(destination, typed_deck)
+        report = validate_created(destination, typed_deck, creation)
         assert report["status"] == "pass"
 
     def test_created_deck_reopens(self, created_deck: Path):
@@ -87,11 +108,11 @@ class TestCreate:
         assert result["slides"] == 2
         assert result["parts"] > 0
 
-    def test_create_is_deterministic(self, tmp_path: Path):
+    def test_create_is_deterministic(self, tmp_path: Path, typed_deck: dict[str, Any]):
         d1 = tmp_path / "d1.pptx"
         d2 = tmp_path / "d2.pptx"
-        create_pptx(d1, _deck())
-        create_pptx(d2, _deck())
+        create_pptx(d1, typed_deck)
+        create_pptx(d2, typed_deck)
         import hashlib
         assert hashlib.sha256(d1.read_bytes()).hexdigest() == hashlib.sha256(d2.read_bytes()).hexdigest()
 
@@ -125,7 +146,10 @@ class TestRead:
         operation_result, warnings = read_pptx(created_deck, {})
         charts = operation_result["charts"]
         assert len(charts) > 0
-        assert charts[0]["chart_type"] in {"bar", "unknown"}
+        assert charts[0]["chart_type"] == "bar"
+        assert charts[0]["series"][0]["categories"] == ["Q1", "Q2"]
+        assert charts[0]["series"][0]["values"] == [10.0, 12.0]
+        assert len(charts[0]["axes"]) == 2
 
 
 class TestInspect:

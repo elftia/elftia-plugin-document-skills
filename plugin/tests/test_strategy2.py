@@ -20,6 +20,7 @@ from tools.audit_python import audit_python_source
 from tools.audit import run_audits
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
+from tools.provenance_records import validate_metadata_exclusion
 from tests.support.provenance_review_fixture import bind_test_review
 
 
@@ -282,6 +283,30 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     assert run_audits(root)["status"] == "pass"
 
 
+def test_current_review_is_the_only_hashless_review_metadata(project_root):
+    from tools.regenerate_provenance import _is_metadata
+
+    review_path = (
+        "provenance/reviews/"
+        "document-skills-0.5.3-unified-pptx-provenance-review.md"
+    )
+    assert _is_metadata(review_path) is True
+    validate_metadata_exclusion(
+        project_root,
+        {
+            "artifact": review_path,
+            "classification": "self-referential-audit-metadata",
+            "reason": (
+                "The current report binds the exact mapping digest, so hashing "
+                "its own final bytes in that mapping would be circular."
+            ),
+            "reviewer": "Strategy-2 current-review test reviewer",
+            "review_evidence": [review_path],
+        },
+        {"Strategy-2 current-review test reviewer"},
+    )
+
+
 @pytest.mark.parametrize(
     "review_path",
     [
@@ -296,14 +321,30 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
     ],
 )
-def test_is_metadata_accepts_every_bound_review_path(review_path):
-    """Both the regenerate_provenance and provenance_records allowlists must
-    accept every review path that can be bound as a metadata exclusion."""
+def test_historical_reviews_are_hash_pinned_data_not_metadata(
+    project_root, review_path
+):
     from tools.regenerate_provenance import _is_metadata
 
-    assert _is_metadata(review_path) is True, (
-        f"_is_metadata must accept {review_path}"
-    )
+    assert _is_metadata(review_path) is False
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(
+            project_root,
+            {
+                "artifact": review_path,
+                "classification": "self-referential-audit-metadata",
+                "reason": (
+                    "A historical report has no circular dependency on the "
+                    "current mapping and must retain an exact content hash."
+                ),
+                "reviewer": "Strategy-2 historical-review test reviewer",
+                "review_evidence": [review_path],
+            },
+            {"Strategy-2 historical-review test reviewer"},
+        )
 
 
 @pytest.mark.parametrize(

@@ -15,18 +15,24 @@ _MAX_ERROR_FIELD_BYTES = 256
 
 
 def validate_schema(
-    input_docx: Path,
+    input_document: Path,
     runner: DotnetOpenXmlRunner,
 ) -> dict[str, Any]:
     """Run the OpenXML SDK schema validator. Returns valid + per-part errors."""
+    suffix = Path(input_document).suffix.casefold()
+    if suffix not in {".docm", ".docx", ".dotm", ".dotx", ".potm", ".potx", ".pptm", ".pptx"}:
+        raise DocumentSkillsError(
+            ErrorCode.REQUEST_INVALID,
+            "OpenXML schema validation received an unsupported extension.",
+        )
     with OperationTempRoot() as private_root:
-        staged = private_root / "input.docx"
-        staged.write_bytes(Path(input_docx).read_bytes())
+        staged = private_root / f"input{suffix}"
+        staged.write_bytes(Path(input_document).read_bytes())
         result = runner.run(
             "--schema-validate",
             stdin_payload={"input_path": str(staged)},
         )
-    return _schema_response(result, "--schema-validate", max_errors=100)
+    return _document_schema_response(result)
 
 
 def validate_spreadsheet_schema(
@@ -47,21 +53,16 @@ def validate_spreadsheet_schema(
                 "max_errors": max_errors,
             },
         )
-    return _schema_response(
+    return _spreadsheet_schema_response(
         result,
-        "--xlsx-schema-validate",
         max_errors=max_errors,
         expected_file_format="Microsoft365",
     )
 
 
-def _schema_response(
-    result: Any,
-    subcommand: str,
-    *,
-    max_errors: int,
-    expected_file_format: str | None = None,
-) -> dict[str, Any]:
+def _response_envelope(result: Any, subcommand: str) -> tuple[bool, list[Any], dict[str, Any]]:
+    """Validate the common helper response envelope before operation-specific checks."""
+
     if result.returncode != 0:
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
@@ -86,6 +87,37 @@ def _schema_response(
             ErrorCode.PROVIDER_FAILED,
             "dotnet helper schema errors field is not a list.",
         )
+    return valid, errors, data
+
+
+def _document_schema_response(result: Any) -> dict[str, Any]:
+    valid, raw_errors, _data = _response_envelope(result, "--schema-validate")
+    if len(raw_errors) > 100:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper schema errors exceeded the response ceiling.",
+        )
+    errors = [_schema_error(item) for item in raw_errors]
+    if valid == bool(errors):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper schema validity contradicts its error list.",
+        )
+    return {"valid": valid, "errors": errors}
+
+
+def _spreadsheet_schema_response(
+    result: Any,
+    *,
+    max_errors: int,
+    expected_file_format: str,
+) -> dict[str, Any]:
+    valid, errors, data = _response_envelope(result, "--xlsx-schema-validate")
+    if len(errors) > max_errors:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper schema errors exceeded the requested ceiling.",
+        )
     if any(type(item) is not dict for item in errors):
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
@@ -98,7 +130,7 @@ def _schema_response(
             "dotnet helper schema truncated field is not boolean.",
         )
     file_format = data.get("file_format")
-    if expected_file_format is not None and file_format != expected_file_format:
+    if file_format != expected_file_format:
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
             "dotnet helper used an unexpected schema target version.",
@@ -122,6 +154,11 @@ def _schema_response(
             normalized[field], was_truncated = _bounded_text(raw)
             field_truncations += int(was_truncated)
         normalized_errors.append(normalized)
+    if valid == bool(normalized_errors):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper schema validity contradicts its error list.",
+        )
     return {
         "valid": valid,
         "errors": normalized_errors,
@@ -136,3 +173,27 @@ def _bounded_text(value: str) -> tuple[str, bool]:
     if len(encoded) <= _MAX_ERROR_FIELD_BYTES:
         return value, False
     return encoded[:_MAX_ERROR_FIELD_BYTES].decode("utf-8", errors="ignore"), True
+
+
+def _schema_error(value: Any) -> dict[str, str]:
+    if type(value) is not dict:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper schema error entry is invalid.",
+        )
+    result: dict[str, str] = {}
+    for field, ceiling in {
+        "description": 2_048,
+        "error_type": 128,
+        "part": 512,
+        "path": 1_024,
+    }.items():
+        item = value.get(field, "")
+        if type(item) is not str or len(item) > ceiling:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "dotnet helper schema error field is invalid.",
+                details={"field": field},
+            )
+        result[field] = item
+    return result

@@ -18,6 +18,7 @@ from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
 from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
+    DOTNET_PRIVATE_ENVIRONMENT,
     HELPER_PROJECT_NAME,
     LOCKED_RESTORE_FLAGS,
     PROBE_OUTPUT_LIMIT,
@@ -26,6 +27,7 @@ from .constants import (
     RUNTIME_PREFIX,
     RUNTIME_PROBE_OUTPUT_LIMIT,
     TIMEOUT_LOCKED_RESTORE,
+    TIMEOUT_NO_RESTORE_BUILD,
     TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
@@ -45,6 +47,7 @@ class _ProbeRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         stdin_json: object | None = ...,
+        private_environment: tuple[str, ...] = ...,
     ) -> ProcessResult: ...
 
 
@@ -138,6 +141,7 @@ class DotnetOpenXmlDetector:
                 ["--list-runtimes"],
                 timeout_seconds=TIMEOUT_RUNTIME_PROBE,
                 output_limit=RUNTIME_PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
             )
         except DocumentSkillsError:
             return None
@@ -168,6 +172,7 @@ class DotnetOpenXmlDetector:
                 cwd=self.project_root,
                 timeout_seconds=TIMEOUT_LOCKED_RESTORE,
                 output_limit=PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
             )
         except DocumentSkillsError as error:
             category = _classify_error(error)
@@ -188,9 +193,40 @@ class DotnetOpenXmlDetector:
                 ),
                 path=candidate,
             )
+        build_argv = _build_no_restore_build_argv(self._helper_project)
+        try:
+            built = self._runner.run(
+                "dotnet-openxml",
+                resolved,
+                build_argv,
+                cwd=self.project_root,
+                timeout_seconds=TIMEOUT_NO_RESTORE_BUILD,
+                output_limit=PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
+            )
+        except DocumentSkillsError as error:
+            category = _classify_error(error)
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    f"dotnet detected at {candidate} but no-restore helper "
+                    f"build failed: {category}"
+                ),
+                path=candidate,
+            )
+        if built.returncode != 0:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet detected but the locked OpenXML helper could not "
+                    f"be built without restore (exit {built.returncode})"
+                ),
+                path=candidate,
+            )
         argv = [
             "run",
             "--no-restore",
+            "--no-build",
             "--project",
             str(self._helper_dir),
             "--",
@@ -204,6 +240,8 @@ class DotnetOpenXmlDetector:
                 cwd=self.project_root,
                 timeout_seconds=TIMEOUT_PROBE,
                 output_limit=PROBE_OUTPUT_LIMIT,
+                stdin_json={},
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
             )
         except DocumentSkillsError as error:
             category = _classify_error(error)
@@ -280,3 +318,9 @@ def _classify_error(error: DocumentSkillsError) -> str:
 def _build_locked_restore_argv(helper_project: Path) -> list[str]:
     """Build the only dependency-materialization command the detector permits."""
     return ["restore", str(helper_project), *LOCKED_RESTORE_FLAGS]
+
+
+def _build_no_restore_build_argv(helper_project: Path) -> list[str]:
+    """Build only the graph materialized by the preceding locked restore."""
+
+    return ["build", str(helper_project), "--no-restore", "--nologo"]

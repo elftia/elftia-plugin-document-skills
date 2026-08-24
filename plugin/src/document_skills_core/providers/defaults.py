@@ -63,6 +63,7 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
     html_browser_provider = build_html_browser_provider(
         project_root,
         libreoffice=libreoffice_provider,
+        dotnet=dotnet_provider,
     )
     docx_service = build_docx_service(
         project_root, libreoffice=libreoffice_provider, dotnet=dotnet_provider,
@@ -71,7 +72,11 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
         project_root,
         libreoffice=None if xlsx_core_only else libreoffice_provider,
     )
-    pptx_service = build_pptx_service(project_root, libreoffice=libreoffice_provider)
+    pptx_service = build_pptx_service(
+        project_root,
+        libreoffice=libreoffice_provider,
+        dotnet=dotnet_provider,
+    )
     pdf_service = build_pdf_service(project_root, libreoffice=libreoffice_provider)
     composite_execute = _build_composite_execute(docx_service, xlsx_service, pptx_service, pdf_service)
     registry.register_provider(
@@ -96,7 +101,9 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
                 Capability("xlsx.pivot.create", "core", validation_strength=2),
                 Capability("pptx.read", "core", validation_strength=2),
                 Capability("pptx.inspect.structure", "core", validation_strength=2),
+                Capability("pptx.outline.create", "core", validation_strength=2),
                 Capability("pptx.create", "core", validation_strength=2),
+                Capability("pptx.create.from-markdown", "core", validation_strength=2),
                 Capability("pptx.edit", "core", validation_strength=2),
                 Capability("pdf.read", "core", validation_strength=2),
                 Capability("pdf.inspect.structure", "core", validation_strength=2),

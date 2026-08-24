@@ -55,19 +55,19 @@ static object RevisionsRead(JsonElement request)
 
     foreach (var ins in body.Descendants<InsertedRun>())
     {
-        revisions.Add(new { id = ins.Id?.Value ?? "", type = "insertion", author = ins.Author?.Value ?? "", date = OpenXmlDate(ins.Date) });
+        revisions.Add(new { id = ins.Id?.Value ?? "", type = "insertion", author = ins.Author?.Value ?? "", date = DateText(ins.Date) });
     }
     foreach (var del in body.Descendants<DeletedRun>())
     {
-        revisions.Add(new { id = del.Id?.Value ?? "", type = "deletion", author = del.Author?.Value ?? "", date = OpenXmlDate(del.Date) });
+        revisions.Add(new { id = del.Id?.Value ?? "", type = "deletion", author = del.Author?.Value ?? "", date = DateText(del.Date) });
     }
     foreach (var moveTo in body.Descendants<MoveFromRun>())
     {
-        revisions.Add(new { id = moveTo.Id?.Value ?? "", type = "move-from", author = moveTo.Author?.Value ?? "", date = OpenXmlDate(moveTo.Date) });
+        revisions.Add(new { id = moveTo.Id?.Value ?? "", type = "move-from", author = moveTo.Author?.Value ?? "", date = DateText(moveTo.Date) });
     }
     foreach (var moveFrom in body.Descendants<MoveToRun>())
     {
-        revisions.Add(new { id = moveFrom.Id?.Value ?? "", type = "move-to", author = moveFrom.Author?.Value ?? "", date = OpenXmlDate(moveFrom.Date) });
+        revisions.Add(new { id = moveFrom.Id?.Value ?? "", type = "move-to", author = moveFrom.Author?.Value ?? "", date = DateText(moveFrom.Date) });
     }
     return new { revisions };
 }
@@ -162,7 +162,7 @@ static object CommentsRead(JsonElement request)
         if (filterAuthor is not null && author != filterAuthor) continue;
         var text = string.Join("", comment.Elements<Paragraph>()
             .SelectMany(p => p.Descendants<Text>()).Select(t => t.Text));
-        comments.Add(new { id = cid, author, date = OpenXmlDate(comment.Date), text });
+        comments.Add(new { id = cid, author, date = DateText(comment.Date), text });
     }
     return new { comments };
 }
@@ -233,12 +233,18 @@ static object TemplateApply(JsonElement request)
             var alias = sdt.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
             if (alias is not null && variables.TryGetValue(alias, out var value))
             {
-                var run = sdt.Descendants<Run>().FirstOrDefault();
-                if (run is not null)
+                var content = sdt.ChildElements.FirstOrDefault(
+                    child => child.LocalName == "sdtContent"
+                );
+                if (content is not null)
                 {
-                    run.RemoveAllChildren<Text>();
-                    run.AppendChild(new Text(value));
-                    applied.Add(alias);
+                    var run = content.Descendants<Run>().FirstOrDefault();
+                    if (run is not null)
+                    {
+                        run.RemoveAllChildren<Text>();
+                        run.AppendChild(new Text(value));
+                        applied.Add(alias);
+                    }
                 }
             }
         }
@@ -253,7 +259,12 @@ static object TemplateApply(JsonElement request)
 static object SchemaValidate(JsonElement request)
 {
     var inputPath = request.GetProperty("input_path").GetString()!;
-    using var doc = WordprocessingDocument.Open(inputPath, false);
+    using OpenXmlPackage doc = Path.GetExtension(inputPath).ToLowerInvariant() switch
+    {
+        ".docx" or ".docm" or ".dotx" or ".dotm" => WordprocessingDocument.Open(inputPath, false),
+        ".pptx" or ".pptm" or ".potx" or ".potm" => PresentationDocument.Open(inputPath, false),
+        _ => throw new InvalidOperationException("Unsupported OOXML schema-validation format."),
+    };
     var validator = new OpenXmlValidator();
     var errors = validator.Validate(doc).Take(100).Select(e => new
     {
@@ -296,9 +307,6 @@ static object SpreadsheetSchemaValidate(JsonElement request)
     };
 }
 
-static string OpenXmlDate(DateTimeValue? value)
-{
-    return value is null
-        ? ""
-        : value.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
-}
+static string DateText(DateTimeValue? value) => value is null
+    ? ""
+    : value.Value.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");

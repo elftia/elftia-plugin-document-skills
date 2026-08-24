@@ -37,6 +37,7 @@ TIMEOUT_TEMPLATE_APPLY: float = 60.0
 TIMEOUT_SCHEMA_VALIDATE: float = 30.0
 TIMEOUT_RUNTIME_PROBE: float = 2.0
 TIMEOUT_LOCKED_RESTORE: float = 60.0
+TIMEOUT_NO_RESTORE_BUILD: float = 60.0
 
 # Output limit (4 MiB — schema validation can produce large error lists).
 OUTPUT_LIMIT: int = 4_194_304
@@ -56,6 +57,21 @@ HELPER_PROJECT_NAME = "OpenXmlHelper.csproj"
 # fail-closed lock semantics. Provider operations never restore packages.
 LOCKED_RESTORE_FLAGS: tuple[str, ...] = ("--locked-mode", "--use-lock-file")
 RUN_NO_RESTORE_FLAG = "--no-restore"
+RUN_NO_BUILD_FLAG = "--no-build"
+
+# These values are synthesized by ProcessRunner as directories beneath a unique,
+# managed project-private operation root. No user HOME, USERPROFILE, NuGet cache,
+# or per-user NuGet configuration is inherited. NuGet on Windows also requires
+# private replacements for its application-data and machine-wide settings roots.
+DOTNET_PRIVATE_ENVIRONMENT: tuple[str, ...] = (
+    "DOTNET_CLI_HOME",
+    "NUGET_PACKAGES",
+    *(
+        ("APPDATA", "LOCALAPPDATA", "PROGRAMFILES(X86)")
+        if sys.platform == "win32"
+        else ()
+    ),
+)
 
 
 def platform_known_paths() -> list[str]:
