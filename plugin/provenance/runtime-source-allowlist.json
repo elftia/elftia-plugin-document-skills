@@ -200,6 +200,7 @@
     "src/document_skills_core/formats/xlsx/workbook_properties.py",
     "src/document_skills_core/formats/xlsx/worksheet_edit.py",
     "src/document_skills_core/formats/xlsx/worksheet_metadata.py",
+    "src/document_skills_core/formats/xlsx/xml_numeric.py",
     "src/document_skills_core/providers/__init__.py",
     "src/document_skills_core/providers/defaults.py",
     "src/document_skills_core/providers/dotnet/__init__.py",
