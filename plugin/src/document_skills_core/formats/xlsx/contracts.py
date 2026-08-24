@@ -19,6 +19,7 @@ from .constants import (
 )
 from .conversion_contract import assert_format_suffix, parse_conversion_arguments
 from .format_policy import READ_FORMATS, TEMPLATE_OUTPUTS
+from .pivot_contract import parse_pivot_arguments
 from .sparkline_contract import parse_sparkline, parse_sparklines
 from .style_contract import (
     custom_number_format_id,
@@ -40,6 +41,7 @@ XLSX_OPERATIONS = frozenset(
         "xlsx.convert",
         "xlsx.template.instantiate",
         "xlsx.summary.aggregate",
+        "xlsx.pivot.create",
     }
 )
 
@@ -126,6 +128,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.convert",
         "xlsx.template.instantiate",
         "xlsx.summary.aggregate",
+        "xlsx.pivot.create",
     }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
@@ -144,6 +147,7 @@ def parse_xlsx_request(request: dict[str, Any]) -> ParsedXlsxRequest:
         "xlsx.recalculate": _parse_recalculate,
         "xlsx.template.instantiate": _parse_template,
         "xlsx.summary.aggregate": parse_summary_arguments,
+        "xlsx.pivot.create": parse_pivot_arguments,
     }[operation](arguments)
     _validate_operation_paths(
         operation,

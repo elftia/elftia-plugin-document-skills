@@ -15,6 +15,7 @@ from .format_policy import (
 from .macro_policy import macro_read_evidence
 from .mapping import map_workbook
 from .package import OpcPackage
+from .pivot_projection import project_pivot_tables
 from .projection import (
     project_charts,
     project_conditional_formats,
@@ -102,6 +103,7 @@ def read_xlsx(
     tables = project_tables(package)
     charts = project_charts(package)
     pivot_caches = project_pivot_caches(package)
+    pivot_tables = project_pivot_tables(package)
     external_links = project_external_links(package)
     drawings = project_drawings(package)
     data_validations = project_data_validations(package)
@@ -127,6 +129,7 @@ def read_xlsx(
         "tables": tables,
         "charts": charts,
         "pivot_caches": pivot_caches,
+        "pivot_tables": pivot_tables,
         "external_links": external_links,
         "drawings": drawings,
         "data_validations": data_validations,

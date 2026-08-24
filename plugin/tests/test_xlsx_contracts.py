@@ -22,6 +22,7 @@ def test_xlsx_operations_set_is_complete():
             "xlsx.convert",
             "xlsx.template.instantiate",
             "xlsx.summary.aggregate",
+            "xlsx.pivot.create",
         }
     )
 

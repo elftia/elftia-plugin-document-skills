@@ -34,6 +34,7 @@ from .macro_policy import (
     with_macro_preservation_gate,
 )
 from .package import OpcPackage
+from .pivot_operation import execute_pivot_create
 from .read_operation import execute_read
 from .recalculation import compare_final_preservation
 from .recalculation_operation import execute_recalculation
@@ -105,6 +106,8 @@ class XlsxService:
             return execute_template_instantiation(parsed, schemas=self.schemas)
         if operation == "xlsx.summary.aggregate":
             return execute_summary_aggregate(parsed, schemas=self.schemas)
+        if operation == "xlsx.pivot.create":
+            return execute_pivot_create(parsed, schemas=self.schemas)
         return execute_recalculation(
             parsed,
             schemas=self.schemas,
