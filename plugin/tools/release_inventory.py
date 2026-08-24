@@ -19,6 +19,12 @@ _LOCAL_GENERATED_ROOTS = {
     "node_modules",
 }
 _LOCAL_GENERATED_NAMES = {"__pycache__"}
+_NON_RUNTIME_DIRECTORY_NAMES = {
+    ".computer-use",
+    ".github",
+    ".idea",
+    ".vscode",
+}
 _EXECUTABLE_SUFFIXES = {
     ".appimage", ".bash", ".bat", ".bin", ".cjs", ".cmd", ".com", ".command",
     ".dll", ".dylib", ".exe", ".fish", ".jar", ".js", ".jsx", ".mjs", ".msi",
@@ -179,9 +185,11 @@ def _has_executable_mode(path: Path) -> bool:
 def _is_worktree_only(relative: Path) -> bool:
     if not relative.parts:
         return False
+    normalized_directories = {part.casefold() for part in relative.parts[:-1]}
     # Only exact canonical generated-state spellings are locally disposable.
     # Portable aliases remain release candidates so the policy can reject them.
     return (
         relative.parts[0] in _LOCAL_GENERATED_ROOTS
         or bool(set(relative.parts).intersection(_LOCAL_GENERATED_NAMES))
+        or bool(normalized_directories.intersection(_NON_RUNTIME_DIRECTORY_NAMES))
     )

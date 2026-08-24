@@ -34,6 +34,38 @@ def test_source_and_staged_release_inventory(project_root):
         audit_inventory(project_root, [*inventory, "src/adapters/host.py"])
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        ".computer-use/run/doctor.png",
+        ".github/workflows/ci.yml",
+        ".idea/workspace.xml",
+        ".vscode/settings.json",
+    ],
+)
+def test_release_inventory_excludes_non_runtime_developer_state(tmp_path, relative):
+    root = tmp_path / "project"
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("must not ship\n", encoding="utf-8")
+
+    assert relative not in release_inventory(root)
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [".computer-use", ".github", ".idea", ".vscode"],
+)
+def test_release_inventory_keeps_regular_files_named_like_developer_dirs(
+    tmp_path, filename
+):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / filename).write_text("runtime data\n", encoding="utf-8")
+
+    assert filename in release_inventory(root)
+
+
 def test_no_host_boot_or_legacy_boundary_change():
     # This Change's implementation tests import only its project. Integration owns application boot.
     assert True

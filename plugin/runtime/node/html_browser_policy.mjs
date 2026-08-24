@@ -9,8 +9,6 @@ const CONTAINED_ARGUMENTS = Object.freeze([
   '--no-default-browser-check',
   '--no-first-run',
 ]);
-const DATA_IMAGE = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+$/;
-
 export function containedBrowserOptions(executablePath, callerOptions = {}) {
   return {
     ...callerOptions,
@@ -24,7 +22,7 @@ export function containedBrowserOptions(executablePath, callerOptions = {}) {
 }
 
 export function isAllowedCaptureUrl(origin, url) {
-  return url.startsWith(`${origin}/`) || DATA_IMAGE.test(url);
+  return url.startsWith(`${origin}/`);
 }
 
 export function blockedResourceReason(origin, url) {
@@ -32,6 +30,7 @@ export function blockedResourceReason(origin, url) {
     const expected = new URL(origin);
     const candidate = new URL(url);
     const protocol = candidate.protocol.toLowerCase();
+    if (protocol === 'data:') return 'data_url_blocked';
     if (protocol === 'file:') return 'file_url_blocked';
     if (protocol === 'http:' || protocol === 'https:') {
       if (protocol === expected.protocol && candidate.host === expected.host) return 'path_escape';

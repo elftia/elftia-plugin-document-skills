@@ -73,17 +73,15 @@ export async function captureScene(
       if (paintItems > LIMITS.paint_items || textBytes > LIMITS.text_bytes || !finiteBox(item)) {
         throw new Error('scene_limit');
       }
+      let nativeImage = null;
+      let nativeCrop = null;
       if (item.kind === 'image') {
         imageItems += 1;
         if (imageItems > LIMITS.images) throw new Error('image_count_limit');
         try {
           const asset = await importImageAsset(sourceRoot, assetsDir, item, LIMITS);
-          const crop = imageCrop(item, asset);
-          const registeredBytes = registerAsset(assets, asset);
-          totalAssetBytes += registeredBytes;
-          totalResourceBytes += registeredBytes;
-          item.asset_id = asset.id;
-          item.image_crop = crop;
+          nativeImage = asset;
+          nativeCrop = imageCrop(item, asset);
         } catch (error) {
           item.unsupported.push(assetReason(error));
         }
@@ -112,6 +110,12 @@ export async function captureScene(
           item.border_width = 0;
           item.radius = 0;
         }
+      } else if (nativeImage !== null) {
+        const registeredBytes = registerAsset(assets, nativeImage);
+        totalAssetBytes += registeredBytes;
+        totalResourceBytes += registeredBytes;
+        item.asset_id = nativeImage.id;
+        item.image_crop = nativeCrop;
       }
       if (totalResourceBytes > LIMITS.total_asset_bytes) throw new Error('asset_total_limit');
       if (assets.size > LIMITS.assets) throw new Error('asset_count_limit');
@@ -195,6 +199,52 @@ async function captureDom(page) {
     const ROLES = new Set(['rectangle', 'rounded-rectangle', 'ellipse', 'line', 'text', 'image']);
     const finite = (...values) => values.every(Number.isFinite);
     const colorVisible = (value) => value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent';
+    const pixelLength = (value) => {
+      if (typeof value !== 'string' || !/^-?(?:\d+|\d*\.\d+)px$/.test(value)) return null;
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const textInsets = (style) => ({
+      left: Math.max(0, pixelLength(style.paddingLeft) ?? 0),
+      top: Math.max(0, pixelLength(style.paddingTop) ?? 0),
+      right: Math.max(0, pixelLength(style.paddingRight) ?? 0),
+      bottom: Math.max(0, pixelLength(style.paddingBottom) ?? 0),
+    });
+    // Keep this browser-context policy aligned with html_css_policy.mjs,
+    // whose pure Node tests pin the supported/fallback classification table.
+    const classifyCss = (style, tagName, hasText) => {
+      const unsupported = [];
+      const approximations = [];
+      const tag = String(tagName ?? '').toUpperCase();
+      if (tag === 'CANVAS') unsupported.push('html_canvas');
+      if (tag === 'VIDEO') unsupported.push('html_video');
+      if (tag === 'SVG') unsupported.push('html_inline_svg');
+      if (['IFRAME', 'OBJECT', 'EMBED'].includes(tag)) unsupported.push('html_embedded_content');
+      if (style.backgroundImage !== 'none') unsupported.push('css_background_image');
+      if (style.boxShadow !== 'none') unsupported.push('css_box_shadow');
+      if (style.filter !== 'none') unsupported.push('css_filter');
+      if (style.clipPath !== 'none') unsupported.push('css_clip_path');
+      if (style.maskImage && style.maskImage !== 'none') unsupported.push('css_mask');
+      if (style.mixBlendMode !== 'normal') unsupported.push('css_blend_mode');
+      if (tag !== 'IMG' && [style.overflowX, style.overflowY].some((value) => !['visible', 'unset'].includes(value))) {
+        unsupported.push('css_overflow_clip');
+      }
+      if (hasText && style.whiteSpace !== 'normal') unsupported.push('css_white_space');
+      if (hasText && (
+        !['normal', 'unset'].includes(style.wordBreak)
+        || !['normal', 'unset'].includes(style.overflowWrap)
+      )) unsupported.push('css_word_break');
+      if (hasText && !['clip', 'unset'].includes(style.textOverflow)) unsupported.push('css_text_overflow');
+      if (hasText && style.letterSpacing !== 'normal' && pixelLength(style.letterSpacing) === null) {
+        unsupported.push('css_letter_spacing');
+      }
+      if (['flex', 'inline-flex'].includes(style.display)) approximations.push('computed_flex_layout');
+      if (['grid', 'inline-grid'].includes(style.display)) approximations.push('computed_grid_layout');
+      return {
+        unsupported: [...new Set(unsupported)],
+        approximations: [...new Set(approximations)],
+      };
+    };
     const textStyle = (style) => ({
       font_family: style.fontFamily,
       font_size: Number.parseFloat(style.fontSize),
@@ -204,6 +254,7 @@ async function captureDom(page) {
       color: style.color,
       text_align: style.textAlign,
       line_height: style.lineHeight,
+      letter_spacing: style.letterSpacing,
     });
     const sameStyle = (left, right) => JSON.stringify(left) === JSON.stringify(right);
     const captureTextFlow = (element) => {
@@ -308,11 +359,6 @@ async function captureDom(page) {
         return { ...fallback, unsupported: 'css_transform' };
       }
     };
-    const pixelLength = (value) => {
-      if (typeof value !== 'string' || !/^-?(?:\d+|\d*\.\d+)px$/.test(value)) return null;
-      const parsed = Number.parseFloat(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    };
     const pseudoRecord = (element, pseudo, sourceId, slideRect) => {
       const style = getComputedStyle(element, pseudo);
       const rawContent = style.content;
@@ -396,6 +442,7 @@ async function captureDom(page) {
         text_decoration: style.textDecorationLine,
         text_align: style.textAlign,
         line_height: style.lineHeight,
+        letter_spacing: style.letterSpacing,
       };
     };
     const slides = [...document.querySelectorAll('.slide')];
@@ -485,12 +532,8 @@ async function captureDom(page) {
             style.borderLeftWidth,
           ].some((width) => Number.parseFloat(width) > 0);
           const isImage = element.tagName === 'IMG' || role === 'image';
-          const unsupported = [];
-          if (style.backgroundImage !== 'none') unsupported.push('css_background_image');
-          if (style.filter !== 'none') unsupported.push('css_filter');
-          if (style.clipPath !== 'none') unsupported.push('css_clip_path');
-          if (style.maskImage && style.maskImage !== 'none') unsupported.push('css_mask');
-          if (style.mixBlendMode !== 'normal') unsupported.push('css_blend_mode');
+          const classification = classifyCss(style, element.tagName, Boolean(text));
+          const unsupported = classification.unsupported;
           {
             const borderWidths = [
               style.borderTopWidth,
@@ -527,8 +570,7 @@ async function captureDom(page) {
               || radii.some((value) => !/^(?:0|\d+(?:\.\d+)?)px$/.test(value))
             ) unsupported.push(isImage ? 'image_radius_unsupported' : 'shape_radius_unsupported');
           }
-          const approximations = [];
-          if (style.boxShadow !== 'none') approximations.push('box_shadow_omitted');
+          const approximations = classification.approximations;
           const pseudo = [
             pseudoRecord(element, '::before', sourceId, slideRect),
             pseudoRecord(element, '::after', sourceId, slideRect),
@@ -576,6 +618,7 @@ async function captureDom(page) {
             radius,
             text,
             text_style: capturedTextStyle,
+            text_insets: textInsets(style),
             paragraphs,
             requested_font: style.fontFamily.split(',', 1).at(0).trim().replace(/^["']|["']$/g, '') || null,
             font_evidence: fontEvidence(style),

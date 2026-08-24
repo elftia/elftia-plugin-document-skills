@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Any
 
+from .advanced_inventory import project_advanced_inventory
 from .package import OpcPackage
 from .projection import (
     project_charts,
@@ -10,6 +11,7 @@ from .projection import (
     project_external_links,
     project_media,
 )
+from .template_lint import lint_template
 
 
 def inspect_pptx(
@@ -53,6 +55,11 @@ def inspect_pptx(
     media = project_media(package)
     external_links = project_external_links(package)
     custom_xml = project_custom_xml(package)
+    advanced_objects = project_advanced_inventory(
+        package,
+        include_hashes=include_hashes,
+    )
+    template_lint = lint_template(package)
 
     security = package.security
     dangerous_categories = security.get("categories", {})
@@ -81,6 +88,8 @@ def inspect_pptx(
         "media": media,
         "external_links": external_links,
         "custom_xml": custom_xml,
+        "advanced_objects": advanced_objects,
+        "template_lint": template_lint,
         "unknown_parts": package.unknown_parts,
         "dangerous_content": {
             "present": dangerous_present,

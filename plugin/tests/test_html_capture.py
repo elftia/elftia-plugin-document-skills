@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 from pathlib import Path
 
@@ -39,6 +38,7 @@ STYLE = {
     "color": "rgb(0, 0, 0)",
     "text_align": "left",
     "line_height": "normal",
+    "letter_spacing": "normal",
 }
 
 
@@ -105,6 +105,7 @@ def _scene(text: str) -> dict[str, object]:
         "radius": 0,
         "text": text,
         "text_style": STYLE,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [{
             "runs": [{"text": text, "style": STYLE}],
             "alignment": "left",
@@ -364,9 +365,10 @@ def test_real_capture_binds_transparent_wrappers_and_positioned_pseudo_geometry(
     evidence = detector.detect()
     if not evidence.available:
         pytest.skip(evidence.reason)
-    image = base64.b64encode(
+    image_name = "nested-image.png"
+    (tmp_path / image_name).write_bytes(
         (project_root / "tests/fixtures/html-native-image.png").read_bytes()
-    ).decode()
+    )
     source = tmp_path / "nested.html"
     source.write_text(
         f"""<!doctype html><meta charset="utf-8"><style>
@@ -384,7 +386,7 @@ def test_real_capture_binds_transparent_wrappers_and_positioned_pseudo_geometry(
         </style><section class="slide"><div class="outer"><div class="inner">
         <div class="shape" data-pptx-id="nested-shape"></div>
         <div class="text" data-pptx-id="nested-text">Editable</div>
-        <img data-pptx-id="nested-image" src="data:image/png;base64,{image}">
+        <img data-pptx-id="nested-image" src="{image_name}">
         </div></div><div class="card" data-pptx-id="card">Body</div>
         <div class="asym" data-pptx-id="asym-shape"></div></section>""",
         encoding="utf-8",
@@ -416,6 +418,78 @@ def test_real_capture_binds_transparent_wrappers_and_positioned_pseudo_geometry(
         "shape_border_unsupported": 1,
         "shape_radius_unsupported": 1,
     }
+
+
+def test_real_capture_classifies_css_layout_text_flow_media_and_svg(
+    project_root: Path,
+    tmp_path: Path,
+):
+    detector = HtmlBrowserDetector(project_root)
+    evidence = detector.detect()
+    if not evidence.available:
+        pytest.skip(evidence.reason)
+    (tmp_path / "vector.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="40">'
+        '<rect width="80" height="40" fill="red"/></svg>',
+        encoding="utf-8",
+    )
+    source = tmp_path / "css-coverage.html"
+    source.write_text(
+        """<!doctype html><meta charset="utf-8"><style>
+        *{box-sizing:border-box}html,body{margin:0}.slide{position:relative;width:1920px;height:1080px}
+        .flex{display:flex;gap:20px;position:absolute;left:40px;top:40px;width:400px;height:120px;background:#eef}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:absolute;left:480px;top:40px;width:400px;height:120px;background:#efe}
+        .cell{background:#ddd;width:100px;height:50px}
+        .spaced{position:absolute;left:40px;top:200px;width:360px;height:120px;padding:11px 12px 13px 14px;letter-spacing:2px;font:30px Arial;background:#fff}
+        .shadow{position:absolute;left:440px;top:200px;width:160px;height:100px;background:#def;box-shadow:5px 5px 8px #333}
+        .clipped{position:absolute;left:640px;top:200px;width:160px;height:80px;overflow:hidden;font:24px Arial}
+        .pre{position:absolute;left:840px;top:200px;width:160px;height:80px;white-space:pre-wrap;font:24px Arial}
+        .break{position:absolute;left:1040px;top:200px;width:160px;height:80px;word-break:break-all;font:24px Arial}
+        img,canvas,video,svg{position:absolute;top:380px;width:120px;height:80px}
+        img{left:40px}canvas{left:200px;background:#acf}video{left:360px;background:#fac}svg{left:520px}
+        </style><section class="slide">
+        <div class="flex" data-pptx-id="flex"><div class="cell"></div><div class="cell"></div></div>
+        <div class="grid" data-pptx-id="grid"><div class="cell"></div><div class="cell"></div></div>
+        <div class="spaced" data-pptx-id="spaced">Editable spacing</div>
+        <div class="shadow" data-pptx-id="shadow"></div>
+        <div class="clipped" data-pptx-id="clipped">Clipped text</div>
+        <div class="pre" data-pptx-id="pre">Pre wrapped</div>
+        <div class="break" data-pptx-id="break">Breakable</div>
+        <img data-pptx-id="svg-image" src="vector.svg">
+        <canvas data-pptx-id="canvas" width="120" height="80"></canvas>
+        <video data-pptx-id="video"></video>
+        <svg data-pptx-id="inline-svg" viewBox="0 0 120 80"><circle cx="40" cy="40" r="30"/></svg>
+        </section>""",
+        encoding="utf-8",
+    )
+    base = project_root / ".document-skills-tmp/document-skills-operations"
+    with OperationTempRoot(base=base) as private_root:
+        deck = HtmlDeckCapture(project_root, detector).capture(
+            source,
+            private_root,
+            "element-rasterize",
+        )
+    by_id = {item["source_id"]: item for item in deck.slides[0]["items"]}
+    assert by_id["flex"]["approximations"] == ["computed_flex_layout"]
+    assert by_id["grid"]["approximations"] == ["computed_grid_layout"]
+    assert by_id["spaced"]["text_insets"] == {
+        "left": 14,
+        "top": 11,
+        "right": 12,
+        "bottom": 13,
+    }
+    assert by_id["spaced"]["text_style"]["letter_spacing"] == "2px"
+    assert by_id["spaced"]["capture_outcome"] is None
+    assert by_id["shadow"]["reason"] == "css_box_shadow"
+    assert by_id["clipped"]["reason"] == "css_overflow_clip"
+    assert by_id["pre"]["reason"] == "css_white_space"
+    assert by_id["break"]["reason"] == "css_word_break"
+    assert by_id["svg-image"]["reason"] == "image_svg_raster_fallback"
+    assert by_id["canvas"]["reason"] == "html_canvas"
+    assert by_id["video"]["reason"] == "html_video"
+    assert by_id["inline-svg"]["reason"] == "html_inline_svg"
+    normalized = normalize_scene(deck)
+    assert normalized.diagnostics["outcomes"]["rasterized"] >= 8
 
 
 @pytest.mark.parametrize(

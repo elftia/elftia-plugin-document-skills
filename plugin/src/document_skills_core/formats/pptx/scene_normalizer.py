@@ -75,11 +75,9 @@ def normalize_scene(deck: SceneDeck) -> NormalizedScene:
             if reason:
                 fidelity_record["reasons"][reason] += 1
             if len(fidelity_record["samples"]) < _SAMPLE_LIMIT:
-                fidelity_record["samples"].append({
-                    "source_id": item["source_id"],
-                    "reason": reason,
-                    "area": area,
-                })
+                fidelity_record["samples"].append(
+                    _fidelity_sample(item, reason, area)
+                )
             if reason:
                 reasons[reason] += 1
             for unsupported in item["unsupported"]:
@@ -115,11 +113,9 @@ def normalize_scene(deck: SceneDeck) -> NormalizedScene:
                 fidelity["native"]["count"] += 1
                 fidelity["native"]["area"] += extra_area
                 if len(fidelity["native"]["samples"]) < _SAMPLE_LIMIT:
-                    fidelity["native"]["samples"].append({
-                        "source_id": extra["source_id"],
-                        "reason": None,
-                        "area": extra_area,
-                    })
+                    fidelity["native"]["samples"].append(
+                        _fidelity_sample(extra, None, extra_area)
+                    )
         emitted.sort(key=lambda entry: (entry["paint_order"], entry["dom_index"], entry["source_id"]))
         normalized_slides.append(tuple(emitted))
     observed_limits = {**deck.observed, "scene_bytes": deck.scene_bytes}
@@ -237,6 +233,7 @@ def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, An
         "color": pseudo.get("color"),
         "text_align": pseudo.get("text_align", "left"),
         "line_height": pseudo.get("line_height", "normal"),
+        "letter_spacing": pseudo.get("letter_spacing", "normal"),
     }
     return {
         **parent,
@@ -257,6 +254,7 @@ def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, An
             "alignment": style["text_align"],
             "line_height": style["line_height"],
         }],
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "fill": "rgba(0, 0, 0, 0)",
         "border_width": 0,
         "asset_id": None,
@@ -296,4 +294,25 @@ def _fidelity_diagnostics(record: dict[str, Any]) -> dict[str, Any]:
         "by_reason": dict(sorted(record["reasons"].items())),
         "samples": samples,
         "truncated": max(0, count - len(samples)),
+    }
+
+
+def _fidelity_sample(
+    item: dict[str, Any],
+    reason: str | None,
+    area: float,
+) -> dict[str, Any]:
+    source_id = item["source_id"]
+    return {
+        "source_id": source_id,
+        "element_selector": f'[data-elftia-source-id="{source_id}"]',
+        "reason": reason,
+        "area": area,
+        "bbox": {
+            "x": item["x"],
+            "y": item["y"],
+            "width": item["width"],
+            "height": item["height"],
+        },
+        "asset_sha256": item.get("asset_id"),
     }

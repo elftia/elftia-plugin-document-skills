@@ -13,7 +13,7 @@ _SLIDE_KEYS = {"index", "width", "height", "x", "y", "root_fill", "root_unsuppor
 _ITEM_KEYS = {
     "source_id", "parent_source_id", "dom_ancestor_ids", "dom_index", "z_index", "paint_order", "kind", "x", "y", "width",
     "height", "rotation", "opacity", "fill", "border_color", "border_width", "radius", "text",
-    "text_style", "paragraphs", "requested_font", "font_evidence", "pseudo", "image_src", "image_width", "image_height",
+    "text_style", "text_insets", "paragraphs", "requested_font", "font_evidence", "pseudo", "image_src", "image_width", "image_height",
     "object_fit", "object_position", "image_crop", "force_raster", "ignored", "unknown_hints", "unsupported", "approximations",
     "editable_descendants", "capture_outcome", "reason", "asset_id",
 }
@@ -28,14 +28,14 @@ _MAX_IMAGES = 512
 _SOURCE_ID = re.compile(r"^[A-Za-z0-9_.:-]{1,80}$")
 _TEXT_STYLE_KEYS = {
     "font_family", "font_size", "font_weight", "font_style", "text_decoration",
-    "color", "text_align", "line_height",
+    "color", "text_align", "line_height", "letter_spacing",
 }
 _BLOCKED_RESOURCE_KEYS = {"total", "by_reason", "samples", "truncated"}
 _BLOCKED_RESOURCE_SAMPLE_KEYS = {"reason", "resource_hash", "count"}
 _PSEUDO_KEYS = {
     "source_id", "content", "simple", "reason", "x", "y", "width", "height",
     "paint_slot", "paint_order", "opacity", "color", "font_family", "font_size",
-    "font_weight", "font_style", "text_decoration", "text_align", "line_height",
+    "font_weight", "font_style", "text_decoration", "text_align", "line_height", "letter_spacing",
 }
 SCENE_LIMITS = {
     "slides": _MAX_SLIDES,
@@ -374,6 +374,18 @@ def _parse_item(item: Any, assets: dict[str, dict[str, Any]]) -> None:
     if type(item["text"]) is not str or len(item["text"].encode("utf-8")) > 64_000:
         _invalid("Scene item text is invalid.")
     _parse_text_style(item["text_style"])
+    insets = item["text_insets"]
+    if (
+        type(insets) is not dict
+        or set(insets) != {"bottom", "left", "right", "top"}
+        or any(
+            type(value) not in {int, float}
+            or not math.isfinite(value)
+            or not 0 <= value <= 1920
+            for value in insets.values()
+        )
+    ):
+        _invalid("Scene text insets are invalid.")
     if type(item["paragraphs"]) is not list or len(item["paragraphs"]) > 100:
         _invalid("Scene text paragraphs are invalid.")
     for paragraph in item["paragraphs"]:
@@ -485,7 +497,10 @@ def _parse_text_style(style: Any) -> None:
         or not 0 < style["font_size"] <= 800
     ):
         _invalid("Scene font style is invalid.")
-    for field in ("font_weight", "font_style", "text_decoration", "color", "text_align", "line_height"):
+    for field in (
+        "font_weight", "font_style", "text_decoration", "color", "text_align",
+        "line_height", "letter_spacing",
+    ):
         if type(style[field]) is not str or len(style[field]) > 128:
             _invalid("Scene text style value is invalid.")
 
@@ -527,7 +542,7 @@ def _parse_pseudos(values: list[Any]) -> None:
             _invalid("Complex pseudo-element reason is invalid.")
         for field in (
             "color", "font_family", "font_weight", "font_style",
-            "text_decoration", "text_align", "line_height",
+            "text_decoration", "text_align", "line_height", "letter_spacing",
         ):
             if type(value[field]) is not str or len(value[field]) > 512:
                 _invalid("Scene pseudo-element style is invalid.")

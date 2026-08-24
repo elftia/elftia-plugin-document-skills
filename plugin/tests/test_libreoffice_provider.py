@@ -328,8 +328,38 @@ class TestRunnerContainment:
         assert captured["cwd"] == project_root.resolve()
         assert captured["shell"] is False
         assert isinstance(captured["args"], list)
+        profiles = [
+            value for value in captured["args"]
+            if value.startswith("-env:UserInstallation=file:")
+        ]
+        assert len(profiles) == 1
+        assert ".libreoffice-profile" in profiles[0]
         assert captured["timeout"] is not None
         assert captured["output_limit"] > 0
+
+    def test_runner_rejects_nonzero_conversion_before_accepting_output(
+        self,
+        project_root,
+        tmp_path,
+    ):
+        class FakeProcessRunner:
+            def run(self, *_args, **_kwargs):
+                return ProcessResult(3, "", "failed", 10)
+
+        runner = LibreOfficeRunner(
+            project_root,
+            executable="/fake/soffice",
+            runner=FakeProcessRunner(),
+        )
+        source = tmp_path / "source.pptx"
+        source.write_bytes(b"fake")
+        output = tmp_path / "output"
+        output.mkdir()
+
+        with pytest.raises(DocumentSkillsError) as captured:
+            runner.convert(source, "pdf", output)
+        assert captured.value.code == ErrorCode.PROVIDER_FAILED
+        assert captured.value.details["returncode"] == 3
 
     def test_env_sanitized_by_process_runner(self, project_root):
         """The existing ProcessRunner sanitizes env — verify via its allowlist."""

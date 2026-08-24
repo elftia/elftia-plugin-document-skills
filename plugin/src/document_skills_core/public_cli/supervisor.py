@@ -26,7 +26,15 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
-_PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
+_LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
+_LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
+_LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
+_LIBREOFFICE_RENDER_OPERATION = "pptx.render"
+_LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
+_PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
+_SCHEMA_OPERATION = "pptx.validate.schema"
+_SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
+_WORKER_TIMEOUT_SECONDS = 15.0
 
 
 class PublicCommandSupervisor:
@@ -35,7 +43,7 @@ class PublicCommandSupervisor:
         project_root: Path,
         *,
         worker_script: Path | None = None,
-        timeout_seconds: float = 8.0,
+        timeout_seconds: float = _WORKER_TIMEOUT_SECONDS,
         output_limit: int = 65_536,
         nonce_factory: Callable[[], str] | None = None,
     ) -> None:
@@ -192,6 +200,27 @@ class PublicCommandSupervisor:
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
+            if type(value) is dict and value.get("operation") == _SCHEMA_OPERATION:
+                return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in {
+                    _LIBREOFFICE_CONVERT_OPERATION,
+                    _LIBREOFFICE_LEGACY_OPERATION,
+                }
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if (
+                type(value) is dict
+                and value.get("operation") == _LIBREOFFICE_RENDER_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_RENDER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES

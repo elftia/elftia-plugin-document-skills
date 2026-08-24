@@ -1,6 +1,6 @@
 {
   "name": "elftia-plugin-document-skills",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "Standalone producer for Elftia Document Skills",
   "license": "GPL-3.0",
@@ -10,10 +10,15 @@
   },
   "scripts": {
     "build": "node scripts/build-artifact.mjs",
+    "release": "elftia-plugin release dist/document-skills --out release",
     "test": "node scripts/run-plugin-checks.mjs",
     "test:repro": "node --test scripts/__tests__/reproducibility.test.mjs",
     "validate:artifact": "node scripts/validate-artifact.mjs",
-    "verify": "node scripts/verify.mjs",
+    "verify": "node scripts/verify.mjs && npm run verify:dist && npm run release",
+    "verify:dist": "elftia-plugin verify dist/document-skills",
     "verify:repro": "node scripts/verify-reproducible-build.mjs"
+  },
+  "devDependencies": {
+    "@elftia/plugin-kit": "^0.1.2"
   }
 }

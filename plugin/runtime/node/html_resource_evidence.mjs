@@ -81,7 +81,6 @@ export async function collectDeclaredBlockedResources(page, allowedOrigin) {
   return page.evaluate(({ origin, entryLimit }) => {
     const entries = new Map();
     const overflowByReason = new Map();
-    const dataImage = /^data:image\/(?:png|jpeg);base64,[A-Za-z0-9+/=]+$/;
     const allowed = new URL(origin);
     const record = (rawReference) => {
       if (typeof rawReference !== 'string' || !rawReference.trim()) return;
@@ -90,8 +89,9 @@ export async function collectDeclaredBlockedResources(page, allowedOrigin) {
       try {
         const candidate = new URL(reference, document.baseURI);
         reference = candidate.href;
-        if (candidate.href.startsWith(`${origin}/`) || dataImage.test(candidate.href)) return;
-        if (candidate.protocol === 'file:') reason = 'file_url_blocked';
+        if (candidate.href.startsWith(`${origin}/`)) return;
+        if (candidate.protocol === 'data:') reason = 'data_url_blocked';
+        else if (candidate.protocol === 'file:') reason = 'file_url_blocked';
         else if (candidate.protocol === 'http:' || candidate.protocol === 'https:') {
           reason = candidate.protocol === allowed.protocol && candidate.host === allowed.host
             ? 'path_escape'

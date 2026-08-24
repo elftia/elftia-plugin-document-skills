@@ -30,6 +30,8 @@ def test_visual_validation_passes_only_after_thresholded_pixel_comparison(tmp_pa
         "changed_pixel_delta": 0.12,
         "aspect_ratio_delta_max": 0.01,
         "sample_grid": {"width": 96, "height": 54},
+        "region_grid": {"columns": 12, "rows": 6},
+        "max_region_differences": 24,
     }
 
 
@@ -50,7 +52,54 @@ def test_visual_validation_reports_threshold_failure_as_optional_fail(tmp_path: 
     comparison = gate["evidence"]["comparisons"][0]
     assert comparison["mean_absolute_error"] == 1.0
     assert comparison["changed_pixel_ratio"] == 1.0
+    assert len(comparison["region_differences"]) == 24
+    assert comparison["region_differences_truncated"] == 48
+    assert comparison["region_differences"][0]["source_bbox"] == {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1,
+    }
     assert comparison["within_thresholds"] is False
+
+
+def test_visual_validation_reports_font_and_fallback_context_without_exemption(
+    tmp_path: Path,
+):
+    source = _png(8, 8, (20, 80, 160, 255))
+    candidate, scene = _candidate(tmp_path, source)
+    scene.diagnostics.update({
+        "font_evidence": {
+            "substitutions": 1,
+            "samples": [{
+                "source_id": "title",
+                "substitution": {"requested": "Missing", "actual": "Arial"},
+            }],
+        },
+        "fidelity": {
+            "rasterized": {
+                "count": 1,
+                "area": 400,
+                "samples": [{
+                    "source_id": "filtered",
+                    "element_selector": '[data-elftia-source-id="filtered"]',
+                    "reason": "css_filter",
+                    "area": 400,
+                    "bbox": {"x": 10, "y": 20, "width": 20, "height": 20},
+                    "asset_sha256": "a" * 64,
+                }],
+                "truncated": 0,
+            },
+        },
+    })
+
+    gate = validate_scene_visuals(candidate, scene, _FakeLibreOffice(source), tmp_path / "visual")
+
+    context = gate["evidence"]["context"]
+    assert context["font_substitutions"] == 1
+    assert context["fallback_elements"] == 1
+    assert context["fallback_samples"][0]["reason"] == "css_filter"
+    assert gate["evidence"]["exemptions"] == []
 
 
 def test_visual_validation_reports_absent_provider_as_unavailable(tmp_path: Path):
