@@ -7,6 +7,13 @@ from typing import Any
 from .chart import CHART_NS, DRAWING_MAIN_NS, DRAWING_NS
 from .constants import NS
 from .relationships import relationship_map
+from .xml_numeric import (
+    MAX_UNSIGNED_INT,
+    parse_optional_xml_int,
+    parse_optional_xml_number,
+    parse_xml_int,
+    parse_xml_number,
+)
 
 _MAIN_NS = NS["main"]
 _PLOT_TAGS = (
@@ -42,8 +49,12 @@ def project_charts(package: Any) -> list[dict[str, Any]]:
         for plot_type, plot in plots:
             axis = _plot_axis(plot, axes)
             for item in plot.findall(f"{{{CHART_NS}}}ser"):
-                index_text = _value(item.find(f"{{{CHART_NS}}}idx"), "0")
-                index = int(index_text) if index_text.isdigit() else len(projected_series)
+                index = parse_xml_int(
+                    _value(item.find(f"{{{CHART_NS}}}idx"), "0"),
+                    attribute="chart.series.idx",
+                    minimum=0,
+                    maximum=MAX_UNSIGNED_INT,
+                )
                 projected_series.append(
                     (index, _project_series(item, plot_type, axis, combo=chart_type == "combo"))
                 )
@@ -81,16 +92,24 @@ def project_charts(package: Any) -> list[dict[str, Any]]:
                 "secondary_x_axis_number_format": secondary_x["number_format"],
                 "secondary_y_axis_number_format": secondary_y["number_format"],
                 "data_labels": _project_data_labels(first_plot),
-                "style": int(_value(style, "2")),
+                "style": parse_xml_int(
+                    _value(style, "2"),
+                    attribute="chart.style",
+                    minimum=1,
+                    maximum=48,
+                ),
                 "radar_style": _value(
                     None if radar is None else radar.find(f"{{{CHART_NS}}}radarStyle"),
                     "standard",
                 ),
-                "bubble_scale": int(
+                "bubble_scale": parse_xml_int(
                     _value(
                         None if bubble is None else bubble.find(f"{{{CHART_NS}}}bubbleScale"),
                         "100",
-                    )
+                    ),
+                    attribute="chart.bubbleScale",
+                    minimum=0,
+                    maximum=300,
                 ),
             }
         )
@@ -229,13 +248,40 @@ def _project_trendline(item: Any) -> dict[str, Any]:
     }[_value(item.find(f"{{{CHART_NS}}}trendlineType"), "linear")]
     return {
         "type": kind,
-        "order": _optional_int(item.find(f"{{{CHART_NS}}}order")),
-        "period": _optional_int(item.find(f"{{{CHART_NS}}}period")),
+        "order": _optional_int(
+            item.find(f"{{{CHART_NS}}}order"),
+            attribute="chart.trendline.order",
+            minimum=2,
+            maximum=6,
+        ),
+        "period": _optional_int(
+            item.find(f"{{{CHART_NS}}}period"),
+            attribute="chart.trendline.period",
+            minimum=2,
+            maximum=255,
+        ),
         "display_equation": _bool_value(item.find(f"{{{CHART_NS}}}dispEq")),
         "display_r_squared": _bool_value(item.find(f"{{{CHART_NS}}}dispRSqr")),
-        "forward": _number_value(item.find(f"{{{CHART_NS}}}forward"), 0),
-        "backward": _number_value(item.find(f"{{{CHART_NS}}}backward"), 0),
-        "intercept": _optional_number(item.find(f"{{{CHART_NS}}}intercept")),
+        "forward": _number_value(
+            item.find(f"{{{CHART_NS}}}forward"),
+            0,
+            attribute="chart.trendline.forward",
+            minimum=0,
+            maximum=100_000,
+        ),
+        "backward": _number_value(
+            item.find(f"{{{CHART_NS}}}backward"),
+            0,
+            attribute="chart.trendline.backward",
+            minimum=0,
+            maximum=100_000,
+        ),
+        "intercept": _optional_number(
+            item.find(f"{{{CHART_NS}}}intercept"),
+            attribute="chart.trendline.intercept",
+            minimum=-1e100,
+            maximum=1e100,
+        ),
     }
 
 
@@ -250,7 +296,12 @@ def _project_error_bars(item: Any) -> dict[str, Any]:
     return {
         "direction": _value(item.find(f"{{{CHART_NS}}}errDir"), "y"),
         "type": kind,
-        "value": _optional_number(item.find(f"{{{CHART_NS}}}val")),
+        "value": _optional_number(
+            item.find(f"{{{CHART_NS}}}val"),
+            attribute="chart.errorBars.value",
+            minimum=0,
+            maximum=1e100,
+        ),
         "plus": _reference(item, "plus") or None,
         "minus": _reference(item, "minus") or None,
         "end_style": not _bool_value(item.find(f"{{{CHART_NS}}}noEndCap")),
@@ -292,8 +343,18 @@ def _project_anchor(anchor: Any) -> str:
 
 
 def _marker_ref(marker: Any) -> str:
-    column = int(_text(marker.find(f"{{{DRAWING_NS}}}col")) or "0") + 1
-    row = int(_text(marker.find(f"{{{DRAWING_NS}}}row")) or "0") + 1
+    column = parse_xml_int(
+        _text(marker.find(f"{{{DRAWING_NS}}}col")) or "0",
+        attribute="drawing.marker.col",
+        minimum=0,
+        maximum=16_383,
+    ) + 1
+    row = parse_xml_int(
+        _text(marker.find(f"{{{DRAWING_NS}}}row")) or "0",
+        attribute="drawing.marker.row",
+        minimum=0,
+        maximum=1_048_575,
+    ) + 1
     result = ""
     while column:
         column, remainder = divmod(column - 1, 26)
@@ -323,18 +384,51 @@ def _bool_value(element: Any) -> bool:
     return _value(element, "0") in {"1", "true", "on"}
 
 
-def _optional_int(element: Any) -> int | None:
-    return None if element is None else int(_value(element, "0"))
+def _optional_int(
+    element: Any,
+    *,
+    attribute: str,
+    minimum: int,
+    maximum: int,
+) -> int | None:
+    return parse_optional_xml_int(
+        None if element is None else _value(element, "0"),
+        attribute=attribute,
+        minimum=minimum,
+        maximum=maximum,
+    )
 
 
-def _optional_number(element: Any) -> int | float | None:
-    return None if element is None else _number(_value(element, "0"))
+def _optional_number(
+    element: Any,
+    *,
+    attribute: str,
+    minimum: float,
+    maximum: float,
+) -> int | float | None:
+    return parse_optional_xml_number(
+        None if element is None else _value(element, "0"),
+        attribute=attribute,
+        minimum=minimum,
+        maximum=maximum,
+    )
 
 
-def _number_value(element: Any, default: int | float) -> int | float:
-    return default if element is None else _number(_value(element, str(default)))
-
-
-def _number(value: str) -> int | float:
-    number = float(value)
-    return int(number) if number.is_integer() else number
+def _number_value(
+    element: Any,
+    default: int | float,
+    *,
+    attribute: str,
+    minimum: float,
+    maximum: float,
+) -> int | float:
+    return (
+        default
+        if element is None
+        else parse_xml_number(
+            _value(element, str(default)),
+            attribute=attribute,
+            minimum=minimum,
+            maximum=maximum,
+        )
+    )

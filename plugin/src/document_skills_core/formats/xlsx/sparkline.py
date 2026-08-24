@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS
 from .relationships import relationship_map
+from .xml_numeric import parse_optional_xml_number
 
 X14_NS = "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
 XM_NS = "http://schemas.microsoft.com/office/excel/2006/main"
@@ -214,20 +215,23 @@ def _project_group(group: Element) -> dict[str, Any]:
         "last_point": _xml_bool(group.attrib.get("last")),
         "negative_points": _xml_bool(group.attrib.get("negative")),
         "right_to_left": _xml_bool(group.attrib.get("rightToLeft")),
-        "manual_min": _optional_number(group.attrib.get("manualMin")),
-        "manual_max": _optional_number(group.attrib.get("manualMax")),
+        "manual_min": parse_optional_xml_number(
+            group.attrib.get("manualMin"),
+            attribute="sparklineGroup.manualMin",
+            minimum=-1e100,
+            maximum=1e100,
+        ),
+        "manual_max": parse_optional_xml_number(
+            group.attrib.get("manualMax"),
+            attribute="sparklineGroup.manualMax",
+            minimum=-1e100,
+            maximum=1e100,
+        ),
     }
     for field, tag in _COLOR_TAGS.items():
         color = group.find(f"{{{X14_NS}}}{tag}")
         result[field] = "" if color is None else color.attrib.get("rgb", "")
     return result
-
-
-def _optional_number(value: str | None) -> int | float | None:
-    if value is None:
-        return None
-    number = float(value)
-    return int(number) if number.is_integer() else number
 
 
 def _normalize_data(value: str) -> str:

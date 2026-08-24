@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from .constants import NS, REL_PIVOT_CACHE, REL_PIVOT_TABLE, WORKBOOK_MAIN
+from .xml_numeric import (
+    MAX_SIGNED_INT,
+    MAX_UNSIGNED_INT,
+    MIN_SIGNED_INT,
+    parse_xml_int,
+)
 
 _MAIN_NS = NS["main"]
 _CACHE_RECORDS_REL = (
@@ -23,7 +29,13 @@ def project_pivot_tables(package: Any) -> list[dict[str, Any]]:
             continue
         table_part = relationship.resolved_target
         table = package.xml(table_part)
-        cache_id = _integer(table.attrib.get("cacheId"), -1)
+        cache_id = _integer(
+            table.attrib.get("cacheId"),
+            -1,
+            attribute="pivotTableDefinition.cacheId",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
         cache_part = _related_part(package, table_part, REL_PIVOT_CACHE)
         workbook_cache_part = workbook_caches.get(cache_id)
         cache = package.xml(cache_part) if cache_part else None
@@ -49,7 +61,13 @@ def project_pivot_tables(package: Any) -> list[dict[str, Any]]:
                 "filters": _page_fields(table, pivot_fields, fields),
                 "values": _data_fields(table, fields),
                 "cache": {
-                    "record_count": _integer(cache.attrib.get("recordCount") if cache is not None else None, 0),
+                    "record_count": _integer(
+                        cache.attrib.get("recordCount") if cache is not None else None,
+                        0,
+                        attribute="pivotCacheDefinition.recordCount",
+                        minimum=0,
+                        maximum=MAX_UNSIGNED_INT,
+                    ),
                     "records_written": (
                         len(records.findall(f"{{{_MAIN_NS}}}r")) if records is not None else 0
                     ),
@@ -96,7 +114,13 @@ def _workbook_caches(package: Any) -> dict[int, str]:
     }
     result: dict[int, str] = {}
     for cache in workbook.findall(f".//{{{_MAIN_NS}}}pivotCache"):
-        cache_id = _integer(cache.attrib.get("cacheId"), -1)
+        cache_id = _integer(
+            cache.attrib.get("cacheId"),
+            -1,
+            attribute="pivotCache.cacheId",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
         relationship = relationships.get(cache.attrib.get(f"{{{NS['r']}}}id", ""))
         if cache_id >= 0 and relationship is not None and relationship.resolved_target:
             result[cache_id] = relationship.resolved_target
@@ -149,7 +173,13 @@ def _axis_fields(
         return []
     result: list[dict[str, Any]] = []
     for field in container.findall(f"{{{_MAIN_NS}}}field"):
-        index = _integer(field.attrib.get("x"), -1)
+        index = _integer(
+            field.attrib.get("x"),
+            -1,
+            attribute="pivotField.x",
+            minimum=MIN_SIGNED_INT,
+            maximum=MAX_SIGNED_INT,
+        )
         pivot_field = _child(pivot_fields, index)
         result.append(
             {
@@ -171,8 +201,19 @@ def _page_fields(
         return []
     result: list[dict[str, Any]] = []
     for field in container.findall(f"{{{_MAIN_NS}}}pageField"):
-        index = _integer(field.attrib.get("fld"), -1)
-        item_position = _optional_integer(field.attrib.get("item"))
+        index = _integer(
+            field.attrib.get("fld"),
+            -1,
+            attribute="pageField.fld",
+            minimum=0,
+            maximum=MAX_SIGNED_INT,
+        )
+        item_position = _optional_integer(
+            field.attrib.get("item"),
+            attribute="pageField.item",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
         selected = _selected_page_item(pivot_fields, cache_fields, index, item_position)
         result.append(
             {
@@ -187,7 +228,13 @@ def _page_fields(
 def _data_fields(table: Any, cache_fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for field in table.findall(f".//{{{_MAIN_NS}}}dataFields/{{{_MAIN_NS}}}dataField"):
-        index = _integer(field.attrib.get("fld"), -1)
+        index = _integer(
+            field.attrib.get("fld"),
+            -1,
+            attribute="dataField.fld",
+            minimum=0,
+            maximum=MAX_SIGNED_INT,
+        )
         result.append(
             {
                 "column": _field_name(cache_fields, index),
@@ -210,7 +257,13 @@ def _selected_page_item(
     pivot_field = _child(pivot_fields, field_index)
     items = None if pivot_field is None else pivot_field.find(f"{{{_MAIN_NS}}}items")
     item = _child(items, item_position)
-    cache_index = _integer(item.attrib.get("x") if item is not None else None, -1)
+    cache_index = _integer(
+        item.attrib.get("x") if item is not None else None,
+        -1,
+        attribute="pivotItem.x",
+        minimum=0,
+        maximum=MAX_UNSIGNED_INT,
+    )
     if not 0 <= field_index < len(cache_fields):
         return None
     shared = cache_fields[field_index]["items"]
@@ -238,10 +291,35 @@ def _child(parent: Any | None, index: int) -> Any | None:
     return list(parent)[index]
 
 
-def _optional_integer(value: str | None) -> int | None:
-    return int(value) if value is not None and value.lstrip("-").isdigit() else None
+def _optional_integer(
+    value: str | None,
+    *,
+    attribute: str,
+    minimum: int,
+    maximum: int,
+) -> int | None:
+    if value is None:
+        return None
+    return parse_xml_int(
+        value,
+        attribute=attribute,
+        minimum=minimum,
+        maximum=maximum,
+    )
 
 
-def _integer(value: str | None, default: int) -> int:
-    parsed = _optional_integer(value)
+def _integer(
+    value: str | None,
+    default: int,
+    *,
+    attribute: str,
+    minimum: int,
+    maximum: int,
+) -> int:
+    parsed = _optional_integer(
+        value,
+        attribute=attribute,
+        minimum=minimum,
+        maximum=maximum,
+    )
     return default if parsed is None else parsed

@@ -7,6 +7,7 @@ from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from .constants import NS, STYLES_PART
+from .xml_numeric import MAX_UNSIGNED_INT, parse_xml_int, parse_xml_number
 
 _MAIN_NS = NS["main"]
 _DEFAULT_FONT = {
@@ -380,8 +381,12 @@ def _parse_dxf_font(font: Element) -> dict[str, Any]:
         if element is not None:
             value: Any = element.attrib.get("val", "")
             if key == "size":
-                numeric = float(value)
-                value = int(numeric) if numeric.is_integer() else numeric
+                value = parse_xml_number(
+                    value,
+                    attribute="dxf.font.sz",
+                    minimum=1,
+                    maximum=409,
+                )
             result[key] = value
     color = font.find(f"{{{_MAIN_NS}}}color")
     if color is not None:
@@ -531,7 +536,13 @@ def _read_number_formats(root: Element) -> dict[int, str]:
     container = root.find(f"{{{_MAIN_NS}}}numFmts")
     if container is not None:
         for item in container.findall(f"{{{_MAIN_NS}}}numFmt"):
-            result[int(item.attrib.get("numFmtId", "0"))] = item.attrib.get(
+            format_id = parse_xml_int(
+                item.attrib.get("numFmtId", "0"),
+                attribute="numFmt.numFmtId",
+                minimum=0,
+                maximum=65_535,
+            )
+            result[format_id] = item.attrib.get(
                 "formatCode",
                 "",
             )
@@ -560,10 +571,30 @@ def _read_cell_xfs(root: Element) -> list[dict[str, Any]]:
         protection = xf.find(f"{{{_MAIN_NS}}}protection")
         result.append(
             {
-                "num_fmt_id": int(xf.attrib.get("numFmtId", "0")),
-                "font_id": int(xf.attrib.get("fontId", "0")),
-                "fill_id": int(xf.attrib.get("fillId", "0")),
-                "border_id": int(xf.attrib.get("borderId", "0")),
+                "num_fmt_id": parse_xml_int(
+                    xf.attrib.get("numFmtId", "0"),
+                    attribute="xf.numFmtId",
+                    minimum=0,
+                    maximum=65_535,
+                ),
+                "font_id": parse_xml_int(
+                    xf.attrib.get("fontId", "0"),
+                    attribute="xf.fontId",
+                    minimum=0,
+                    maximum=MAX_UNSIGNED_INT,
+                ),
+                "fill_id": parse_xml_int(
+                    xf.attrib.get("fillId", "0"),
+                    attribute="xf.fillId",
+                    minimum=0,
+                    maximum=MAX_UNSIGNED_INT,
+                ),
+                "border_id": parse_xml_int(
+                    xf.attrib.get("borderId", "0"),
+                    attribute="xf.borderId",
+                    minimum=0,
+                    maximum=MAX_UNSIGNED_INT,
+                ),
                 "alignment": _parse_alignment(alignment),
                 "protection": _parse_protection(protection),
             }
@@ -630,7 +661,12 @@ def _parse_alignment(alignment: Element | None) -> dict[str, Any]:
         if result_key in {"wrap", "shrink_to_fit"}:
             result[result_key] = raw == "1"
         elif result_key in {"rotation", "indent"}:
-            numeric = int(raw)
+            numeric = parse_xml_int(
+                raw,
+                attribute=f"alignment.{xml_key}",
+                minimum=0,
+                maximum=255 if result_key == "rotation" else 250,
+            )
             result[result_key] = 90 - numeric if result_key == "rotation" and numeric > 90 else numeric
         else:
             result[result_key] = raw
@@ -653,12 +689,31 @@ def _parse_color(color: Element | None) -> str | dict[str, Any]:
     if "rgb" in color.attrib:
         return color.attrib["rgb"]
     if "theme" in color.attrib:
-        result: dict[str, Any] = {"theme": int(color.attrib["theme"])}
+        result: dict[str, Any] = {
+            "theme": parse_xml_int(
+                color.attrib["theme"],
+                attribute="color.theme",
+                minimum=0,
+                maximum=MAX_UNSIGNED_INT,
+            )
+        }
         if "tint" in color.attrib:
-            result["tint"] = float(color.attrib["tint"])
+            result["tint"] = parse_xml_number(
+                color.attrib["tint"],
+                attribute="color.tint",
+                minimum=-1,
+                maximum=1,
+            )
         return result
     if "indexed" in color.attrib:
-        return {"indexed": int(color.attrib["indexed"])}
+        return {
+            "indexed": parse_xml_int(
+                color.attrib["indexed"],
+                attribute="color.indexed",
+                minimum=0,
+                maximum=MAX_UNSIGNED_INT,
+            )
+        }
     if color.attrib.get("auto") == "1":
         return {"auto": True}
     return ""
@@ -712,8 +767,12 @@ def _numeric_attr(element: Element | None, attr: str) -> int | float | str:
     text = _attr_text(element, attr)
     if not text:
         return ""
-    number = float(text)
-    return int(number) if number.is_integer() else number
+    return parse_xml_number(
+        text,
+        attribute=f"font.{attr}",
+        minimum=1,
+        maximum=409,
+    )
 
 
 def _attr_text(element: Element | None, attr: str) -> str:

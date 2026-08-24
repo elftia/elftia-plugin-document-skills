@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import zipfile
-from xml.etree.ElementTree import tostring
+from xml.etree.ElementTree import fromstring, tostring
 
 import pytest
 
@@ -29,6 +29,28 @@ def _strip_style_children(path: Path) -> None:
         b'<cellStyleXfs count="1"/><cellXfs count="1"/>'
         b'<cellStyles count="1"/><dxfs count="0"/></styleSheet>'
     )
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(parts.items()):
+            archive.writestr(name, data)
+
+
+def _set_sheet_numeric_attribute(
+    path: Path,
+    element_name: str,
+    attribute: str,
+    value: str,
+    *,
+    part: str = "xl/worksheets/sheet1.xml",
+) -> None:
+    """Replace one SpreadsheetML numeric attribute without normalizing its value."""
+
+    with zipfile.ZipFile(path, "r") as archive:
+        parts = {name: archive.read(name) for name in archive.namelist()}
+    root = fromstring(parts[part])
+    element = root.find(f".//{{{NS['main']}}}{element_name}")
+    assert element is not None
+    element.attrib[attribute] = value
+    parts[part] = tostring(root, encoding="UTF-8", xml_declaration=True)
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, data in sorted(parts.items()):
             archive.writestr(name, data)
@@ -2027,3 +2049,145 @@ def test_public_edit_invalidates_dependents(project_root: Path, public_created: 
         if c.get("state") == "recalculation_required"
     ]
     assert len(invalidated) > 0, "Expected dependent invalidation"
+
+
+@pytest.mark.parametrize("operation", ["xlsx.read", "xlsx.inspect.structure"])
+@pytest.mark.parametrize(
+    "unsafe_priority",
+    ["not-a-number", "-1", "9" * 256],
+    ids=["malformed", "negative", "overlong"],
+)
+def test_public_projection_rejects_unsafe_conditional_format_priority(
+    project_root: Path,
+    tmp_path: Path,
+    operation: str,
+    unsafe_priority: str,
+) -> None:
+    source = tmp_path / f"unsafe-priority-{operation.replace('.', '-')}.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["conditional_formats"] = [
+        {
+            "ref": "B1:B2",
+            "type": "cellIs",
+            "priority": 1,
+            "operator": "greaterThan",
+            "formulas": ["0"],
+            "style": {"font": {"color": "#FF0000"}},
+        }
+    ]
+    create_xlsx(source, workbook)
+    _set_sheet_numeric_attribute(source, "cfRule", "priority", unsafe_priority)
+    request = _request(
+        tmp_path,
+        f"unsafe-priority-{operation.replace('.', '-')}.json",
+        {
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert unsafe_priority not in json.dumps(result["errors"][0], ensure_ascii=False)
+
+
+@pytest.mark.parametrize("operation", ["xlsx.read", "xlsx.inspect.structure"])
+@pytest.mark.parametrize(
+    ("element_name", "attribute", "unsafe_value"),
+    [
+        ("sheetView", "zoomScale", "-31415926"),
+        ("pageMargins", "left", "1e999"),
+    ],
+    ids=["out-of-range-integer", "non-finite-number"],
+)
+def test_public_projection_rejects_other_unsafe_numeric_attributes(
+    project_root: Path,
+    tmp_path: Path,
+    operation: str,
+    element_name: str,
+    attribute: str,
+    unsafe_value: str,
+) -> None:
+    source = tmp_path / f"unsafe-metadata-{operation.replace('.', '-')}.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["view"] = {
+        "show_grid_lines": True,
+        "zoom_scale": 100,
+        "selected_cell": "A1",
+    }
+    workbook["sheets"][0]["page_setup"] = {
+        "orientation": "portrait",
+        "paper_size": "letter",
+        "margins": {
+            "left": 0.7,
+            "right": 0.7,
+            "top": 0.75,
+            "bottom": 0.75,
+            "header": 0.3,
+            "footer": 0.3,
+        },
+        "fit_to_width": 1,
+        "fit_to_height": 0,
+        "horizontal_centered": False,
+        "vertical_centered": False,
+    }
+    create_xlsx(source, workbook)
+    _set_sheet_numeric_attribute(source, element_name, attribute, unsafe_value)
+    request = _request(
+        tmp_path,
+        f"unsafe-metadata-{operation.replace('.', '-')}.json",
+        {
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert unsafe_value not in json.dumps(result["errors"][0], ensure_ascii=False)
+
+
+@pytest.mark.parametrize("operation", ["xlsx.read", "xlsx.inspect.structure"])
+def test_public_projection_rejects_overlong_comment_author_id(
+    project_root: Path,
+    tmp_path: Path,
+    operation: str,
+) -> None:
+    unsafe_author_id = "7" * 256
+    source = tmp_path / f"unsafe-author-{operation.replace('.', '-')}.xlsx"
+    workbook = _workbook()
+    workbook["sheets"][0]["comments"] = [
+        {"ref": "A1", "text": "Review", "author": "Alice"}
+    ]
+    create_xlsx(source, workbook)
+    _set_sheet_numeric_attribute(
+        source,
+        "comment",
+        "authorId",
+        unsafe_author_id,
+        part="xl/comments1.xml",
+    )
+    request = _request(
+        tmp_path,
+        f"unsafe-author-{operation.replace('.', '-')}.json",
+        {
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert unsafe_author_id not in json.dumps(result["errors"][0], ensure_ascii=False)

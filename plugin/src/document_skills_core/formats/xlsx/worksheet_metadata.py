@@ -7,6 +7,7 @@ from xml.etree.ElementTree import Element, SubElement
 
 from .constants import NS
 from .relationships import relationship_map
+from .xml_numeric import parse_optional_xml_int, parse_xml_int, parse_xml_number
 
 _MAIN_NS = NS["main"]
 _PAPER_SIZE_TO_ID = {
@@ -109,7 +110,12 @@ def project_worksheet_metadata(package: Any) -> list[dict[str, Any]]:
                 if view is None
                 else {
                     "show_grid_lines": _bool_attr(view, "showGridLines", True),
-                    "zoom_scale": int(view.attrib.get("zoomScale", "100")),
+                    "zoom_scale": parse_xml_int(
+                        view.attrib.get("zoomScale", "100"),
+                        attribute="sheetView.zoomScale",
+                        minimum=10,
+                        maximum=400,
+                    ),
                     "selected_cell": "A1"
                     if selection is None
                     else selection.attrib.get("activeCell", "A1"),
@@ -123,9 +129,24 @@ def project_worksheet_metadata(package: Any) -> list[dict[str, Any]]:
                         page_setup.attrib.get("paperSize", "1"),
                     ),
                     "margins": _project_margins(page_margins),
-                    "fit_to_width": _optional_int(page_setup.attrib.get("fitToWidth")),
-                    "fit_to_height": _optional_int(page_setup.attrib.get("fitToHeight")),
-                    "scale": _optional_int(page_setup.attrib.get("scale")),
+                    "fit_to_width": _optional_int(
+                        page_setup.attrib.get("fitToWidth"),
+                        attribute="pageSetup.fitToWidth",
+                        minimum=0,
+                        maximum=32_767,
+                    ),
+                    "fit_to_height": _optional_int(
+                        page_setup.attrib.get("fitToHeight"),
+                        attribute="pageSetup.fitToHeight",
+                        minimum=0,
+                        maximum=32_767,
+                    ),
+                    "scale": _optional_int(
+                        page_setup.attrib.get("scale"),
+                        attribute="pageSetup.scale",
+                        minimum=10,
+                        maximum=400,
+                    ),
                     "horizontal_centered": _bool_attr(
                         print_options,
                         "horizontalCentered",
@@ -254,7 +275,12 @@ def _project_margins(element: Element | None) -> dict[str, float]:
         "footer": 0.3,
     }
     return {
-        key: float(default if element is None else element.attrib.get(key, str(default)))
+        key: parse_xml_number(
+            str(default) if element is None else element.attrib.get(key, str(default)),
+            attribute=f"pageMargins.{key}",
+            minimum=0,
+            maximum=49,
+        )
         for key, default in defaults.items()
     }
 
@@ -327,8 +353,19 @@ def _bool_attr(element: Element | None, name: str, default: bool) -> bool:
     return element.attrib[name] in {"1", "true", "on"}
 
 
-def _optional_int(value: str | None) -> int | None:
-    return None if value is None else int(value)
+def _optional_int(
+    value: str | None,
+    *,
+    attribute: str,
+    minimum: int,
+    maximum: int,
+) -> int | None:
+    return parse_optional_xml_int(
+        value,
+        attribute=attribute,
+        minimum=minimum,
+        maximum=maximum,
+    )
 
 
 def _child_text(parent: Element, name: str) -> str:

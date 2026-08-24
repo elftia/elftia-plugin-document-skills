@@ -10,6 +10,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS, REL_COMMENTS, REL_VML_DRAWING
 from .relationships import relationship_map
+from .xml_numeric import MAX_UNSIGNED_INT, parse_optional_xml_int
 
 _MAIN_NS = NS["main"]
 _VML_NS = "urn:schemas-microsoft-com:vml"
@@ -203,9 +204,15 @@ def project_comments(package: Any) -> list[dict[str, Any]]:
                 f"{{{_MAIN_NS}}}commentList/{{{_MAIN_NS}}}comment"
             ):
                 author_id = item.attrib.get("authorId", "")
+                author_index = parse_optional_xml_int(
+                    author_id or None,
+                    attribute="comment.authorId",
+                    minimum=0,
+                    maximum=MAX_UNSIGNED_INT,
+                )
                 author = (
-                    authors[int(author_id)]
-                    if author_id.isdigit() and int(author_id) < len(authors)
+                    authors[author_index]
+                    if author_index is not None and author_index < len(authors)
                     else None
                 )
                 result.append(
