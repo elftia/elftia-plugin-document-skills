@@ -268,6 +268,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "static_formula_syntax_and_reference_report",
                     "formula_type_classification",
                     "xlsm_inert_vba_read",
+                    "native_pivot_readback",
                 ],
                 "limitations": [
                     "static_analysis_is_not_a_calculation_engine",
@@ -278,6 +279,7 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "inert_formula_type_classification",
                     "external_formula_inventory",
                     "xlsm_vba_and_signature_inventory",
+                    "native_pivot_relationship_inventory",
                 ],
             },
             "xlsx.create": {
@@ -456,6 +458,28 @@ def test_public_feature_truth_table_is_asserted(project_root: Path) -> None:
                     "ordinary_summary_is_not_native_pivot",
                     "formula_caches_are_not_recalculated",
                     "formatted_dates_group_as_stored_values",
+                ],
+            },
+            "xlsx.pivot.create": {
+                "available": [
+                    "native_pivot_table_and_cache",
+                    "worksheet_source_range",
+                    "single_row_axis",
+                    "optional_single_column_axis",
+                    "optional_single_page_filter",
+                    "single_value_sum_average_min_max_count",
+                    "saved_pivot_cache_records",
+                    "relationship_and_content_type_validation",
+                    "independent_public_readback",
+                    "xlsm_keep_vba_copy_through",
+                    "source_preservation",
+                    "atomic_promotion",
+                ],
+                "limitations": [
+                    "one_row_one_column_one_filter_one_value_maximum",
+                    "target_sheet_must_be_new",
+                    "formula_caches_are_not_recalculated",
+                    "pivot_structural_edit_is_unavailable",
                 ],
             },
         },
@@ -1163,6 +1187,7 @@ def test_public_capabilities_list_xlsx_operations(project_root: Path) -> None:
     assert "xlsx.convert" in operations
     assert "xlsx.template.instantiate" in operations
     assert "xlsx.summary.aggregate" in operations
+    assert "xlsx.pivot.create" in operations
     assert all(item["available"] for item in operations.values() if "xlsx" in item["operation"])
 
 

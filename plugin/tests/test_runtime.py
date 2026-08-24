@@ -81,6 +81,7 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "xlsx.read",
         "xlsx.template.instantiate",
         "xlsx.summary.aggregate",
+        "xlsx.pivot.create",
     }
     for operation in public_operations:
         bindings = registry.operations.get(operation, [])

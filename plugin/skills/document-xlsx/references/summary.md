@@ -1,7 +1,8 @@
 # Ordinary grouped summaries
 
 `xlsx.summary.aggregate` creates an ordinary worksheet and native Excel table in a distinct
-`.xlsx` or `.xlsm` output. It is deliberately not a native pivot table or pivot cache.
+`.xlsx` or `.xlsm` output. It is deliberately not a native pivot table or pivot cache; use the
+separate `xlsx.pivot.create` operation when native pivot semantics are required.
 
 ```json
 {

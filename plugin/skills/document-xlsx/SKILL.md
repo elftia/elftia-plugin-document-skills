@@ -1,14 +1,14 @@
 ---
 name: document-xlsx
-description: Read, inspect, create, edit, summarize, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
+description: Read, inspect, create, edit, summarize, pivot, instantiate, recalculate, and convert XLSX/tabular spreadsheet artifacts through the bundled document core.
 ---
 
 # XLSX workbooks
 
-Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, grouped summaries, and bounded tabular conversion requests. The Core capability supports eight operations:
+Use this Skill for `.xlsx`, inert `.xlsm`, template-as-base, grouped summaries, native pivots, and bounded tabular conversion requests. The Core capability supports nine operations:
 `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit`, and
 `xlsx.recalculate`, plus `xlsx.convert`, `xlsx.template.instantiate`, and
-`xlsx.summary.aggregate`. The public contract and validation run through the frozen
+`xlsx.summary.aggregate` and `xlsx.pivot.create`. The public contract and validation run through the frozen
 uv/Python facade. LibreOffice is an optional isolated enhancement for read/create/edit and is
 required when `xlsx.recalculate` is asked to recompute a workbook that contains formulas or
 when `xlsx.convert` explicitly converts legacy `.xls` input to `.xlsx`.
@@ -30,7 +30,8 @@ through an accepted recalculation provider.** Create/edit default to `recalculat
 without LibreOffice they still publish the validated Core artifact and honestly retain the
 stale/never/recalculation-required state. Such outstanding formulas produce `degraded` plus an
 `outstanding-formula-recalculation` degradation. Summary aggregation that explicitly consumes
-formula caches also reports `summary-cached-formula-values`. See
+formula caches also reports `summary-cached-formula-values`; native pivot creation analogously
+reports `pivot-cached-formula-values`. See
 [`references/recalculation.md`](references/recalculation.md) for policy and gate details.
 
 Every formula-bearing read/create/edit/recalculate candidate also receives conservative static
@@ -55,7 +56,9 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 Reads a structured projection of sheets, rows, cells, formulas, cached values, styles, number
 formats, tables, data-validation rules, conditional-format rules and resolved differential
 styles, defined names, hyperlinks, native chart types/anchors/series/axes/labels/colors, and
-shared-string metadata. It also projects per-sheet views/print settings, inert internal
+shared-string metadata. It also projects native pivot tables through their worksheet/table/cache/
+record relationship chain, including source range, axis/filter/value fields, style, and record
+counts. It also projects per-sheet views/print settings, inert internal
 hyperlinks, legacy cell notes, and core/extended workbook properties.
 The `formula_analysis` report records static issues and special formula categories without
 claiming calculated-value correctness.
@@ -67,7 +70,8 @@ OLE, DDE, external targets, executable parts, or external formulas still return
 ### xlsx.inspect.structure
 
 Inventories package parts, content types, relationships, media, sheets, calc chain, shared
-strings, styles, tables, data validations, conditional formats, pivot caches, external links,
+strings, styles, tables, data validations, conditional formats, native pivot tables/caches,
+external links,
 native charts/drawings, dangerous content, and unknown parts
 without executing or dereferencing anything. Worksheet print metadata, hyperlinks, cell notes,
 and workbook properties are included in the inert projection. Formula categories and external
@@ -165,6 +169,29 @@ pivot relationship. Formula source cells are rejected by default. Explicit
 calculation engine verified them. `.xlsm` requires `keep_vba: true` and retains the normal inert
 macro/signature preservation evidence. See [`references/summary.md`](references/summary.md).
 
+### xlsx.pivot.create
+
+Creates a real worksheet-owned native pivot table and saved pivot cache in a distinct `.xlsx`
+or `.xlsm` output. The Core writes and validates the workbook `pivotCaches` entry, cache
+definition, cache records, pivot-table definition, all four relationship hops, worksheet
+`pivotTableParts`, and the three content-type overrides. `xlsx.read` and
+`xlsx.inspect.structure` independently project the created pivot through those relationships;
+the operation also reopens with an independent spreadsheet consumer before this capability is
+advertised.
+
+The bounded first slice accepts exactly one row field, zero or one column field, zero or one
+page filter, and exactly one value field using `sum`, `average`, `min`, `max`, or nonblank
+`count`. Axis ordering is explicit. A page filter may select one typed scalar or leave all items
+selected. The target worksheet must be new; visible cached results are written there alongside
+the native pivot parts. This operation does not enable pivot update/delete or row/column/sheet
+structural edits that would affect an existing pivot.
+
+Formula source cells are rejected by default. `formula_policy: "cached"` is explicit and
+degraded because no calculation engine verified the stored value. `.xlsm` requires
+`keep_vba: true`; VBA remains inert and package mutation invalidates any preserved macro
+signature. See [`references/pivots.md`](references/pivots.md) for the complete request and
+current limits.
+
 ### xlsx.recalculate
 
 Requires distinct `input` and `output` paths and accepts an empty `arguments` object. For a
@@ -229,5 +256,5 @@ the promoted artifact with an independent consumer.
 ## Distinct output rule
 
 Mutations require an explicit output path. For `xlsx.edit`, `xlsx.recalculate`, `xlsx.convert`,
-`xlsx.template.instantiate`, and `xlsx.summary.aggregate`, output
+`xlsx.template.instantiate`, `xlsx.summary.aggregate`, and `xlsx.pivot.create`, output
 resolving to input is rejected as `DS_OUTPUT_EQUALS_INPUT`. The source artifact is never modified.
