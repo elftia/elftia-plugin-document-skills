@@ -329,7 +329,9 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
     records = {record["module"]: record for record in manifest["modules"]}
     expected_paths = {
         "src/document_skills_core/core/io/ooxml_security.py",
+        "src/document_skills_core/core/process/executable.py",
         "src/document_skills_core/core/process/runner.py",
+        "src/document_skills_core/core/process/windows_handles.py",
         "src/document_skills_core/formats/pdf/byte_preflight.py",
         "src/document_skills_core/providers/defaults.py",
         "src/document_skills_core/providers/dotnet/constants.py",
@@ -358,6 +360,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_input_snapshot_security.py",
         "tests/test_libreoffice_hard_quota.py",
         "tests/test_libreoffice_provider.py",
+        "tests/test_process_executable_identity.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_strategy3.py",
@@ -376,6 +379,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         path for path in records if xlsx_shared_module_profile(path)
     }
     assert profiled_paths == expected_paths
+    assert len(profiled_paths) == 46
     xlsx_requirement = "Rasen document-skills-core-xlsx"
     html_xlsx_requirement = (
         "Rasen html-to-editable-pptx + document-skills-core-xlsx"
@@ -400,10 +404,43 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_input_snapshot_security.py",
         "tests/test_libreoffice_hard_quota.py",
         "tests/test_libreoffice_provider.py",
+        "tests/test_process_executable_identity.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_supply_chain.py",
     }
+    atomic_launch_only_paths = {
+        "src/document_skills_core/core/process/executable.py",
+        "src/document_skills_core/core/process/windows_handles.py",
+        "tests/test_process_executable_identity.py",
+    }
+    atomic_launch_composed_paths = {
+        "src/document_skills_core/core/process/runner.py",
+        "src/document_skills_core/providers/dotnet/detector.py",
+        "src/document_skills_core/providers/dotnet/runner.py",
+        "src/document_skills_core/providers/dotnet/service.py",
+        "src/document_skills_core/providers/libreoffice/detector.py",
+    }
+    assert (
+        atomic_launch_only_paths | atomic_launch_composed_paths
+    ) <= expected_paths
+    assert len(atomic_launch_only_paths | atomic_launch_composed_paths) == 8
+    shared_description = (
+        "Shared Core XLSX provider execution, managed CLI supervision, and exact "
+        "supply-chain policy for bounded OpenXML validation and LibreOffice rendering."
+    )
+    atomic_launch_description = (
+        "Identity-bound top-level native executable launch: Windows hashes and resolves "
+        "one followed handle, then holds canonical parent and executable handles through "
+        "CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. "
+        "Pre-lease identity drift and detector-to-operation races fail closed; final-window "
+        "same-path replacement cannot redirect the pinned launch object. Windows share "
+        "mode blocks hardlink-alias writes, and partial handle acquisition closes each "
+        "owned handle exactly once. Identity capture or change, non-Linux POSIX or script "
+        "native-unavailable cases, and spawn failures use sanitized typed categories "
+        "without raw OS details. The binding excludes argv-selected helpers and the "
+        "dynamic DLL or dependency closure."
+    )
     for path in expected_paths:
         requirement = (
             "Rasen html-to-editable-pptx + "
@@ -421,7 +458,13 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         )
         record = records[path]
         assert record["requirement_source"] == requirement
-        if path.endswith("packages.lock.json"):
+        if path in atomic_launch_only_paths:
+            assert record["modifications"] == atomic_launch_description
+        elif path in atomic_launch_composed_paths:
+            assert record["modifications"] == (
+                f"{shared_description} {atomic_launch_description}"
+            )
+        elif path.endswith("packages.lock.json"):
             assert "Exact NuGet dependency lock" in record["modifications"]
         else:
             assert "Shared Core XLSX" in record["modifications"]
@@ -465,6 +508,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         path for path in records if xlsx_shared_data_profile(path)
     }
     assert profiled_paths == set(expected_requirements)
+    assert len(profiled_paths) == 5
     required_evidence = {
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
@@ -475,6 +519,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "tests/test_dotnet_xlsx_schema_real.py",
         "tests/test_input_snapshot_security.py",
         "tests/test_libreoffice_hard_quota.py",
+        "tests/test_process_executable_identity.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_supply_chain.py",

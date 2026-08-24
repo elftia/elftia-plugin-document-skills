@@ -27,7 +27,9 @@ DOCX_CONSUMER_GATES_REQUIREMENT = (
 XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
 _XLSX_SHARED_MODULES = {
     "src/document_skills_core/core/io/ooxml_security.py",
+    "src/document_skills_core/core/process/executable.py",
     "src/document_skills_core/core/process/runner.py",
+    "src/document_skills_core/core/process/windows_handles.py",
     "src/document_skills_core/formats/pdf/byte_preflight.py",
     "src/document_skills_core/providers/defaults.py",
     "src/document_skills_core/providers/dotnet/constants.py",
@@ -56,6 +58,7 @@ _XLSX_SHARED_MODULES = {
     "tests/test_input_snapshot_security.py",
     "tests/test_libreoffice_hard_quota.py",
     "tests/test_libreoffice_provider.py",
+    "tests/test_process_executable_identity.py",
     "tests/test_runtime.py",
     "tests/test_safety.py",
     "tests/test_strategy3.py",
@@ -88,6 +91,7 @@ _XLSX_SHARED_TESTS = [
     "tests/test_libreoffice_provider.py",
     "tests/test_libreoffice_hard_quota.py",
     "tests/test_provider_crash_isolation.py",
+    "tests/test_process_executable_identity.py",
     "tests/test_html_provenance.py",
     "tests/test_input_snapshot_security.py",
     "tests/test_runtime.py",
@@ -104,6 +108,34 @@ _XLSX_NUGET_DESCRIPTION = (
 _XLSX_RUNTIME_SOURCE_DESCRIPTION = (
     "Strict value-flow runtime file inventory for the Core XLSX Python source set "
     "and its execution-boundary audit."
+)
+_XLSX_SHARED_DESCRIPTION = (
+    "Shared Core XLSX provider execution, managed CLI supervision, and exact "
+    "supply-chain policy for bounded OpenXML validation and LibreOffice rendering."
+)
+_XLSX_ATOMIC_LAUNCH_ONLY_MODULES = {
+    "src/document_skills_core/core/process/executable.py",
+    "src/document_skills_core/core/process/windows_handles.py",
+    "tests/test_process_executable_identity.py",
+}
+_XLSX_ATOMIC_LAUNCH_COMPOSED_MODULES = {
+    "src/document_skills_core/core/process/runner.py",
+    "src/document_skills_core/providers/dotnet/detector.py",
+    "src/document_skills_core/providers/dotnet/runner.py",
+    "src/document_skills_core/providers/dotnet/service.py",
+    "src/document_skills_core/providers/libreoffice/detector.py",
+}
+_XLSX_ATOMIC_LAUNCH_DESCRIPTION = (
+    "Identity-bound top-level native executable launch: Windows hashes and resolves "
+    "one followed handle, then holds canonical parent and executable handles through "
+    "CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. "
+    "Pre-lease identity drift and detector-to-operation races fail closed; final-window "
+    "same-path replacement cannot redirect the pinned launch object. Windows share "
+    "mode blocks hardlink-alias writes, and partial handle acquisition closes each "
+    "owned handle exactly once. Identity capture or change, non-Linux POSIX or script "
+    "native-unavailable cases, and spawn failures use sanitized typed categories "
+    "without raw OS details. The binding excludes argv-selected helpers and the "
+    "dynamic DLL or dependency closure."
 )
 
 
@@ -369,11 +401,14 @@ def xlsx_shared_module_profile(path: str) -> tuple[str, list[str]] | None:
         return None
     if path.endswith("/dotnet/helper/packages.lock.json"):
         return (_XLSX_NUGET_DESCRIPTION, _XLSX_SHARED_TESTS)
-    return (
-        "Shared Core XLSX provider execution, managed CLI supervision, and exact "
-        "supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
-        _XLSX_SHARED_TESTS,
-    )
+    if path in _XLSX_ATOMIC_LAUNCH_ONLY_MODULES:
+        return (_XLSX_ATOMIC_LAUNCH_DESCRIPTION, _XLSX_SHARED_TESTS)
+    if path in _XLSX_ATOMIC_LAUNCH_COMPOSED_MODULES:
+        return (
+            f"{_XLSX_SHARED_DESCRIPTION} {_XLSX_ATOMIC_LAUNCH_DESCRIPTION}",
+            _XLSX_SHARED_TESTS,
+        )
+    return (_XLSX_SHARED_DESCRIPTION, _XLSX_SHARED_TESTS)
 
 
 def xlsx_shared_data_profile(path: str) -> tuple[str, list[str]] | None:
