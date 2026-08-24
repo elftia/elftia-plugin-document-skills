@@ -340,7 +340,10 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "src/document_skills_core/providers/dotnet/service.py",
         "src/document_skills_core/providers/libreoffice/constants.py",
         "src/document_skills_core/providers/libreoffice/convert.py",
+        "src/document_skills_core/providers/libreoffice/detector.py",
+        "src/document_skills_core/providers/libreoffice/input_snapshot.py",
         "src/document_skills_core/providers/libreoffice/legacy.py",
+        "src/document_skills_core/providers/libreoffice/output.py",
         "src/document_skills_core/providers/libreoffice/recalc.py",
         "src/document_skills_core/providers/libreoffice/render.py",
         "src/document_skills_core/providers/libreoffice/runner.py",
@@ -351,6 +354,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_html_provenance.py",
         "tests/test_libreoffice_provider.py",
         "tests/test_runtime.py",
+        "tests/test_safety.py",
         "tests/test_strategy3.py",
         "tests/test_structure.py",
         "tests/test_supply_chain.py",
@@ -389,6 +393,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_dotnet_xlsx_schema_real.py",
         "tests/test_libreoffice_provider.py",
         "tests/test_runtime.py",
+        "tests/test_safety.py",
         "tests/test_supply_chain.py",
     }
     for path in expected_paths:
@@ -460,6 +465,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "tests/test_dotnet_provider.py",
         "tests/test_dotnet_xlsx_schema_real.py",
         "tests/test_runtime.py",
+        "tests/test_safety.py",
         "tests/test_supply_chain.py",
     }
     for path, requirement in expected_requirements.items():
