@@ -44,13 +44,17 @@ class LibreOfficeDetector:
         self,
         project_root: Path,
         runner: _VersionProbeRunner | None = None,
+        *,
+        policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
+        self._policy = policy or getattr(runner, "policy", None) or ProcessPolicy(
+            self.project_root
+        )
         if runner is not None:
             self._runner = runner
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -82,7 +86,7 @@ class LibreOfficeDetector:
             )
         try:
             result = self._runner.run(
-                "runtime-detection",
+                "libreoffice",
                 resolved,
                 ["--version"],
                 timeout_seconds=TIMEOUT_VERSION_PROBE,
@@ -117,8 +121,7 @@ class LibreOfficeDetector:
 
     def _resolve_executable(self, candidate: str) -> Path:
         """Resolve and allowlist the executable via ProcessPolicy."""
-        policy = ProcessPolicy(self.project_root)
-        return policy.allow_executable("runtime-detection", candidate)
+        return self._policy.allow_executable("libreoffice", candidate)
 
     @staticmethod
     def _classify_probe_error(error: DocumentSkillsError) -> str:

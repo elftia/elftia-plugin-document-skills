@@ -25,6 +25,11 @@ from .constants import (
     TIMEOUT_RENDER,
     USER_INSTALLATION_PREFIX,
 )
+from .output import (
+    assert_output_capacity,
+    assert_output_within_limit,
+    output_limit,
+)
 
 
 class _ContainedRunner(Protocol):
@@ -50,17 +55,23 @@ class LibreOfficeRunner:
         project_root: Path,
         executable: str | Path | None = None,
         runner: _ContainedRunner | None = None,
+        *,
+        policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self._executable = executable
+        self._policy = policy or getattr(runner, "policy", None) or ProcessPolicy(
+            self.project_root
+        )
+        self._executable: Path | None = None
         if runner is not None:
             self._runner = runner
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._runner = ProcessRunner(self._policy)
+        if executable is not None:
+            self.set_executable(executable)
 
     def set_executable(self, executable: str | Path) -> None:
-        self._executable = executable
+        self._executable = self._policy.allow_executable("libreoffice", executable)
 
     def convert(
         self,
@@ -82,6 +93,8 @@ class LibreOfficeRunner:
             )
         if timeout_seconds is None:
             timeout_seconds = _timeout_for_format(target_format)
+        output_limit(target_format)
+        assert_output_capacity(output_dir, target_format)
         with OperationTempRoot() as private_root:
             profile_root = private_root / "libreoffice-profile"
             profile_root.mkdir(mode=0o700)
@@ -108,6 +121,7 @@ class LibreOfficeRunner:
                 "LibreOffice conversion produced no output file.",
                 details={"expected": expected.name},
             )
+        assert_output_within_limit(expected, target_format)
         return expected
 
 

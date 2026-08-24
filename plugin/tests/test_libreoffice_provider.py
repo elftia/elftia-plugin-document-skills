@@ -6,9 +6,12 @@ to exercise the wiring, honesty, and containment.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from io import BytesIO
 import os
 from pathlib import Path
 import stat
+import struct
+import zipfile
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
@@ -21,9 +24,11 @@ from document_skills_core.core.capabilities import (
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.process import ProcessResult
+from document_skills_core.formats.pdf.constants import MAX_PDF_BYTES
 from document_skills_core.formats.xlsx.constants import FORMULA_STATE_RECALCULATED
 from document_skills_core.formats.xlsx.service import XlsxService
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
+from document_skills_core.providers.libreoffice.convert import convert_to_pdf
 from document_skills_core.providers.libreoffice.constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
@@ -156,6 +161,103 @@ def fake_xlsx(project_root: Path, tmp_path: Path) -> Path:
     return output
 
 
+def _minimal_docx_bytes() -> bytes:
+    payload = BytesIO()
+    with zipfile.ZipFile(payload, "w") as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "word/document.xml",
+            """<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>""",
+        )
+    return payload.getvalue()
+
+
+def _minimal_pptx_bytes() -> bytes:
+    payload = BytesIO()
+    with zipfile.ZipFile(payload, "w") as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "ppt/presentation.xml",
+            """<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>""",
+        )
+    return payload.getvalue()
+
+
+def _legacy_compound_bytes(format_id: str) -> bytes:
+    marker = {
+        "doc": "WordDocument",
+        "xls": "Workbook",
+        "ppt": "PowerPoint Document",
+    }[format_id]
+    free_sector = 0xFFFFFFFF
+    end_of_chain = 0xFFFFFFFE
+    fat_sector = 0xFFFFFFFD
+    header = bytearray(512)
+    header[:8] = bytes.fromhex("D0CF11E0A1B11AE1")
+    struct.pack_into("<HHHH", header, 24, 0x003E, 3, 0xFFFE, 9)
+    struct.pack_into("<H", header, 32, 6)
+    struct.pack_into("<IIIIIIIII", header, 40, 0, 1, 0, 0, 4096, free_sector, 0, free_sector, 0)
+    struct.pack_into("<109I", header, 76, 1, *([free_sector] * 108))
+
+    directory = bytearray(512)
+    _write_cfb_directory_entry(directory, 0, "Root Entry", 5, child=1)
+    _write_cfb_directory_entry(directory, 128, marker, 2)
+
+    fat = bytearray(b"\xff" * 512)
+    struct.pack_into("<II", fat, 0, end_of_chain, fat_sector)
+    return bytes(header + directory + fat)
+
+
+def _write_cfb_directory_entry(
+    directory: bytearray,
+    offset: int,
+    name: str,
+    object_type: int,
+    *,
+    child: int = 0xFFFFFFFF,
+) -> None:
+    encoded_name = name.encode("utf-16le") + b"\x00\x00"
+    directory[offset : offset + len(encoded_name)] = encoded_name
+    struct.pack_into("<HBBIII", directory, offset + 64, len(encoded_name), object_type, 1, 0xFFFFFFFF, 0xFFFFFFFF, child)
+    struct.pack_into("<I", directory, offset + 116, 0xFFFFFFFE)
+
+
+def _active_xlsx(path: Path) -> Path:
+    from document_skills_core.formats.xlsx.create import create_xlsx
+
+    create_xlsx(
+        path,
+        {
+            "metadata": {},
+            "sheets": [{
+                "name": "Sheet1",
+                "rows": [{"cells": [{
+                    "ref": "A1",
+                    "formula": 'WEBSERVICE("https://example.invalid")',
+                    "cached_value": "",
+                    "type": "str",
+                }]}],
+                "number_formats": [],
+            }],
+            "defined_names": [],
+            "tables": [],
+        },
+    )
+    return path
+
+
 # ---------------------------------------------------------------------------
 # Constants tests
 # ---------------------------------------------------------------------------
@@ -187,6 +289,35 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 
 class TestDetector:
+    def test_production_factory_shares_libreoffice_allowlist_policy(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        executable = tmp_path / "soffice.exe"
+        executable.write_bytes(b"placeholder")
+
+        class ProbeRunner:
+            def run(self, provider_id, executable_path, args, **kwargs):
+                assert provider_id == ProviderId.LIBREOFFICE.value
+                assert Path(executable_path) == executable.absolute()
+                return ProcessResult(0, "LibreOffice 25.8.0", "", 1)
+
+        monkeypatch.setattr(
+            shutil_module(),
+            "which",
+            lambda name: str(executable) if name == "soffice" else None,
+        )
+        definition, provider = build_libreoffice_provider(project_root)
+        provider.detector._runner = ProbeRunner()
+
+        evidence = definition.detect()
+        assert evidence.available is True
+        assert provider.detector._policy is provider.runner._policy
+        provider.runner.set_executable(evidence.path)
+        assert provider.runner._runner._check_executable(
+            ProviderId.LIBREOFFICE.value,
+            executable,
+        ) == executable.absolute()
+
     def test_callable_version_probe_parses_version(self, project_root, monkeypatch):
         """Callable soffice --version → available with parsed version."""
         detector = LibreOfficeDetector(project_root)
@@ -398,9 +529,11 @@ class TestRunnerContainment:
         input_file.write_bytes(b"fake")
         output_dir = tmp_path / "output"
         output_dir.mkdir()
+        executable = tmp_path / "soffice.exe"
+        executable.write_bytes(b"placeholder")
         runner = LibreOfficeRunner(
             project_root,
-            executable="/fake/soffice",
+            executable=executable,
             runner=FakeProcessRunner(),
         )
 
@@ -411,7 +544,9 @@ class TestRunnerContainment:
         assert profile_paths[0] != profile_paths[1]
         assert all(not profile.exists() for profile in profile_paths)
 
-    def test_runner_convert_uses_project_root_cwd(self, project_root, monkeypatch):
+    def test_runner_convert_uses_project_root_cwd(
+        self, project_root, tmp_path, monkeypatch
+    ):
         """The runner passes cwd=project_root to the ProcessRunner."""
         captured = {}
 
@@ -424,8 +559,10 @@ class TestRunnerContainment:
                 captured["output_limit"] = kwargs.get("output_limit")
                 return ProcessResult(0, "", "", 10)
 
+        executable = tmp_path / "soffice.exe"
+        executable.write_bytes(b"placeholder")
         runner = LibreOfficeRunner(
-            project_root, executable="/fake/soffice", runner=FakeProcessRunner()
+            project_root, executable=executable, runner=FakeProcessRunner()
         )
         import tempfile
         outdir = Path(tempfile.gettempdir()) / "test_lo_out"
@@ -550,7 +687,7 @@ class TestConsultationMatrix:
 
     def test_convert_pdf_present_returns_bytes(self, project_root, tmp_path):
         input_file = tmp_path / "input.docx"
-        input_file.write_bytes(b"fake docx")
+        input_file.write_bytes(_minimal_docx_bytes())
         _, provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(),
@@ -570,9 +707,132 @@ class TestConsultationMatrix:
         )
         assert provider.try_convert_to_pdf(input_file) is None
 
+    def test_disguised_active_xlsx_cannot_bypass_convert_pdf_preflight(
+        self, project_root, tmp_path
+    ):
+        actual_xlsx = _active_xlsx(tmp_path / "active.xlsx")
+        disguised = tmp_path / "looks-like-word.docx"
+        disguised.write_bytes(actual_xlsx.read_bytes())
+        runner = FakeCallableRunner(canned_data=b"%PDF-1.4 fake")
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        result = provider.execute(
+            "libreoffice.convert-pdf",
+            {"input": str(disguised)},
+        )
+
+        assert result["status"] == "failed"
+        assert result["errors"][0]["code"] == ErrorCode.ARCHIVE_UNSAFE.value
+        assert runner.calls == []
+
+    def test_convert_pdf_consumes_snapshot_and_detects_source_replacement(
+        self, project_root, tmp_path
+    ):
+        input_file = tmp_path / "input.docx"
+        original = _minimal_docx_bytes()
+        input_file.write_bytes(original)
+
+        class ReplacingPdfRunner(FakeCallableRunner):
+            def convert(
+                self,
+                input_path,
+                target_format,
+                output_dir,
+                *,
+                timeout_seconds=None,
+            ):
+                assert Path(input_path).resolve() != input_file.resolve()
+                assert Path(input_path).read_bytes() == original
+                replacement = tmp_path / "replacement.docx"
+                replacement.write_bytes(original + b"\x00")
+                os.replace(replacement, input_file)
+                return super().convert(
+                    input_path,
+                    target_format,
+                    output_dir,
+                    timeout_seconds=timeout_seconds,
+                )
+
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=ReplacingPdfRunner(canned_data=b"%PDF-1.4 fake"),
+        )
+
+        result = provider.execute(
+            "libreoffice.convert-pdf",
+            {"input": str(input_file)},
+        )
+
+        assert result["status"] == "failed"
+        assert result["errors"][0]["code"] == ErrorCode.VALIDATION_FAILED.value
+        details = result["errors"][0]["details"]
+        assert details["expected_sha256"] != details["actual_sha256"]
+
+    @pytest.mark.parametrize(
+        ("operation", "payload"),
+        [
+            ("libreoffice.render-image", "xlsx"),
+            ("libreoffice.read-legacy", "docx"),
+        ],
+    )
+    def test_operation_matrix_uses_detected_content_not_extension(
+        self, project_root, tmp_path, fake_xlsx, operation, payload
+    ):
+        disguised = tmp_path / (
+            "spreadsheet.docx" if payload == "xlsx" else "document.doc"
+        )
+        disguised.write_bytes(
+            fake_xlsx.read_bytes() if payload == "xlsx" else _minimal_docx_bytes()
+        )
+        runner = FakeCallableRunner()
+        _, provider = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        result = provider.execute(operation, {"input": str(disguised)})
+
+        assert result["status"] == "invalid_request"
+        assert result["errors"][0]["code"] == ErrorCode.REQUEST_INVALID.value
+        assert runner.calls == []
+
+    def test_oversized_pdf_output_is_rejected_before_read_bytes(
+        self, project_root, tmp_path, monkeypatch
+    ):
+        input_file = tmp_path / "input.docx"
+        input_file.write_bytes(_minimal_docx_bytes())
+
+        class OversizedRunner:
+            def convert(self, input_path, target_format, output_dir, **kwargs):
+                output = output_dir / f"{Path(input_path).stem}.{target_format}"
+                with output.open("wb") as handle:
+                    handle.seek(MAX_PDF_BYTES)
+                    handle.write(b"x")
+                return output
+
+        original_read_bytes = Path.read_bytes
+
+        def guarded_read_bytes(path):
+            if path.suffix.casefold() == ".pdf":
+                raise AssertionError("oversized provider output must not be read")
+            return original_read_bytes(path)
+
+        monkeypatch.setattr(Path, "read_bytes", guarded_read_bytes)
+        with pytest.raises(DocumentSkillsError) as exc:
+            convert_to_pdf(input_file, OversizedRunner())
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+        assert exc.value.details["output_bytes"] == MAX_PDF_BYTES + 1
+        assert exc.value.details["output_limit"] == MAX_PDF_BYTES
+
     def test_render_present_returns_bytes(self, project_root, tmp_path):
         input_file = tmp_path / "input.pptx"
-        input_file.write_bytes(b"fake pptx")
+        input_file.write_bytes(_minimal_pptx_bytes())
         _, provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(),
@@ -619,7 +879,7 @@ class TestConsultationMatrix:
 
     def test_legacy_present_returns_bytes(self, project_root, tmp_path):
         input_file = tmp_path / "input.doc"
-        input_file.write_bytes(b"fake doc")
+        input_file.write_bytes(_legacy_compound_bytes("doc"))
         _, provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(),
@@ -643,7 +903,7 @@ class TestConsultationMatrix:
         self, project_root, tmp_path
     ):
         input_file = tmp_path / "input.xls"
-        input_file.write_bytes(b"fake xls")
+        input_file.write_bytes(_legacy_compound_bytes("xls"))
         _, callable_provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(),
@@ -711,6 +971,86 @@ class TestXlsxServiceIntegration:
             for cell in formula_state["cells"].values()
         )
         assert has_recalculated
+
+    def test_read_formula_analysis_and_recalc_consume_one_snapshot(
+        self, project_root, fake_xlsx, monkeypatch
+    ):
+        from document_skills_core.formats.xlsx import read_operation
+
+        observed: dict[str, Path] = {}
+        original_read = read_operation.read_xlsx
+        original_analysis = read_operation.validate_formula_analysis
+
+        def recording_read(path, arguments):
+            observed["read"] = Path(path).resolve()
+            return original_read(path, arguments)
+
+        def recording_analysis(path, validation, **kwargs):
+            observed["analysis"] = Path(path).resolve()
+            return original_analysis(path, validation, **kwargs)
+
+        monkeypatch.setattr(read_operation, "read_xlsx", recording_read)
+        monkeypatch.setattr(
+            read_operation,
+            "validate_formula_analysis",
+            recording_analysis,
+        )
+        runner = FakeCallableRunner(canned_path=fake_xlsx)
+        _, libreoffice = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=runner,
+        )
+
+        result = XlsxService(project_root, libreoffice=libreoffice).execute(
+            "xlsx.read",
+            self._read_request(fake_xlsx),
+        )
+
+        assert result["status"] in {"success", "degraded"}
+        provider_input = Path(runner.calls[0]["input"]).resolve()
+        assert observed["read"] == observed["analysis"] == provider_input
+        assert provider_input != fake_xlsx.resolve()
+
+    def test_read_rechecks_source_after_provider_atomic_replacement(
+        self, project_root, fake_xlsx, tmp_path
+    ):
+        original = fake_xlsx.read_bytes()
+
+        class ReplacingRunner(FakeCallableRunner):
+            def convert(
+                self,
+                input_path,
+                target_format,
+                output_dir,
+                *,
+                timeout_seconds=None,
+            ):
+                assert Path(input_path).resolve() != fake_xlsx.resolve()
+                assert Path(input_path).read_bytes() == original
+                replacement = tmp_path / "atomic-replacement.xlsx"
+                replacement.write_bytes(original + b"\x00")
+                os.replace(replacement, fake_xlsx)
+                return super().convert(
+                    input_path,
+                    target_format,
+                    output_dir,
+                    timeout_seconds=timeout_seconds,
+                )
+
+        _, libreoffice = build_libreoffice_provider(
+            project_root,
+            detector=FakeCallableDetector(),
+            runner=ReplacingRunner(canned_data=original),
+        )
+        service = XlsxService(project_root, libreoffice=libreoffice)
+
+        result = service.execute("xlsx.read", self._read_request(fake_xlsx))
+
+        assert result["status"] == "failed"
+        assert result["errors"][0]["code"] == ErrorCode.VALIDATION_FAILED.value
+        details = result["errors"][0]["details"]
+        assert details["expected_sha256"] != details["actual_sha256"]
 
     def test_read_without_libreoffice_preserves_core(self, project_root, fake_xlsx):
         """Without LibreOffice, the Core result is byte-identical."""

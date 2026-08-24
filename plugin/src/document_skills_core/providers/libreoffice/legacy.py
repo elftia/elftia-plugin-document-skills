@@ -7,12 +7,14 @@ from pathlib import Path
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.io.temp_roots import OperationTempRoot
+from .input_snapshot import private_libreoffice_input
+from .output import read_provider_output
 from .runner import LibreOfficeRunner
 
 _LEGACY_TARGETS: dict[str, str] = {
-    ".doc": "docx",
-    ".xls": "xlsx",
-    ".ppt": "pptx",
+    "doc": "docx",
+    "xls": "xlsx",
+    "ppt": "pptx",
 }
 
 
@@ -27,20 +29,42 @@ def read_or_convert_legacy(
     If ``target_format`` is ``"pdf"``, converts to PDF instead.
     Returns the converted file bytes.
     """
-    suffix = Path(input_document).suffix.casefold()
-    if suffix not in _LEGACY_TARGETS:
+    with private_libreoffice_input(
+        input_document,
+        operation="libreoffice.read-legacy",
+    ) as snapshot:
+        return convert_legacy_snapshot(
+            snapshot.path,
+            runner,
+            source_format=snapshot.actual_format,
+            target_format=target_format,
+        )
+
+
+def convert_legacy_snapshot(
+    input_snapshot: Path,
+    runner: LibreOfficeRunner,
+    *,
+    source_format: str,
+    target_format: str | None = None,
+) -> bytes:
+    """Convert one screened legacy compound-file snapshot."""
+
+    default_target = _LEGACY_TARGETS[source_format]
+    target_format = target_format or default_target
+    if target_format not in {default_target, "pdf"}:
         raise DocumentSkillsError(
             ErrorCode.REQUEST_INVALID,
-            "LibreOffice legacy conversion accepts only DOC, XLS, or PPT input.",
+            "LibreOffice legacy target does not match the detected source format.",
             status="invalid_request",
-            details={"suffix": suffix},
+            details={
+                "source_format": source_format,
+                "target_format": target_format,
+                "accepted_targets": [default_target, "pdf"],
+            },
         )
-    if target_format is None:
-        target_format = _LEGACY_TARGETS[suffix]
     with OperationTempRoot() as private_root:
-        staged_input = private_root / ("input" + suffix)
-        staged_input.write_bytes(Path(input_document).read_bytes())
         output_dir = private_root / "output"
         output_dir.mkdir()
-        output = runner.convert(staged_input, target_format, output_dir)
-        return output.read_bytes()
+        output = runner.convert(input_snapshot, target_format, output_dir)
+        return read_provider_output(output, target_format)

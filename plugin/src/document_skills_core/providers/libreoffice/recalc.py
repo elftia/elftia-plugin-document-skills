@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from ...core.io.temp_roots import OperationTempRoot
-from ...formats.xlsx.formula_security import assert_provider_formula_safe
 from ...formats.xlsx.mapping import map_workbook
 from ...formats.xlsx.package import OpcPackage
+from .input_snapshot import private_libreoffice_input
+from .output import read_provider_output
 from .runner import LibreOfficeRunner
 
 
@@ -51,20 +52,31 @@ def recalculate_xlsx_artifact(
 ) -> RecalculatedXlsx:
     """Return the isolated converted artifact plus its formula/value projection."""
 
-    assert_provider_formula_safe(input_xlsx)
+    with private_libreoffice_input(
+        input_xlsx,
+        operation="libreoffice.recalc-xlsx",
+    ) as snapshot:
+        return recalculate_xlsx_snapshot_artifact(snapshot.path, runner)
+
+
+def recalculate_xlsx_snapshot_artifact(
+    input_snapshot: Path,
+    runner: LibreOfficeRunner,
+) -> RecalculatedXlsx:
+    """Recalculate an already screened private XLSX snapshot without restaging."""
+
     with OperationTempRoot() as private_root:
-        staged_input = private_root / "input.xlsx"
-        staged_input.write_bytes(Path(input_xlsx).read_bytes())
         output_dir = private_root / "output"
         output_dir.mkdir()
         converted = runner.convert(
-            staged_input,
+            input_snapshot,
             "xlsx",
             output_dir,
         )
+        formulas = _extract_formula_records(converted)
         return RecalculatedXlsx(
-            payload=converted.read_bytes(),
-            formulas=_extract_formula_records(converted),
+            payload=read_provider_output(converted, "xlsx"),
+            formulas=formulas,
         )
 
 

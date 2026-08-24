@@ -19,11 +19,17 @@ from ...core.capabilities.catalog import (
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
+from ...core.process import ProcessPolicy
 from ...formats.xlsx.render_operation import execute_render
-from .convert import convert_to_pdf
+from .convert import convert_snapshot_to_pdf, convert_to_pdf
 from .detector import LibreOfficeDetector
 from .legacy import read_or_convert_legacy
-from .recalc import RecalculatedXlsx, recalculate_xlsx, recalculate_xlsx_artifact
+from .recalc import (
+    RecalculatedXlsx,
+    recalculate_xlsx,
+    recalculate_xlsx_artifact,
+    recalculate_xlsx_snapshot_artifact,
+)
 from .render import render_to_image
 from .runner import LibreOfficeRunner
 
@@ -122,6 +128,24 @@ class LibreOfficeProvider:
             self.runner.set_executable(evidence.path)
         return recalculate_xlsx_artifact(input_path, self.runner)
 
+    def recalculate_screened_xlsx_artifact(
+        self,
+        input_snapshot: Path,
+    ) -> RecalculatedXlsx:
+        """Recalculate the caller's already screened private XLSX snapshot."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice recalculation is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return recalculate_xlsx_snapshot_artifact(input_snapshot, self.runner)
+
     def try_convert_to_pdf(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for Office-to-PDF conversion. Returns PDF bytes."""
         evidence = self.detector.detect()
@@ -216,7 +240,7 @@ class LibreOfficeProvider:
         return execute_render(
             request,
             project_root=self.project_root,
-            converter=lambda path: convert_to_pdf(path, self.runner),
+            converter=lambda path: convert_snapshot_to_pdf(path, self.runner),
         )
 
 
@@ -253,7 +277,12 @@ def build_libreoffice_provider(
     is passed to format services for consultation. Both detector and runner are
     injectable for mock-injected tests.
     """
-    provider = LibreOfficeProvider(project_root, detector=detector, runner=runner)
+    policy = ProcessPolicy(project_root.resolve())
+    provider = LibreOfficeProvider(
+        project_root,
+        detector=detector or LibreOfficeDetector(project_root, policy=policy),
+        runner=runner or LibreOfficeRunner(project_root, policy=policy),
+    )
     definition = ProviderDefinition(
         id=ProviderId.LIBREOFFICE,
         version=None,
