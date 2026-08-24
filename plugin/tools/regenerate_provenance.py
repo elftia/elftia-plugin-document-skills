@@ -27,6 +27,7 @@ DOCX_CONSUMER_GATES_REQUIREMENT = (
 XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
 _XLSX_SHARED_MODULES = {
     "src/document_skills_core/core/io/ooxml_security.py",
+    "src/document_skills_core/core/process/runner.py",
     "src/document_skills_core/formats/pdf/byte_preflight.py",
     "src/document_skills_core/providers/defaults.py",
     "src/document_skills_core/providers/dotnet/constants.py",
@@ -51,6 +52,7 @@ _XLSX_SHARED_MODULES = {
     "tests/test_consumer_validation.py",
     "tests/test_dotnet_provider.py",
     "tests/test_html_provenance.py",
+    "tests/test_input_snapshot_security.py",
     "tests/test_libreoffice_provider.py",
     "tests/test_runtime.py",
     "tests/test_safety.py",
@@ -83,6 +85,7 @@ _XLSX_SHARED_TESTS = [
     "tests/test_libreoffice_provider.py",
     "tests/test_provider_crash_isolation.py",
     "tests/test_html_provenance.py",
+    "tests/test_input_snapshot_security.py",
     "tests/test_runtime.py",
     "tests/test_safety.py",
     "tests/test_strategy2.py",

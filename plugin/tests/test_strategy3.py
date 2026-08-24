@@ -328,6 +328,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
     records = {record["module"]: record for record in manifest["modules"]}
     expected_paths = {
         "src/document_skills_core/core/io/ooxml_security.py",
+        "src/document_skills_core/core/process/runner.py",
         "src/document_skills_core/formats/pdf/byte_preflight.py",
         "src/document_skills_core/providers/defaults.py",
         "src/document_skills_core/providers/dotnet/constants.py",
@@ -352,6 +353,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_consumer_validation.py",
         "tests/test_dotnet_provider.py",
         "tests/test_html_provenance.py",
+        "tests/test_input_snapshot_security.py",
         "tests/test_libreoffice_provider.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
@@ -391,6 +393,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_xlsx_public.py",
         "tests/test_dotnet_provider.py",
         "tests/test_dotnet_xlsx_schema_real.py",
+        "tests/test_input_snapshot_security.py",
         "tests/test_libreoffice_provider.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
@@ -464,6 +467,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "tests/test_xlsx_public.py",
         "tests/test_dotnet_provider.py",
         "tests/test_dotnet_xlsx_schema_real.py",
+        "tests/test_input_snapshot_security.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_supply_chain.py",
