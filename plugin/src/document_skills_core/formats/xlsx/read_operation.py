@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any
+from pathlib import Path
+from typing import Any, Protocol
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.io.paths import (
-    assert_source_preserved,
-    file_record,
-    merge_source_preservation_failure,
-)
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
+from .constants import MAX_XLSX_BYTES
 from .contracts import ParsedXlsxRequest
 from .formula_analysis import validate_formula_analysis
 from .formula_security import assert_provider_formula_safe
@@ -20,19 +17,32 @@ from .read import read_xlsx
 from .recalculation_service import RecalculationOutcome, recalculate_candidate
 from .results import read_validation, success_result, with_recalculation_gate
 from .service_support import formula_degradations, outcome_provider
-from .source_snapshot import stage_source_snapshot
+from .source_snapshot import (
+    assert_bounded_source_preserved,
+    bounded_source_record,
+    merge_bounded_source_preservation_failure,
+    stage_source_snapshot,
+)
 
 
 def execute_read(
     request: ParsedXlsxRequest,
     *,
-    libreoffice: Any,
+    libreoffice: _ScreenedRecalculationProvider | None,
 ) -> dict[str, Any]:
     assert request.input_path is not None
-    source = file_record(request.input_path, "input")
+    source = bounded_source_record(
+        request.input_path,
+        "input",
+        byte_limit=MAX_XLSX_BYTES,
+    )
     try:
         with OperationTempRoot() as private_root:
-            provider_source = stage_source_snapshot(source, private_root)
+            provider_source = stage_source_snapshot(
+                source,
+                private_root,
+                byte_limit=MAX_XLSX_BYTES,
+            )
             operation_result, warnings = read_xlsx(
                 provider_source,
                 request.arguments,
@@ -119,32 +129,38 @@ def execute_read(
                 ),
                 provider_chain=outcome.provider_chain,
             )
-            assert_source_preserved(source.path, source.sha256)
+            assert_bounded_source_preserved(
+                source,
+                byte_limit=MAX_XLSX_BYTES,
+            )
             return result
     except BaseException as error:
-        merge_source_preservation_failure(error, source.path, source.sha256)
+        merge_bounded_source_preservation_failure(
+            error,
+            source,
+            byte_limit=MAX_XLSX_BYTES,
+        )
         raise
+
+
+class _ScreenedRecalculationProvider(Protocol):
+    def recalculate_screened_xlsx_artifact(self, input_path: Path) -> Any: ...
 
 
 class _ScreenedProvider:
     """Route read-owned snapshots through the no-restage provider seam."""
 
-    def __init__(self, provider: Any) -> None:
+    def __init__(self, provider: _ScreenedRecalculationProvider) -> None:
         self._provider = provider
 
-    def recalculate_xlsx_artifact(self, input_path: Any) -> Any:
+    def recalculate_xlsx_artifact(self, input_path: Path) -> Any:
         assert_provider_formula_safe(input_path)
-        method = getattr(
-            self._provider,
-            "recalculate_screened_xlsx_artifact",
-            None,
-        )
-        if callable(method):
-            return method(input_path)
-        return self._provider.recalculate_xlsx_artifact(input_path)
+        return self._provider.recalculate_screened_xlsx_artifact(input_path)
 
 
-def _screened_provider(provider: Any) -> Any:
+def _screened_provider(
+    provider: _ScreenedRecalculationProvider | None,
+) -> _ScreenedProvider | None:
     if provider is None:
         return None
     return _ScreenedProvider(provider)

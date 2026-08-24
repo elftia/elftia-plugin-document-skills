@@ -8,20 +8,25 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.contracts.models import gate_record
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.paths import (
+    ArtifactRecord,
     assert_distinct_paths,
     destination_snapshot,
-    file_record,
-    merge_source_preservation_failure,
 )
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 from document_skills_core.core.validation import validate_artifact
 from document_skills_core.formats.pdf.validation import reopen_pdf
 
 from .contracts import parse_xlsx_request
+from .constants import MAX_XLSX_BYTES
 from .formula_security import assert_provider_formula_safe
 from .render_package import RenderPackageIndex
 from .render_sampling import sample_render_source
-from .source_snapshot import stage_source_snapshot
+from .source_snapshot import (
+    assert_bounded_source_preserved,
+    bounded_source_record,
+    merge_bounded_source_preservation_failure,
+    stage_source_snapshot,
+)
 from .transaction import promote_candidate, write_candidate_result
 
 
@@ -43,11 +48,19 @@ def execute_render(
     assert parsed.input_path is not None
     assert parsed.output_path is not None
     assert_distinct_paths(parsed.input_path, parsed.output_path, in_place=False)
-    source = file_record(parsed.input_path, "input")
+    source = bounded_source_record(
+        parsed.input_path,
+        "input",
+        byte_limit=MAX_XLSX_BYTES,
+    )
     destination = destination_snapshot(parsed.output_path)
     try:
         with OperationTempRoot() as private_root:
-            provider_source = stage_source_snapshot(source, private_root)
+            provider_source = stage_source_snapshot(
+                source,
+                private_root,
+                byte_limit=MAX_XLSX_BYTES,
+            )
             package = RenderPackageIndex.open(provider_source)
             source_evidence, warnings = sample_render_source(
                 provider_source,
@@ -97,10 +110,19 @@ def execute_render(
                 result,
                 source=source,
                 destination=destination,
+                source_preservation=_assert_render_source_preserved,
             )
     except Exception as error:
-        merge_source_preservation_failure(error, source.path, source.sha256)
+        merge_bounded_source_preservation_failure(
+            error,
+            source,
+            byte_limit=MAX_XLSX_BYTES,
+        )
         raise
+
+
+def _assert_render_source_preserved(source: ArtifactRecord) -> None:
+    assert_bounded_source_preserved(source, byte_limit=MAX_XLSX_BYTES)
 
 
 def _sampling_gate_evidence(source_evidence: dict[str, Any]) -> dict[str, Any]:

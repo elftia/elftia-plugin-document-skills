@@ -1,5 +1,6 @@
 """Canonical result validation and race-aware XLSX promotion."""
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -67,11 +68,13 @@ def promote_candidate(
     *,
     source: ArtifactRecord | None,
     destination: DestinationSnapshot,
+    source_preservation: Callable[[ArtifactRecord], None] | None = None,
 ) -> dict[str, Any]:
     assert request.output_path is not None
     identity = assert_promotable(result["status"], result["validation"], staged)
+    preserve_source = source_preservation or _assert_source_record_preserved
     if source is not None:
-        assert_source_preserved(source.path, source.sha256)
+        preserve_source(source)
     promoted = atomic_promote(
         staged,
         request.output_path,
@@ -88,7 +91,7 @@ def promote_candidate(
     source_error = None
     if source is not None:
         try:
-            assert_source_preserved(source.path, source.sha256)
+            preserve_source(source)
         except DocumentSkillsError as error:
             source_error = error
     return apply_committed_promotion(
@@ -96,3 +99,7 @@ def promote_candidate(
         promoted,
         source_error=source_error,
     )
+
+
+def _assert_source_record_preserved(source: ArtifactRecord) -> None:
+    assert_source_preserved(source.path, source.sha256)

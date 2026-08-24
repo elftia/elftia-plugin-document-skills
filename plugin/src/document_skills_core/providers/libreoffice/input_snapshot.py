@@ -14,15 +14,15 @@ from defusedxml.ElementTree import fromstring
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.io.archive import ArchiveLimits, inspect_ooxml
-from ...core.io.paths import (
-    assert_source_preserved,
-    file_record,
-    merge_source_preservation_failure,
-)
 from ...core.io.temp_roots import OperationTempRoot
 from ...formats.xlsx.constants import MAX_XLSX_BYTES, WORKBOOK_CONTENT_TYPES
 from ...formats.xlsx.formula_security import assert_provider_formula_safe
-from ...formats.xlsx.source_snapshot import stage_source_snapshot
+from ...formats.xlsx.source_snapshot import (
+    assert_bounded_source_preserved,
+    bounded_source_record,
+    merge_bounded_source_preservation_failure,
+    stage_source_snapshot,
+)
 
 _CONTENT_TYPES = "[Content_Types].xml"
 _CONTENT_TYPES_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
@@ -77,10 +77,13 @@ _LEGACY_STREAM_NAMES = {
     "xls": frozenset({"Workbook", "Book"}),
     "ppt": frozenset({"PowerPoint Document"}),
 }
+_LEGACY_STREAM_MARKERS = frozenset().union(*_LEGACY_STREAM_NAMES.values())
 _CFB_FREE_SECTOR = 0xFFFFFFFF
 _CFB_END_OF_CHAIN = 0xFFFFFFFE
 _CFB_FAT_SECTOR = 0xFFFFFFFD
 _CFB_DIFAT_SECTOR = 0xFFFFFFFC
+_CFB_HEADER_DIFAT_ENTRIES = 109
+_MAX_CFB_DIRECTORY_SECTORS = 4096
 
 
 @dataclass(frozen=True)
@@ -96,13 +99,18 @@ def private_libreoffice_input(
     input_path: Path,
     *,
     operation: str,
+    byte_limit: int = MAX_XLSX_BYTES,
 ) -> Iterator[LibreOfficeInput]:
     """Create one snapshot, classify it, preflight it, and preserve its source."""
 
-    source = file_record(input_path, "input")
+    source = bounded_source_record(input_path, "input", byte_limit=byte_limit)
     try:
         with OperationTempRoot() as private_root:
-            staged = stage_source_snapshot(source, private_root)
+            staged = stage_source_snapshot(
+                source,
+                private_root,
+                byte_limit=byte_limit,
+            )
             actual_format = _detect_format(staged)
             snapshot = private_root / f"provider-input.{actual_format}"
             staged.replace(snapshot)
@@ -110,9 +118,13 @@ def private_libreoffice_input(
             if actual_format in {"xlsx", "xlsm", "xltx", "xltm"}:
                 assert_provider_formula_safe(snapshot)
             yield LibreOfficeInput(snapshot, actual_format)
-        assert_source_preserved(source.path, source.sha256)
+        assert_bounded_source_preserved(source, byte_limit=byte_limit)
     except BaseException as error:
-        merge_source_preservation_failure(error, source.path, source.sha256)
+        merge_bounded_source_preservation_failure(
+            error,
+            source,
+            byte_limit=byte_limit,
+        )
         raise
 
 
@@ -217,6 +229,8 @@ def _cfb_stream_names(path: Path) -> set[str]:
                 _unsafe("Legacy compound input uses an invalid CFB geometry.")
             sector_size = 1 << sector_shift
             file_bytes = path.stat().st_size
+            if file_bytes > MAX_XLSX_BYTES:
+                _unsafe("Legacy compound input exceeds its CFB byte ceiling.")
             if file_bytes < 512 + sector_size:
                 _unsafe("Legacy compound input is truncated before its CFB sectors.")
             sector_count = file_bytes // sector_size - 1
@@ -226,13 +240,39 @@ def _cfb_stream_names(path: Path) -> set[str]:
             first_directory = _u32(header, 48)
             first_difat = _u32(header, 68)
             difat_count = _u32(header, 72)
-            if fat_count == 0 or fat_count > sector_count or difat_count > sector_count:
-                _unsafe("Legacy compound input declares invalid CFB allocation counts.")
+            fat_entries_per_sector = sector_size // 4
+            required_fat_count = (
+                sector_count + fat_entries_per_sector - 1
+            ) // fat_entries_per_sector
+            required_difat_count = max(
+                0,
+                (
+                    fat_count
+                    - _CFB_HEADER_DIFAT_ENTRIES
+                    + fat_entries_per_sector
+                    - 2
+                )
+                // (fat_entries_per_sector - 1),
+            )
+            if (
+                fat_count != required_fat_count
+                or difat_count != required_difat_count
+            ):
+                _unsafe("Legacy compound input has invalid CFB allocation geometry.")
             fat_sector_ids = [
                 value
-                for value in struct.unpack_from("<109I", header, 76)
+                for value in struct.unpack_from(
+                    f"<{_CFB_HEADER_DIFAT_ENTRIES}I",
+                    header,
+                    76,
+                )
                 if value != _CFB_FREE_SECTOR
             ]
+            if len(fat_sector_ids) != min(
+                fat_count,
+                _CFB_HEADER_DIFAT_ENTRIES,
+            ):
+                _unsafe("Legacy compound input has an inconsistent FAT declaration.")
             current = first_difat
             seen_difat: set[int] = set()
             for _index in range(difat_count):
@@ -240,44 +280,67 @@ def _cfb_stream_names(path: Path) -> set[str]:
                 seen_difat.add(current)
                 payload = _read_cfb_sector(handle, current, sector_size)
                 values = struct.unpack(f"<{sector_size // 4}I", payload)
-                fat_sector_ids.extend(
-                    value
-                    for value in values[:-1]
-                    if value != _CFB_FREE_SECTOR
-                )
+                for value in values[:-1]:
+                    if value == _CFB_FREE_SECTOR:
+                        continue
+                    if len(fat_sector_ids) >= fat_count:
+                        _unsafe(
+                            "Legacy compound input has an inconsistent FAT declaration."
+                        )
+                    fat_sector_ids.append(value)
                 current = values[-1]
             if difat_count and current != _CFB_END_OF_CHAIN:
                 _unsafe("Legacy compound input has an unterminated DIFAT chain.")
             if len(fat_sector_ids) != fat_count or len(set(fat_sector_ids)) != fat_count:
                 _unsafe("Legacy compound input has an inconsistent FAT declaration.")
-            fat: list[int] = []
             for sector_id in fat_sector_ids:
                 _require_sector(sector_id, sector_count, set(), "FAT")
-                payload = _read_cfb_sector(handle, sector_id, sector_size)
-                fat.extend(struct.unpack(f"<{sector_size // 4}I", payload))
+
+            cached_fat_index = -1
+            cached_fat_payload = b""
+
+            def fat_entry(sector_id: int) -> int:
+                nonlocal cached_fat_index, cached_fat_payload
+                table_index, entry_index = divmod(
+                    sector_id,
+                    fat_entries_per_sector,
+                )
+                if table_index >= len(fat_sector_ids):
+                    _unsafe("Legacy compound sector exceeds the FAT table.")
+                if table_index != cached_fat_index:
+                    cached_fat_payload = _read_cfb_sector(
+                        handle,
+                        fat_sector_ids[table_index],
+                        sector_size,
+                    )
+                    cached_fat_index = table_index
+                return _u32(cached_fat_payload, entry_index * 4)
+
             if any(
-                sector_id >= len(fat) or fat[sector_id] != _CFB_FAT_SECTOR
+                fat_entry(sector_id) != _CFB_FAT_SECTOR
                 for sector_id in fat_sector_ids
             ):
                 _unsafe("Legacy compound input does not bind its FAT sectors.")
             if any(
-                sector_id >= len(fat) or fat[sector_id] != _CFB_DIFAT_SECTOR
+                fat_entry(sector_id) != _CFB_DIFAT_SECTOR
                 for sector_id in seen_difat
             ):
                 _unsafe("Legacy compound input does not bind its DIFAT sectors.")
             current = first_directory
             seen_directory: set[int] = set()
             while current != _CFB_END_OF_CHAIN:
+                if len(seen_directory) >= _MAX_CFB_DIRECTORY_SECTORS:
+                    _unsafe(
+                        "Legacy compound input exceeds its directory sector ceiling."
+                    )
                 _require_sector(current, sector_count, seen_directory, "directory")
-                if current >= len(fat):
-                    _unsafe("Legacy compound directory exceeds the FAT table.")
                 seen_directory.add(current)
                 names.update(
                     _directory_stream_names(
                         _read_cfb_sector(handle, current, sector_size)
                     )
                 )
-                current = fat[current]
+                current = fat_entry(current)
                 if current in {
                     _CFB_FREE_SECTOR,
                     _CFB_FAT_SECTOR,
@@ -306,12 +369,14 @@ def _directory_stream_names(payload: bytes) -> set[str]:
             _unsafe("Legacy compound stream has an invalid directory name.")
         raw_name = bytes(entry[: name_bytes - 2])
         try:
-            names.add(raw_name.decode("utf-16le", errors="strict"))
+            name = raw_name.decode("utf-16le", errors="strict")
         except UnicodeError as error:
             raise DocumentSkillsError(
                 ErrorCode.ARCHIVE_UNSAFE,
                 "Legacy compound stream name is not valid UTF-16LE.",
             ) from error
+        if name in _LEGACY_STREAM_MARKERS:
+            names.add(name)
     return names
 
 

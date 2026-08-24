@@ -7,13 +7,9 @@ from typing import Any
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.models import gate_record
 from document_skills_core.core.contracts.schemas import SchemaCatalog
-from document_skills_core.core.io.paths import (
-    assert_source_preserved,
-    file_record,
-    merge_source_preservation_failure,
-)
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
+from .constants import MAX_XLSX_BYTES
 from .contracts import parse_xlsx_request
 from .format_policy import (
     allowed_inert_categories,
@@ -22,7 +18,12 @@ from .format_policy import (
 )
 from .package import OpcPackage
 from .results import success_result
-from .source_snapshot import stage_source_snapshot
+from .source_snapshot import (
+    assert_bounded_source_preserved,
+    bounded_source_record,
+    merge_bounded_source_preservation_failure,
+    stage_source_snapshot,
+)
 
 
 def execute_schema_validation(
@@ -41,10 +42,18 @@ def execute_schema_validation(
             status="invalid_request",
         )
     assert parsed.input_path is not None
-    source = file_record(parsed.input_path, "input")
+    source = bounded_source_record(
+        parsed.input_path,
+        "input",
+        byte_limit=MAX_XLSX_BYTES,
+    )
     try:
         with OperationTempRoot() as private_root:
-            provider_source = stage_source_snapshot(source, private_root)
+            provider_source = stage_source_snapshot(
+                source,
+                private_root,
+                byte_limit=MAX_XLSX_BYTES,
+            )
             package = OpcPackage.open(
                 provider_source,
                 allowed_inert_categories=allowed_inert_categories(
@@ -56,9 +65,13 @@ def execute_schema_validation(
                 provider_source,
                 parsed.arguments["max_errors"],
             )
-        assert_source_preserved(source.path, source.sha256)
+        assert_bounded_source_preserved(source, byte_limit=MAX_XLSX_BYTES)
     except Exception as error:
-        merge_source_preservation_failure(error, source.path, source.sha256)
+        merge_bounded_source_preservation_failure(
+            error,
+            source,
+            byte_limit=MAX_XLSX_BYTES,
+        )
         raise
 
     valid = schema["valid"]
