@@ -40,6 +40,7 @@ from document_skills_core.providers.dotnet.runner import (
     _check_stdin,
     _require_no_restore_argv,
 )
+from tools.audit_python import audit_python_source
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +443,18 @@ class TestDetector:
 # ---------------------------------------------------------------------------
 
 class TestRunnerContainment:
+    def test_dotnet_runtime_sources_pass_execution_boundary_audit(
+        self, project_root
+    ):
+        for relative in (
+            "src/document_skills_core/providers/dotnet/detector.py",
+            "src/document_skills_core/providers/dotnet/runner.py",
+        ):
+            audit_python_source(
+                relative,
+                (project_root / relative).read_text(encoding="utf-8"),
+            )
+
     def test_build_argv_contains_run_project_and_subcommand(self):
         argv = _build_argv(Path("/fake/helper"), "--probe-json")
         assert argv[0] == "run"

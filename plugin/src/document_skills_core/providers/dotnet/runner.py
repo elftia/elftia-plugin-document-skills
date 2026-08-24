@@ -62,6 +62,7 @@ class DotnetOpenXmlRunner:
         helper_dir: Path | None = None,
         executable: str | Path | None = None,
         runner: _ContainedRunner | None = None,
+        policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         if helper_dir is not None:
@@ -71,14 +72,16 @@ class DotnetOpenXmlRunner:
         self._executable: str | Path | None = None
         if runner is not None:
             self._runner = runner
-            runner_policy = getattr(runner, "policy", None)
-            self._policy = (
-                runner_policy
-                if isinstance(runner_policy, ProcessPolicy)
-                else ProcessPolicy(self.project_root)
-            )
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
-            self._policy = ProcessPolicy(self.project_root)
+            self._policy = policy or ProcessPolicy(self.project_root)
             self._runner = ProcessRunner(self._policy)
         if executable is not None:
             self.set_executable(executable)
