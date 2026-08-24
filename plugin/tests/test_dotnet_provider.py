@@ -8,6 +8,7 @@ Module provenance: original Elftia-authored clean-room implementation.
 
 import json
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -17,7 +18,8 @@ from document_skills_core.core.capabilities import (
     ProviderId,
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.process import ProcessResult
+from document_skills_core.core.process import ProcessPolicy, ProcessResult, ProcessRunner
+from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.dotnet.constants import (
     ACCEPTED_SUBCOMMANDS,
@@ -261,6 +263,56 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 
 class TestDetector:
+    def test_real_process_runner_policy_covers_runtime_and_provider_probes(
+        self, project_root, monkeypatch
+    ):
+        class DotnetCliBoundary(ProcessRunner):
+            def __init__(self, policy):
+                super().__init__(policy)
+                self.provider_ids = []
+
+            def run(self, provider_id, executable, args, **kwargs):
+                actual = super().run(
+                    provider_id,
+                    executable,
+                    ["--version"],
+                    **kwargs,
+                )
+                assert actual.returncode == 0
+                self.provider_ids.append(provider_id)
+                if "--list-runtimes" in args:
+                    return ProcessResult(
+                        0, "Microsoft.NETCore.App 8.0.5\n", "", 1
+                    )
+                if args[0] == "restore":
+                    return ProcessResult(0, "", "", 1)
+                return ProcessResult(
+                    0,
+                    json.dumps({
+                        "protocol_version": "1.0",
+                        "runtime_major": 8,
+                        "assembly_loaded": True,
+                        "openxml_version": "3.0.1",
+                    }),
+                    "",
+                    1,
+                )
+
+        monkeypatch.setattr("shutil.which", lambda name: sys.executable)
+        process_runner = DotnetCliBoundary(ProcessPolicy(project_root))
+
+        evidence = DotnetOpenXmlDetector(
+            project_root,
+            runner=process_runner,
+        ).detect()
+
+        assert evidence.available is True
+        assert process_runner.provider_ids == [
+            "runtime-detection",
+            "dotnet-openxml",
+            "dotnet-openxml",
+        ]
+
     def test_callable_runtime_and_assembly_parses_version(self, project_root, monkeypatch):
         """Callable .NET 8 runtime + assembly → available with parsed version."""
         monkeypatch.setattr("shutil.which", lambda name: "/fake/dotnet")
@@ -417,7 +469,7 @@ class TestRunnerContainment:
             ],
         )
         runner = DotnetOpenXmlRunner(
-            project_root, executable="/fake/dotnet", runner=MustNotRun(),
+            project_root, executable=sys.executable, runner=MustNotRun(),
         )
         with pytest.raises(DocumentSkillsError, match="implicit package restore"):
             runner.run("--probe-json")
@@ -430,7 +482,7 @@ class TestRunnerContainment:
 
     def test_unknown_subcommand_rejected_before_spawn(self, project_root):
         runner = DotnetOpenXmlRunner(
-            project_root, executable="/fake/dotnet",
+            project_root, executable=sys.executable,
         )
         with pytest.raises(DocumentSkillsError) as exc:
             runner.run("--malicious-command")
@@ -456,7 +508,7 @@ class TestRunnerContainment:
                 return ProcessResult(0, "{}", "", 10)
 
         runner = DotnetOpenXmlRunner(
-            project_root, executable="/fake/dotnet", runner=FakePR(),
+            project_root, executable=sys.executable, runner=FakePR(),
         )
         runner.run("--probe-json", stdin_payload={"test": True})
         assert captured["cwd"] == project_root.resolve()
@@ -464,6 +516,14 @@ class TestRunnerContainment:
         assert captured["timeout"] is not None
         assert captured["output_limit"] > 0
         assert captured["stdin_json"] == {"test": True}
+
+    def test_set_executable_binds_real_process_runner_policy(self, project_root):
+        runner = DotnetOpenXmlRunner(project_root)
+        runner.set_executable(sys.executable)
+
+        result = runner.run("--probe-json")
+
+        assert result.returncode != 0
 
     def test_env_sanitized_by_process_runner(self, project_root):
         """The existing ProcessRunner sanitizes env — verify via its allowlist."""
@@ -531,6 +591,58 @@ class TestProviderFactory:
         assert diag["path"] is None
         assert diag["version"] is None
         assert "not installed" in diag["reason"]
+
+
+class TestProductionRegistryIntegration:
+    def test_default_registry_uses_real_process_policies_for_dotnet_provider(
+        self,
+        project_root,
+        fake_docx,
+        monkeypatch,
+    ):
+        real_run = ProcessRunner.run
+
+        def dotnet_cli_boundary(
+            process_runner, provider_id, executable, args, **kwargs
+        ):
+            actual = real_run(
+                process_runner,
+                provider_id,
+                executable,
+                ["--version"],
+                **kwargs,
+            )
+            assert actual.returncode == 0
+            if "--list-runtimes" in args:
+                return ProcessResult(0, "Microsoft.NETCore.App 8.0.5\n", "", 1)
+            if args[0] == "restore":
+                return ProcessResult(0, "", "", 1)
+            if "--probe-json" in args:
+                return ProcessResult(
+                    0,
+                    json.dumps({
+                        "protocol_version": "1.0",
+                        "runtime_major": 8,
+                        "assembly_loaded": True,
+                        "openxml_version": "3.0.1",
+                    }),
+                    "",
+                    1,
+                )
+            return _canned_revisions_response()
+
+        monkeypatch.setattr("shutil.which", lambda name: sys.executable)
+        monkeypatch.setattr(ProcessRunner, "run", dotnet_cli_boundary)
+        registry = build_default_registry(project_root)
+
+        result = registry.execute({
+            "schema_version": "1.0",
+            "operation": "dotnet.docx.revisions-read",
+            "input": str(fake_docx),
+        })
+
+        assert result["status"] == "success"
+        assert result["provider_chain"] == ["dotnet-openxml"]
 
 
 # ---------------------------------------------------------------------------

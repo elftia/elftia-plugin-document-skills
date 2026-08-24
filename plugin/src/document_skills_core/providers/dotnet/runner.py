@@ -68,15 +68,25 @@ class DotnetOpenXmlRunner:
             self._helper_dir = helper_dir.resolve()
         else:
             self._helper_dir = Path(__file__).resolve().parent / HELPER_DIR_NAME
-        self._executable = executable
+        self._executable: str | Path | None = None
         if runner is not None:
             self._runner = runner
+            runner_policy = getattr(runner, "policy", None)
+            self._policy = (
+                runner_policy
+                if isinstance(runner_policy, ProcessPolicy)
+                else ProcessPolicy(self.project_root)
+            )
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
+        if executable is not None:
+            self.set_executable(executable)
 
     def set_executable(self, executable: str | Path) -> None:
-        self._executable = executable
+        self._executable = self._policy.allow_executable(
+            "dotnet-openxml", executable
+        )
 
     def run(
         self,

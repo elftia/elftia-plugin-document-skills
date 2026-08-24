@@ -11,14 +11,15 @@ import zipfile
 
 import pytest
 
+from document_skills_core.core.capabilities import ProviderCatalog
 from document_skills_core.formats.xlsx.service import XlsxService
+from document_skills_core.providers import build_default_registry
+from document_skills_core.providers.dotnet.constants import RUNTIME_PREFIX
 from test_xlsx_sparkline import _workbook
 
 
-def test_real_openxml_microsoft365_schema_accepts_and_rejects_x14_sparklines(
-    project_root: Path,
-    tmp_path: Path,
-) -> None:
+@pytest.fixture(scope="module")
+def dotnet_sdk() -> str:
     dotnet = shutil.which("dotnet")
     if dotnet is None:
         pytest.skip("dotnet SDK is not installed")
@@ -33,7 +34,34 @@ def test_real_openxml_microsoft365_schema_accepts_and_rejects_x14_sparklines(
     )
     if sdk_probe.returncode != 0 or not sdk_probe.stdout.strip():
         pytest.skip("dotnet SDK is not callable")
+    return dotnet
 
+
+@pytest.fixture
+def x14_workbooks(
+    project_root: Path,
+    tmp_path: Path,
+) -> tuple[Path, Path]:
+    valid = tmp_path / "valid-x14-sparklines.xlsx"
+    created = XlsxService(project_root).execute(
+        "xlsx.create",
+        {
+            "operation": "xlsx.create",
+            "output": str(valid),
+            "arguments": {"workbook": _workbook()},
+        },
+    )
+    assert created["status"] == "success", created
+    malformed = tmp_path / "malformed-x14-sparklines.xlsx"
+    _remove_required_sparkline_location(valid, malformed)
+    return valid, malformed
+
+
+def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
+    dotnet_sdk: str,
+    project_root: Path,
+    x14_workbooks: tuple[Path, Path],
+) -> None:
     helper = (
         project_root
         / "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj"
@@ -42,7 +70,13 @@ def test_real_openxml_microsoft365_schema_accepts_and_rejects_x14_sparklines(
     environment["DOTNET_ROLL_FORWARD"] = "Major"
     environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
     restored = subprocess.run(
-        [dotnet, "restore", str(helper), "--locked-mode", "--use-lock-file"],
+        [
+            dotnet_sdk,
+            "restore",
+            str(helper),
+            "--locked-mode",
+            "--use-lock-file",
+        ],
         cwd=project_root,
         capture_output=True,
         text=True,
@@ -56,35 +90,75 @@ def test_real_openxml_microsoft365_schema_accepts_and_rejects_x14_sparklines(
         f"locked NuGet restore failed with exit {restored.returncode}"
     )
 
-    valid = tmp_path / "valid-x14-sparklines.xlsx"
-    created = XlsxService(project_root).execute(
-        "xlsx.create",
-        {
-            "operation": "xlsx.create",
-            "output": str(valid),
-            "arguments": {"workbook": _workbook()},
-        },
+    valid, malformed = x14_workbooks
+    valid_schema = _validate_helper(
+        dotnet_sdk,
+        helper,
+        project_root,
+        valid,
+        environment,
     )
-    assert created["status"] == "success", created
-    valid_result = _validate(dotnet, helper, project_root, valid, environment)
-    assert valid_result["file_format"] == "Microsoft365"
-    assert valid_result["valid"] is True, valid_result["errors"]
+    assert valid_schema["file_format"] == "Microsoft365"
+    assert valid_schema["valid"] is True, valid_schema["errors"]
 
-    malformed = tmp_path / "malformed-x14-sparklines.xlsx"
-    _remove_required_sparkline_location(valid, malformed)
-    invalid_result = _validate(
-        dotnet,
+    invalid_schema = _validate_helper(
+        dotnet_sdk,
         helper,
         project_root,
         malformed,
         environment,
     )
-    assert invalid_result["file_format"] == "Microsoft365"
-    assert invalid_result["valid"] is False
-    assert invalid_result["errors"]
+    assert invalid_schema["file_format"] == "Microsoft365"
+    assert invalid_schema["valid"] is False
+    assert invalid_schema["errors"]
 
 
-def _validate(
+def test_default_registry_provider_validates_real_x14_sparklines(
+    dotnet_sdk: str,
+    project_root: Path,
+    x14_workbooks: tuple[Path, Path],
+) -> None:
+    runtime_probe = subprocess.run(
+        [dotnet_sdk, "--list-runtimes"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        shell=False,
+        timeout=15,
+        check=False,
+    )
+    if runtime_probe.returncode != 0 or RUNTIME_PREFIX not in runtime_probe.stdout:
+        pytest.skip("Microsoft.NETCore.App 8.x is not installed")
+
+    registry = build_default_registry(project_root)
+    valid, malformed = x14_workbooks
+    valid_result = _validate_provider(registry, valid)
+    assert valid_result["provider_chain"] == ["dotnet-openxml"]
+    valid_schema = valid_result["diagnostics"]["operation_result"]["schema"]
+    assert valid_schema["file_format"] == "Microsoft365"
+    assert valid_schema["valid"] is True, valid_schema["errors"]
+
+    invalid_result = _validate_provider(registry, malformed)
+    assert invalid_result["provider_chain"] == ["dotnet-openxml"]
+    invalid_schema = invalid_result["diagnostics"]["operation_result"]["schema"]
+    assert invalid_schema["file_format"] == "Microsoft365"
+    assert invalid_schema["valid"] is False
+    assert invalid_schema["errors"]
+
+
+def _validate_provider(
+    registry: ProviderCatalog,
+    workbook: Path,
+) -> dict[str, object]:
+    return registry.execute({
+        "schema_version": "1.0",
+        "operation": "xlsx.validate.schema",
+        "input": str(workbook),
+        "arguments": {"max_errors": 20},
+    })
+
+
+def _validate_helper(
     dotnet: str,
     helper: Path,
     project_root: Path,

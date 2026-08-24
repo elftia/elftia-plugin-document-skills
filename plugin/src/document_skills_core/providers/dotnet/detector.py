@@ -64,9 +64,15 @@ class DotnetOpenXmlDetector:
         self._helper_project = self._helper_dir / HELPER_PROJECT_NAME
         if runner is not None:
             self._runner = runner
+            runner_policy = getattr(runner, "policy", None)
+            self._policy = (
+                runner_policy
+                if isinstance(runner_policy, ProcessPolicy)
+                else ProcessPolicy(self.project_root)
+            )
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -96,7 +102,7 @@ class DotnetOpenXmlDetector:
     def _validate_runtime(self, candidate: str) -> str | None:
         """Return the runtime line if .NET 8 is present, else None."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "runtime-detection")
         except DocumentSkillsError:
             return None
         try:
@@ -120,7 +126,7 @@ class DotnetOpenXmlDetector:
     def _validate_assembly(self, candidate: str) -> DetectionEvidence:
         """Run the helper --probe-json to validate the OpenXML assembly."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "dotnet-openxml")
         except DocumentSkillsError:
             return DetectionEvidence(
                 available=False,
@@ -231,9 +237,8 @@ class DotnetOpenXmlDetector:
             path=candidate,
         )
 
-    def _resolve_executable(self, candidate: str) -> Path:
-        policy = ProcessPolicy(self.project_root)
-        return policy.allow_executable("runtime-detection", candidate)
+    def _resolve_executable(self, candidate: str, provider_id: str) -> Path:
+        return self._policy.allow_executable(provider_id, candidate)
 
 
 def _classify_error(error: DocumentSkillsError) -> str:
