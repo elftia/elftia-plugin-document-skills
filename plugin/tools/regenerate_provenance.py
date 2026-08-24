@@ -24,6 +24,75 @@ DOCX_CONSUMER_GATES_REQUIREMENT = (
     "Rasen document-skills-core-docx + "
     "document-skills-consumer-gates-and-truthful-contracts"
 )
+XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
+_XLSX_SHARED_MODULES = {
+    "src/document_skills_core/core/io/ooxml_security.py",
+    "src/document_skills_core/formats/pdf/byte_preflight.py",
+    "src/document_skills_core/providers/defaults.py",
+    "src/document_skills_core/providers/dotnet/constants.py",
+    "src/document_skills_core/providers/dotnet/detector.py",
+    "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj",
+    "src/document_skills_core/providers/dotnet/helper/Program.cs",
+    "src/document_skills_core/providers/dotnet/helper/packages.lock.json",
+    "src/document_skills_core/providers/dotnet/runner.py",
+    "src/document_skills_core/providers/dotnet/schema.py",
+    "src/document_skills_core/providers/dotnet/service.py",
+    "src/document_skills_core/providers/libreoffice/constants.py",
+    "src/document_skills_core/providers/libreoffice/convert.py",
+    "src/document_skills_core/providers/libreoffice/legacy.py",
+    "src/document_skills_core/providers/libreoffice/recalc.py",
+    "src/document_skills_core/providers/libreoffice/render.py",
+    "src/document_skills_core/providers/libreoffice/runner.py",
+    "src/document_skills_core/providers/libreoffice/service.py",
+    "src/document_skills_core/public_cli/supervisor.py",
+    "tests/test_consumer_validation.py",
+    "tests/test_dotnet_provider.py",
+    "tests/test_html_provenance.py",
+    "tests/test_libreoffice_provider.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy3.py",
+    "tests/test_structure.py",
+    "tests/test_supply_chain.py",
+    "tests/test_truthful_results.py",
+    "tools/audit.py",
+    "tools/audit_execution.py",
+    "tools/provenance_records.py",
+    "tools/python_policy_definitions.py",
+    "tools/regenerate_provenance.py",
+    "tools/release_inventory.py",
+    "tools/supply_chain.py",
+}
+_XLSX_SHARED_DATA_ARTIFACTS = {
+    "THIRD_PARTY_NOTICES.md",
+    "provenance/dependency-allowlist.json",
+    "provenance/dependency-licenses.json",
+    "provenance/runtime-source-allowlist.json",
+    "sbom.cdx.json",
+}
+_XLSX_SHARED_TESTS = [
+    "tests/test_xlsx_contracts.py",
+    "tests/test_xlsx_operations.py",
+    "tests/test_xlsx_provider_qa.py",
+    "tests/test_xlsx_public.py",
+    "tests/test_dotnet_provider.py",
+    "tests/test_dotnet_xlsx_schema_real.py",
+    "tests/test_libreoffice_provider.py",
+    "tests/test_provider_crash_isolation.py",
+    "tests/test_html_provenance.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tests/test_structure.py",
+    "tests/test_supply_chain.py",
+]
+_XLSX_NUGET_DESCRIPTION = (
+    "Exact NuGet dependency lock, allowlist, license, notice, and SBOM evidence "
+    "for the bounded OpenXML helper used by Core XLSX schema validation."
+)
+_XLSX_RUNTIME_SOURCE_DESCRIPTION = (
+    "Strict value-flow runtime file inventory for the Core XLSX Python source set "
+    "and its execution-boundary audit."
+)
 
 
 def regenerate(
@@ -80,6 +149,7 @@ def regenerate(
 
 def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     html_profile = html_pptx_module_profile(artifact.path)
+    xlsx_shared_profile = xlsx_shared_module_profile(artifact.path)
     is_consumer_gate = artifact.path.startswith("consumer_validation/") or artifact.path in {
         "tests/test_consumer_validation.py",
         "tests/test_consumer_validation_strategy3.py",
@@ -101,7 +171,20 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "xlsx_" in artifact.path
         or "xlsx-" in artifact.path
     )
-    tests = html_profile[1] if html_profile else (
+    tests = _merged_values(html_profile[1], xlsx_shared_profile[1]) if (
+        html_profile and xlsx_shared_profile
+    ) else _merged_values(
+        [
+            "tests/test_consumer_validation.py",
+            "tests/test_consumer_validation_strategy3.py",
+            "tests/test_cross_format_transactions.py",
+        ],
+        xlsx_shared_profile[1],
+    ) if is_consumer_gate and xlsx_shared_profile else html_profile[1] if (
+        html_profile
+    ) else xlsx_shared_profile[1] if (
+        xlsx_shared_profile
+    ) else (
         ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
         if is_docx_consumer_gate
         else [
@@ -144,10 +227,18 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "sha256": artifact.sha256,
         "source_class": "original",
         "requirement_source": (
-            SHARED_PROVENANCE_REQUIREMENT
+            _with_xlsx_requirement(SHARED_PROVENANCE_REQUIREMENT)
+            if artifact.path == "tools/regenerate_provenance.py" and xlsx_shared_profile
+            else SHARED_PROVENANCE_REQUIREMENT
             if artifact.path == "tools/regenerate_provenance.py"
+            else _with_xlsx_requirement(HTML_PPTX_REQUIREMENT)
+            if html_profile and xlsx_shared_profile
+            else _with_xlsx_requirement(CONSUMER_GATES_REQUIREMENT)
+            if is_consumer_gate and xlsx_shared_profile
             else HTML_PPTX_REQUIREMENT
             if html_profile
+            else XLSX_REQUIREMENT
+            if xlsx_shared_profile
             else DOCX_CONSUMER_GATES_REQUIREMENT
             if is_docx_consumer_gate
             else CONSUMER_GATES_REQUIREMENT
@@ -162,8 +253,18 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "third_party_files": [],
         "license": "GPL-3.0",
         "modifications": (
-            html_profile[0]
+            f"{html_profile[0]} {xlsx_shared_profile[0]}"
+            if html_profile and xlsx_shared_profile
+            else (
+                "Independent bounded consumer validation, truthful PDF identity, "
+                "typed Office timeout cleanup, cross-format preservation, or their "
+                f"direct Strategy-4 regression evidence. {xlsx_shared_profile[0]}"
+            )
+            if is_consumer_gate and xlsx_shared_profile
+            else html_profile[0]
             if html_profile
+            else xlsx_shared_profile[0]
+            if xlsx_shared_profile
             else
             (
                 "Deterministic DOCX fixture generation and nested frozen-uv consumer "
@@ -201,14 +302,24 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
 
 
 def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
-    profile = html_pptx_data_profile(artifact.path)
+    html_profile = html_pptx_data_profile(artifact.path)
+    xlsx_profile = xlsx_shared_data_profile(artifact.path)
+    modifications = (
+        f"{html_profile[0]} {xlsx_profile[0]}"
+        if html_profile and xlsx_profile
+        else html_profile[0]
+        if html_profile
+        else xlsx_profile[0]
+        if xlsx_profile
+        else None
+    )
     record = {
         "artifact": artifact.path,
         "sha256": artifact.sha256,
         "classification": artifact.classification,
         "reason": (
-            profile[0]
-            if profile
+            modifications
+            if modifications
             else (
                 "Exact non-execution release bytes are classified by the shared "
                 "release inventory and require independent review."
@@ -217,13 +328,58 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "reviewer": reviewer,
         "review_evidence": ["PROVENANCE.md"],
     }
-    if profile:
+    if modifications:
+        requirement = (
+            _with_xlsx_requirement(HTML_PPTX_REQUIREMENT)
+            if html_profile and xlsx_profile
+            else HTML_PPTX_REQUIREMENT
+            if html_profile
+            else XLSX_REQUIREMENT
+        )
+        tests = (
+            _merged_values(html_profile[1], xlsx_profile[1])
+            if html_profile and xlsx_profile
+            else html_profile[1]
+            if html_profile
+            else xlsx_profile[1]
+        )
         record.update({
-            "requirement_source": HTML_PPTX_REQUIREMENT,
-            "modifications": profile[0],
-            "artifact_tests": profile[1],
+            "requirement_source": requirement,
+            "modifications": modifications,
+            "artifact_tests": tests,
         })
     return record
+
+
+def xlsx_shared_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path not in _XLSX_SHARED_MODULES:
+        return None
+    if path.endswith("/dotnet/helper/packages.lock.json"):
+        return (_XLSX_NUGET_DESCRIPTION, _XLSX_SHARED_TESTS)
+    return (
+        "Shared Core XLSX provider execution, managed CLI supervision, and exact "
+        "supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+        _XLSX_SHARED_TESTS,
+    )
+
+
+def xlsx_shared_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if path not in _XLSX_SHARED_DATA_ARTIFACTS:
+        return None
+    if path == "provenance/runtime-source-allowlist.json":
+        return (_XLSX_RUNTIME_SOURCE_DESCRIPTION, _XLSX_SHARED_TESTS)
+    return (
+        _XLSX_NUGET_DESCRIPTION,
+        _XLSX_SHARED_TESTS,
+    )
+
+
+def _with_xlsx_requirement(requirement: str) -> str:
+    return f"{requirement} + document-skills-core-xlsx"
+
+
+def _merged_values(first: list[str], second: list[str]) -> list[str]:
+    return list(dict.fromkeys([*first, *second]))
 
 
 def _is_metadata(path: str) -> bool:
