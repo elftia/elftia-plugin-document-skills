@@ -82,7 +82,8 @@ cached literals, workbook defined names, cell/row/column styles, custom number f
 row height/hiding, column width/hiding, native tables, data validations, and conditional
 formatting (`cellIs`, `expression`, color scales, data bars, and icon sets), native
 column/bar/line/pie/scatter/area/radar/bubble charts, combo charts with secondary axes,
-trendlines/error bars, per-sheet view/page setup/header/footer/print ranges,
+trendlines/error bars, native line/column/win-loss sparklines, per-sheet view/page
+setup/header/footer/print ranges,
 inert internal hyperlinks, legacy cell notes, and workbook properties. Style and
 differential-style records are deduplicated, and existing cells resolve style precedence as
 column → row → cell override. Before an accepted provider runs, every created formula reports
@@ -99,8 +100,9 @@ until a complete package and consumer-reopen path exists.
 See [`references/styles.md`](references/styles.md) for the closed style contract and a request
 fragment, and [`references/native-objects.md`](references/native-objects.md) for tables,
 validations, and conditional formats. See [`references/charts.md`](references/charts.md) for
-native chart fields and [`references/worksheet-metadata.md`](references/worksheet-metadata.md)
-for views, print settings, hyperlinks, notes, and workbook properties.
+native chart fields, [`references/sparklines.md`](references/sparklines.md) for x14 sparklines,
+and [`references/worksheet-metadata.md`](references/worksheet-metadata.md) for views, print
+settings, hyperlinks, notes, and workbook properties.
 
 ### xlsx.edit
 
@@ -116,6 +118,10 @@ font/fill/border/xf records, themes, and indexed colors remain intact. Requires 
 and output paths. Editing a precedent cell invalidates dependents to
 `recalculation_required`. Preserves all untargeted package parts (pivot caches, charts,
 drawings, external links, custom XML, etc.) at the payload-hash level.
+
+Sparkline edits use `sparkline_add`, `sparkline_update`, and `sparkline_delete`, selected by the
+single output cell. They preserve unrelated worksheet extensions. Structural edits migrate both
+the x14 data formula and output location, or fail closed if a deletion would remove either.
 
 Worksheet edits also cover view/page setup/header/footer/print titles, internal hyperlink CRUD,
 legacy cell-note CRUD, and targeted workbook-property updates. Deleting the last note removes

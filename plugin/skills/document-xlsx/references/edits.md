@@ -39,6 +39,9 @@ preservation failure prevents promotion.
 | `chart_add` | `sheet`, `chart` | Adds a full native chart definition; `chart.sheet` must match `sheet`. |
 | `chart_update` | `sheet`, existing `name`, `chart` | Replaces the named chart, including safe series/range and anchor changes. |
 | `chart_delete` | `sheet`, existing `name` | Removes the chart and any drawing parts made empty by that deletion. |
+| `sparkline_add` | `sheet`, `sparkline` | Adds one native x14 sparkline at its unique output location. |
+| `sparkline_update` | `sheet`, selector `ref`, `sparkline` | Replaces the selected sparkline and may move its output cell. |
+| `sparkline_delete` | `sheet`, selector `ref` | Removes the selected sparkline while preserving unrelated extensions. |
 | `sheet_view` | `sheet`, `view` | Replaces gridline, zoom, and selected-cell settings. |
 | `page_setup` | `sheet`, `page_setup` | Replaces orientation, paper, margins, centering, and scale/fit settings. |
 | `header_footer` | `sheet`, `header_footer` | Replaces odd/even/first header and footer fields. |

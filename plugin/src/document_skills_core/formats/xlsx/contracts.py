@@ -19,6 +19,7 @@ from .constants import (
 )
 from .conversion_contract import assert_format_suffix, parse_conversion_arguments
 from .format_policy import READ_FORMATS, TEMPLATE_OUTPUTS
+from .sparkline_contract import parse_sparkline, parse_sparklines
 from .style_contract import (
     custom_number_format_id,
     parse_color,
@@ -303,6 +304,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "priority",
                 "rule",
                 "chart",
+                "sparkline",
                 "page_setup",
                 "header_footer",
                 "view",
@@ -342,6 +344,9 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "chart_add",
             "chart_update",
             "chart_delete",
+            "sparkline_add",
+            "sparkline_update",
+            "sparkline_delete",
             "hyperlink_add",
             "hyperlink_update",
             "hyperlink_delete",
@@ -370,6 +375,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
             "chart_add",
             "chart_update",
             "chart_delete",
+            "sparkline_add",
             "page_setup",
             "header_footer",
             "sheet_view",
@@ -422,6 +428,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         priority = edit.get("priority")
         rule = edit.get("rule")
         chart = edit.get("chart")
+        sparkline = edit.get("sparkline")
         page_setup_edit = edit.get("page_setup")
         header_footer = edit.get("header_footer")
         view = edit.get("view")
@@ -574,6 +581,19 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "chart is only valid for chart add/update edits.",
                 field=f"edits.{index}.chart",
             )
+        if edit_type in {"sparkline_add", "sparkline_update"}:
+            sparkline = parse_sparkline(
+                sparkline,
+                f"edits.{index}.sparkline",
+                known_sheets=None,
+            )
+        elif sparkline is not None:
+            _invalid(
+                "sparkline is only valid for sparkline add/update edits.",
+                field=f"edits.{index}.sparkline",
+            )
+        if edit_type in {"sparkline_update", "sparkline_delete"}:
+            _validate_cell_ref(ref, f"edits.{index}.ref")
         if edit_type == "page_setup":
             page_setup_edit = _parse_page_setup(page_setup_edit, f"edits.{index}.page_setup")
         elif page_setup_edit is not None:
@@ -658,6 +678,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
                 "priority": priority,
                 "rule": rule,
                 "chart": chart,
+                "sparkline": sparkline,
                 "page_setup": page_setup_edit,
                 "header_footer": header_footer,
                 "view": view,
@@ -750,6 +771,7 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 "print_titles",
                 "hyperlinks",
                 "comments",
+                "sparklines",
             },
         )
         name = _text(sheet.get("name", f"Sheet{idx + 1}"), f"sheets.{idx}.name", allow_empty=False)
@@ -946,7 +968,15 @@ def _parse_workbook(workbook: dict[str, Any]) -> dict[str, Any]:
                 "print_titles": print_titles,
                 "hyperlinks": parsed_hyperlinks,
                 "comments": parsed_comments,
+                "_sparklines": sheet.get("sparklines", []),
             }
+        )
+    known_sheets = {sheet["name"] for sheet in parsed_sheets}
+    for index, sheet in enumerate(parsed_sheets):
+        sheet["sparklines"] = parse_sparklines(
+            sheet.pop("_sparklines"),
+            f"sheets.{index}.sparklines",
+            known_sheets=known_sheets,
         )
     for style in parsed_styles:
         format_id = custom_number_format_id(style)

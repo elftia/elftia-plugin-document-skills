@@ -18,6 +18,7 @@ from .conditional_format import append_conditional_format
 from .data_validation import append_data_validation
 from .formula_state import derive_create_state, build_formula_cell_state
 from .package import write_deterministic_zip
+from .sparkline import append_sparklines
 from .styles import StyleRegistry, merge_styles
 from .workbook_properties import build_app_properties, build_core_properties
 from .worksheet_metadata import append_worksheet_metadata
@@ -225,6 +226,11 @@ def create_xlsx(destination: Path, workbook: dict[str, Any]) -> dict[str, Any]:
             {"sheet": sheet["name"], **rule}
             for sheet in sheets_data
             for rule in sheet.get("conditional_formats", [])
+        ],
+        "sparklines": [
+            {"sheet": sheet["name"], **sparkline}
+            for sheet in sheets_data
+            for sparkline in sheet.get("sparklines", [])
         ],
         "charts": [
             {
@@ -592,6 +598,7 @@ def _build_worksheet(
                 f"{{{_MAIN_NS}}}tablePart",
                 attrib={f"{{{_R_NS}}}id": f"rId{index}"},
             )
+    append_sparklines(root, sheet.get("sparklines", []))
     return _to_xml_bytes(root)
 
 

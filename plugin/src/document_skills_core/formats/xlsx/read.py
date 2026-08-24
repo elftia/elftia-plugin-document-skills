@@ -25,6 +25,7 @@ from .projection import (
     project_pivot_caches,
     project_tables,
 )
+from .sparkline import project_sparklines
 from .worksheet_metadata import project_worksheet_metadata
 from .workbook_properties import project_workbook_properties
 
@@ -105,6 +106,7 @@ def read_xlsx(
     drawings = project_drawings(package)
     data_validations = project_data_validations(package)
     conditional_formats = project_conditional_formats(package)
+    sparklines = project_sparklines(package)
     worksheet_metadata = project_worksheet_metadata(package)
 
     # Hyperlinks per sheet
@@ -129,6 +131,7 @@ def read_xlsx(
         "drawings": drawings,
         "data_validations": data_validations,
         "conditional_formats": conditional_formats,
+        "sparklines": sparklines,
         "worksheet_metadata": worksheet_metadata,
         "hyperlinks": hyperlinks,
         "comments": project_comments(package),

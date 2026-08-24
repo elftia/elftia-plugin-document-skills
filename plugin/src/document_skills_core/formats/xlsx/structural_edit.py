@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS
 from .package import OpcPackage
+from .sparkline_structural import rewrite_sparkline_references
 from .structural_refs import (
     AxisMutation,
     has_external_workbook_reference,
@@ -105,6 +106,7 @@ class StructuralEditContext:
         self._rewrite_defined_names(mutation)
         self._rewrite_tables(target_part, mutation)
         self._rewrite_charts(mutation)
+        rewrite_sparkline_references(self, mutation)
         self._rewrite_drawing_anchors(target_part, mutation)
         self._invalidate_calc_chain()
         self._force_full_calculation()

@@ -29,6 +29,7 @@ from .package import OpcPackage, PreservationManifest
 from .shared_strings import read_shared_strings
 from .shared_strings import build_shared_strings_xml
 from .sheet_edit import apply_sheet_edit
+from .sparkline import apply_sparkline_edit
 from .style_patch import ExistingStyleRegistry
 from .structural_edit import StructuralEditContext
 from .table_edit import apply_table_edit
@@ -203,6 +204,9 @@ def edit_xlsx(
         elif edit_type in {"chart_add", "chart_update", "chart_delete"}:
             apply_chart_edit(structural_context, edit)
             mark_sheet_dirty = False
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+        elif edit_type in {"sparkline_add", "sparkline_update", "sparkline_delete"}:
+            apply_sparkline_edit(structural_context, sheet_root, edit)
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
         elif edit_type in {
             "print_area",

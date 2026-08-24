@@ -24,6 +24,11 @@ from .projection import (
     project_hyperlinks,
     project_tables,
 )
+from .sparkline import project_sparklines
+from .sparkline_validation import (
+    missing_created_sparklines,
+    sparkline_edit_matches,
+)
 from .styles import read_styles
 from .structural_refs import AxisMutation, shift_coordinate
 from .worksheet_metadata import project_worksheet_metadata
@@ -130,6 +135,7 @@ def assert_edits_applied(
     projected_validations = project_data_validations(package)
     projected_conditional_formats = project_conditional_formats(package)
     projected_charts = project_charts(package)
+    projected_sparklines = project_sparklines(package)
     projected_hyperlinks = [
         hyperlink
         for sheet in mapped.get("sheets", [])
@@ -289,6 +295,14 @@ def assert_edits_applied(
                 matched += 1
             else:
                 failures.append(f"{edit_type}:{sheet_name}!{edit['chart']['name']}")
+            continue
+        if edit_type in {"sparkline_add", "sparkline_update", "sparkline_delete"}:
+            sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
+            if sparkline_edit_matches(projected_sparklines, edit, sheet_name):
+                matched += 1
+            else:
+                ref = edit["ref"] if edit_type == "sparkline_delete" else edit["sparkline"]["location"]
+                failures.append(f"{edit_type}:{sheet_name}!{ref}")
             continue
         if edit_type in {"hyperlink_add", "hyperlink_update", "hyperlink_delete"}:
             sheet_name = rename_map.get(edit["sheet"], edit["sheet"])
@@ -736,6 +750,9 @@ def _assert_created(
         if actual_chart is None or not _chart_matches(actual_chart, expected_chart):
             failures.append(f"chart:{expected_chart['name']}")
 
+    sparklines = project_sparklines(package)
+    failures.extend(missing_created_sparklines(sparklines, workbook))
+
     worksheet_metadata = {
         item["sheet"]: item for item in project_worksheet_metadata(package)
     }
@@ -814,6 +831,7 @@ def _assert_created(
         "tables": len(tables),
         "data_validations": len(data_validations),
         "conditional_formats": len(conditional_formats),
+        "sparklines": len(sparklines),
         "charts": len(charts),
         "worksheet_metadata": len(worksheet_metadata),
         "hyperlinks": len(hyperlinks),
