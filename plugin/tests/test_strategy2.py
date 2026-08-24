@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -291,6 +290,7 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
         "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
         "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
+        "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
         "provenance/reviews/foundation-review-cycle-round-1.md",
         "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",

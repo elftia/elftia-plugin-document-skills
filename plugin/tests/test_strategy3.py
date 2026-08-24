@@ -363,6 +363,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "tests/test_process_executable_identity.py",
         "tests/test_runtime.py",
         "tests/test_safety.py",
+        "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_structure.py",
         "tests/test_supply_chain.py",
@@ -379,7 +380,7 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         path for path in records if xlsx_shared_module_profile(path)
     }
     assert profiled_paths == expected_paths
-    assert len(profiled_paths) == 46
+    assert len(profiled_paths) == 47
     xlsx_requirement = "Rasen document-skills-core-xlsx"
     html_xlsx_requirement = (
         "Rasen html-to-editable-pptx + document-skills-core-xlsx"

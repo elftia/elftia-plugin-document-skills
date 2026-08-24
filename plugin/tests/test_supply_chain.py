@@ -209,6 +209,42 @@ def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
         validate_metadata_exclusion(root, unexpected, reviewers)
 
 
+def test_core_xlsx_completion_review_metadata_binding_uses_an_exact_allowlist(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "core-xlsx-completion-review")
+    report_name = (
+        "document-skills-core-xlsx-completion-review-cycle-round-1.md"
+    )
+    bind_test_review(root, report_name=report_name)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
+
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    completion_record = next(
+        record
+        for record in manifest["metadata_exclusions"]
+        if record["artifact"] == f"provenance/reviews/{report_name}"
+    )
+    reviewers = {manifest["review_attestations"][0]["reviewer"]}
+    validate_metadata_exclusion(root, completion_record, reviewers)
+
+    unexpected = {
+        **completion_record,
+        "artifact": (
+            "provenance/reviews/"
+            "document-skills-core-xlsx-completion-review-cycle-round-2.md"
+        ),
+    }
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(root, unexpected, reviewers)
+
+
 def test_sbom_is_deterministic_and_matches_locks(project_root):
     first = canonical_json(build_sbom(project_root))
     second = canonical_json(build_sbom(project_root))
