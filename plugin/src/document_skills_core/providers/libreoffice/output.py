@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import stat
+from collections.abc import Callable
+from pathlib import Path
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...formats.docx.constants import MAX_DOCX_BYTES
@@ -102,6 +103,50 @@ def assert_output_capacity(output_dir: Path, target_format: str) -> None:
             "LibreOffice output filesystem lacks the bounded artifact capacity.",
             details={"available_bytes": free, "required_bytes": limit},
         )
+
+
+def output_runtime_check(
+    output_dir: Path,
+    expected_output: Path,
+    target_format: str,
+) -> Callable[[], None]:
+    """Return a stat-only check that bounds files while LibreOffice is running."""
+
+    root = output_dir.resolve()
+    expected_name = expected_output.name
+    limit = output_limit(target_format)
+
+    def check() -> None:
+        total_bytes = 0
+        expected_bytes = 0
+        try:
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    try:
+                        metadata = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if not stat.S_ISREG(metadata.st_mode):
+                        _failed(
+                            "LibreOffice output directory contains a non-regular entry."
+                        )
+                    total_bytes += metadata.st_size
+                    if entry.name == expected_name:
+                        expected_bytes = metadata.st_size
+                    if expected_bytes > limit:
+                        _oversized(expected_bytes, limit, target_format)
+                    if total_bytes > limit:
+                        _oversized(total_bytes, limit, target_format)
+        except DocumentSkillsError:
+            raise
+        except OSError as error:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "LibreOffice output directory could not be monitored safely.",
+                details={"reason": type(error).__name__},
+            ) from error
+
+    return check
 
 
 def _oversized(actual: int, limit: int, target_format: str) -> None:

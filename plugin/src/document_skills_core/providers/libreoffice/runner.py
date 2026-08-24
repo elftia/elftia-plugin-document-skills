@@ -8,12 +8,13 @@ bounded timeout, output limit, cancellation, and process-tree cleanup.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.io.temp_roots import OperationTempRoot
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
@@ -29,6 +30,7 @@ from .output import (
     assert_output_capacity,
     assert_output_within_limit,
     output_limit,
+    output_runtime_check,
 )
 
 
@@ -44,6 +46,7 @@ class _ContainedRunner(Protocol):
         cwd: Path | None = ...,
         timeout_seconds: float = ...,
         output_limit: int = ...,
+        runtime_check: Callable[[], None] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -59,13 +62,19 @@ class LibreOfficeRunner:
         policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self._policy = policy or getattr(runner, "policy", None) or ProcessPolicy(
-            self.project_root
-        )
         self._executable: Path | None = None
         if runner is not None:
             self._runner = runner
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
+            self._policy = policy or ProcessPolicy(self.project_root)
             self._runner = ProcessRunner(self._policy)
         if executable is not None:
             self.set_executable(executable)
@@ -95,6 +104,12 @@ class LibreOfficeRunner:
             timeout_seconds = _timeout_for_format(target_format)
         output_limit(target_format)
         assert_output_capacity(output_dir, target_format)
+        expected = output_dir.resolve() / (input_path.stem + "." + target_format)
+        runtime_check = output_runtime_check(
+            output_dir,
+            expected,
+            target_format,
+        )
         with OperationTempRoot() as private_root:
             profile_root = private_root / "libreoffice-profile"
             profile_root.mkdir(mode=0o700)
@@ -113,8 +128,8 @@ class LibreOfficeRunner:
                 cwd=self.project_root,
                 timeout_seconds=timeout_seconds,
                 output_limit=OUTPUT_LIMIT,
+                runtime_check=runtime_check,
             )
-        expected = output_dir.resolve() / (input_path.stem + "." + target_format)
         if not expected.is_file():
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,

@@ -1,16 +1,21 @@
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
 import document_skills_core.cli as facade
 from document_skills_core.cli import execute_request
-from document_skills_core.core.capabilities import Capability, Provider, ProviderId, ProviderRegistry
+from document_skills_core.core.capabilities import (
+    Capability,
+    Provider,
+    ProviderId,
+    ProviderRegistry,
+)
 from document_skills_core.core.capabilities.detectors import RuntimeDetectors
 from document_skills_core.core.capabilities.reports import build_capabilities
 from document_skills_core.core.contracts import (
@@ -19,8 +24,13 @@ from document_skills_core.core.contracts import (
     SchemaCatalog,
     make_error_result,
 )
-from document_skills_core.core.process import ProcessPolicy, ProcessResult, ProcessRunner
+from document_skills_core.core.process import (
+    ProcessPolicy,
+    ProcessResult,
+    ProcessRunner,
+)
 from document_skills_core.providers import build_default_registry
+from document_skills_core.providers.libreoffice.constants import platform_known_paths
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -188,14 +198,37 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
     SchemaCatalog(project_root).validate(schema, report)
     optional = {
         item["id"]: item
-        for item in (
-            report["providers"]
-            if command[0] == "doctor"
-            else report["providers"]
-        )
+        for item in report["providers"]
     }
-    assert optional["libreoffice"]["available"] is False
+    libreoffice = optional["libreoffice"]
+    known_launchers = [
+        Path(path).resolve()
+        for path in platform_known_paths()
+        if Path(path).is_file()
+    ]
+    assert libreoffice["required"] is False
+    if known_launchers:
+        assert libreoffice["available"] is True, libreoffice
+        assert libreoffice["reason"] is None
+        assert libreoffice["version"]
+        assert Path(libreoffice["path"]).resolve() in known_launchers
+    else:
+        assert libreoffice["available"] is False
+        assert libreoffice["reason"]
+        assert libreoffice["path"] is None
     assert optional["dotnet-openxml"]["available"] is False
+    if command[0] == "doctor":
+        assert report["status"] == "healthy"
+    elif skill == "document-xlsx":
+        render = next(
+            operation
+            for operation in report["operations"]
+            if operation["operation"] == "xlsx.render"
+        )
+        assert (
+            str(ProviderId.LIBREOFFICE) in render["providers"]
+        ) is libreoffice["available"]
+        assert render["available"] is libreoffice["available"]
 
 
 def test_detector_timeout_is_reported_as_unavailable(project_root, monkeypatch):

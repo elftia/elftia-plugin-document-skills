@@ -25,8 +25,10 @@ FORBIDDEN_TOKENS: frozenset[str] = frozenset({
     "--cmd", ".bas", ".xba", "--unaccept", "macro:", "DDE", "DDELINK",
 })
 
-# Default per-operation timeouts (seconds).
-TIMEOUT_RECALC: float = 60.0
+# Default per-operation timeouts (seconds).  Optional recalculation must finish
+# or return a typed timeout well inside the public worker's fixed 8-second
+# budget so ``auto`` can truthfully fall back to the Core artifact.
+TIMEOUT_RECALC: float = 3.0
 TIMEOUT_CONVERT: float = 30.0
 TIMEOUT_RENDER: float = 30.0
 TIMEOUT_LEGACY: float = 30.0
@@ -41,15 +43,23 @@ VERSION_PROBE_OUTPUT_LIMIT: int = 16_384
 # Version regex — permissive; parses the dotted version after "LibreOffice".
 VERSION_REGEX = re.compile(r"LibreOffice\s+([0-9]+(?:\.[0-9]+)+)")
 
-# Executable names to probe on PATH.
-EXECUTABLE_NAMES: list[str] = ["soffice", "libreoffice"]
+# Executable names to probe on PATH.  The Windows console launcher is required
+# for a bounded ``--version`` probe because the GUI launcher does not reliably
+# keep captured stdout/stderr attached.
+EXECUTABLE_NAMES: list[str] = (
+    ["soffice.com", "soffice", "libreoffice"]
+    if sys.platform == "win32"
+    else ["soffice", "libreoffice"]
+)
 
 
 def platform_known_paths() -> list[str]:
     """Return platform-known soffice install locations."""
     if sys.platform == "win32":
         return [
+            r"C:\Program Files\LibreOffice\program\soffice.com",
             r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
             r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
         ]
     if sys.platform == "darwin":

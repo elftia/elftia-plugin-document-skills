@@ -2,12 +2,13 @@
 
 import json
 import os
-from dataclasses import dataclass, field
-from pathlib import Path
 import re
 import shutil
 import subprocess
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
@@ -97,6 +98,7 @@ class ProcessRunner:
         cwd: Path | None = None,
         timeout_seconds: float = 2.0,
         output_limit: int = 1_048_576,
+        runtime_check: Callable[[], None] | None = None,
     ) -> ProcessResult:
         executable_path = self._check_executable(provider_id, executable)
         if script is not None:
@@ -149,7 +151,14 @@ class ProcessRunner:
                 stdout_collector,
                 stderr_collector,
                 timeout_seconds,
+                runtime_check,
             )
+        except DocumentSkillsError:
+            tree.terminate()
+            self._finish_collectors(process, stdout_collector, stderr_collector)
+            stdout_collector.close()
+            stderr_collector.close()
+            raise
         except KeyboardInterrupt:
             tree.terminate()
             self._finish_collectors(process, stdout_collector, stderr_collector)
@@ -234,10 +243,13 @@ class ProcessRunner:
         stdout: BoundedPipeCollector,
         stderr: BoundedPipeCollector,
         timeout_seconds: float,
+        runtime_check: Callable[[], None] | None,
     ) -> str:
         deadline = time.monotonic() + timeout_seconds
         exited_at: float | None = None
         while True:
+            if runtime_check is not None:
+                runtime_check()
             if stdout.overflow.is_set() or stderr.overflow.is_set():
                 tree.terminate()
                 return "overflow"

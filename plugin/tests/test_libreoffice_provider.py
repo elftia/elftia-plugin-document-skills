@@ -1,17 +1,18 @@
 """LibreOffice enhancement provider tests — mock-injected present/absent/crash/timeout.
 
-Real LibreOffice is NOT required. Tests inject fake detectors and runners
-to exercise the wiring, honesty, and containment.
+Real LibreOffice is not required for the suite. A conditional Windows test
+uses a standard installation when present; other tests inject system boundaries.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-from io import BytesIO
 import os
-from pathlib import Path
 import stat
 import struct
+import sys
 import zipfile
+from io import BytesIO
+from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
@@ -23,12 +24,16 @@ from document_skills_core.core.capabilities import (
     ProviderId,
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.process import ProcessResult
+from document_skills_core.core.process import (
+    ProcessPolicy,
+    ProcessResult,
+    ProcessRunner,
+)
 from document_skills_core.formats.pdf.constants import MAX_PDF_BYTES
 from document_skills_core.formats.xlsx.constants import FORMULA_STATE_RECALCULATED
 from document_skills_core.formats.xlsx.service import XlsxService
+from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
-from document_skills_core.providers.libreoffice.convert import convert_to_pdf
 from document_skills_core.providers.libreoffice.constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
@@ -36,14 +41,15 @@ from document_skills_core.providers.libreoffice.constants import (
     USER_INSTALLATION_PREFIX,
     platform_known_paths,
 )
+from document_skills_core.providers.libreoffice.convert import convert_to_pdf
 from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
+from document_skills_core.providers.libreoffice.recalc import recalculate_xlsx
 from document_skills_core.providers.libreoffice.runner import (
     LibreOfficeRunner,
     _build_argv,
     _validate_argv,
 )
-from document_skills_core.providers.libreoffice.recalc import recalculate_xlsx
-
+from tools.audit_python import audit_python_source
 
 # ---------------------------------------------------------------------------
 # Fake detectors
@@ -135,8 +141,8 @@ class FakeHangingRunner:
 @pytest.fixture
 def fake_xlsx(project_root: Path, tmp_path: Path) -> Path:
     """Create a real XLSX with formula cells (with cached values) for testing."""
-    from document_skills_core.formats.xlsx.create import create_xlsx
     from document_skills_core.core.io.temp_roots import OperationTempRoot
+    from document_skills_core.formats.xlsx.create import create_xlsx
     workbook = {
         "metadata": {},
         "sheets": [{
@@ -289,6 +295,33 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 
 class TestDetector:
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows standard-install launcher integration",
+    )
+    def test_default_registry_detects_standard_windows_console_launcher(
+        self, project_root, monkeypatch
+    ):
+        standard_launchers = [
+            Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
+            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
+        ]
+        installed = next(
+            (candidate for candidate in standard_launchers if candidate.is_file()),
+            None,
+        )
+        if installed is None:
+            pytest.skip("LibreOffice is not installed in a standard Windows location")
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: None)
+
+        registry = build_default_registry(project_root)
+        provider = registry.providers[str(ProviderId.LIBREOFFICE)]
+        state = registry.detect(provider)
+
+        assert state["available"] is True, state
+        assert Path(state["path"]).samefile(installed)
+        assert registry.find_callable(ProviderId.LIBREOFFICE) is True
+
     def test_production_factory_shares_libreoffice_allowlist_policy(
         self, project_root, tmp_path, monkeypatch
     ):
@@ -323,7 +356,11 @@ class TestDetector:
         detector = LibreOfficeDetector(project_root)
 
         class FakeRunner:
+            def __init__(self):
+                self.calls = 0
+
             def run(self, provider_id, executable, args, **kwargs):
+                self.calls += 1
                 assert "--version" in args
                 assert kwargs["timeout_seconds"] <= 2.0
                 return ProcessResult(
@@ -331,11 +368,15 @@ class TestDetector:
                 )
 
         monkeypatch.setattr(shutil_module(), "which", lambda name: "/fake/soffice")
-        detector._runner = FakeRunner()
+        fake_runner = FakeRunner()
+        detector._runner = fake_runner
         evidence = detector.detect()
+        cached = detector.detect()
         assert evidence.available is True
         assert evidence.version == "25.8.0.0"
         assert evidence.path is not None
+        assert cached is evidence
+        assert fake_runner.calls == 1
 
     def test_executable_absent_returns_unavailable(self, project_root, monkeypatch):
         import shutil as sh
@@ -402,6 +443,48 @@ def shutil_module():
 # ---------------------------------------------------------------------------
 
 class TestRunnerContainment:
+    def test_libreoffice_runtime_sources_pass_execution_boundary_audit(
+        self, project_root
+    ):
+        for relative in (
+            "src/document_skills_core/providers/libreoffice/detector.py",
+            "src/document_skills_core/providers/libreoffice/runner.py",
+        ):
+            audit_python_source(
+                relative,
+                (project_root / relative).read_text(encoding="utf-8"),
+            )
+
+    @pytest.mark.parametrize(
+        "component",
+        [LibreOfficeDetector, LibreOfficeRunner],
+    )
+    def test_injected_process_runner_supplies_libreoffice_policy(
+        self, project_root, component
+    ):
+        policy = ProcessPolicy(project_root)
+        process_runner = ProcessRunner(policy)
+
+        instance = component(project_root, runner=process_runner)
+
+        assert instance._policy is policy
+
+    @pytest.mark.parametrize(
+        "component",
+        [LibreOfficeDetector, LibreOfficeRunner],
+    )
+    def test_injected_process_runner_rejects_mismatched_libreoffice_policy(
+        self, project_root, component
+    ):
+        process_runner = ProcessRunner(ProcessPolicy(project_root))
+
+        with pytest.raises(ValueError, match="injected ProcessPolicy"):
+            component(
+                project_root,
+                runner=process_runner,
+                policy=ProcessPolicy(project_root),
+            )
+
     def test_argv_is_validated_before_spawn(self):
         """Macro-execution arguments are rejected before spawning."""
         with pytest.raises(DocumentSkillsError) as exc:
@@ -576,6 +659,106 @@ class TestRunnerContainment:
         assert captured["timeout"] is not None
         assert captured["output_limit"] > 0
 
+    @pytest.mark.parametrize(
+        "write_expected_output",
+        [True, False],
+        ids=["expected-artifact", "temporary-artifact"],
+    )
+    def test_conversion_stops_progressive_output_at_artifact_limit(
+        self, project_root, tmp_path, monkeypatch, write_expected_output
+    ):
+        from document_skills_core.providers.libreoffice import output as output_module
+
+        artifact_limit = 16 * 1024
+        monkeypatch.setitem(output_module.OUTPUT_LIMITS, "pdf", artifact_limit)
+        input_file = tmp_path / "input.docx"
+        input_file.write_bytes(b"fake")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        expected_output = output_dir / "input.pdf"
+        progressive_output = (
+            expected_output
+            if write_expected_output
+            else output_dir / "libreoffice-partial.tmp"
+        )
+        completion_marker = tmp_path / "writer-completed"
+        placeholder = tmp_path / "soffice.exe"
+        placeholder.write_bytes(b"placeholder")
+
+        class ProgressiveWriterProcessRunner:
+            def __init__(self):
+                policy = ProcessPolicy(project_root)
+                self._executable = policy.allow_executable(
+                    "quota-writer", sys.executable
+                )
+                self._runner = ProcessRunner(policy)
+
+            def run(self, provider_id, executable, args, **kwargs):
+                del provider_id, executable
+                target_format = args[args.index("--convert-to") + 1]
+                child_output_dir = Path(args[args.index("--outdir") + 1])
+                child_input = Path(args[-1])
+                expected_child_output = child_output_dir / (
+                    child_input.stem + "." + target_format
+                )
+                child_output = (
+                    expected_child_output
+                    if write_expected_output
+                    else child_output_dir / "libreoffice-partial.tmp"
+                )
+                script = (
+                    "import os, pathlib, sys, time\n"
+                    "output = pathlib.Path(sys.argv[1])\n"
+                    "marker = pathlib.Path(sys.argv[2])\n"
+                    "with output.open('wb', buffering=0) as handle:\n"
+                    "    for _ in range(80):\n"
+                    "        handle.write(b'x' * 4096)\n"
+                    "        os.fsync(handle.fileno())\n"
+                    "        time.sleep(0.025)\n"
+                    "marker.write_text('complete', encoding='utf-8')\n"
+                )
+                runtime_check = kwargs.get("runtime_check")
+                if runtime_check is None:
+                    return self._runner.run(
+                        "quota-writer",
+                        self._executable,
+                        ["-c", script, str(child_output), str(completion_marker)],
+                        cwd=project_root,
+                        timeout_seconds=10.0,
+                        output_limit=16_384,
+                    )
+                return self._runner.run(
+                    "quota-writer",
+                    self._executable,
+                    ["-c", script, str(child_output), str(completion_marker)],
+                    cwd=project_root,
+                    timeout_seconds=10.0,
+                    output_limit=16_384,
+                    runtime_check=runtime_check,
+                )
+
+        original_read_bytes = Path.read_bytes
+
+        def reject_oversized_read(path):
+            if path.resolve() == progressive_output.resolve():
+                raise AssertionError("oversized output must not be read into memory")
+            return original_read_bytes(path)
+
+        monkeypatch.setattr(Path, "read_bytes", reject_oversized_read)
+        runner = LibreOfficeRunner(
+            project_root,
+            executable=placeholder,
+            runner=ProgressiveWriterProcessRunner(),
+        )
+
+        with pytest.raises(DocumentSkillsError) as exc:
+            runner.convert(input_file, "pdf", output_dir, timeout_seconds=10.0)
+
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+        assert exc.value.details["output_limit"] == artifact_limit
+        assert progressive_output.stat().st_size > artifact_limit
+        assert not completion_marker.exists()
+
     def test_env_sanitized_by_process_runner(self, project_root):
         """The existing ProcessRunner sanitizes env — verify via its allowlist."""
         from document_skills_core.core.process.runner import _ENV_ALLOWLIST
@@ -591,7 +774,7 @@ class TestRunnerContainment:
 
 class TestProviderFactory:
     def test_factory_returns_definition_and_provider(self, project_root):
-        definition, provider = build_libreoffice_provider(
+        definition, _provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(),
             runner=FakeCallableRunner(),
@@ -602,7 +785,7 @@ class TestProviderFactory:
         assert len(definition.capabilities) > 0
 
     def test_factory_with_absent_detector_detects_unavailable(self, project_root):
-        definition, provider = build_libreoffice_provider(
+        definition, _provider = build_libreoffice_provider(
             project_root,
             detector=FakeAbsentDetector(),
             runner=FakeCallableRunner(),
@@ -611,7 +794,7 @@ class TestProviderFactory:
         assert evidence.available is False
 
     def test_factory_with_callable_detector_detects_available(self, project_root):
-        definition, provider = build_libreoffice_provider(
+        definition, _provider = build_libreoffice_provider(
             project_root,
             detector=FakeCallableDetector(version="25.8.0"),
             runner=FakeCallableRunner(),

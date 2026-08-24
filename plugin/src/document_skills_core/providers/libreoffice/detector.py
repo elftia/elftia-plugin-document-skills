@@ -7,13 +7,14 @@ must never claim a capability that the runtime cannot deliver.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-from pathlib import Path
 import shutil
+from pathlib import Path
+from threading import Lock
 from typing import Protocol
 
 from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     EXECUTABLE_NAMES,
     TIMEOUT_VERSION_PROBE,
@@ -48,15 +49,34 @@ class LibreOfficeDetector:
         policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self._policy = policy or getattr(runner, "policy", None) or ProcessPolicy(
-            self.project_root
-        )
+        self._cached_evidence: DetectionEvidence | None = None
+        self._detection_lock = Lock()
         if runner is not None:
             self._runner = runner
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
+            self._policy = policy or ProcessPolicy(self.project_root)
             self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
+        cached = self._cached_evidence
+        if cached is not None:
+            return cached
+        with self._detection_lock:
+            cached = self._cached_evidence
+            if cached is None:
+                cached = self._detect_uncached()
+                self._cached_evidence = cached
+            return cached
+
+    def _detect_uncached(self) -> DetectionEvidence:
         candidate = self._find_candidate()
         if candidate is None:
             return DetectionEvidence(
