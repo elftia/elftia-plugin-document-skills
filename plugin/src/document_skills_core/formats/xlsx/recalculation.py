@@ -229,7 +229,6 @@ def _patch_formula_values(
                 for item in roots[part].findall(f".//{{{_MAIN_NS}}}c")
                 if "r" in item.attrib
             }
-        root = roots[part]
         cell = cells_by_part[part].get(source_record["ref"])
         if cell is None:
             raise DocumentSkillsError(

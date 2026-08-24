@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
     HELPER_DIR_NAME,
@@ -89,6 +89,14 @@ class DotnetOpenXmlRunner:
     def set_executable(self, executable: str | Path) -> None:
         self._executable = self._policy.allow_executable(
             "dotnet-openxml", executable
+        )
+
+    def bind_authorized_executable(self, executable: str | Path) -> None:
+        """Bind the exact executable record already proven by the detector."""
+
+        self._executable = self._policy.require_executable(
+            "dotnet-openxml",
+            executable,
         )
 
     def run(

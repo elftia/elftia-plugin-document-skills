@@ -9,23 +9,24 @@ AND (b) the helper ``--probe-json`` returns ``assembly_loaded: true`` + a parsea
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-from pathlib import Path
 import shutil
+from collections.abc import Callable
+from pathlib import Path
 from typing import Protocol
 
 from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
+    HELPER_PROJECT_NAME,
+    LOCKED_RESTORE_FLAGS,
     PROBE_OUTPUT_LIMIT,
     PROBE_PROTOCOL_VERSION,
     PROBE_RUNTIME_MAJOR,
     RUNTIME_PREFIX,
     RUNTIME_PROBE_OUTPUT_LIMIT,
-    HELPER_PROJECT_NAME,
-    LOCKED_RESTORE_FLAGS,
-    TIMEOUT_PROBE,
     TIMEOUT_LOCKED_RESTORE,
+    TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
 )
@@ -92,6 +93,28 @@ class DotnetOpenXmlDetector:
                 path=candidate,
             )
         return self._validate_assembly(candidate)
+
+    def detect_and_authorize(
+        self,
+        bind_authorized_executable: Callable[[str | Path], None],
+    ) -> DetectionEvidence:
+        """Bind operation launch to the executable record used by the probe."""
+
+        evidence = self.detect()
+        if not evidence.available or evidence.path is None:
+            return evidence
+        try:
+            bind_authorized_executable(evidence.path)
+        except DocumentSkillsError:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet executable identity changed between the successful "
+                    "probe and operation authorization"
+                ),
+                path=evidence.path,
+            )
+        return evidence
 
     def _find_candidate(self) -> str | None:
         found = shutil.which("dotnet")
@@ -241,6 +264,8 @@ class DotnetOpenXmlDetector:
         )
 
     def _resolve_executable(self, candidate: str, provider_id: str) -> Path:
+        if not isinstance(self._runner, ProcessRunner):
+            return Path(candidate).absolute()
         return self._policy.allow_executable(provider_id, candidate)
 
 

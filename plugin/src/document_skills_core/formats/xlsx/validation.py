@@ -809,9 +809,9 @@ def _assert_created(
             if actual_assignments[assignment_type].get(ref) != style_id:
                 failures.append(f"{assignment_type}-style:{ref}")
     actual_number_formats = read_styles(package.parts).get("num_fmts", {})
-    for format_id, code in expected_styles.get("number_formats", {}).items():
-        if actual_number_formats.get(int(format_id)) != code:
-            failures.append(f"number-format:{format_id}")
+    for number_format_id, code in expected_styles.get("number_formats", {}).items():
+        if actual_number_formats.get(int(number_format_id)) != code:
+            failures.append(f"number-format:{number_format_id}")
 
     # Check formula state invariant
     formula_cells = mapped.get("formula_cells", {})

@@ -324,6 +324,8 @@ class LibreOfficeDetector:
 
     def _resolve_executable(self, candidate: str) -> Path:
         """Resolve and allowlist the executable via ProcessPolicy."""
+        if not isinstance(self._runner, ProcessRunner):
+            return Path(candidate).absolute()
         return self._policy.allow_executable("libreoffice", candidate)
 
     @staticmethod

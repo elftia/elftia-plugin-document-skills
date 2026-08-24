@@ -14,6 +14,12 @@ from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
 from ..io.portable_paths import PORTABLE_PATH_POLICY
+from .executable import (
+    ExecutableIdentity,
+    ExecutableLaunchLease,
+    acquire_executable_lease,
+    capture_executable_identity,
+)
 from .streams import BoundedPipeCollector
 from .tree import ProcessTree
 
@@ -103,7 +109,7 @@ class _RuntimeCheckWatcher:
             error: BaseException | None = None
             try:
                 self._callback()
-            except BaseException as caught:
+            except BaseException as caught:  # noqa: BLE001 - watcher reports safely
                 error = caught
             with self._lock:
                 self._error = error
@@ -113,8 +119,13 @@ class _RuntimeCheckWatcher:
 @dataclass
 class ProcessPolicy:
     project_root: Path
-    executables: dict[str, dict[Path, Path]] = field(default_factory=dict)
+    executables: dict[str, dict[Path, ExecutableIdentity]] = field(default_factory=dict)
     scripts: dict[str, set[Path]] = field(default_factory=dict)
+    _executable_lock: threading.RLock = field(
+        default_factory=threading.RLock,
+        init=False,
+        repr=False,
+    )
 
     def allow_executable(self, provider_id: str, executable: str | Path) -> Path:
         raw = str(executable)
@@ -126,9 +137,52 @@ class ProcessPolicy:
                 details={"provider": provider_id, "executable": Path(raw).name},
             )
         launch_path = Path(resolved_raw).absolute()
-        canonical_identity = launch_path.resolve()
-        self.executables.setdefault(provider_id, {})[launch_path] = canonical_identity
+        captured = capture_executable_identity(launch_path)
+        with self._executable_lock:
+            provider_executables = self.executables.setdefault(provider_id, {})
+            approved = provider_executables.get(launch_path)
+            if approved is not None and approved != captured:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Executable identity changed after authorization.",
+                    details={
+                        "provider": provider_id,
+                        "executable": launch_path.name,
+                        "reason_category": "executable_identity_changed",
+                    },
+                )
+            provider_executables[launch_path] = captured
         return launch_path
+
+    def require_executable(self, provider_id: str, executable: str | Path) -> Path:
+        launch_path = Path(executable).absolute()
+        expected = self._approved_executable(provider_id, launch_path)
+        with acquire_executable_lease(expected, require_native=False):
+            return launch_path
+
+    def acquire_executable(
+        self,
+        provider_id: str,
+        executable: str | Path,
+    ) -> ExecutableLaunchLease:
+        launch_path = Path(executable).absolute()
+        expected = self._approved_executable(provider_id, launch_path)
+        return acquire_executable_lease(expected, require_native=True)
+
+    def _approved_executable(
+        self,
+        provider_id: str,
+        launch_path: Path,
+    ) -> ExecutableIdentity:
+        with self._executable_lock:
+            approved = self.executables.get(provider_id, {}).get(launch_path)
+        if approved is None:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "Executable is not allowlisted for this provider.",
+                details={"provider": provider_id, "executable": launch_path.name},
+            )
+        return approved
 
     def allow_script(self, provider_id: str, script: str | Path) -> Path:
         resolved = Path(script).resolve()
@@ -188,7 +242,6 @@ class ProcessRunner:
         output_limit: int = 1_048_576,
         runtime_check: Callable[[], None] | None = None,
     ) -> ProcessResult:
-        executable_path = self._check_executable(provider_id, executable)
         if script is not None:
             self._check_script(provider_id, script)
             if str(script.resolve()) not in args:
@@ -202,23 +255,41 @@ class ProcessRunner:
             raise DocumentSkillsError(
                 ErrorCode.PATH_UNSAFE, "Process cwd must remain inside the project root."
             )
-        command = [str(executable_path), *args]
+        command = [str(Path(executable).absolute()), *args]
         creation_flags = (
             subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
         started = time.monotonic()
-        process = subprocess.Popen(
-            command,
-            cwd=isolated_cwd,
-            env=self._minimal_environment(),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=False,
-            shell=False,
-            start_new_session=os.name != "nt",
-            creationflags=creation_flags,
-        )
+        try:
+            with self.policy.acquire_executable(provider_id, executable) as launch:
+                atomic_launch: dict[str, Any] = {
+                    "executable": launch.popen_executable
+                }
+                if launch.pass_fds:
+                    atomic_launch["pass_fds"] = launch.pass_fds
+                process = subprocess.Popen(
+                    command,
+                    cwd=isolated_cwd,
+                    env=self._minimal_environment(),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=False,
+                    shell=False,
+                    start_new_session=os.name != "nt",
+                    creationflags=creation_flags,
+                    **atomic_launch,
+                )
+        except OSError as error:
+            raise DocumentSkillsError(
+                ErrorCode.RUNTIME_UNAVAILABLE,
+                "Atomic executable launch failed.",
+                details={
+                    "provider": provider_id,
+                    "reason_category": "atomic_launch_failed",
+                    "exception_class": type(error).__name__[:64],
+                },
+            ) from error
         tree = ProcessTree(process)
         assert process.stdout is not None
         assert process.stderr is not None
@@ -307,16 +378,7 @@ class ProcessRunner:
         return ProcessResult(process.returncode, stdout, redacted_stderr, duration_ms)
 
     def _check_executable(self, provider_id: str, executable: str | Path) -> Path:
-        launch_path = Path(executable).absolute()
-        canonical_identity = launch_path.resolve()
-        approved_identity = self.policy.executables.get(provider_id, {}).get(launch_path)
-        if approved_identity != canonical_identity:
-            raise DocumentSkillsError(
-                ErrorCode.PROVIDER_FAILED,
-                "Executable is not allowlisted for this provider.",
-                details={"provider": provider_id, "executable": launch_path.name},
-            )
-        return launch_path
+        return self.policy.require_executable(provider_id, executable)
 
     def _check_script(self, provider_id: str, script: Path) -> None:
         resolved = script.resolve()
