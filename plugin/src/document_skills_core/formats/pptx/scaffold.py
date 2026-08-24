@@ -60,8 +60,13 @@ def _build_theme(theme: dict[str, Any] | None = None) -> bytes:
     _ph_line(ln_lst, "9100")
     _ph_line(ln_lst, "9100")
     effect_lst = SubElement(fmt_scheme, f"{{{_A}}}effectStyleLst")
-    for _ in range(3):
-        SubElement(SubElement(effect_lst, f"{{{_A}}}effectStyle"), f"{{{_A}}}effectLst")
+    for index in range(3):
+        effects = SubElement(
+            SubElement(effect_lst, f"{{{_A}}}effectStyle"),
+            f"{{{_A}}}effectLst",
+        )
+        if index and theme["effects"]["shadow"]["enabled"]:
+            _theme_shadow(effects, theme["effects"]["shadow"])
     bg_lst = SubElement(fmt_scheme, f"{{{_A}}}bgFillStyleLst")
     _ph_solid_fill(bg_lst)
     _ph_solid_fill(bg_lst)
@@ -107,6 +112,25 @@ def _ph_line(parent: Element, w: str) -> None:
     solid = SubElement(ln, f"{{{_A}}}solidFill")
     SubElement(solid, f"{{{_A}}}schemeClr", attrib={"val": "phClr"})
     SubElement(ln, f"{{{_A}}}prstDash", attrib={"val": "solid"})
+
+
+def _theme_shadow(parent: Element, shadow: dict[str, Any]) -> None:
+    node = SubElement(
+        parent,
+        f"{{{_A}}}outerShdw",
+        attrib={
+            "blurRad": str(shadow["blur"]),
+            "dir": str(round(shadow["direction"] * 60_000)),
+            "dist": str(shadow["distance"]),
+            "rotWithShape": "0",
+        },
+    )
+    color = SubElement(node, f"{{{_A}}}srgbClr", attrib={"val": shadow["color"]})
+    SubElement(
+        color,
+        f"{{{_A}}}alpha",
+        attrib={"val": str(round(shadow["opacity"] * 100_000))},
+    )
 
 
 # ---------------------------------------------------------------------------

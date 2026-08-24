@@ -1,8 +1,10 @@
 """Slide-size, chart, media, and feature projection for PresentationML."""
 
+from copy import deepcopy
 from typing import Any
 
 from .constants import NS, local_name
+from .design_contracts import DEFAULT_THEME
 
 _P = NS["p"]
 _C = NS["c"]
@@ -61,7 +63,29 @@ def project_theme(package: Any) -> dict[str, Any] | None:
             latin = None if collection is None else collection.find(A("latin"))
             if latin is not None:
                 fonts[key] = latin.attrib.get("typeface", "")
+    effects = deepcopy(DEFAULT_THEME["effects"])
+    shadow = next(
+        (node for node in root.iter() if local_name(node.tag) == "outerShdw"),
+        None,
+    )
+    if shadow is not None:
+        color = next(iter(shadow), None)
+        alpha = None if color is None else next(
+            (node for node in color if local_name(node.tag) == "alpha"),
+            None,
+        )
+        effects["shadow"].update({
+            "blur": int(shadow.attrib.get("blurRad", "0")),
+            "color": "000000" if color is None else color.attrib.get("val", "000000"),
+            "direction": int(shadow.attrib.get("dir", "0")) / 60_000,
+            "distance": int(shadow.attrib.get("dist", "0")),
+            "enabled": True,
+            "opacity": (
+                1.0 if alpha is None else int(alpha.attrib.get("val", "100000")) / 100_000
+            ),
+        })
     return {
+        "effects": effects,
         "fonts": fonts,
         "name": root.attrib.get("name", ""),
         "palette": palette,

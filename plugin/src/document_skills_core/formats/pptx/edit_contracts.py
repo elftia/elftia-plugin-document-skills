@@ -7,6 +7,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_SLIDES
 from .design_contracts import parse_recipe
+from .design_edit_contracts import DESIGN_EDIT_TYPES, parse_design_edit
 from .object_contracts import OBJECT_EDIT_TYPES, parse_object_edit
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
@@ -20,7 +21,7 @@ EDIT_TYPES = frozenset({
     "slide_reorder",
     "slide_size",
     "slide_text",
-}).union(OBJECT_EDIT_TYPES)
+}).union(DESIGN_EDIT_TYPES, OBJECT_EDIT_TYPES)
 
 _SLIDE_SIZE_TYPES = {
     "35mm",
@@ -48,6 +49,8 @@ def parse_edit(edit: dict[str, Any], index: int) -> dict[str, Any]:
     edit_type = edit.get("type")
     if edit_type not in EDIT_TYPES:
         _invalid("Unknown edit type.", field=f"edits.{index}.type")
+    if edit_type in DESIGN_EDIT_TYPES:
+        return parse_design_edit(edit, index)
     if edit_type in OBJECT_EDIT_TYPES:
         return parse_object_edit(edit, index)
     field = f"edits.{index}"

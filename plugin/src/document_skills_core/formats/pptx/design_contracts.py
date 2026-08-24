@@ -34,6 +34,16 @@ DEFAULT_THEME: dict[str, Any] = {
         "folHlink": "954F72",
     },
     "fonts": {"major": "Calibri Light", "minor": "Calibri"},
+    "effects": {
+        "shadow": {
+            "enabled": False,
+            "blur": 50_800,
+            "distance": 38_100,
+            "direction": 270.0,
+            "color": "000000",
+            "opacity": 0.25,
+        },
+    },
     "background": "FFFFFF",
     "default_text": {
         "title_color": "000000",
@@ -83,7 +93,10 @@ def parse_theme(value: Any, field: str) -> dict[str, Any]:
         _invalid("Theme tokens must be an object.", field=field)
     _exact_keys(
         value,
-        {"background", "default_chart", "default_shape", "default_text", "fonts", "name", "palette"},
+        {
+            "background", "default_chart", "default_shape", "default_text",
+            "effects", "fonts", "name", "palette",
+        },
         field,
     )
     result = deepcopy(DEFAULT_THEME)
@@ -107,6 +120,10 @@ def parse_theme(value: Any, field: str) -> dict[str, Any]:
             key: _text(font, f"{field}.fonts.{key}", False)
             for key, font in fonts.items()
         })
+    if "effects" in value:
+        result["effects"].update(
+            _parse_effects(value["effects"], f"{field}.effects")
+        )
     if "background" in value:
         result["background"] = _color(value["background"], f"{field}.background")
     if "default_text" in value:
@@ -207,6 +224,39 @@ def _parse_default_text(value: Any, field: str) -> dict[str, Any]:
     if "bold_titles" in result and type(result["bold_titles"]) is not bool:
         _invalid("bold_titles must be boolean.", field=f"{field}.bold_titles")
     return result
+
+
+def _parse_effects(value: Any, field: str) -> dict[str, Any]:
+    if type(value) is not dict:
+        _invalid("Theme effects must be an object.", field=field)
+    _exact_keys(value, {"shadow"}, field)
+    shadow = value.get("shadow")
+    if type(shadow) is not dict:
+        _invalid("Theme shadow effect must be an object.", field=f"{field}.shadow")
+    _exact_keys(
+        shadow,
+        {"blur", "color", "direction", "distance", "enabled", "opacity"},
+        f"{field}.shadow",
+    )
+    result = dict(DEFAULT_THEME["effects"]["shadow"])
+    if "enabled" in shadow:
+        if type(shadow["enabled"]) is not bool:
+            _invalid("Theme shadow enabled must be boolean.", field=f"{field}.shadow.enabled")
+        result["enabled"] = shadow["enabled"]
+    for key in ("blur", "distance"):
+        if key in shadow:
+            result[key] = _integer(shadow[key], 0, 10_000_000, f"{field}.shadow.{key}")
+    if "direction" in shadow:
+        result["direction"] = _number(
+            shadow["direction"], 0.0, 360.0, f"{field}.shadow.direction"
+        )
+    if "opacity" in shadow:
+        result["opacity"] = _number(
+            shadow["opacity"], 0.0, 1.0, f"{field}.shadow.opacity"
+        )
+    if "color" in shadow:
+        result["color"] = _color(shadow["color"], f"{field}.shadow.color")
+    return {"shadow": result}
 
 
 def _parse_default_shape(value: Any, field: str) -> dict[str, Any]:

@@ -163,6 +163,7 @@ def create_pptx(
         "slide_size": slide_size,
         "theme": {
             "background": theme["background"],
+            "effects": theme["effects"],
             "fonts": dict(theme["fonts"]),
             "name": theme["name"],
             "palette": dict(theme["palette"]),

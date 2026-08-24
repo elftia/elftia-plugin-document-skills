@@ -8,6 +8,8 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import NS, local_name
+from .design_edit_contracts import DESIGN_EDIT_TYPES
+from .design_graph_edit import apply_design_edit
 from .image import MAX_TOTAL_IMAGE_BYTES
 from .mapping import map_slides
 from .macro_policy import (
@@ -50,6 +52,7 @@ def edit_pptx(
     reorder_evidence: list[dict[str, Any]] = []
     lifecycle_evidence: list[dict[str, Any]] = []
     object_evidence: list[dict[str, Any]] = []
+    design_evidence: list[dict[str, Any]] = []
     slide_size_evidence: dict[str, Any] | None = None
     added_image_bytes = 0
 
@@ -67,6 +70,10 @@ def edit_pptx(
 
         elif edit_type == "slide_size":
             slide_size_evidence = apply_slide_size(target, edit["size"])
+            edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
+
+        elif edit_type in DESIGN_EDIT_TYPES:
+            design_evidence.append(apply_design_edit(target, edit))
             edit_counts[edit_type] = edit_counts.get(edit_type, 0) + 1
 
         elif edit_type == "slide_text":
@@ -158,6 +165,8 @@ def edit_pptx(
         operation_result["slide_lifecycle"] = lifecycle_evidence
     if object_evidence:
         operation_result["object_edits"] = object_evidence
+    if design_evidence:
+        operation_result["design_edits"] = design_evidence
     if slide_size_evidence is not None:
         operation_result["slide_size"] = slide_size_evidence
     if vba_source is not None:

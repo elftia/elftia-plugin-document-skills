@@ -80,6 +80,10 @@ The edit does not implicitly scale or move content. It validates the final
 transaction state, including inherited placeholder geometry, before emitting
 the candidate and reports the previous/new size plus checked-object counts.
 
+Master/layout/theme graph edits are also transactional but have their own
+closed design-part selectors and contracts. Read `design-authoring.md` before
+using `master_*`, `layout_*`, or `theme_update`.
+
 ## Object primitives
 
 | Object | Add/update/delete forms | Supported values |
@@ -143,6 +147,8 @@ Example:
   activation, and raw OOXML injection are not accepted. The keep-VBA exception
   preserves only an already-present validated VBA project byte-for-byte.
 
-Successful output reports `slide_lifecycle` and/or `object_edits` evidence under
+Successful output reports the applicable `slide_lifecycle`, `slide_size`,
+`design_edits`, and/or `object_edits` evidence under
 `diagnostics.operation_result`, including copied dependency mappings, added and
-removed parts, native image/chart records, and object hashes.
+removed parts, native image/chart records, inheritance checks, and object
+hashes.

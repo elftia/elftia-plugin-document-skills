@@ -46,6 +46,16 @@ def _theme() -> dict[str, Any]:
             "accent2": "E29578",
         },
         "fonts": {"major": "Aptos Display", "minor": "Aptos"},
+        "effects": {
+            "shadow": {
+                "enabled": True,
+                "blur": 60000,
+                "distance": 40000,
+                "direction": 315,
+                "color": "112233",
+                "opacity": 0.35,
+            }
+        },
         "background": "F8F5EC",
         "default_text": {
             "title_color": "101820",
@@ -137,6 +147,8 @@ def test_typed_theme_and_all_layout_recipes_are_native(
     assert projected["theme"]["name"] == "Research Theme"
     assert projected["theme"]["palette"]["accent1"] == "006D77"
     assert projected["theme"]["fonts"]["major"] == "Aptos Display"
+    assert projected["theme"]["effects"]["shadow"]["enabled"] is True
+    assert projected["theme"]["effects"]["shadow"]["color"] == "112233"
     assert {item["name"] for item in projected["layout_recipes"]} == {
         "Cover", "Section", "Content", "Two Column", "Image Focus", "Comparison", "Summary"
     }

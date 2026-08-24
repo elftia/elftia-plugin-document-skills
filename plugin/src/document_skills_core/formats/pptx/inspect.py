@@ -11,6 +11,7 @@ from .projection import (
     project_external_links,
     project_media,
 )
+from .template_lint import lint_template
 
 
 def inspect_pptx(
@@ -58,6 +59,7 @@ def inspect_pptx(
         package,
         include_hashes=include_hashes,
     )
+    template_lint = lint_template(package)
 
     security = package.security
     dangerous_categories = security.get("categories", {})
@@ -87,6 +89,7 @@ def inspect_pptx(
         "external_links": external_links,
         "custom_xml": custom_xml,
         "advanced_objects": advanced_objects,
+        "template_lint": template_lint,
         "unknown_parts": package.unknown_parts,
         "dangerous_content": {
             "present": dangerous_present,

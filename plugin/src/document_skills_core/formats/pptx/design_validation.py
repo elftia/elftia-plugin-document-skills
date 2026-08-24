@@ -45,6 +45,8 @@ def assert_typed_design(
             failures.append("theme-name")
         if projected.get("fonts") != expected["fonts"]:
             failures.append("theme-fonts")
+        if projected.get("effects") != expected["effects"]:
+            failures.append("theme-effects")
         for key, value in expected["palette"].items():
             if projected.get("palette", {}).get(key) != value:
                 failures.append(f"theme-palette-{key}")

@@ -12,6 +12,8 @@ theme/master/layout graph; it does not flatten slides to images.
 - `palette`: `dk1`, `lt1`, `dk2`, `lt2`, `accent1` through `accent6`,
   `hlink`, and `folHlink`
 - `fonts`: `major` and `minor`
+- `effects.shadow`: enabled, blur/distance in EMUs, direction in degrees,
+  six-digit color, and opacity
 - `background`
 - `default_text`: title/body colors and sizes plus `bold_titles`
 - `default_shape`: fill, line, and opacity
@@ -86,3 +88,7 @@ content type from the template identity to
 `presentationml.presentation.main+xml`; it does not rename the source or leave
 template identity in the output. The result reports `source_extension`,
 `presentation_content_type`, and `template_main_type_normalized`.
+
+For transactional master/layout/theme changes and template lint, read
+`design-authoring.md`. Those edits use exact design-part selectors and are
+separate from template-as-base byte-for-byte reuse.

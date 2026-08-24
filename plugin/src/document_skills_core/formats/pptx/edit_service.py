@@ -13,6 +13,8 @@ from document_skills_core.core.io.paths import (
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedPptxRequest
+from .design_edit_contracts import DESIGN_EDIT_TYPES
+from .design_graph_validation import validate_design_edits
 from .edit import edit_pptx
 from .lifecycle_validation import validate_slide_lifecycle
 from .macro_policy import open_presentation_package
@@ -53,6 +55,7 @@ def execute_pptx_edit(
             }
             has_lifecycle = any(edit["type"] in lifecycle_types for edit in edits)
             has_objects = any(edit["type"] in OBJECT_EDIT_TYPES for edit in edits)
+            has_design = any(edit["type"] in DESIGN_EDIT_TYPES for edit in edits)
             has_slide_size = any(edit["type"] == "slide_size" for edit in edits)
             assertion = _edit_assertion(
                 staged,
@@ -61,6 +64,7 @@ def execute_pptx_edit(
                 keep_vba=keep_vba,
                 only_reorder=only_reorder,
                 has_lifecycle=has_lifecycle,
+                has_design=has_design,
                 has_objects=has_objects,
                 has_slide_size=has_slide_size,
             )
@@ -75,6 +79,8 @@ def execute_pptx_edit(
                         "chart_delete",
                         "image_delete",
                         "image_replace",
+                        "layout_delete",
+                        "master_delete",
                         "slide_delete",
                     }
                     for edit in edits
@@ -118,6 +124,7 @@ def _edit_assertion(
     keep_vba: bool,
     only_reorder: bool,
     has_lifecycle: bool,
+    has_design: bool,
     has_objects: bool,
     has_slide_size: bool,
 ):
@@ -127,7 +134,7 @@ def _edit_assertion(
             source=request.input_path,
             allow_vba=keep_vba,
         )
-    if not (has_lifecycle or has_objects or has_slide_size):
+    if not (has_lifecycle or has_design or has_objects or has_slide_size):
         return None
 
     def assertion(_candidate: Path) -> dict[str, Any]:
@@ -136,6 +143,13 @@ def _edit_assertion(
             evidence["slide_lifecycle"] = validate_slide_lifecycle(
                 staged,
                 source=request.input_path,
+                edits=request.arguments["edits"],
+                operation_result=operation_result,
+                allow_vba=keep_vba,
+            )
+        if has_design:
+            evidence["design_edits"] = validate_design_edits(
+                staged,
                 edits=request.arguments["edits"],
                 operation_result=operation_result,
                 allow_vba=keep_vba,
