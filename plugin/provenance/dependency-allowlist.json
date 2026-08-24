@@ -14,6 +14,27 @@
       "playwright-core"
     ]
   },
+  "nuget": {
+    "dependencies": {
+      "DocumentFormat.OpenXml": [
+        "DocumentFormat.OpenXml.Framework"
+      ],
+      "DocumentFormat.OpenXml.Framework": [
+        "System.IO.Packaging"
+      ],
+      "System.IO.Packaging": []
+    },
+    "packages": {
+      "DocumentFormat.OpenXml": "3.0.0",
+      "DocumentFormat.OpenXml.Framework": "3.0.0",
+      "System.IO.Packaging": "8.0.0"
+    },
+    "sha512": {
+      "DocumentFormat.OpenXml": "a36c6ed7bfb854e4f880ac2911c2f95013585ab3f51d01a47def8af8b1efab9ff4ed48e9ce818c050cd63211a29b380bd50da510f600a7b26004d6564dc7c62b",
+      "DocumentFormat.OpenXml.Framework": "9168d9bb016c75b6ca039537a365fab509f4c88f60af63b2e021d6bdb73978745471b9791548b54a2e38237496dc2c722bfdc070c882e3ff7dc230552ce939e0",
+      "System.IO.Packaging": "f20d55e1846974603115c2bcbfd3a3b8c7483894a9177d196f524689cc15661972dc8f7de1617205d57a990128f1ddd3f944507b9e7f3345347881f41edb356e"
+    }
+  },
   "python": {
     "development_packages": {
       "colorama": "0.4.6",

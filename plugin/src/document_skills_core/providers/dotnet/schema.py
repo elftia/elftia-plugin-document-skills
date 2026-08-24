@@ -51,6 +51,7 @@ def validate_spreadsheet_schema(
         result,
         "--xlsx-schema-validate",
         max_errors=max_errors,
+        expected_file_format="Microsoft365",
     )
 
 
@@ -59,6 +60,7 @@ def _schema_response(
     subcommand: str,
     *,
     max_errors: int,
+    expected_file_format: str | None = None,
 ) -> dict[str, Any]:
     if result.returncode != 0:
         raise DocumentSkillsError(
@@ -95,6 +97,16 @@ def _schema_response(
             ErrorCode.PROVIDER_FAILED,
             "dotnet helper schema truncated field is not boolean.",
         )
+    file_format = data.get("file_format")
+    if expected_file_format is not None and file_format != expected_file_format:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "dotnet helper used an unexpected schema target version.",
+            details={
+                "expected_file_format": expected_file_format,
+                "actual_file_format": file_format,
+            },
+        )
     normalized_errors = []
     field_truncations = 0
     for item in errors[:max_errors]:
@@ -115,6 +127,7 @@ def _schema_response(
         "errors": normalized_errors,
         "truncated": truncated or len(errors) > max_errors,
         "field_truncations": field_truncations,
+        "file_format": file_format,
     }
 
 

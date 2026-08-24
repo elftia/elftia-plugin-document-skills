@@ -22,7 +22,10 @@ from .constants import (
     PROBE_RUNTIME_MAJOR,
     RUNTIME_PREFIX,
     RUNTIME_PROBE_OUTPUT_LIMIT,
+    HELPER_PROJECT_NAME,
+    LOCKED_RESTORE_FLAGS,
     TIMEOUT_PROBE,
+    TIMEOUT_LOCKED_RESTORE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
 )
@@ -57,7 +60,8 @@ class DotnetOpenXmlDetector:
         if helper_dir is not None:
             self._helper_dir = helper_dir.resolve()
         else:
-            self._helper_dir = (Path(__file__).resolve().parent / "helper")
+            self._helper_dir = Path(__file__).resolve().parent / "helper"
+        self._helper_project = self._helper_dir / HELPER_PROJECT_NAME
         if runner is not None:
             self._runner = runner
         else:
@@ -123,8 +127,41 @@ class DotnetOpenXmlDetector:
                 reason=f"dotnet detected at {candidate} but could not be resolved for assembly probe",
                 path=candidate,
             )
+        restore_argv = _build_locked_restore_argv(self._helper_project)
+        try:
+            restored = self._runner.run(
+                "dotnet-openxml",
+                resolved,
+                restore_argv,
+                cwd=self.project_root,
+                timeout_seconds=TIMEOUT_LOCKED_RESTORE,
+                output_limit=PROBE_OUTPUT_LIMIT,
+            )
+        except DocumentSkillsError as error:
+            category = _classify_error(error)
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    f"dotnet detected at {candidate} but locked helper restore "
+                    f"failed: {category}"
+                ),
+                path=candidate,
+            )
+        if restored.returncode != 0:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet detected but the checked-in OpenXML dependency lock "
+                    f"could not be restored (exit {restored.returncode})"
+                ),
+                path=candidate,
+            )
         argv = [
-            "run", "--project", str(self._helper_dir), "--",
+            "run",
+            "--no-restore",
+            "--project",
+            str(self._helper_dir),
+            "--",
             "--probe-json",
         ]
         try:
@@ -201,6 +238,12 @@ class DotnetOpenXmlDetector:
 
 def _classify_error(error: DocumentSkillsError) -> str:
     from ...core.contracts.errors import ErrorCode
+
     if error.code == ErrorCode.PROCESS_TIMEOUT:
         return "timeout"
     return error.code.value.lower().replace("ds_", "")
+
+
+def _build_locked_restore_argv(helper_project: Path) -> list[str]:
+    """Build the only dependency-materialization command the detector permits."""
+    return ["restore", str(helper_project), *LOCKED_RESTORE_FLAGS]

@@ -145,7 +145,7 @@ def audit_sbom(root: Path) -> dict[str, Any]:
     notices = (root / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8").lower()
     licenses = _load_json(root / "provenance" / "dependency-licenses.json")
     for package in licenses:
-        _require(package in notices, f"Dependency notice is missing: {package}")
+        _require(package.casefold() in notices, f"Dependency notice is missing: {package}")
     return {"status": "pass", "sha256": hashlib.sha256(expected.encode()).hexdigest()}
 
 

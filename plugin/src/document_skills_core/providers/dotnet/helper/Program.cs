@@ -273,7 +273,10 @@ static object SpreadsheetSchemaValidate(JsonElement request)
         ? Math.Clamp(requestedMax.GetInt32(), 1, 1000)
         : 100;
     using var doc = SpreadsheetDocument.Open(inputPath, false);
-    var validator = new OpenXmlValidator();
+    var validator = new OpenXmlValidator(FileFormatVersions.Microsoft365)
+    {
+        MaxNumberOfErrors = maxErrors + 1,
+    };
     var validationErrors = validator.Validate(doc).Take(maxErrors + 1).ToList();
     var errors = validationErrors.Take(maxErrors).Select(e => new
     {
@@ -289,6 +292,7 @@ static object SpreadsheetSchemaValidate(JsonElement request)
         errors,
         max_errors = maxErrors,
         truncated = validationErrors.Count > maxErrors,
+        file_format = validator.FileFormat.ToString(),
     };
 }
 

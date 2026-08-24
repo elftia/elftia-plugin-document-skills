@@ -13,17 +13,19 @@ PROBE_PROTOCOL_VERSION = "1.0"
 PROBE_RUNTIME_MAJOR = 8
 
 # Accepted helper subcommands (the token after ``--`` in the argv).
-ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({
-    "--probe-json",
-    "--revisions-read",
-    "--revisions-accept",
-    "--revisions-reject",
-    "--comments-read",
-    "--comments-add",
-    "--template-apply",
-    "--schema-validate",
-    "--xlsx-schema-validate",
-})
+ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset(
+    {
+        "--probe-json",
+        "--revisions-read",
+        "--revisions-accept",
+        "--revisions-reject",
+        "--comments-read",
+        "--comments-add",
+        "--template-apply",
+        "--schema-validate",
+        "--xlsx-schema-validate",
+    }
+)
 
 # Default per-operation timeouts (seconds).
 TIMEOUT_PROBE: float = 10.0
@@ -34,6 +36,7 @@ TIMEOUT_COMMENTS_ADD: float = 30.0
 TIMEOUT_TEMPLATE_APPLY: float = 60.0
 TIMEOUT_SCHEMA_VALIDATE: float = 30.0
 TIMEOUT_RUNTIME_PROBE: float = 2.0
+TIMEOUT_LOCKED_RESTORE: float = 60.0
 
 # Output limit (4 MiB — schema validation can produce large error lists).
 OUTPUT_LIMIT: int = 4_194_304
@@ -47,6 +50,12 @@ STDIN_CEILING: int = 1_048_576
 
 # Helper subdirectory name (relative to this package).
 HELPER_DIR_NAME = "helper"
+HELPER_PROJECT_NAME = "OpenXmlHelper.csproj"
+
+# The detector may materialize the checked-in graph, but only under NuGet's
+# fail-closed lock semantics. Provider operations never restore packages.
+LOCKED_RESTORE_FLAGS: tuple[str, ...] = ("--locked-mode", "--use-lock-file")
+RUN_NO_RESTORE_FLAG = "--no-restore"
 
 
 def platform_known_paths() -> list[str]:

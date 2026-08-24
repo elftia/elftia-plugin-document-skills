@@ -2,8 +2,9 @@
 
   Module provenance: original Elftia-authored clean-room implementation.
   This project is invoked ONLY through the contained ProcessRunner with a
-  validated helper project and separated subcommand. The DocumentFormat.OpenXml package
-  is resolved from the user's NuGet cache at runtime; it is NEVER bundled.
+  validated helper project and separated subcommand. The exact OpenXML dependency
+  graph is pinned by packages.lock.json and restored only in locked mode; packages
+  remain in the user's NuGet cache and are NEVER bundled.
   The helper does NOT execute macros, VBA, DDE, or external-data refresh.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
@@ -14,10 +15,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>OpenXmlHelper</AssemblyName>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="[3.0.0]" />
   </ItemGroup>
 
 </Project>

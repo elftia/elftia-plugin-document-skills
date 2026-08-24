@@ -12,14 +12,12 @@ from pathlib import Path
 import pytest
 
 from document_skills_core.core.capabilities import (
-    Capability,
     DetectionEvidence,
-    Provider,
     ProviderCatalog,
     ProviderId,
 )
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.process import ProcessPolicy, ProcessResult
+from document_skills_core.core.process import ProcessResult
 from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.dotnet.constants import (
     ACCEPTED_SUBCOMMANDS,
@@ -30,8 +28,16 @@ from document_skills_core.providers.dotnet.constants import (
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
 )
-from document_skills_core.providers.dotnet.detector import DotnetOpenXmlDetector
-from document_skills_core.providers.dotnet.runner import DotnetOpenXmlRunner, _build_argv, _check_stdin
+from document_skills_core.providers.dotnet.detector import (
+    DotnetOpenXmlDetector,
+    _build_locked_restore_argv,
+)
+from document_skills_core.providers.dotnet.runner import (
+    DotnetOpenXmlRunner,
+    _build_argv,
+    _check_stdin,
+    _require_no_restore_argv,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +266,10 @@ class TestDetector:
         monkeypatch.setattr("shutil.which", lambda name: "/fake/dotnet")
 
         class FakeRunner:
+            calls = []
+
             def run(self, provider_id, executable, args, **kwargs):
+                self.calls.append(args)
                 if "--list-runtimes" in args:
                     return ProcessResult(
                         0,
@@ -268,6 +277,8 @@ class TestDetector:
                         "",
                         50,
                     )
+                if args[0] == "restore":
+                    return ProcessResult(0, "", "", 50)
                 if "--probe-json" in args:
                     return ProcessResult(
                         0,
@@ -288,6 +299,10 @@ class TestDetector:
         assert evidence.available is True
         assert evidence.version == "3.0.1"
         assert evidence.path is not None
+        assert detector._runner.calls[1][0] == "restore"
+        assert "--locked-mode" in detector._runner.calls[1]
+        assert "--use-lock-file" in detector._runner.calls[1]
+        assert "--no-restore" in detector._runner.calls[2]
 
     def test_executable_absent_returns_unavailable(self, project_root, monkeypatch):
         import shutil as sh
@@ -343,6 +358,8 @@ class TestDetector:
             def run(self, provider_id, executable, args, **kwargs):
                 if "--list-runtimes" in args:
                     return ProcessResult(0, "Microsoft.NETCore.App 8.0.5\n", "", 50)
+                if args[0] == "restore":
+                    return ProcessResult(0, "", "", 50)
                 raise DocumentSkillsError(ErrorCode.PROCESS_TIMEOUT, "probe timed out")
 
         detector = DotnetOpenXmlDetector(project_root)
@@ -358,6 +375,8 @@ class TestDetector:
             def run(self, provider_id, executable, args, **kwargs):
                 if "--list-runtimes" in args:
                     return ProcessResult(0, "Microsoft.NETCore.App 8.0.5\n", "", 50)
+                if args[0] == "restore":
+                    return ProcessResult(0, "", "", 50)
                 return ProcessResult(1, "", "NuGet restore failed", 50)
 
         detector = DotnetOpenXmlDetector(project_root)
@@ -374,8 +393,40 @@ class TestRunnerContainment:
     def test_build_argv_contains_run_project_and_subcommand(self):
         argv = _build_argv(Path("/fake/helper"), "--probe-json")
         assert argv[0] == "run"
+        assert "--no-restore" in argv
         assert "--project" in argv
         assert "--probe-json" in argv
+
+    def test_locked_restore_argv_is_fail_closed(self):
+        argv = _build_locked_restore_argv(Path("/fake/helper/OpenXmlHelper.csproj"))
+        assert argv[0] == "restore"
+        assert "--locked-mode" in argv
+        assert "--use-lock-file" in argv
+
+    def test_runtime_restore_omission_fails_before_spawn(
+        self, project_root, monkeypatch
+    ):
+        class MustNotRun:
+            def run(self, *args, **kwargs):
+                pytest.fail("unsafe dotnet argv reached ProcessRunner")
+
+        monkeypatch.setattr(
+            "document_skills_core.providers.dotnet.runner._build_argv",
+            lambda helper, subcommand: [
+                "run", "--project", str(helper), "--", subcommand,
+            ],
+        )
+        runner = DotnetOpenXmlRunner(
+            project_root, executable="/fake/dotnet", runner=MustNotRun(),
+        )
+        with pytest.raises(DocumentSkillsError, match="implicit package restore"):
+            runner.run("--probe-json")
+
+    def test_no_restore_guard_rejects_mutable_runtime_argv(self):
+        with pytest.raises(DocumentSkillsError, match="implicit package restore"):
+            _require_no_restore_argv(
+                ["run", "--project", "/fake/helper", "--", "--probe-json"]
+            )
 
     def test_unknown_subcommand_rejected_before_spawn(self, project_root):
         runner = DotnetOpenXmlRunner(

@@ -1,7 +1,7 @@
 """DotnetOpenXmlRunner — ProcessRunner-backed contained helper invocation.
 
 Every invocation routes through the existing allowlisted ProcessRunner with:
-shell:false argv array, ``run --project <helper> -- <subcommand>`` prefix,
+shell:false argv array, a no-restore helper/subcommand prefix,
 contained private cwd inside the project root, sanitized minimal environment,
 bounded per-operation timeout, output limit, cancellation, and process-tree
 cleanup.
@@ -19,6 +19,7 @@ from .constants import (
     ACCEPTED_SUBCOMMANDS,
     HELPER_DIR_NAME,
     OUTPUT_LIMIT,
+    RUN_NO_RESTORE_FLAG,
     STDIN_CEILING,
 )
 
@@ -53,7 +54,7 @@ class _ContainedRunner(Protocol):
 
 
 class DotnetOpenXmlRunner:
-    """Contained ``dotnet run --project`` execution through ProcessRunner."""
+    """Contained helper execution through ProcessRunner without restore."""
 
     def __init__(
         self,
@@ -66,9 +67,7 @@ class DotnetOpenXmlRunner:
         if helper_dir is not None:
             self._helper_dir = helper_dir.resolve()
         else:
-            self._helper_dir = (
-                Path(__file__).resolve().parent / HELPER_DIR_NAME
-            )
+            self._helper_dir = Path(__file__).resolve().parent / HELPER_DIR_NAME
         self._executable = executable
         if runner is not None:
             self._runner = runner
@@ -101,6 +100,7 @@ class DotnetOpenXmlRunner:
             )
         _check_stdin(stdin_payload)
         argv = _build_argv(self._helper_dir, subcommand)
+        _require_no_restore_argv(argv)
         resolved_timeout = timeout_seconds or _TIMEOUTS.get(subcommand, 30.0)
         resolved_limit = output_limit or OUTPUT_LIMIT
         return self._runner.run(
@@ -115,8 +115,24 @@ class DotnetOpenXmlRunner:
 
 
 def _build_argv(helper_dir: Path, subcommand: str) -> list[str]:
-    """Build the full argv: run --project <helper> -- <subcommand>."""
-    return ["run", "--project", str(helper_dir), "--", subcommand]
+    """Build the full argv with implicit package restore disabled."""
+    return [
+        "run",
+        RUN_NO_RESTORE_FLAG,
+        "--project",
+        str(helper_dir),
+        "--",
+        subcommand,
+    ]
+
+
+def _require_no_restore_argv(argv: list[str]) -> None:
+    """Fail closed if a provider operation could implicitly restore NuGet."""
+    if not argv or argv[0] != "run" or RUN_NO_RESTORE_FLAG not in argv:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "Dotnet helper execution must disable implicit package restore.",
+        )
 
 
 def _check_stdin(payload: dict[str, Any] | None) -> int:

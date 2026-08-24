@@ -29,6 +29,15 @@ package has no production transitive dependencies and no install lifecycle scrip
 binary is downloaded or redistributed; the provider can launch only a supported local
 Chrome/Chromium/Edge executable selected from the host-authored platform list.
 
+The optional .NET OpenXML helper uses this exact locked NuGet graph, restored from the user's
+NuGet cache or configured package source and never bundled into this repository:
+
+- `DocumentFormat.OpenXml` 3.0.0 — MIT.
+- `DocumentFormat.OpenXml.Framework` 3.0.0 — MIT.
+- `System.IO.Packaging` 8.0.0 — MIT.
+
+The helper project requires locked restore, and document operations disable implicit restore.
+
 The independent consumer verification suite uses the following development-only locked graph;
 none of these packages is distributed or imported by production runtime sources:
 
