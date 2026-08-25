@@ -1,12 +1,9 @@
 """Public capability, unavailable, budget, and representative HTML conversion tests."""
 
-import hashlib
 import json
 from pathlib import Path
 import subprocess
-import zipfile
 
-from defusedxml.ElementTree import fromstring
 import pytest
 
 from document_skills_core.core.capabilities import (
@@ -19,7 +16,6 @@ from document_skills_core.core.capabilities import (
 from document_skills_core.core.capabilities.reports import build_capabilities
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.html_capture import _capture_status
-from document_skills_core.formats.pptx.constants import NS
 from document_skills_core.public_cli.protocol import PublicCommand
 from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
 
@@ -85,6 +81,15 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     html_request.write_text(json.dumps({"operation": "pptx.create.from-html"}), encoding="utf-8")
     normal_request = tmp_path / "normal.json"
     normal_request.write_text(json.dumps({"operation": "pptx.read"}), encoding="utf-8")
+    mutation_requests = []
+    for name, operation in (
+        ("create", "pptx.create"),
+        ("markdown", "pptx.create.from-markdown"),
+        ("edit", "pptx.edit"),
+    ):
+        request = tmp_path / f"{name}.json"
+        request.write_text(json.dumps({"operation": operation}), encoding="utf-8")
+        mutation_requests.append(request)
     schema_request = tmp_path / "schema.json"
     schema_request.write_text(json.dumps({"operation": "pptx.validate.schema"}), encoding="utf-8")
     convert_request = tmp_path / "convert.json"
@@ -107,6 +112,11 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
         PublicCommand("run", ("run", "--request", str(html_request))),
         tmp_path,
     ) == (60.0, 1_048_576)
+    for request in mutation_requests:
+        assert supervisor._command_limits(
+            PublicCommand("run", ("run", "--request", str(request))),
+            tmp_path,
+        ) == (45.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(schema_request))),
         tmp_path,
