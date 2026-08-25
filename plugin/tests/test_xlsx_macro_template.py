@@ -282,6 +282,41 @@ def test_xltx_template_instantiates_and_applies_optional_edit(
     reopened.close()
 
 
+def test_xltx_template_instantiation_can_delete_a_plain_sheet(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import load_workbook
+
+    source = create_package_fixture(tmp_path / "base.xltx", "xltx")
+    template = load_workbook(source, data_only=False)
+    template.create_sheet("DeleteMe")
+    template.template = True
+    template.save(source)
+    template.close()
+    source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "instance.xlsx"
+
+    result = XlsxService(project_root).execute(
+        "xlsx.template.instantiate",
+        {
+            "operation": "xlsx.template.instantiate",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "recalculation": "skip",
+                "edits": [{"sheet": "DeleteMe", "type": "sheet_delete"}],
+            },
+        },
+    )
+
+    assert result["status"] == "degraded"
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_sha256
+    reopened = load_workbook(output, data_only=False)
+    assert reopened.sheetnames == ["Sheet1"]
+    reopened.close()
+
+
 def test_xltm_template_preserves_vba_into_xlsm(
     project_root: Path,
     tmp_path: Path,

@@ -538,7 +538,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "46830e0f0d8a2746db70e6440ec7975a1cff9b3f990b3fdd7409baac9f22a5bf"
+      "sha256": "8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b"
     },
     {
       "artifact": "schemas/capability-report.schema.json",
@@ -6891,7 +6891,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8a2cf116e520c00f16e29017f3f4a65f6a03d44b11968acc741b93db5bba7e8c",
+      "sha256": "3c0ad2fef42ebd57ebc66ca7d025a5ff9642e3ab5114e5980c218a4aacf02b19",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8965,7 +8965,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "58af811800dcf08228712f954c2036705150660629320924f129354b5162109b",
+      "sha256": "52cedfdf5aed661b06ff4c23948017697cb2e2dc4dc956e88b577c3065fc721f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12227,7 +12227,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "9b573fbbff1a6ff8088d8c4570f7e6f86ed5e5a6d22dd1e16149bd12b46fc36d",
+      "sha256": "3f7104a063c7bf4ce33b712305cd85ab05659e8d0064a3a44202db96b398c2a6",
       "source_class": "original",
       "third_party_files": []
     },

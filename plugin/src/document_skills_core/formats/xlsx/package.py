@@ -254,7 +254,7 @@ class OpcPackage:
                     "unexpected_changed_parts": unexpected,
                 },
             )
-        preserved = sorted(input_names - set(changed))
+        preserved = sorted(input_names - set(changed) - set(removed))
         return PreservationManifest(
             tuple(changed),
             tuple(added),
