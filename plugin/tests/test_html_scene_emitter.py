@@ -8,7 +8,6 @@ import zipfile
 from xml.etree.ElementTree import tostring
 
 from defusedxml.ElementTree import fromstring
-import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.constants import NS
@@ -72,6 +71,17 @@ def test_scene_emitter_builds_deterministic_internal_fixed_canvas_package(tmp_pa
         slide = fromstring(archive.read("ppt/slides/slide1.xml"))
         ids = [element.get("id") for element in slide.iter(f"{{{NS['p']}}}cNvPr")]
         assert ids == ["1", "2", "3"]
+        group_transform = slide.find(
+            f"{{{NS['p']}}}cSld/{{{NS['p']}}}spTree/"
+            f"{{{NS['p']}}}grpSpPr/{{{NS['a']}}}xfrm"
+        )
+        assert group_transform is not None
+        assert [child.tag.rsplit("}", 1)[-1] for child in group_transform] == [
+            "off",
+            "ext",
+            "chOff",
+            "chExt",
+        ]
 
 
 def test_scene_emitter_preserves_non_white_slide_background_in_output_bytes(tmp_path: Path):

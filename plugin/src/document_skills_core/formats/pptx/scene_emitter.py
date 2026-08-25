@@ -99,10 +99,13 @@ def _slide(
     SubElement(non_visual, f"{{{_P}}}nvPr")
     group = SubElement(tree, f"{{{_P}}}grpSpPr")
     transform = SubElement(group, f"{{{_A}}}xfrm")
-    for tag in ("off", "chOff"):
-        SubElement(transform, f"{{{_A}}}{tag}", {"x": "0", "y": "0"})
-    for tag in ("ext", "chExt"):
-        SubElement(transform, f"{{{_A}}}{tag}", {"cx": str(SLIDE_CX), "cy": str(SLIDE_CY)})
+    for tag, attributes in (
+        ("off", {"x": "0", "y": "0"}),
+        ("ext", {"cx": str(SLIDE_CX), "cy": str(SLIDE_CY)}),
+        ("chOff", {"x": "0", "y": "0"}),
+        ("chExt", {"cx": str(SLIDE_CX), "cy": str(SLIDE_CY)}),
+    ):
+        SubElement(transform, f"{{{_A}}}{tag}", attributes)
     manifest: list[dict[str, Any]] = []
     relationships: list[str] = []
     for order, item in enumerate(items):
