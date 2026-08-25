@@ -28,8 +28,13 @@ from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
 from .schema_validation import validate_schema_gate, with_schema_gate
+from .template_sanitize import (
+    build_template_sanitize_receipt,
+    sanitize_template,
+    validate_sanitized_template,
+)
 from .transaction import promote_candidate, write_candidate_result
-from .validation import validate_created, validate_scene_created
+from .validation import validate_created, validate_mutation, validate_scene_created
 from .visual_validation import validate_scene_visuals, with_visual_gate
 
 
@@ -81,6 +86,8 @@ class PptxService:
             return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
+        if operation == "pptx.template.sanitize":
+            return self._sanitize_template(parsed)
         return execute_pptx_edit(parsed, self.schemas, self.dotnet)
 
     def _read(self, request: ParsedPptxRequest) -> dict[str, Any]:
@@ -344,6 +351,72 @@ class PptxService:
                     status="degraded" if degraded else "success",
                     degraded=degraded,
                     degradations=degradations,
+                )
+                return promote_candidate(
+                    request,
+                    staged,
+                    result,
+                    source=source,
+                    destination=destination,
+                )
+        except Exception as error:
+            merge_source_preservation_failure(error, source.path, source.sha256)
+            raise
+
+    def _sanitize_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        assert request.input_path is not None
+        assert request.output_path is not None
+        assert_distinct_paths(request.input_path, request.output_path, in_place=False)
+        source = file_record(request.input_path, "input")
+        destination = destination_snapshot(request.output_path)
+        try:
+            with OperationTempRoot() as private_root:
+                staged = private_root / "sanitized-template.pptx"
+                sanitization = sanitize_template(
+                    request.input_path,
+                    staged,
+                    source_sha256=source.sha256,
+                    expected_sha256=request.arguments["expected_input_sha256"],
+                    policy=request.arguments["policy"],
+                )
+                operation_result = sanitization.operation_result
+                removed_relationships = operation_result["removed_relationships"]
+                removed_parts = {
+                    item["part"] for item in operation_result["removed_parts"]
+                }
+                validation = validate_mutation(
+                    staged,
+                    source=source.path,
+                    source_sha256=source.sha256,
+                    manifest=sanitization.preservation,
+                    assertion=lambda candidate: validate_sanitized_template(
+                        candidate,
+                        removed_relationships=removed_relationships,
+                        removed_parts=removed_parts,
+                    ),
+                    allow_removals=True,
+                )
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
+                schema_gate = next(
+                    gate for gate in validation["gates"] if gate["id"] == "schema.full"
+                )
+                operation_result["schema"] = {"status": schema_gate["outcome"]}
+                operation_result["delivery_receipt"] = build_template_sanitize_receipt(
+                    operation_result,
+                    source_sha256=source.sha256,
+                    candidate_path=staged,
+                )
+                result = write_candidate_result(
+                    self.schemas,
+                    request,
+                    staged,
+                    validation,
+                    operation_result,
+                    warnings=[],
+                    source=source,
                 )
                 return promote_candidate(
                     request,

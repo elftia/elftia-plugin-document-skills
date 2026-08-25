@@ -1,124 +1,137 @@
-# CLEAN — Document Skills 0.5.3 Unified PPTX Provenance Review
+# CLEAN — Document Skills 0.5.3 PPTX Ecosystem B/C B1 Provenance Review
 
-Date: 2026-08-24
+Date: 2026-08-25
 
 ## Verdict
 
 Status: `clean`
 
-Approval claimed: `true`, limited to the source, classification, review-evidence,
-and exact-inventory claims in this report. This is not a general implementation,
-fidelity, remote-platform, or maintainer release approval.
+Approval claimed: `true`, limited to the exact all-release-artifact mapping, source and data
+classifications, review-evidence binding, and supply-chain claims in this report. This is not a
+general implementation-fidelity, remote-platform, legal-license, or maintainer release approval.
 
-Canonical findings after remediation: **0 Blocker, 0 Major, 0 Minor, 0 Trivial**.
+Canonical findings after review: **0 Blocker, 0 Major, 0 Minor, 0 Trivial**.
 
-The approved mapping contains **411 release files**: **319** risky module records,
-**89** exact-hash data classifications, **0** executable exclusions, and exactly
-**3** self-referential metadata exclusions. Its SHA-256 is:
+The approved mapping contains **429 release files**: **327** risky module records, **99**
+exact-hash data classifications, **0** executable exclusions, and exactly **3** self-referential
+metadata exclusions. Its SHA-256 is:
 
-`e841e81fef207c64569af78d67f01c85c32c5a7d11d93b64fc68a74817920730`
+`21a9173ccedc69bd6daf4c49fdac0b4e67b849d57c4398fa11ba24a03315ce85`
 
 ## Reviewer
 
-- Reviewer: `OpenAI Codex independent provenance reviewer: unified-plugin-packaging/2026-08-24`
-- Identity: `codex-reviewer/document-skills-0.5.3-unified-pptx-provenance/gpt-5-2026-08-24`
+- Reviewer: `OpenAI Codex independent provenance reviewer: pptx-ecosystem-phase-bc-b1/2026-08-25`
+- Identity: `codex-reviewer/pptx-ecosystem-phase-bc-b1/gpt-5-2026-08-25`
 - Runtime: `codex`
 - Role: `reviewer`
 - Scope: `all-release-artifacts`
 - Identity assurance: `self-asserted`
 - Identity limitations: This self-asserted reviewer cannot cryptographically prove the backing
-  model, service principal, or human operator and does not establish remote-platform execution
-  or replace final maintainer approval.
-- Attestation id: `document-skills-0.5.3-unified-pptx-provenance-review`
+  model, service principal, or human operator and does not establish remote-platform execution,
+  professional penetration testing, legal-license review, or final maintainer approval.
+- Attestation id: `document-skills-0.5.3-pptx-ecosystem-phase-bc-b1-review`
 
-No pre-generated candidate, previous attestation, or historical clean verdict was treated as
-approval evidence. Historical reports were inspected only as release data and are exact-hashed
-by the current mapping.
+No pre-generated candidate, previous attestation, historical clean verdict, author description,
+or existing hash was treated as current approval evidence. Historical review reports were used
+only as exact-hashed release data. The canonical report path is reused because the generator and
+validator intentionally allow exactly that current-review location; its prior identity, date,
+mapping, findings, and conclusions are not reused.
 
-## Findings remediated before binding
+## Review scope and delta
 
-1. The checked-in manifest described the prior 345-file / 262-module release while the current
-   tree contained 410 files / 319 risky artifacts. The current inventory was independently
-   enumerated and the final mapping was regenerated only after all reviewed bytes were fixed.
-2. Provenance policy promises a three-path self-reference boundary, but the implementation
-   permanently excluded 15 historical review reports from hashing. Those reports contain prior
-   mapping digests and are not circular in the current mapping. The generator and validator now
-   reserve hashless classification for exactly `provenance/modules.json`,
-   `provenance/audit-report.json`, and this current mapping-bound report. Every historical review
-   is now `reviewed-data` with an exact SHA-256. Focused tests pin both the historical-data rule
-   and rejection of an unlisted current-review filename.
-3. The capability-parity provenance prose said MiniMax source was adopted even though the source
-   manifest, notices, and repository history all say that no adopted source is present. The
-   statement now truthfully says that this release has no adopted source and that future adoption
-   requires notices plus module-level provenance.
-4. The full repository npm test exposed one stale Strategy2 parameterization that still expected
-   eight historical reports to be hashless metadata. It now asserts the current report is accepted
-   by both generator and validator semantics, while each historical path is rejected by both and
-   remains hash-pinned data. All nine exact affected cases passed before the final rebinding.
+This review covers the release bytes visible on branch
+`feat/pptx-ecosystem-phase-bc-implementation` at `14db457` plus the current B1 staged and unstaged
+working-tree bytes. It also binds PPTX ecosystem B/C artifacts that had already entered the tree
+after the previous review but were not represented by its 411-file mapping.
+
+Compared with that previous mapping, the reviewed candidate adds eight risky artifacts: the
+presentation-contract adapter, the sanitizer and its inventory helper, the B/C fixture generator
+and support module, and three focused test modules. It adds ten exact-hash data artifacts: the
+sanitizer Skill reference, the B/C contract-pin pair, the B/C README, and three generated PPTX
+fixtures with their adjacent manifests. Eight existing risky files and three existing data files
+have new hashes. No previously mapped artifact is removed.
 
 ## Independent inventory and classification review
 
-- Every prospective release path is a tracked regular file. No symlink or submodule is present,
-  and the shared inventory differs from tracked plugin content only by documented developer-only
-  directories.
-- The classifier found 298 Python files, 17 Node `.mjs` files, two extensionless release files,
-  and two C#/.NET helper files under an execution-bearing provider location: 319 risky artifacts
-  in total. Independent path, suffix, magic, executable-location, and hash checks agreed with the
-  generated records.
-- The 89 hash-bound data records comprise 62 high-text `reviewed-data` files and 27
-  `fixture-data` files. All non-circular records match their current SHA-256; no path is omitted,
-  duplicated, overlapped, or classified both as code and data.
-- Every non-binary release file strictly decodes as UTF-8. None has a BOM, Unicode replacement
-  character, or the checked common mojibake markers. JSON and TOML release files parse cleanly.
+- The shared release inventory and independent candidate agree on 429 unique regular-file paths:
+  327 risky artifacts, 99 hash-bound data artifacts, and the three exact self-referential metadata
+  paths. There are no executable exclusions, symlinks, duplicate paths, classification overlaps,
+  or unclassified release files.
+- The risky set is 306 Python files, 17 Node `.mjs` files, one C# source file, one `.csproj`, one
+  execution-bearing `.gitignore`, and one extensionless execution-bearing file. The static
+  execution-boundary audit identifies 323 Python/Node source files.
+- The runtime-source allowlist was regenerated from exact current files and adds only
+  `presentation_contracts.py`, `template_sanitize.py`, and
+  `template_sanitize_inventory.py`. A second generator run reproduced the checked-in allowlist
+  byte-for-byte with SHA-256
+  `f245b42867e2b2fd610e84b08f8339425284b33d31387d6fb10d9e4fb3f1afea`.
+- The fixture inventory contains 35 globally registered fixtures. The three new sanitizer PPTX
+  archives pass ZIP CRC inspection, and every adjacent manifest and global-manifest SHA-256 agrees
+  with the checked-in payload.
 
-## Source and license review
+## Source, license, and execution-surface review
 
-- All 319 risky records are classified `original`, `clean_room: true`, `GPL-3.0`, with empty
-  `third_party_files`. Git history attributes the shipped implementation files to project commits;
-  source/header/reference searches found no copied-source copyright, SPDX, upstream repository,
-  MiniMax, claude-office-skills, or Anthropic implementation reference in runtime, Skills,
-  consumer validation, or provenance tooling.
-- Public OPC, OOXML, PDF, JSON Schema, and browser APIs appear as interface vocabulary and do not
-  turn the project-authored implementation into adopted source. The exact external package code
-  remains outside the release inventory.
-- The frozen production graphs are seven Python packages and six Node packages. Lock files,
-  dependency allowlist, license map, third-party notices, and the deterministic CycloneDX SBOM
-  agree. `npm audit --omit=dev` reported zero vulnerabilities; registry verification reported six
-  signed packages and one attestation. `uv lock --check` and the independently printed frozen
-  Python production/development trees succeeded.
-- The SBOM scope is the redistributed/frozen Python and Node graph plus its three hashed Node
-  provider files. System browsers, LibreOffice, .NET, and `DocumentFormat.OpenXml` are optional
-  host-provided enhancements and are not claimed as redistributed components by this review.
+- The new sanitizer source performs bounded archive inspection, rejects active or signed packages
+  closed, removes external and OLE relationships, literalizes chart caches, purges unreachable
+  parts, and reopens the written package for postflight and deep validation. The review found no
+  path that turns the sanitizer into a general archive extractor or native execution surface.
+- Searches of the new runtime sources found no copied-source copyright or SPDX header, upstream
+  repository attribution, MiniMax, Anthropic, claude-office, or MCP implementation reference; no
+  dynamic import, `eval`, `exec`, network client, or runtime subprocess surface was introduced.
+  The only subprocess in the reviewed B1 delta is test-side and uses an argument vector with
+  `shell=False`.
+- All 327 risky records remain classified `original`, `clean_room: true`, `GPL-3.0`, with empty
+  `third_party_files`. This is a provenance classification backed by source review, not a legal
+  opinion about every interface, format specification, or host-provided dependency.
+- The deterministic CycloneDX SBOM still matches the frozen dependency policy and has SHA-256
+  `a8d871e521169509b6a109bf4ee342e961b985d282589e4d3d3964a58757fa2d`.
 
-## Executable and public-surface review
+## Fixture and test evidence before binding
 
-- Static execution audit inspected 315 Python/Node source files. Dynamic import, evaluation,
-  reflection, MCP dependency/registration, transport, daemon, hook, and manifest execution
-  surfaces remain rejected. The only local HTTP listener is a tokenized loopback asset server.
-- Native child execution remains centralized in the project process runner with argv arrays,
-  `shell=False`, bounded streams/time, private working state, cancellation, and process-tree
-  cleanup. This containment is not claimed to be an operating-system privilege sandbox.
-- Both registration manifests remain discovery-only. Command discovery found 21 approved public
-  command examples, all through the four thin frozen-uv Skill entrypoints. The public Skill set is
-  exactly `document-docx`, `document-pdf`, `document-pptx`, and `document-xlsx`.
+The owner-contract fixture check completed successfully against
+`packages/presentation-contracts`: three B-TPL consumer fixtures, four owner fixtures, seven
+artifacts, manifest SHA-256
+`78989d9891c80a3f89ad25d7d31e4a431737131226df4494fc14dee1bfe3215a`, and deck-content SHA-256
+`abdb56ca2e0d47c2ba6115e10f52c0bbab5ba155a19c096b892c2d45948fd5a1`.
 
-## Fixture and evidence review
+Focused PPTX sanitizer/ecosystem/contracts tests passed **40/40**. DOCX fixture tests passed
+**12/12**. The Node reproducibility suite passed **3/3** and explicitly asserted 21 reviewed binary
+payloads. Before rebinding, the 40-case supply-chain suite passed 39 cases and failed only the
+machine-readable-report equality case because the checked-in audit still described the prior
+mapping. The 95-case Strategy2 suite passed 94 cases and failed only its rebound-baseline case
+because the checked-in runtime-source allowlist still omitted the three newly discovered Python
+files. After the allowlist regeneration, the machine audit passed fixtures, inventory, execution
+boundary, commands, manifests, public Skills, clean-room, and SBOM checks; its only remaining error
+was the intentionally stale all-file mapping that this review binds.
 
-- All 27 fixture-data records are marked generated, redistributable, and GPL-3.0 with a concrete
-  recipe and exact hash. The foundation probe regenerated byte-for-byte. The HTML/PPTX recipe
-  regenerated twice to the checked-in HTML, image, scene, oracle matrix, and PPTX bytes.
-- The deterministic audit, lock/SBOM test, mapping-completeness test, historical-review hash test,
-  exact current-review allowlist test, and fixture tests passed before attestation binding.
-- `git diff --check` and repository object verification completed without errors.
+The exact commands were:
 
-Post-binding verification passed all 40 tests in `tests/test_supply_chain.py` and all 89 tests in
-`tests/test_structure.py` plus `tests/test_html_provenance.py`. Fresh deterministic regeneration
-then reproduced both the checked-in manifest and audit report byte-for-byte.
+```text
+uv run --frozen python tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contracts-root> --check
+uv run --frozen python -m pytest -q tests/test_pptx_template_sanitize.py tests/test_pptx_ecosystem_fixtures.py tests/test_pptx_presentation_contracts.py tests/test_pptx_contracts.py
+uv run --frozen python -m pytest -q tests/test_docx_fixtures.py
+uv run --frozen python -m pytest -q tests/test_supply_chain.py
+uv run --frozen python -m pytest -q tests/test_strategy2.py
+node --test scripts/__tests__/reproducibility.test.mjs
+python -m tools.audit --project-root . --output <temporary-audit-report>
+```
+
+## Post-binding verification
+
+The final checked-in machine audit completed with `status: pass`, zero errors, 429 inventory files,
+327 risky records, 323 Python/Node source files, 35 fixtures, one review attestation, and the SBOM
+hash stated above. The post-binding supply-chain suite then passed **40/40**, including exact
+machine-report equality, review-report hash binding, inventory completeness, and forged-attestation
+rejection. The post-binding Strategy2 suite passed **95/95**, including the complete rebound audit
+baseline. A clean machine audit remains required for this approval to be usable; the report text
+alone is not sufficient evidence.
 
 ## Evidence boundary
 
-The automated gates prove current path coverage, hashes, declared classifications, static source
-policy, lock/SBOM parity, fixture registration, and report-byte/mapping binding. They cannot prove
-the asserted reviewer identity, detect every possible expression-level derivation, establish the
-behavior of a compromised runtime or native host dependency, or substitute for remote Windows,
-macOS, Linux, browser, LibreOffice, or .NET execution. No such broader claim is made.
+The automated gates prove current path coverage, exact hashes, declared classifications, static
+source policy, fixture registration, owner-contract fixture determinism, binary-payload
+reproducibility, and SBOM parity. The source review is high-confidence but cannot prove the
+self-asserted reviewer identity, detect every possible expression-level derivation, establish the
+behavior of a compromised Python/Node runtime or native host dependency, substitute for remote
+Windows/macOS/Linux/LibreOffice/.NET execution, or replace a professional security or legal audit.
+No broader claim is made.

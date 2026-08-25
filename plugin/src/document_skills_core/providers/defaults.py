@@ -74,6 +74,7 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
                 Capability("pptx.outline.create", "core", validation_strength=2),
                 Capability("pptx.create", "core", validation_strength=2),
                 Capability("pptx.create.from-markdown", "core", validation_strength=2),
+                Capability("pptx.template.sanitize", "core", validation_strength=3),
                 Capability("pptx.edit", "core", validation_strength=2),
                 Capability("pdf.read", "core", validation_strength=2),
                 Capability("pdf.inspect.structure", "core", validation_strength=2),

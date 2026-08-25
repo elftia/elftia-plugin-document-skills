@@ -35,6 +35,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
+| `pptx.template.sanitize` | yes (distinct `.pptx` output) | Inert fail-closed removal of external/OLE relationships plus unreachable-part purge and `.potx` identity downgrade |
 | `pptx.edit` | yes (distinct output) | Transactional slide/object/deck-size/design-graph edits plus explicit inert `.pptm` keep-VBA copy-through |
 
 ## HTML deck conversion
@@ -74,6 +75,17 @@ its master/layout/theme graph byte-for-byte and cannot be combined with new
 `deck.theme` tokens or a different slide size.
 For explicit master/layout/theme graph edits or template inheritance lint,
 read `references/design-authoring.md`.
+
+## Inert template sanitization
+
+Use `pptx.template.sanitize` only with the fixed policy documented in
+`references/template-sanitize.md`. The operation inventories package content
+without dereferencing targets, rejects active content and signatures, removes
+external/OLE/embedded relationships, converts cached chart references to
+literal data when safe, and physically purges unreachable parts. A `.potx`
+input is deliberately downgraded to an ordinary `.pptx` output. Missing chart
+caches, ambiguous/dangling relationships, stale input hashes, or resource
+limits fail without publishing output.
 
 ## Outline and Markdown content entry
 
@@ -155,6 +167,10 @@ provider is absent, but becomes a required promotion gate when it is callable.
   the sole mutation exception is the explicit `.pptm` keep-VBA policy in
   `references/typed-edit.md`. Use `pptx.inspect.structure` for inert inventory
   of suspicious `.pptx` or `.pptm` packages.
+- **Sanitizer receipts:** Removed relationships expose only redacted type and
+  target hashes, while removed parts include their original hashes. Core,
+  schema, visual, LibreOffice, and PowerPoint states remain distinct; an
+  unrun consumer is never reported as passed.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
   becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
   required visual gate only after every slide PNG and the full-deck PDF reopen
