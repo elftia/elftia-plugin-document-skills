@@ -31,6 +31,7 @@ def dotnet_sdk() -> str:
         shell=False,
         timeout=15,
         check=False,
+        env=_dotnet_environment(),
     )
     if sdk_probe.returncode != 0 or not sdk_probe.stdout.strip():
         pytest.skip("dotnet SDK is not callable")
@@ -66,9 +67,7 @@ def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
         project_root
         / "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj"
     )
-    environment = os.environ.copy()
-    environment["DOTNET_ROLL_FORWARD"] = "Major"
-    environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    environment = _dotnet_environment()
     restored = subprocess.run(
         [
             dotnet_sdk,
@@ -126,6 +125,7 @@ def test_default_registry_provider_validates_real_x14_sparklines(
         shell=False,
         timeout=15,
         check=False,
+        env=_dotnet_environment(),
     )
     if runtime_probe.returncode != 0 or RUNTIME_PREFIX not in runtime_probe.stdout:
         pytest.skip("Microsoft.NETCore.App 8.x is not installed")
@@ -189,6 +189,22 @@ def _validate_helper(
         f"OpenXML helper failed with exit {completed.returncode}"
     )
     return json.loads(completed.stdout)
+
+
+def _dotnet_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["DOTNET_ADD_GLOBAL_TOOLS_TO_PATH"] = "0"
+    environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1"
+    environment["DOTNET_ROLL_FORWARD"] = "Major"
+    return environment
+
+
+def test_dotnet_subprocess_environment_disables_global_path_updates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DOTNET_ADD_GLOBAL_TOOLS_TO_PATH", "1")
+
+    assert _dotnet_environment()["DOTNET_ADD_GLOBAL_TOOLS_TO_PATH"] == "0"
 
 
 def _remove_required_sparkline_location(source: Path, output: Path) -> None:

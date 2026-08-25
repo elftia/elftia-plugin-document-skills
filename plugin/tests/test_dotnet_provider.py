@@ -555,8 +555,9 @@ class TestRunnerContainment:
         assert captured["private_environment"] == DOTNET_PRIVATE_ENVIRONMENT
 
     def test_private_dotnet_environment_is_project_scoped_and_cleanable(
-        self, project_root
+        self, project_root, monkeypatch
     ):
+        monkeypatch.setenv("DOTNET_ADD_GLOBAL_TOOLS_TO_PATH", "1")
         policy = ProcessPolicy(project_root)
         executable = policy.allow_executable("dotnet-openxml", sys.executable)
         runner = ProcessRunner(policy)
@@ -637,6 +638,12 @@ class TestRunnerContainment:
         assert "SystemRoot" in _ENV_ALLOWLIST
         assert "DOTNET_ROOT" in _ENV_ALLOWLIST
         assert "DOTNET_CLI_TELEMETRY_OPTOUT" in _ENV_ALLOWLIST
+        assert (
+            ProcessRunner._minimal_environment()[
+                "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH"
+            ]
+            == "0"
+        )
 
 
 # ---------------------------------------------------------------------------

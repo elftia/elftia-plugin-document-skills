@@ -46,10 +46,10 @@ _PRIVATE_ENVIRONMENT_PATHS = {
     "NUGET_PACKAGES": "nuget-packages",
     "PROGRAMFILES(X86)": "program-files-x86",
 }
-_PRIVATE_DOTNET_ENVIRONMENT = {
-    # The .NET CLI can persist its per-run global-tools directory directly to
-    # HKCU\Environment on Windows. HOME/USERPROFILE isolation does not contain
-    # that write, so this opt-out must accompany every private DOTNET_CLI_HOME.
+_PERSISTENT_ENVIRONMENT_GUARDS = {
+    # The .NET CLI can persist its global-tools directory directly to
+    # HKCU\Environment on Windows. Apply the opt-out to every managed child so
+    # direct probes and nested dotnet launches cannot mutate the user's PATH.
     "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
 }
 
@@ -420,7 +420,11 @@ class ProcessRunner:
 
     @staticmethod
     def _minimal_environment() -> dict[str, str]:
-        return {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
+        environment = {
+            key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ
+        }
+        environment.update(_PERSISTENT_ENVIRONMENT_GUARDS)
+        return environment
 
     def _process_environment(
         self,
@@ -443,8 +447,6 @@ class ProcessRunner:
                 details={"entries": sorted(unsupported)},
             )
         root = self._ensure_private_environment_root()
-        if "DOTNET_CLI_HOME" in requested:
-            environment.update(_PRIVATE_DOTNET_ENVIRONMENT)
         for name in private_environment:
             path = (root / _PRIVATE_ENVIRONMENT_PATHS[name]).resolve(strict=False)
             if path.parent != root:

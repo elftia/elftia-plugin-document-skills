@@ -941,6 +941,48 @@ def test_dotnet_openxml_requires_net8_and_verified_local_assembly(
     assert detectors.detect_dotnet_openxml()["available"] is False
 
 
+def test_dotnet_capability_probes_use_private_cli_home(tmp_path, monkeypatch):
+    provider_root = tmp_path / "runtime" / "dotnet" / "openxml"
+    provider_root.mkdir(parents=True)
+    (provider_root / "OpenXmlProbe.dll").write_bytes(b"probe")
+    (provider_root / "DocumentFormat.OpenXml.dll").write_bytes(b"assembly")
+    detectors = RuntimeDetectors(tmp_path)
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: sys.executable if name == "dotnet" else None,
+    )
+    calls = []
+
+    def capture_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        if "--list-runtimes" in args[2]:
+            return ProcessResult(0, "Microsoft.NETCore.App 8.0.0\n", "", 1)
+        return ProcessResult(
+            0,
+            json.dumps(
+                {
+                    "protocol_version": "1.0",
+                    "runtime_major": 8,
+                    "openxml_version": "3.0.0",
+                    "assembly_loaded": True,
+                }
+            ),
+            "",
+            1,
+        )
+
+    monkeypatch.setattr(detectors.runner, "run", capture_run)
+
+    assert detectors.detect_dotnet_runtime()["available"] is True
+    assert detectors.detect_dotnet_openxml()["available"] is True
+    assert len(calls) == 3
+    assert all(
+        call[1]["private_environment"] == ("DOTNET_CLI_HOME",)
+        for call in calls
+    )
+
+
 @pytest.mark.parametrize("mode", ["overflow_stdout", "overflow_stderr"])
 def test_process_output_is_bounded_while_streaming(project_root, mode):
     script = project_root / "tests" / "support" / "provider_fixture.py"
