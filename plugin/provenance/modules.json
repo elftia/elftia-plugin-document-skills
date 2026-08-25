@@ -358,7 +358,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ad40d5eaa1b0086ca7d514e0ce194dbe65f0335dda63a8e6d6113141bde42256"
+      "sha256": "6f67292e50e13faf996f7ed8a004dae0db3c3f6350baeff698899569133a1ea6"
     },
     {
       "artifact": "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
@@ -1755,7 +1755,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "dcf1908c3bd4c34623541c8b4b178fea1a966b6e1ea315595ce6b7dd10d77e59"
+      "sha256": "339156ef0871867f2fde6a7c206d8fa9d4fbb29704231306a6f39e8238a24868"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/README.md",
@@ -4435,12 +4435,13 @@
       "artifact_tests": [
         "tests/test_pptx_design.py",
         "tests/test_pptx_operations.py",
-        "tests/test_pptx_schema_validation.py"
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_public.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Original Core PPTX deterministic creation and schema-valid shape, table, chart, notes, relationship, and PresentationML emission.",
+      "modifications": "Schema-ordered native PresentationML creation, including valid body shape properties and presentation-namespace graphic-frame transforms.",
       "module": "src/document_skills_core/formats/pptx/create.py",
       "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
@@ -5276,17 +5277,18 @@
     },
     {
       "artifact_tests": [
-        "tests/test_pptx_design.py",
+        "tests/test_html_scene_opc_safety.py",
         "tests/test_pptx_operations.py",
+        "tests/test_pptx_design.py",
         "tests/test_pptx_schema_validation.py",
-        "tests/test_html_scene_opc_safety.py"
+        "tests/test_pptx_public.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Core PPTX Office-valid theme, slide master, slide layout, relationship, document-property, and PresentationML scaffold emission. Shared Office-valid PresentationML scaffold vocabulary (theme, slide master, slide layout, root relationships, document properties) common to typed pptx.create and HTML scene emission.",
+      "modifications": "Shared Office-valid PresentationML scaffold vocabulary (theme, slide master, slide layout, root relationships, document properties) common to typed pptx.create and HTML scene emission. Office-valid shared PresentationML theme scaffolding with required gradient stops for typed and scene-emitted PPTX output.",
       "module": "src/document_skills_core/formats/pptx/scaffold.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
@@ -5318,18 +5320,17 @@
     },
     {
       "artifact_tests": [
+        "tests/test_html_scene.py",
         "tests/test_html_scene_emitter.py",
         "tests/test_html_scene_opc_safety.py",
-        "tests/test_pptx_schema_validation.py",
-        "tests/test_html_scene.py",
         "tests/test_html_visual_validation.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Core PPTX schema compatibility for editable scene PresentationML, including canonical group-transform child ordering. Bounded HTML request/capture contracts, scene normalization, editable OOXML emission, and semantic/visual validation.",
+      "modifications": "Bounded HTML request/capture contracts, scene normalization, editable OOXML emission, and semantic/visual validation.",
       "module": "src/document_skills_core/formats/pptx/scene_emitter.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx",
+      "requirement_source": "Rasen html-to-editable-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
@@ -9640,11 +9641,11 @@
     },
     {
       "artifact_tests": [
-        "tests/test_html_pptx_public.py",
-        "tests/test_pptx_public.py",
-        "tests/test_runtime.py",
         "tests/test_pptx_contracts.py",
+        "tests/test_html_pptx_public.py",
+        "tests/test_runtime.py",
         "tests/test_supply_chain.py",
+        "tests/test_pptx_public.py",
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -9684,14 +9685,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Core PPTX public create/edit mutation supervision with bounded worker timeouts and result budgets. Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+      "modifications": "Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX. Operation-scoped public worker budgets for Core PPTX create, create-from-markdown, and edit without relaxing unrelated commands. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
       "module": "src/document_skills_core/public_cli/supervisor.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "369b541828c7f6c625453d53ee32db4b83286879097f1c2cb6a6f4218dfb26ab",
+      "sha256": "3467b11a8d32e89872d8af0d25d57873a5784ff7e3f4a8474874d3831c52d91b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10225,7 +10226,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4a896cb2bbbfebcb66f5ec8bf1d6a82823bd4ed65e81833ed7e1fcdf09e03d2b",
+      "sha256": "edcce84e940f91e700511638e5ca54a82bfa25009038bc71855bc5b0a67a5219",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10558,9 +10559,9 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression evidence for bounded public create/edit mutation supervision. Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability.",
+      "modifications": "Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability. Direct public-supervisor regression coverage for operation-scoped Core PPTX mutation budgets alongside HTML provider budgets.",
       "module": "tests/test_html_pptx_public.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
@@ -10572,6 +10573,8 @@
     {
       "artifact_tests": [
         "tests/test_html_provenance.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py",
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -10587,9 +10590,7 @@
         "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
         "tests/test_structure.py",
-        "tests/test_supply_chain.py",
         "tests/test_xlsx_annotations.py",
         "tests/test_xlsx_chart_advanced.py",
         "tests/test_xlsx_chart_advanced_public.py",
@@ -10612,14 +10613,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct exact-attribution regression evidence for Core PPTX provenance and shared-owner composition. Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+      "modifications": "Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability. Exact Core PPTX/OpenXML provenance classification and regression evidence combined with shared HTML-to-PPTX release records. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
       "module": "tests/test_html_provenance.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "af9bf9f075fa0ebab5f3d6dbde756526151b1a959a43cf03127b7edbbf7d8071",
+      "sha256": "6bacbd2ff27e066b3f8cfc67056b3867cb53a0c30e5d013fbbe975960af05765",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10648,9 +10649,9 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression evidence for schema-valid editable scene group transforms. Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability.",
+      "modifications": "Regression and adversarial coverage for the bounded HTML-to-editable-PPTX capability.",
       "module": "tests/test_html_scene_emitter.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx",
+      "requirement_source": "Rasen html-to-editable-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
@@ -10969,7 +10970,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression evidence for schema-valid theme gradients and body-shape child ordering.",
+      "modifications": "Direct Core PPTX regression coverage for schema-valid native PresentationML creation.",
       "module": "tests/test_pptx_design.py",
       "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
@@ -11087,7 +11088,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression evidence for schema-valid graphic-frame transforms and deterministic package creation.",
+      "modifications": "Direct Core PPTX regression coverage for schema-valid native PresentationML creation.",
       "module": "tests/test_pptx_operations.py",
       "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
@@ -11125,9 +11126,9 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX public-command regression evidence for internally consistent create artifacts and schema validation gates. Optional dotnet-openxml schema-gate regression evidence using operation-time provider detection and truthful success or unavailable outcomes.",
+      "modifications": "Optional dotnet-openxml schema-gate regression evidence using operation-time provider detection and truthful success or unavailable outcomes.",
       "module": "tests/test_pptx_public.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-pptx + document-skills-openxml-dotnet-enhancement",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-openxml-dotnet-enhancement",
       "review_evidence": [
         "PROVENANCE.md"
       ],
@@ -13152,19 +13153,21 @@
         "tests/test_pptx_contracts.py",
         "tests/test_html_pptx_public.py",
         "tests/test_runtime.py",
-        "tests/test_supply_chain.py"
+        "tests/test_supply_chain.py",
+        "tests/test_html_provenance.py",
+        "tests/test_strategy3.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX.",
+      "modifications": "Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX. Exact Core PPTX/OpenXML provenance classification and regression evidence combined with shared HTML-to-PPTX release records.",
       "module": "tools/html_pptx_provenance.py",
-      "requirement_source": "Rasen html-to-editable-pptx",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "0cd184bf6d3470f4814414a515ce50bf69a93a87ae1ac08e968fdfaffbd89b96",
+      "sha256": "3df10719a8c453d44477f99fab62e6d7f8b639ae86414b9d2113132f706e3e7e",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13421,9 +13424,9 @@
     {
       "artifact_tests": [
         "tests/test_html_provenance.py",
+        "tests/test_html_pptx_public.py",
         "tests/test_strategy3.py",
         "tests/test_supply_chain.py",
-        "tests/test_html_pptx_public.py",
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -13462,14 +13465,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Exact Core PPTX provenance profiling and cross-owner requirement, modification, and direct-test composition. Shared exact provenance generation for HTML-to-editable-PPTX and independent consumer-gate Strategy-4 release evidence. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+      "modifications": "Shared exact provenance generation for HTML-to-editable-PPTX and independent consumer-gate Strategy-4 release evidence. Exact Core PPTX/OpenXML provenance classification and regression evidence combined with shared HTML-to-PPTX release records. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
       "module": "tools/regenerate_provenance.py",
-      "requirement_source": "Rasen document-skills-core-pptx + html-to-editable-pptx + document-skills-consumer-gates-and-truthful-contracts + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "requirement_source": "Rasen html-to-editable-pptx + document-skills-core-pptx + document-skills-consumer-gates-and-truthful-contracts + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "2470881fc3b7c901793256c0aaf5ff9fbb0c2a92d7d63c8730941bcf606ef00a",
+      "sha256": "9a38a51c52c80fb5fa6accf90e2697edf559306eb130ec641353bcdd955e3c9a",
       "source_class": "original",
       "third_party_files": []
     },

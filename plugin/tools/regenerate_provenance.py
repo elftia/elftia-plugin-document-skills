@@ -9,9 +9,8 @@ from typing import Any
 from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
-    SHARED_PROVENANCE_REQUIREMENT,
     html_pptx_data_profile,
-    html_pptx_module_profile,
+    pptx_module_profile,
 )
 from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
 from .release_inventory import release_artifacts
@@ -31,7 +30,6 @@ LIBREOFFICE_REQUIREMENT = "Rasen document-skills-libreoffice-enhancement"
 OPENXML_DOTNET_REQUIREMENT = "Rasen document-skills-openxml-dotnet-enhancement"
 CORE_DOCX_REQUIREMENT = "Rasen document-skills-core-docx"
 CORE_PDF_REQUIREMENT = "Rasen document-skills-core-pdf"
-CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
 FOUNDATION_REQUIREMENT = "Rasen document-skills-foundation strategy-attempt-3"
 CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
     "Rasen document-skills-foundation strategy-attempt-3 + "
@@ -69,106 +67,6 @@ _PPTX_OPENXML_MODULE_PROFILES: dict[str, tuple[str, list[str]]] = {
             "outcomes."
         ),
         ["tests/test_pptx_public.py"],
-    ),
-}
-
-_CORE_PPTX_MODULE_PROFILES: dict[str, tuple[str, list[str]]] = {
-    "src/document_skills_core/formats/pptx/create.py": (
-        (
-            "Original Core PPTX deterministic creation and schema-valid shape, table, "
-            "chart, notes, relationship, and PresentationML emission."
-        ),
-        [
-            "tests/test_pptx_design.py",
-            "tests/test_pptx_operations.py",
-            "tests/test_pptx_schema_validation.py",
-        ],
-    ),
-    "src/document_skills_core/formats/pptx/scaffold.py": (
-        (
-            "Core PPTX Office-valid theme, slide master, slide layout, relationship, "
-            "document-property, and PresentationML scaffold emission."
-        ),
-        [
-            "tests/test_pptx_design.py",
-            "tests/test_pptx_operations.py",
-            "tests/test_pptx_schema_validation.py",
-        ],
-    ),
-    "src/document_skills_core/formats/pptx/scene_emitter.py": (
-        (
-            "Core PPTX schema compatibility for editable scene PresentationML, "
-            "including canonical group-transform child ordering."
-        ),
-        [
-            "tests/test_html_scene_emitter.py",
-            "tests/test_html_scene_opc_safety.py",
-            "tests/test_pptx_schema_validation.py",
-        ],
-    ),
-    "src/document_skills_core/public_cli/supervisor.py": (
-        (
-            "Core PPTX public create/edit mutation supervision with bounded worker "
-            "timeouts and result budgets."
-        ),
-        [
-            "tests/test_html_pptx_public.py",
-            "tests/test_pptx_public.py",
-            "tests/test_runtime.py",
-        ],
-    ),
-    "tests/test_pptx_design.py": (
-        (
-            "Direct Core PPTX regression evidence for schema-valid theme gradients "
-            "and body-shape child ordering."
-        ),
-        ["tests/test_pptx_design.py"],
-    ),
-    "tests/test_pptx_operations.py": (
-        (
-            "Direct Core PPTX regression evidence for schema-valid graphic-frame "
-            "transforms and deterministic package creation."
-        ),
-        ["tests/test_pptx_operations.py"],
-    ),
-    "tests/test_pptx_public.py": (
-        (
-            "Direct Core PPTX public-command regression evidence for internally "
-            "consistent create artifacts and schema validation gates."
-        ),
-        ["tests/test_pptx_public.py"],
-    ),
-    "tests/test_html_scene_emitter.py": (
-        (
-            "Direct Core PPTX regression evidence for schema-valid editable scene "
-            "group transforms."
-        ),
-        ["tests/test_html_scene_emitter.py"],
-    ),
-    "tests/test_html_pptx_public.py": (
-        (
-            "Direct Core PPTX regression evidence for bounded public create/edit "
-            "mutation supervision."
-        ),
-        ["tests/test_html_pptx_public.py"],
-    ),
-    "tools/regenerate_provenance.py": (
-        (
-            "Exact Core PPTX provenance profiling and cross-owner requirement, "
-            "modification, and direct-test composition."
-        ),
-        [
-            "tests/test_html_provenance.py",
-            "tests/test_strategy3.py",
-            "tests/test_supply_chain.py",
-        ],
-    ),
-    "tests/test_html_provenance.py": (
-        (
-            "Direct exact-attribution regression evidence for Core PPTX provenance "
-            "and shared-owner composition."
-        ),
-        ["tests/test_html_provenance.py"],
     ),
 }
 
@@ -691,21 +589,17 @@ def pptx_openxml_module_profile(path: str) -> tuple[str, list[str]] | None:
     return _PPTX_OPENXML_MODULE_PROFILES.get(path)
 
 
-def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
-    """Return direct Core PPTX evidence for the explicitly owned artifacts."""
-    return _CORE_PPTX_MODULE_PROFILES.get(path)
-
-
 def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     cross_format_profile = cross_format_capability_module_profile(artifact.path)
-    core_pptx_profile = core_pptx_module_profile(artifact.path)
-    html_profile = html_pptx_module_profile(artifact.path)
+    pptx_profile = pptx_module_profile(artifact.path)
     pptx_openxml_profile = pptx_openxml_module_profile(artifact.path)
     xlsx_profile = xlsx_module_profile(artifact.path)
+    pptx_record_profile = (
+        (pptx_profile[0], pptx_profile[1]) if pptx_profile else None
+    )
     format_profile = _combined_profile(
         cross_format_profile,
-        core_pptx_profile,
-        html_profile,
+        pptx_record_profile,
         pptx_openxml_profile,
     )
     is_consumer_gate = artifact.path.startswith("consumer_validation/") or artifact.path in {
@@ -723,18 +617,12 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx_" in artifact.path
         or "docx-" in artifact.path
     )
-    html_requirement = (
-        SHARED_PROVENANCE_REQUIREMENT
-        if artifact.path == "tools/regenerate_provenance.py"
-        else HTML_PPTX_REQUIREMENT
-    )
     format_requirement = _compose_requirements(
         FOUNDATION_REQUIREMENT if pptx_openxml_profile else None,
         CROSS_FORMAT_CAPABILITY_REQUIREMENT
         if cross_format_profile
         else None,
-        CORE_PPTX_REQUIREMENT if core_pptx_profile else None,
-        html_requirement if html_profile else None,
+        pptx_profile[2] if pptx_profile else None,
         OPENXML_DOTNET_REQUIREMENT if pptx_openxml_profile else None,
     )
     base_requirement = (

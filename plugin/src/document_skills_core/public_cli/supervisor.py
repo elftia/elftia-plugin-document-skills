@@ -214,10 +214,7 @@ class PublicCommandSupervisor:
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
-            if (
-                type(value) is dict
-                and value.get("operation") in _PPTX_MUTATION_OPERATIONS
-            ):
+            if type(value) is dict and value.get("operation") in _PPTX_MUTATION_OPERATIONS:
                 return (
                     max(self.timeout_seconds, _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS),
                     MAX_WORKER_BYTES,
