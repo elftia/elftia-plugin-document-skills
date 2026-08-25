@@ -1,16 +1,21 @@
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import pytest
 
 import document_skills_core.cli as facade
 from document_skills_core.cli import execute_request
-from document_skills_core.core.capabilities import Capability, Provider, ProviderId, ProviderRegistry
+from document_skills_core.core.capabilities import (
+    Capability,
+    Provider,
+    ProviderId,
+    ProviderRegistry,
+)
 from document_skills_core.core.capabilities.detectors import RuntimeDetectors
 from document_skills_core.core.capabilities.reports import build_capabilities
 from document_skills_core.core.contracts import (
@@ -19,8 +24,19 @@ from document_skills_core.core.contracts import (
     SchemaCatalog,
     make_error_result,
 )
-from document_skills_core.core.process import ProcessPolicy, ProcessResult, ProcessRunner
+from document_skills_core.core.process import (
+    ProcessPolicy,
+    ProcessResult,
+    ProcessRunner,
+)
 from document_skills_core.providers import build_default_registry
+from document_skills_core.providers.libreoffice.constants import platform_known_paths
+from document_skills_core.providers.libreoffice.quota import hard_quota_capability
+
+
+# Covers the bounded 132-second dotnet chain plus the other sequential detectors
+# and Windows process-startup overhead without inheriting their private constants.
+_CORE_REPORT_TIMEOUT_SECONDS = 210
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -78,8 +94,12 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "pptx.read",
         "xlsx.create",
         "xlsx.edit",
+        "xlsx.convert",
         "xlsx.inspect.structure",
         "xlsx.read",
+        "xlsx.template.instantiate",
+        "xlsx.summary.aggregate",
+        "xlsx.pivot.create",
     }
     for operation in public_operations:
         bindings = registry.operations.get(operation, [])
@@ -150,18 +170,36 @@ def test_node_health_allows_bounded_startup_and_retains_timeout(
     assert "timed out" in unavailable["reason"]
 
 
-@pytest.mark.parametrize("skill", ["document-docx", "document-xlsx", "document-pptx", "document-pdf"])
-@pytest.mark.parametrize("command", [["doctor", "--json"], ["capabilities", "--json"]])
-def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill, command):
+@pytest.fixture(scope="module")
+def core_report_environment():
+    project_root = Path(__file__).resolve().parents[1]
     uv = shutil.which("uv")
     node = shutil.which("node")
     assert uv is not None
     assert node is not None
-    entrypoint = project_root / "skills" / skill / "scripts" / "run.py"
-    core_only_env = os.environ.copy()
-    core_only_env["PATH"] = os.pathsep.join(
+    managed_path = os.pathsep.join(
         [str(Path(uv).parent), str(Path(node).parent)]
     )
+    core_only_env = os.environ.copy()
+    core_only_env["PATH"] = managed_path
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setenv("PATH", managed_path)
+        registry = build_default_registry(project_root)
+        provider = registry.providers[str(ProviderId.DOTNET_OPENXML)]
+        expected_dotnet = registry.detect(provider)
+    return uv, core_only_env, expected_dotnet
+
+
+@pytest.mark.parametrize("skill", ["document-docx", "document-xlsx", "document-pptx", "document-pdf"])
+@pytest.mark.parametrize("command", [["doctor", "--json"], ["capabilities", "--json"]])
+def test_all_entrypoints_run_core_reports_through_frozen_uv(
+    project_root,
+    skill,
+    command,
+    core_report_environment,
+):
+    uv, core_only_env, expected_dotnet = core_report_environment
+    entrypoint = project_root / "skills" / skill / "scripts" / "run.py"
     completed = subprocess.run(
         [
             uv,
@@ -177,7 +215,7 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         capture_output=True,
         text=True,
         shell=False,
-        timeout=30,
+        timeout=_CORE_REPORT_TIMEOUT_SECONDS,
         env=core_only_env,
     )
     assert completed.returncode == 0, completed.stderr
@@ -186,14 +224,43 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
     SchemaCatalog(project_root).validate(schema, report)
     optional = {
         item["id"]: item
-        for item in (
-            report["providers"]
-            if command[0] == "doctor"
-            else report["providers"]
-        )
+        for item in report["providers"]
     }
-    assert optional["libreoffice"]["available"] is False
-    assert optional["dotnet-openxml"]["available"] is False
+    libreoffice = optional["libreoffice"]
+    known_launchers = [
+        Path(path).resolve()
+        for path in platform_known_paths()
+        if Path(path).is_file()
+    ]
+    assert libreoffice["required"] is False
+    quota_supported = hard_quota_capability().supported
+    if known_launchers and quota_supported:
+        assert libreoffice["available"] is True, libreoffice
+        assert libreoffice["reason"] is None
+        assert libreoffice["version"]
+        assert Path(libreoffice["path"]).resolve() in known_launchers
+    else:
+        assert libreoffice["available"] is False
+        assert libreoffice["reason"]
+        assert libreoffice["path"] is None
+        if known_launchers:
+            assert "hard quota" in libreoffice["reason"].lower()
+    dotnet = optional[str(ProviderId.DOTNET_OPENXML)]
+    assert dotnet["required"] is False
+    for field in ("available", "version", "path", "reason"):
+        assert dotnet[field] == expected_dotnet[field]
+    if command[0] == "doctor":
+        assert report["status"] == "healthy"
+    elif skill == "document-xlsx":
+        render = next(
+            operation
+            for operation in report["operations"]
+            if operation["operation"] == "xlsx.render"
+        )
+        assert (
+            str(ProviderId.LIBREOFFICE) in render["providers"]
+        ) is libreoffice["available"]
+        assert render["available"] is libreoffice["available"]
 
 
 def test_detector_timeout_is_reported_as_unavailable(project_root, monkeypatch):
@@ -297,6 +364,112 @@ def test_timeout_crash_and_invalid_json_are_contained(project_root):
     )
     assert "topsecret" not in secret.stderr
     assert "<redacted>" in secret.stderr
+
+
+def test_runtime_check_cannot_extend_process_deadline(project_root):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    started = time.monotonic()
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", "import time; time.sleep(10)"],
+            timeout_seconds=0.1,
+            runtime_check=lambda: time.sleep(1.0),
+        )
+
+    assert failure.value.code == ErrorCode.PROCESS_TIMEOUT
+    assert time.monotonic() - started < 0.75
+
+
+def test_runtime_check_exception_is_typed_and_terminates_descendant(
+    project_root,
+    tmp_path,
+):
+    child_pid_path = tmp_path / "runtime-check-child.pid"
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    parent_script = (
+        "import pathlib, subprocess, sys, time\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
+        "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='ascii')\n"
+        "time.sleep(30)\n"
+    )
+
+    def reject_after_child_starts() -> None:
+        if child_pid_path.is_file():
+            raise RuntimeError("private runtime-check failure")
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", parent_script, str(child_pid_path)],
+            timeout_seconds=5.0,
+            runtime_check=reject_after_child_starts,
+        )
+
+    assert failure.value.code == ErrorCode.PROVIDER_FAILED
+    assert failure.value.details["reason_category"] == "runtime_check_failed"
+    assert "private runtime-check failure" not in str(failure.value)
+    child_pid = int(child_pid_path.read_text(encoding="ascii"))
+    deadline = time.monotonic() + 2.0
+    while _process_is_alive(child_pid) and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert _process_is_alive(child_pid) is False
+
+
+def test_runtime_check_runs_once_more_after_process_exit(project_root):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    calls = 0
+
+    def fail_post_exit_check() -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            time.sleep(0.1)
+            return
+        raise RuntimeError("post-exit runtime check failed")
+
+    with pytest.raises(DocumentSkillsError) as failure:
+        ProcessRunner(policy).run(
+            "fixture",
+            executable,
+            ["-c", "pass"],
+            timeout_seconds=2.0,
+            runtime_check=fail_post_exit_check,
+        )
+
+    assert failure.value.code == ErrorCode.PROVIDER_FAILED
+    assert failure.value.details["reason_category"] == "runtime_check_failed"
+    assert calls == 2
+
+
+def _process_is_alive(pid: int) -> bool:
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+    import ctypes
+
+    process = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+    if not process:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        if not ctypes.windll.kernel32.GetExitCodeProcess(
+            process,
+            ctypes.byref(exit_code),
+        ):
+            return False
+        return exit_code.value == 259
+    finally:
+        ctypes.windll.kernel32.CloseHandle(process)
 
 
 def test_facade_contains_detector_provider_and_invalid_result_failures(
@@ -766,6 +939,48 @@ def test_dotnet_openxml_requires_net8_and_verified_local_assembly(
         ),
     )
     assert detectors.detect_dotnet_openxml()["available"] is False
+
+
+def test_dotnet_capability_probes_use_private_cli_home(tmp_path, monkeypatch):
+    provider_root = tmp_path / "runtime" / "dotnet" / "openxml"
+    provider_root.mkdir(parents=True)
+    (provider_root / "OpenXmlProbe.dll").write_bytes(b"probe")
+    (provider_root / "DocumentFormat.OpenXml.dll").write_bytes(b"assembly")
+    detectors = RuntimeDetectors(tmp_path)
+    monkeypatch.setattr(
+        shutil,
+        "which",
+        lambda name: sys.executable if name == "dotnet" else None,
+    )
+    calls = []
+
+    def capture_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        if "--list-runtimes" in args[2]:
+            return ProcessResult(0, "Microsoft.NETCore.App 8.0.0\n", "", 1)
+        return ProcessResult(
+            0,
+            json.dumps(
+                {
+                    "protocol_version": "1.0",
+                    "runtime_major": 8,
+                    "openxml_version": "3.0.0",
+                    "assembly_loaded": True,
+                }
+            ),
+            "",
+            1,
+        )
+
+    monkeypatch.setattr(detectors.runner, "run", capture_run)
+
+    assert detectors.detect_dotnet_runtime()["available"] is True
+    assert detectors.detect_dotnet_openxml()["available"] is True
+    assert len(calls) == 3
+    assert all(
+        call[1]["private_environment"] == ("DOTNET_CLI_HOME",)
+        for call in calls
+    )
 
 
 @pytest.mark.parametrize("mode", ["overflow_stdout", "overflow_stderr"])

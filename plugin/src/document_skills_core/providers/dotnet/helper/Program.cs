@@ -27,6 +27,7 @@ object response = subcommand switch
     "--comments-add" => CommentsAdd(request),
     "--template-apply" => TemplateApply(request),
     "--schema-validate" => SchemaValidate(request),
+    "--xlsx-schema-validate" => SpreadsheetSchemaValidate(request),
     _ => new { error = $"Unknown subcommand: {subcommand}" },
 };
 
@@ -198,7 +199,7 @@ static object CommentsAdd(JsonElement request)
     {
         Id = commentId,
         Author = author,
-        Date = DateTime.UtcNow,
+        Date = new DateTimeValue(DateTime.UtcNow),
     };
     newComment.AppendChild(new Paragraph(new Run(new Text(text))));
     commentsPart.Comments.Append(newComment);
@@ -274,6 +275,36 @@ static object SchemaValidate(JsonElement request)
     }).ToList();
 
     return new { valid = errors.Count == 0, errors };
+}
+
+static object SpreadsheetSchemaValidate(JsonElement request)
+{
+    var inputPath = request.GetProperty("input_path").GetString()!;
+    var maxErrors = request.TryGetProperty("max_errors", out var requestedMax)
+        ? Math.Clamp(requestedMax.GetInt32(), 1, 1000)
+        : 100;
+    using var doc = SpreadsheetDocument.Open(inputPath, false);
+    var validator = new OpenXmlValidator(FileFormatVersions.Microsoft365)
+    {
+        MaxNumberOfErrors = maxErrors + 1,
+    };
+    var validationErrors = validator.Validate(doc).Take(maxErrors + 1).ToList();
+    var errors = validationErrors.Take(maxErrors).Select(e => new
+    {
+        part = e.Part?.GetType().Name ?? "",
+        path = e.Path?.XPath ?? "",
+        description = e.Description,
+        error_type = e.ErrorType.ToString(),
+    }).ToList();
+
+    return new
+    {
+        valid = errors.Count == 0,
+        errors,
+        max_errors = maxErrors,
+        truncated = validationErrors.Count > maxErrors,
+        file_format = validator.FileFormat.ToString(),
+    };
 }
 
 static string DateText(DateTimeValue? value) => value is null

@@ -174,7 +174,10 @@ def decode_stream(
         )
     decoded = raw_stream
     for filter_name in filters:
-        if filter_name not in SUPPORTED_FILTERS:
+        normalized_filter = (
+            filter_name[1:] if filter_name.startswith("/") else filter_name
+        )
+        if normalized_filter not in SUPPORTED_FILTERS:
             raise DocumentSkillsError(
                 ErrorCode.ARCHIVE_UNSAFE,
                 f"Unsupported decode filter: {filter_name}",
@@ -182,7 +185,7 @@ def decode_stream(
             )
         if len(decoded) > budget.max_stream_bytes:
             _unsafe("stream_bytes", len(decoded), budget.max_stream_bytes)
-        decoded = _apply_filter(decoded, filter_name, budget)
+        decoded = _apply_filter(decoded, normalized_filter, budget)
         if len(decoded) > budget.max_uncompressed_bytes:
             _unsafe(
                 "uncompressed_bytes",

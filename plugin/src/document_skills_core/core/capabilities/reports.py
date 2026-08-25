@@ -56,8 +56,8 @@ def build_capabilities(
         if not operation.startswith(f"{format_id}."):
             continue
         available = [
-                registration
-                for registration in registrations
+            registration
+            for registration in registrations
             if provider_states[str(registration.provider_id)]["available"] is True
             and callable(registration.execute)
         ]
@@ -75,12 +75,23 @@ def build_capabilities(
                 "reason": None if best else "No accepted provider implementation is available.",
             }
         )
+    validation_operations = {
+        "schema": f"{format_id}.validate.schema",
+        "visual": f"{format_id}.render",
+    }
     validators = {
         validator_id
         for provider_id, provider in registry.providers.items()
         if provider_states[provider_id]["available"]
         for validator_id, validator in provider.validators.items()
         if callable(validator)
+        and any(
+            str(registration.provider_id) == provider_id
+            and callable(registration.execute)
+            for registration in registry.operations.get(
+                validation_operations.get(validator_id, ""), []
+            )
+        )
     }
     return {
         "schema_version": "1.0",

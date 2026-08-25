@@ -8,9 +8,12 @@ from typing import Any
 
 from .audit_python import MCP_PYTHON_PACKAGES, audit_python_source
 from .audit_node import audit_node_source, is_runtime_node
-from .release_inventory import executable_artifacts, release_artifacts, release_inventory
+from .release_inventory import (
+    release_artifacts,
+    release_inventory,
+)
 from document_skills_core.core.io.portable_paths import PORTABLE_PATH_POLICY
-from .supply_chain import build_sbom
+from .supply_chain import build_sbom, nuget_graph
 
 _SOURCE_SUFFIXES = {".cjs", ".js", ".jsx", ".mjs", ".mts", ".py", ".ts", ".tsx"}
 _NODE_PACKAGES = {
@@ -41,6 +44,8 @@ _NODE_API = re.compile(
     r"\.(?:registerTool|setRequestHandler)\s*\(|"
     r"\bserver\.(?:tool|resource|prompt)\s*\("
 )
+
+
 def audit_execution_boundary(
     root: Path, inventory: list[str] | None = None
 ) -> dict[str, Any]:
@@ -66,7 +71,7 @@ def audit_execution_boundary(
                     f"Forbidden MCP SDK or registration API in {relative}",
                 )
         inspected += 1
-    _audit_dependency_manifests(root)
+    dependency_manifests = _audit_dependency_manifests(root)
     _audit_exact_allowlists(root)
     _audit_registration_manifests(root)
     return {
@@ -74,7 +79,7 @@ def audit_execution_boundary(
         "source_files": inspected,
         "executable_artifacts": len(artifacts),
         "classified_release_files": len(shared_inventory),
-        "dependency_manifests": 4,
+        "dependency_manifests": dependency_manifests,
         "registration_manifests": 2,
     }
 
@@ -118,7 +123,7 @@ def _release_sources(root: Path, artifacts: list[str]) -> list[Path]:
     )
 
 
-def _audit_dependency_manifests(root: Path) -> None:
+def _audit_dependency_manifests(root: Path) -> int:
     package = json.loads((root / "package.json").read_text(encoding="utf-8"))
     node_names = {
         name.lower()
@@ -133,7 +138,9 @@ def _audit_dependency_manifests(root: Path) -> None:
     dependency_strings = list(project.get("project", {}).get("dependencies", []))
     dependency_strings.extend(
         dependency
-        for group in project.get("project", {}).get("optional-dependencies", {}).values()
+        for group in project.get("project", {})
+        .get("optional-dependencies", {})
+        .values()
         for dependency in group
     )
     dependency_strings.extend(
@@ -165,6 +172,52 @@ def _audit_dependency_manifests(root: Path) -> None:
         not any(_is_mcp_package(name) for name in locked_node_names),
         "package-lock.json contains an MCP dependency",
     )
+    helper_root = (
+        root / "src" / "document_skills_core" / "providers" / "dotnet" / "helper"
+    )
+    nuget_project = helper_root / "OpenXmlHelper.csproj"
+    nuget_lock = helper_root / "packages.lock.json"
+    present = (nuget_project.is_file(), nuget_lock.is_file())
+    _require(
+        present in {(False, False), (True, True)},
+        "NuGet helper project and dependency lock must be present together",
+    )
+    if present == (True, True):
+        components, dependencies = nuget_graph(root)
+        policy = json.loads(
+            (root / "provenance" / "dependency-allowlist.json").read_text(
+                encoding="utf-8"
+            )
+        )["nuget"]
+        references = {
+            component["bom-ref"]: component["name"] for component in components
+        }
+        packages = {component["name"]: component["version"] for component in components}
+        hashes = {
+            component["name"]: component["hashes"][0]["content"]
+            for component in components
+        }
+        edges = {
+            references[dependency["ref"]]: [
+                references[target] for target in dependency["dependsOn"]
+            ]
+            for dependency in dependencies
+            if dependency["ref"] != "application:document-skills"
+        }
+        _require(
+            packages == policy["packages"],
+            "Frozen NuGet production graph differs from the exact allowlist",
+        )
+        _require(
+            hashes == policy["sha512"],
+            "Frozen NuGet content hashes differ from the exact allowlist",
+        )
+        _require(
+            edges == policy["dependencies"],
+            "Frozen NuGet dependency edges differ from the exact allowlist",
+        )
+        return 6
+    return 4
 
 
 def _audit_registration_manifests(root: Path) -> None:
@@ -196,17 +249,21 @@ def _audit_exact_allowlists(root: Path) -> None:
         # Small structural unit fixtures deliberately omit release policy files.
         # Complete release roots always carry both files and take the strict path.
         return
-    policy = json.loads(
-        dependency_policy_path.read_text(encoding="utf-8")
-    )
+    policy = json.loads(dependency_policy_path.read_text(encoding="utf-8"))
     sbom = build_sbom(root)
-    actual: dict[str, dict[str, str]] = {"python": {}, "node": {}}
+    actual: dict[str, dict[str, str]] = {
+        "python": {},
+        "node": {},
+        "nuget": {},
+    }
     for component in sbom["components"]:
         purl = component.get("purl", "")
         if purl.startswith("pkg:pypi/"):
             actual["python"][component["name"]] = component["version"]
         elif purl.startswith("pkg:npm/"):
             actual["node"][component["name"]] = component["version"]
+        elif purl.startswith("pkg:nuget/"):
+            actual["nuget"][component["name"]] = component["version"]
     _require(
         actual["python"] == policy["python"]["packages"],
         "Frozen Python production graph differs from the exact allowlist",
@@ -214,6 +271,10 @@ def _audit_exact_allowlists(root: Path) -> None:
     _require(
         actual["node"] == policy["node"]["packages"],
         "Frozen Node production graph differs from the exact allowlist",
+    )
+    _require(
+        actual["nuget"] == policy["nuget"]["packages"],
+        "Frozen NuGet production graph differs from the exact allowlist",
     )
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     lock = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))
@@ -242,9 +303,7 @@ def _audit_exact_allowlists(root: Path) -> None:
         development_graph == policy["python"]["development_packages"],
         "Frozen Python development graph differs from the exact allowlist",
     )
-    runtime_policy = json.loads(
-        runtime_policy_path.read_text(encoding="utf-8")
-    )
+    runtime_policy = json.loads(runtime_policy_path.read_text(encoding="utf-8"))
     actual_sources = runtime_source_allowlist(root)
     _require(
         actual_sources["python"] == runtime_policy["python"],

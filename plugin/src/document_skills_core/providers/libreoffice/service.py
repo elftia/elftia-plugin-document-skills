@@ -1,9 +1,9 @@
 """LibreOffice provider dispatcher and injectable factory.
 
-Exposes ``build_libreoffice_provider(project_root, detector=None, runner=None)``
-returning a ``(ProviderDefinition, LibreOfficeProvider)`` pair. The
-ProviderDefinition is registered in the catalog; the LibreOfficeProvider
-is the consultation object passed to format services.
+Exposes ``build_libreoffice_provider(...)`` returning a
+``(ProviderDefinition, LibreOfficeProvider)`` pair. The ProviderDefinition is
+registered in the catalog; the LibreOfficeProvider is the consultation object
+passed to format services.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
@@ -19,11 +19,20 @@ from ...core.capabilities.catalog import (
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
+from ...core.process import ProcessPolicy
 from ...formats.pptx.render_operations import execute_pptx_libreoffice_operation
-from .convert import convert_to_pdf
+from ...formats.xlsx.render_operation import execute_render
+from .constants import TIMEOUT_RECALC_OPTIONAL, TIMEOUT_RECALC_REQUIRED
+from .convert import convert_snapshot_to_pdf, convert_to_pdf
 from .detector import LibreOfficeDetector
 from .legacy import read_or_convert_legacy
-from .recalc import recalculate_xlsx
+from .quota import HardQuotaBackend
+from .recalc import (
+    RecalculatedXlsx,
+    recalculate_xlsx,
+    recalculate_xlsx_artifact,
+    recalculate_xlsx_snapshot_artifact,
+)
 from .render import render_to_image
 from .runner import LibreOfficeRunner
 
@@ -36,10 +45,18 @@ class LibreOfficeProvider:
         project_root: Path,
         detector: LibreOfficeDetector | None = None,
         runner: LibreOfficeRunner | None = None,
+        *,
+        quota_backend: HardQuotaBackend | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self.detector = detector or LibreOfficeDetector(project_root)
-        self.runner = runner or LibreOfficeRunner(project_root)
+        self.detector = detector or LibreOfficeDetector(
+            project_root,
+            quota_backend=quota_backend,
+        )
+        self.runner = runner or LibreOfficeRunner(
+            project_root,
+            quota_backend=quota_backend,
+        )
 
     def detect(self) -> DetectionEvidence:
         return self.detector.detect()
@@ -54,22 +71,38 @@ class LibreOfficeProvider:
             "reason": evidence.reason or "unavailable",
         }
 
+    def _detect_for_operation(self) -> DetectionEvidence:
+        if isinstance(self.detector, LibreOfficeDetector):
+            return self.detector.detect_and_authorize(self.runner.set_executable)
+        evidence = self.detector.detect()
+        if evidence.available and evidence.path:
+            self.runner.set_executable(evidence.path)
+        return evidence
+
     def execute(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         """Dispatch a provider-execute call to the appropriate operation."""
         try:
             return self._dispatch(operation, request)
         except DocumentSkillsError as error:
-            return make_error_result(operation, error, requested_fidelity="enhanced")
+            options = request.get("options", {})
+            requested_fidelity = (
+                options.get("fidelity", "core")
+                if type(options) is dict
+                else "unknown"
+            )
+            return make_error_result(
+                operation,
+                error,
+                requested_fidelity=requested_fidelity,
+            )
 
     def _dispatch(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "LibreOffice is not callable.",
             )
-        if evidence.path:
-            self.runner.set_executable(evidence.path)
         if operation == "libreoffice.recalc-xlsx":
             return self._do_recalc(Path(request["input"]))
         if operation == "libreoffice.convert-pdf":
@@ -78,6 +111,8 @@ class LibreOfficeProvider:
             return self._do_render(Path(request["input"]))
         if operation == "libreoffice.read-legacy":
             return self._do_legacy(Path(request["input"]), request.get("target_format"))
+        if operation == "xlsx.render":
+            return self._do_xlsx_render(request)
         if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
             return execute_pptx_libreoffice_operation(
                 operation,
@@ -93,36 +128,78 @@ class LibreOfficeProvider:
 
     def try_recalc_xlsx(self, input_path: Path) -> dict[str, Any] | None:
         """Consult LibreOffice for XLSX recalculation. Returns cached values or None."""
-        evidence = self.detector.detect()
-        if not evidence.available:
-            return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
-            return recalculate_xlsx(input_path, self.runner)
+            evidence = self._detect_for_operation()
+            if not evidence.available:
+                return None
+            return recalculate_xlsx(
+                input_path,
+                self.runner,
+                timeout_seconds=TIMEOUT_RECALC_OPTIONAL,
+            )
         except DocumentSkillsError:
             return None
 
+    def recalculate_xlsx_artifact(
+        self,
+        input_path: Path,
+        *,
+        policy: str,
+    ) -> RecalculatedXlsx:
+        """Require a callable provider and return its isolated recalculated artifact."""
+
+        evidence = self._detect_for_operation()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice recalculation is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        return recalculate_xlsx_artifact(
+            input_path,
+            self.runner,
+            timeout_seconds=_recalculation_timeout(policy),
+        )
+
+    def recalculate_screened_xlsx_artifact(
+        self,
+        input_snapshot: Path,
+        *,
+        policy: str,
+    ) -> RecalculatedXlsx:
+        """Recalculate the caller's already screened private XLSX snapshot."""
+
+        evidence = self._detect_for_operation()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice recalculation is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        return recalculate_xlsx_snapshot_artifact(
+            input_snapshot,
+            self.runner,
+            timeout_seconds=_recalculation_timeout(policy),
+        )
+
     def try_convert_to_pdf(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for Office-to-PDF conversion. Returns PDF bytes."""
-        evidence = self.detector.detect()
-        if not evidence.available:
-            return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
+            evidence = self._detect_for_operation()
+            if not evidence.available:
+                return None
             return convert_to_pdf(input_path, self.runner)
         except DocumentSkillsError:
             return None
 
     def try_render_to_image(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for DOCX/PPTX render. Returns image bytes."""
-        evidence = self.detector.detect()
-        if not evidence.available:
-            return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
+            evidence = self._detect_for_operation()
+            if not evidence.available:
+                return None
             return render_to_image(input_path, self.runner)
         except DocumentSkillsError:
             return None
@@ -131,18 +208,42 @@ class LibreOfficeProvider:
         self, input_path: Path, target_format: str | None = None
     ) -> bytes | None:
         """Consult LibreOffice for legacy format read/convert. Returns file bytes."""
-        evidence = self.detector.detect()
-        if not evidence.available:
-            return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
+            evidence = self._detect_for_operation()
+            if not evidence.available:
+                return None
             return read_or_convert_legacy(input_path, self.runner, target_format=target_format)
         except DocumentSkillsError:
             return None
 
+    def convert_legacy_required(
+        self,
+        input_path: Path,
+        *,
+        target_format: str,
+    ) -> bytes:
+        """Require LibreOffice for a legacy conversion and preserve typed failures."""
+
+        evidence = self._detect_for_operation()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice legacy conversion is unavailable.",
+                status="unavailable",
+                details={"reason": evidence.reason or "unavailable"},
+            )
+        return read_or_convert_legacy(
+            input_path,
+            self.runner,
+            target_format=target_format,
+        )
+
     def _do_recalc(self, input_path: Path) -> dict[str, Any]:
-        cached_values = recalculate_xlsx(input_path, self.runner)
+        cached_values = recalculate_xlsx(
+            input_path,
+            self.runner,
+            timeout_seconds=TIMEOUT_RECALC_REQUIRED,
+        )
         return _build_success(
             "libreoffice.recalc-xlsx",
             diagnostics={"cached_values": cached_values},
@@ -169,6 +270,13 @@ class LibreOfficeProvider:
             diagnostics={"output_bytes": len(legacy_bytes)},
         )
 
+    def _do_xlsx_render(self, request: dict[str, Any]) -> dict[str, Any]:
+        return execute_render(
+            request,
+            project_root=self.project_root,
+            converter=lambda path: convert_snapshot_to_pdf(path, self.runner),
+        )
+
 
 def _build_success(
     operation: str,
@@ -192,10 +300,20 @@ def _build_success(
     }
 
 
+def _recalculation_timeout(policy: str) -> float:
+    if policy == "auto":
+        return TIMEOUT_RECALC_OPTIONAL
+    if policy == "required":
+        return TIMEOUT_RECALC_REQUIRED
+    raise ValueError("Recalculation provider policy must be auto or required.")
+
+
 def build_libreoffice_provider(
     project_root: Path,
     detector: LibreOfficeDetector | None = None,
     runner: LibreOfficeRunner | None = None,
+    *,
+    quota_backend: HardQuotaBackend | None = None,
 ) -> tuple[ProviderDefinition, LibreOfficeProvider]:
     """Build the callable LibreOffice provider definition + consultation object.
 
@@ -203,7 +321,23 @@ def build_libreoffice_provider(
     is passed to format services for consultation. Both detector and runner are
     injectable for mock-injected tests.
     """
-    provider = LibreOfficeProvider(project_root, detector=detector, runner=runner)
+    policy = ProcessPolicy(project_root.resolve())
+    provider = LibreOfficeProvider(
+        project_root,
+        detector=detector
+        or LibreOfficeDetector(
+            project_root,
+            policy=policy,
+            quota_backend=quota_backend,
+        ),
+        runner=runner
+        or LibreOfficeRunner(
+            project_root,
+            policy=policy,
+            quota_backend=quota_backend,
+        ),
+        quota_backend=quota_backend,
+    )
     definition = ProviderDefinition(
         id=ProviderId.LIBREOFFICE,
         version=None,
@@ -214,6 +348,7 @@ def build_libreoffice_provider(
             Capability("libreoffice.convert-pdf", "enhanced", validation_strength=1),
             Capability("libreoffice.render-image", "enhanced", validation_strength=1),
             Capability("libreoffice.read-legacy", "enhanced", validation_strength=1),
+            Capability("xlsx.render", "enhanced", validation_strength=3),
             Capability("pptx.convert.pdf", "enhanced", validation_strength=3),
             Capability("pptx.convert.legacy", "enhanced", validation_strength=3),
             Capability("pptx.render", "enhanced", validation_strength=3),

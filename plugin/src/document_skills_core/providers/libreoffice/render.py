@@ -6,6 +6,9 @@ Module provenance: original Elftia-authored clean-room implementation.
 from pathlib import Path
 
 from ...core.io.temp_roots import OperationTempRoot
+from .constants import TIMEOUT_RENDER
+from .input_snapshot import private_libreoffice_input
+from .output import read_provider_output
 from .runner import LibreOfficeRunner
 
 
@@ -17,10 +20,26 @@ def render_to_image(
 
     Returns the rendered image bytes for the visual-validation gate.
     """
+    with private_libreoffice_input(
+        input_document,
+        operation="libreoffice.render-image",
+    ) as snapshot:
+        return render_snapshot_to_image(snapshot.path, runner)
+
+
+def render_snapshot_to_image(
+    input_snapshot: Path,
+    runner: LibreOfficeRunner,
+) -> bytes:
+    """Render an already screened DOCX/PPTX snapshot without copying it."""
+
     with OperationTempRoot() as private_root:
-        staged_input = private_root / ("input" + Path(input_document).suffix)
-        staged_input.write_bytes(Path(input_document).read_bytes())
         output_dir = private_root / "output"
         output_dir.mkdir()
-        output = runner.convert(staged_input, "png", output_dir)
-        return output.read_bytes()
+        output = runner.convert(
+            input_snapshot,
+            "png",
+            output_dir,
+            timeout_seconds=TIMEOUT_RENDER,
+        )
+        return read_provider_output(output, "png")

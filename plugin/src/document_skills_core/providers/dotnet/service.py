@@ -20,11 +20,13 @@ from ...core.capabilities.catalog import (
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import gate_record, make_error_result
 from ...core.io.paths import assert_source_preserved, file_record
+from ...core.process import ProcessPolicy, ProcessRunner
+from ...formats.xlsx.schema_operation import execute_schema_validation
 from .comments import add_comment, read_comments
 from .detector import DotnetOpenXmlDetector
 from .revisions import accept_reject_revisions, read_revisions
 from .runner import DotnetOpenXmlRunner
-from .schema import validate_schema
+from .schema import validate_schema, validate_spreadsheet_schema
 from .template import apply_template_advanced
 
 
@@ -38,8 +40,22 @@ class DotnetOpenXmlProvider:
         runner: DotnetOpenXmlRunner | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self.detector = detector or DotnetOpenXmlDetector(project_root)
-        self.runner = runner or DotnetOpenXmlRunner(project_root)
+        if detector is None and runner is None:
+            policy = ProcessPolicy(self.project_root)
+            process_runner = ProcessRunner(policy)
+            self.detector = DotnetOpenXmlDetector(
+                project_root,
+                runner=process_runner,
+                policy=policy,
+            )
+            self.runner = DotnetOpenXmlRunner(
+                project_root,
+                runner=process_runner,
+                policy=policy,
+            )
+        else:
+            self.detector = detector or DotnetOpenXmlDetector(project_root)
+            self.runner = runner or DotnetOpenXmlRunner(project_root)
 
     def detect(self) -> DetectionEvidence:
         return self.detector.detect()
@@ -54,21 +70,41 @@ class DotnetOpenXmlProvider:
             "reason": evidence.reason or "unavailable",
         }
 
+    def _detect_for_operation(self) -> DetectionEvidence:
+        if isinstance(self.detector, DotnetOpenXmlDetector):
+            if isinstance(self.runner, DotnetOpenXmlRunner):
+                bind = self.runner.bind_authorized_executable
+            else:
+                bind = self.runner.set_executable
+            return self.detector.detect_and_authorize(bind)
+        evidence = self.detector.detect()
+        if evidence.available and evidence.path:
+            self.runner.set_executable(evidence.path)
+        return evidence
+
     def execute(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         try:
             return self._dispatch(operation, request)
         except DocumentSkillsError as error:
-            return make_error_result(operation, error, requested_fidelity="enhanced")
+            options = request.get("options", {})
+            requested_fidelity = (
+                options.get("fidelity", "core")
+                if type(options) is dict
+                else "unknown"
+            )
+            return make_error_result(
+                operation,
+                error,
+                requested_fidelity=requested_fidelity,
+            )
 
     def _dispatch(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "dotnet-openxml is not callable.",
             )
-        if evidence.path:
-            self.runner.set_executable(evidence.path)
         if operation == "dotnet.docx.revisions-read":
             return self._do_revisions_read(Path(request["input"]))
         if operation == "dotnet.docx.revisions-accept":
@@ -83,6 +119,8 @@ class DotnetOpenXmlProvider:
             return self._do_template(Path(request["input"]), Path(request["output"]), request.get("variables", {}))
         if operation == "dotnet.docx.schema-validate":
             return self._do_schema(Path(request["input"]))
+        if operation == "xlsx.validate.schema":
+            return self._do_xlsx_schema(request)
         if operation == "pptx.validate.schema":
             return self._do_pptx_schema(Path(request["input"]), request)
         raise DocumentSkillsError(
@@ -93,12 +131,10 @@ class DotnetOpenXmlProvider:
     # -- consultation helpers (return None on absent/failure) --
 
     def try_read_revisions(self, input_path: Path) -> list[dict[str, Any]] | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return read_revisions(input_path, self.runner)
         except DocumentSkillsError:
             return None
@@ -106,12 +142,10 @@ class DotnetOpenXmlProvider:
     def try_accept_reject_revisions(
         self, input_path: Path, output_path: Path, revision_ids: list[str], action: str,
     ) -> dict[str, Any] | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return accept_reject_revisions(input_path, output_path, revision_ids, action, self.runner)
         except DocumentSkillsError:
             return None
@@ -119,12 +153,10 @@ class DotnetOpenXmlProvider:
     def try_read_comments(
         self, input_path: Path, **filters: Any,
     ) -> list[dict[str, Any]] | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return read_comments(input_path, self.runner, **filters)
         except DocumentSkillsError:
             return None
@@ -132,23 +164,19 @@ class DotnetOpenXmlProvider:
     def try_add_comment(
         self, input_path: Path, output_path: Path, comment: dict[str, Any],
     ) -> str | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return add_comment(input_path, output_path, comment, self.runner)
         except DocumentSkillsError:
             return None
 
     def try_validate_schema(self, input_path: Path) -> dict[str, Any] | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return validate_schema(input_path, self.runner)
         except DocumentSkillsError:
             return None
@@ -156,12 +184,10 @@ class DotnetOpenXmlProvider:
     def try_apply_template(
         self, input_path: Path, output_path: Path, variables: dict[str, str],
     ) -> dict[str, Any] | None:
-        evidence = self.detector.detect()
+        evidence = self._detect_for_operation()
         if not evidence.available:
             return None
         try:
-            if evidence.path:
-                self.runner.set_executable(evidence.path)
             return apply_template_advanced(input_path, output_path, variables, self.runner)
         except DocumentSkillsError:
             return None
@@ -219,6 +245,17 @@ class DotnetOpenXmlProvider:
         return _build_success(
             "dotnet.docx.schema-validate",
             diagnostics=result,
+        )
+
+    def _do_xlsx_schema(self, request: dict[str, Any]) -> dict[str, Any]:
+        return execute_schema_validation(
+            request,
+            project_root=self.project_root,
+            validator=lambda path, max_errors: validate_spreadsheet_schema(
+                path,
+                self.runner,
+                max_errors=max_errors,
+            ),
         )
 
     def _do_pptx_schema(
@@ -311,6 +348,7 @@ def build_dotnet_provider(
             Capability("dotnet.docx.comments-add", "enhanced", validation_strength=1),
             Capability("dotnet.docx.template-apply", "enhanced", validation_strength=1),
             Capability("dotnet.docx.schema-validate", "enhanced", validation_strength=1),
+            Capability("xlsx.validate.schema", "enhanced", validation_strength=3),
             Capability("pptx.validate.schema", "enhanced", validation_strength=3),
         ],
         diagnostics=provider.diagnostics,

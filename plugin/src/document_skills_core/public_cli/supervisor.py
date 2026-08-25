@@ -32,6 +32,14 @@ _PPTX_MUTATION_OPERATIONS = {
     "pptx.edit",
 }
 _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS = 45.0
+_PROVIDER_OPERATION_TIMEOUTS = {
+    "xlsx.convert": 45.0,
+    "xlsx.recalculate": 45.0,
+    "xlsx.render": 45.0,
+    "xlsx.validate.schema": 45.0,
+}
+_RECALCULATION_POLICY_OPERATIONS = {"xlsx.create", "xlsx.edit"}
+_REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 45.0
 _LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
 _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
 _LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
@@ -211,6 +219,22 @@ class PublicCommandSupervisor:
                     max(self.timeout_seconds, _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS),
                     MAX_WORKER_BYTES,
                 )
+            if type(value) is dict and value.get("operation") in _PROVIDER_OPERATION_TIMEOUTS:
+                operation = value["operation"]
+                return max(
+                    self.timeout_seconds,
+                    _PROVIDER_OPERATION_TIMEOUTS[operation],
+                ), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _RECALCULATION_POLICY_OPERATIONS
+                and type(value.get("arguments")) is dict
+                and value["arguments"].get("recalculation") == "required"
+            ):
+                return max(
+                    self.timeout_seconds,
+                    _REQUIRED_RECALCULATION_TIMEOUT_SECONDS,
+                ), MAX_WORKER_BYTES
             if type(value) is dict and value.get("operation") == _SCHEMA_OPERATION:
                 return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
             if (

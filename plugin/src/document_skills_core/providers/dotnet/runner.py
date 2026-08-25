@@ -1,7 +1,7 @@
 """DotnetOpenXmlRunner — ProcessRunner-backed contained helper invocation.
 
 Every invocation routes through the existing allowlisted ProcessRunner with:
-shell:false argv array, ``run --project <helper> -- <subcommand>`` prefix,
+shell:false argv array, a no-restore helper/subcommand prefix,
 contained private cwd inside the project root, sanitized minimal environment,
 bounded per-operation timeout, output limit, cancellation, and process-tree
 cleanup.
@@ -14,11 +14,14 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
+    DOTNET_PRIVATE_ENVIRONMENT,
     HELPER_DIR_NAME,
     OUTPUT_LIMIT,
+    RUN_NO_BUILD_FLAG,
+    RUN_NO_RESTORE_FLAG,
     STDIN_CEILING,
 )
 
@@ -32,6 +35,7 @@ _TIMEOUTS: dict[str, float] = {
     "--comments-add": 30.0,
     "--template-apply": 60.0,
     "--schema-validate": 30.0,
+    "--xlsx-schema-validate": 30.0,
 }
 
 
@@ -48,11 +52,12 @@ class _ContainedRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         stdin_json: object | None = ...,
+        private_environment: tuple[str, ...] = ...,
     ) -> ProcessResult: ...
 
 
 class DotnetOpenXmlRunner:
-    """Contained ``dotnet run --project`` execution through ProcessRunner."""
+    """Contained helper execution through ProcessRunner without restore."""
 
     def __init__(
         self,
@@ -60,23 +65,42 @@ class DotnetOpenXmlRunner:
         helper_dir: Path | None = None,
         executable: str | Path | None = None,
         runner: _ContainedRunner | None = None,
+        policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         if helper_dir is not None:
             self._helper_dir = helper_dir.resolve()
         else:
-            self._helper_dir = (
-                Path(__file__).resolve().parent / HELPER_DIR_NAME
-            )
-        self._executable = executable
+            self._helper_dir = Path(__file__).resolve().parent / HELPER_DIR_NAME
+        self._executable: str | Path | None = None
         if runner is not None:
             self._runner = runner
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = policy or ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
+        if executable is not None:
+            self.set_executable(executable)
 
     def set_executable(self, executable: str | Path) -> None:
-        self._executable = executable
+        self._executable = self._policy.allow_executable(
+            "dotnet-openxml", executable
+        )
+
+    def bind_authorized_executable(self, executable: str | Path) -> None:
+        """Bind the exact executable record already proven by the detector."""
+
+        self._executable = self._policy.require_executable(
+            "dotnet-openxml",
+            executable,
+        )
 
     def run(
         self,
@@ -98,8 +122,9 @@ class DotnetOpenXmlRunner:
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "dotnet executable is not resolved.",
             )
-        payload_bytes = _check_stdin(stdin_payload)
+        _check_stdin(stdin_payload)
         argv = _build_argv(self._helper_dir, subcommand)
+        _require_no_restore_argv(argv)
         resolved_timeout = timeout_seconds or _TIMEOUTS.get(subcommand, 30.0)
         resolved_limit = output_limit or OUTPUT_LIMIT
         return self._runner.run(
@@ -110,12 +135,35 @@ class DotnetOpenXmlRunner:
             timeout_seconds=resolved_timeout,
             output_limit=resolved_limit,
             stdin_json=stdin_payload,
+            private_environment=DOTNET_PRIVATE_ENVIRONMENT,
         )
 
 
 def _build_argv(helper_dir: Path, subcommand: str) -> list[str]:
-    """Build the full argv: run --project <helper> -- <subcommand>."""
-    return ["run", "--project", str(helper_dir), "--", subcommand]
+    """Build the full argv with implicit package restore disabled."""
+    return [
+        "run",
+        RUN_NO_RESTORE_FLAG,
+        RUN_NO_BUILD_FLAG,
+        "--project",
+        str(helper_dir),
+        "--",
+        subcommand,
+    ]
+
+
+def _require_no_restore_argv(argv: list[str]) -> None:
+    """Fail closed if a provider operation could implicitly restore NuGet."""
+    if (
+        not argv
+        or argv[0] != "run"
+        or RUN_NO_RESTORE_FLAG not in argv
+        or RUN_NO_BUILD_FLAG not in argv
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "Dotnet helper execution must disable implicit package restore and build.",
+        )
 
 
 def _check_stdin(payload: dict[str, Any] | None) -> int:

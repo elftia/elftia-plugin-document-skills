@@ -1,9 +1,11 @@
 <!-- OpenXmlHelper — C# helper for the dotnet-openxml enhancement provider.
 
   Module provenance: original Elftia-authored clean-room implementation.
-  This project is invoked ONLY through the contained ProcessRunner via
-  ``dotnet run`` with the project argument and end-of-options marker. The DocumentFormat.OpenXml package
-  is resolved from the user's NuGet cache at runtime; it is NEVER bundled.
+  This project is invoked ONLY through the contained ProcessRunner with a
+  validated helper project and separated subcommand. The exact OpenXML dependency
+  graph is pinned by packages.lock.json and restored only in locked mode from its
+  package source into project-private temporary cache and configuration roots. User
+  NuGet cache/configuration is not read or required, and packages are NEVER bundled.
   The helper does NOT execute macros, VBA, DDE, or external-data refresh.
 -->
 <Project Sdk="Microsoft.NET.Sdk">
@@ -14,10 +16,12 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>OpenXmlHelper</AssemblyName>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.0" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="[3.0.0]" />
   </ItemGroup>
 
 </Project>

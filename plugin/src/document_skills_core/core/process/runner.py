@@ -2,30 +2,155 @@
 
 import json
 import os
-from dataclasses import dataclass, field
-from pathlib import Path
 import re
 import shutil
 import subprocess
+import threading
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
 from ..io.portable_paths import PORTABLE_PATH_POLICY
+from ..io.temp_roots import OperationTempRoot, cleanup_stale_roots
+from .executable import (
+    ExecutableIdentity,
+    ExecutableLaunchLease,
+    acquire_executable_lease,
+    capture_executable_identity,
+)
 from .streams import BoundedPipeCollector
 from .tree import ProcessTree
 
 _SECRET_PATTERN = re.compile(r"(?i)(token|secret|password|api[_-]?key)=\S+")
-_ENV_ALLOWLIST = ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL", "DOTNET_ROOT", "DOTNET_CLI_TELEMETRY_OPTOUT")
+_ENV_ALLOWLIST = (
+    "PATH",
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "LANG",
+    "LC_ALL",
+    "DOTNET_ROOT",
+    "DOTNET_CLI_TELEMETRY_OPTOUT",
+    "DOCUMENT_SKILLS_XLSX_CORE_ONLY",
+)
 _POST_KILL_WAIT_SECONDS = 1.0
 _STREAM_CLOSE_GRACE_SECONDS = 0.25
+_PRIVATE_ENVIRONMENT_PATHS = {
+    "APPDATA": "app-data",
+    "DOTNET_CLI_HOME": "dotnet-cli-home",
+    "LOCALAPPDATA": "local-app-data",
+    "NUGET_PACKAGES": "nuget-packages",
+    "PROGRAMFILES(X86)": "program-files-x86",
+}
+_PERSISTENT_ENVIRONMENT_GUARDS = {
+    # The .NET CLI can persist its global-tools directory directly to
+    # HKCU\Environment on Windows. Apply the opt-out to every managed child so
+    # direct probes and nested dotnet launches cannot mutate the user's PATH.
+    "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
+}
+
+
+class _RuntimeCheckWatcher:
+    """Run one caller-supplied safety check at a time off the deadline thread."""
+
+    def __init__(self, callback: Callable[[], None]) -> None:
+        self._callback = callback
+        self._request = threading.Event()
+        self._completed = threading.Event()
+        self._stopped = threading.Event()
+        self._lock = threading.Lock()
+        self._in_flight = False
+        self._error: BaseException | None = None
+        self._thread = threading.Thread(target=self._watch, daemon=True)
+        self._thread.start()
+
+    def poll(self) -> None:
+        """Consume a completed check and keep exactly one check in flight."""
+
+        if self._in_flight:
+            if not self._completed.is_set():
+                return
+            self._consume()
+        self._start()
+
+    def finish_after_exit(self, deadline: float) -> bool:
+        """Finish the current check, then require one check started post-exit."""
+
+        if self._in_flight:
+            if not self._wait_until(deadline):
+                return False
+            self._consume()
+        self._start()
+        if not self._wait_until(deadline):
+            return False
+        self._consume()
+        return True
+
+    def close(self) -> None:
+        self._stopped.set()
+        self._request.set()
+        if not self._in_flight or self._completed.is_set():
+            self._thread.join(0.05)
+
+    def _start(self) -> None:
+        self._completed.clear()
+        with self._lock:
+            self._error = None
+        self._in_flight = True
+        self._request.set()
+
+    def _consume(self) -> None:
+        self._in_flight = False
+        with self._lock:
+            error = self._error
+            self._error = None
+        if error is None:
+            return
+        if isinstance(error, DocumentSkillsError):
+            raise error
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "Process runtime safety check failed.",
+            details={
+                "reason_category": "runtime_check_failed",
+                "exception_class": type(error).__name__[:64],
+            },
+        ) from error
+
+    def _wait_until(self, deadline: float) -> bool:
+        remaining = deadline - time.monotonic()
+        return remaining > 0 and self._completed.wait(remaining)
+
+    def _watch(self) -> None:
+        while True:
+            self._request.wait()
+            self._request.clear()
+            if self._stopped.is_set():
+                return
+            error: BaseException | None = None
+            try:
+                self._callback()
+            except BaseException as caught:  # noqa: BLE001 - watcher reports safely
+                error = caught
+            with self._lock:
+                self._error = error
+            self._completed.set()
 
 
 @dataclass
 class ProcessPolicy:
     project_root: Path
-    executables: dict[str, dict[Path, Path]] = field(default_factory=dict)
+    executables: dict[str, dict[Path, ExecutableIdentity]] = field(default_factory=dict)
     scripts: dict[str, set[Path]] = field(default_factory=dict)
+    _executable_lock: threading.RLock = field(
+        default_factory=threading.RLock,
+        init=False,
+        repr=False,
+    )
 
     def allow_executable(self, provider_id: str, executable: str | Path) -> Path:
         raw = str(executable)
@@ -37,9 +162,52 @@ class ProcessPolicy:
                 details={"provider": provider_id, "executable": Path(raw).name},
             )
         launch_path = Path(resolved_raw).absolute()
-        canonical_identity = launch_path.resolve()
-        self.executables.setdefault(provider_id, {})[launch_path] = canonical_identity
+        captured = capture_executable_identity(launch_path)
+        with self._executable_lock:
+            provider_executables = self.executables.setdefault(provider_id, {})
+            approved = provider_executables.get(launch_path)
+            if approved is not None and approved != captured:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Executable identity changed after authorization.",
+                    details={
+                        "provider": provider_id,
+                        "executable": launch_path.name,
+                        "reason_category": "executable_identity_changed",
+                    },
+                )
+            provider_executables[launch_path] = captured
         return launch_path
+
+    def require_executable(self, provider_id: str, executable: str | Path) -> Path:
+        launch_path = Path(executable).absolute()
+        expected = self._approved_executable(provider_id, launch_path)
+        with acquire_executable_lease(expected, require_native=False):
+            return launch_path
+
+    def acquire_executable(
+        self,
+        provider_id: str,
+        executable: str | Path,
+    ) -> ExecutableLaunchLease:
+        launch_path = Path(executable).absolute()
+        expected = self._approved_executable(provider_id, launch_path)
+        return acquire_executable_lease(expected, require_native=True)
+
+    def _approved_executable(
+        self,
+        provider_id: str,
+        launch_path: Path,
+    ) -> ExecutableIdentity:
+        with self._executable_lock:
+            approved = self.executables.get(provider_id, {}).get(launch_path)
+        if approved is None:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "Executable is not allowlisted for this provider.",
+                details={"provider": provider_id, "executable": launch_path.name},
+            )
+        return approved
 
     def allow_script(self, provider_id: str, script: str | Path) -> Path:
         resolved = Path(script).resolve()
@@ -85,6 +253,9 @@ class ProcessResult:
 class ProcessRunner:
     def __init__(self, policy: ProcessPolicy) -> None:
         self.policy = policy
+        self._private_environment_lock = threading.Lock()
+        self._private_environment_root: Path | None = None
+        self._private_environment_context: OperationTempRoot | None = None
 
     def run(
         self,
@@ -97,8 +268,9 @@ class ProcessRunner:
         cwd: Path | None = None,
         timeout_seconds: float = 2.0,
         output_limit: int = 1_048_576,
+        runtime_check: Callable[[], None] | None = None,
+        private_environment: tuple[str, ...] = (),
     ) -> ProcessResult:
-        executable_path = self._check_executable(provider_id, executable)
         if script is not None:
             self._check_script(provider_id, script)
             if str(script.resolve()) not in args:
@@ -112,23 +284,41 @@ class ProcessRunner:
             raise DocumentSkillsError(
                 ErrorCode.PATH_UNSAFE, "Process cwd must remain inside the project root."
             )
-        command = [str(executable_path), *args]
+        command = [str(Path(executable).absolute()), *args]
         creation_flags = (
             subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         )
         started = time.monotonic()
-        process = subprocess.Popen(
-            command,
-            cwd=isolated_cwd,
-            env=self._minimal_environment(),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=False,
-            shell=False,
-            start_new_session=os.name != "nt",
-            creationflags=creation_flags,
-        )
+        try:
+            with self.policy.acquire_executable(provider_id, executable) as launch:
+                atomic_launch: dict[str, Any] = {
+                    "executable": launch.popen_executable
+                }
+                if launch.pass_fds:
+                    atomic_launch["pass_fds"] = launch.pass_fds
+                process = subprocess.Popen(
+                    command,
+                    cwd=isolated_cwd,
+                    env=self._process_environment(private_environment),
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=False,
+                    shell=False,
+                    start_new_session=os.name != "nt",
+                    creationflags=creation_flags,
+                    **atomic_launch,
+                )
+        except OSError as error:
+            raise DocumentSkillsError(
+                ErrorCode.RUNTIME_UNAVAILABLE,
+                "Atomic executable launch failed.",
+                details={
+                    "provider": provider_id,
+                    "reason_category": "atomic_launch_failed",
+                    "exception_class": type(error).__name__[:64],
+                },
+            ) from error
         tree = ProcessTree(process)
         assert process.stdout is not None
         assert process.stderr is not None
@@ -149,17 +339,44 @@ class ProcessRunner:
                 stdout_collector,
                 stderr_collector,
                 timeout_seconds,
+                runtime_check,
             )
+        except DocumentSkillsError:
+            self._terminate_and_close_collectors(
+                process,
+                tree,
+                stdout_collector,
+                stderr_collector,
+            )
+            raise
         except KeyboardInterrupt:
-            tree.terminate()
-            self._finish_collectors(process, stdout_collector, stderr_collector)
-            stdout_collector.close()
-            stderr_collector.close()
+            self._terminate_and_close_collectors(
+                process,
+                tree,
+                stdout_collector,
+                stderr_collector,
+            )
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
                 "Process execution was cancelled.",
                 details={"provider": provider_id, "reason_category": "cancelled"},
             ) from None
+        except BaseException as error:
+            self._terminate_and_close_collectors(
+                process,
+                tree,
+                stdout_collector,
+                stderr_collector,
+            )
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "Process runtime monitoring failed.",
+                details={
+                    "provider": provider_id,
+                    "reason_category": "process_monitor_failed",
+                    "exception_class": type(error).__name__[:64],
+                },
+            ) from error
         finally:
             tree.close()
         if outcome == "timeout":
@@ -190,16 +407,7 @@ class ProcessRunner:
         return ProcessResult(process.returncode, stdout, redacted_stderr, duration_ms)
 
     def _check_executable(self, provider_id: str, executable: str | Path) -> Path:
-        launch_path = Path(executable).absolute()
-        canonical_identity = launch_path.resolve()
-        approved_identity = self.policy.executables.get(provider_id, {}).get(launch_path)
-        if approved_identity != canonical_identity:
-            raise DocumentSkillsError(
-                ErrorCode.PROVIDER_FAILED,
-                "Executable is not allowlisted for this provider.",
-                details={"provider": provider_id, "executable": launch_path.name},
-            )
-        return launch_path
+        return self.policy.require_executable(provider_id, executable)
 
     def _check_script(self, provider_id: str, script: Path) -> None:
         resolved = script.resolve()
@@ -212,7 +420,113 @@ class ProcessRunner:
 
     @staticmethod
     def _minimal_environment() -> dict[str, str]:
-        return {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
+        environment = {
+            key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ
+        }
+        environment.update(_PERSISTENT_ENVIRONMENT_GUARDS)
+        return environment
+
+    def _process_environment(
+        self,
+        private_environment: tuple[str, ...],
+    ) -> dict[str, str]:
+        environment = self._minimal_environment()
+        if not private_environment:
+            return environment
+        requested = set(private_environment)
+        if len(requested) != len(private_environment):
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment contains duplicate entries.",
+            )
+        unsupported = requested.difference(_PRIVATE_ENVIRONMENT_PATHS)
+        if unsupported:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment contains an unsupported entry.",
+                details={"entries": sorted(unsupported)},
+            )
+        root = self._ensure_private_environment_root()
+        for name in private_environment:
+            path = (root / _PRIVATE_ENVIRONMENT_PATHS[name]).resolve(strict=False)
+            if path.parent != root:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment escaped its managed root.",
+                )
+            try:
+                path.mkdir(mode=0o700, parents=False, exist_ok=True)
+            except OSError as error:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment could not be created safely.",
+                    details={"entry": name},
+                ) from error
+            if not path.is_dir() or path.is_symlink():
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment must be a real directory.",
+                    details={"entry": name},
+                )
+            environment[name] = str(path)
+        return environment
+
+    def _ensure_private_environment_root(self) -> Path:
+        with self._private_environment_lock:
+            if self._private_environment_root is not None:
+                return self._private_environment_root
+            base = (
+                self.policy.project_root
+                / ".document-skills-tmp"
+                / "document-skills-operations"
+            ).resolve(strict=False)
+            project_root = self.policy.project_root.resolve()
+            if not base.is_relative_to(project_root) or base.is_symlink():
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment base is not project-contained.",
+                )
+            cleanup_stale_roots(base=base)
+            context = OperationTempRoot(base=base)
+            try:
+                root = context.__enter__().resolve(strict=True)
+            except OSError as error:
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment root could not be created safely.",
+                ) from error
+            if root.parent != base or root.is_symlink():
+                context.__exit__(None, None, None)
+                raise DocumentSkillsError(
+                    ErrorCode.PATH_UNSAFE,
+                    "Private process environment root is not managed.",
+                )
+            self._private_environment_context = context
+            self._private_environment_root = root
+            return root
+
+    def close(self) -> None:
+        """Clean the project-private process environment, if one was created."""
+
+        context = self._private_environment_context
+        self._private_environment_root = None
+        self._private_environment_context = None
+        if context is not None:
+            self._cleanup_private_environment(context)
+
+    def __del__(self) -> None:
+        """Best-effort cleanup for callers that do not use explicit close()."""
+
+        self.close()
+
+    @staticmethod
+    def _cleanup_private_environment(context: OperationTempRoot) -> None:
+        try:
+            context.__exit__(None, None, None)
+        except (DocumentSkillsError, OSError):
+            # A killed worker may leave this managed operation root for a later
+            # conservative stale-root cleanup; never broaden deletion here.
+            pass
 
     @staticmethod
     def _write_stdin(process: subprocess.Popen[bytes], payload: bytes | None) -> None:
@@ -234,25 +548,46 @@ class ProcessRunner:
         stdout: BoundedPipeCollector,
         stderr: BoundedPipeCollector,
         timeout_seconds: float,
+        runtime_check: Callable[[], None] | None,
     ) -> str:
         deadline = time.monotonic() + timeout_seconds
         exited_at: float | None = None
-        while True:
-            if stdout.overflow.is_set() or stderr.overflow.is_set():
-                tree.terminate()
-                return "overflow"
-            now = time.monotonic()
-            if now >= deadline:
-                tree.terminate()
-                return "timeout"
-            if process.poll() is not None:
-                exited_at = exited_at or now
-                if stdout.done.is_set() and stderr.done.is_set():
-                    return "complete"
-                if now - exited_at >= _STREAM_CLOSE_GRACE_SECONDS:
+        watcher = (
+            _RuntimeCheckWatcher(runtime_check)
+            if runtime_check is not None
+            else None
+        )
+        post_exit_checked = False
+        try:
+            while True:
+                if watcher is not None:
+                    watcher.poll()
+                if stdout.overflow.is_set() or stderr.overflow.is_set():
                     tree.terminate()
-                    return "complete"
-            time.sleep(0.01)
+                    return "overflow"
+                now = time.monotonic()
+                if now >= deadline:
+                    tree.terminate()
+                    return "timeout"
+                if process.poll() is not None:
+                    exited_at = exited_at or now
+                    if watcher is not None and not post_exit_checked:
+                        if not watcher.finish_after_exit(deadline):
+                            tree.terminate()
+                            return "timeout"
+                        post_exit_checked = True
+                        if stdout.overflow.is_set() or stderr.overflow.is_set():
+                            tree.terminate()
+                            return "overflow"
+                    if stdout.done.is_set() and stderr.done.is_set():
+                        return "complete"
+                    if now - exited_at >= _STREAM_CLOSE_GRACE_SECONDS:
+                        tree.terminate()
+                        return "complete"
+                time.sleep(0.01)
+        finally:
+            if watcher is not None:
+                watcher.close()
 
     @staticmethod
     def _finish_collectors(
@@ -279,6 +614,23 @@ class ProcessRunner:
         if not stderr.done.is_set():
             stderr.abort()
             stderr.wait(_POST_KILL_WAIT_SECONDS)
+
+    @classmethod
+    def _terminate_and_close_collectors(
+        cls,
+        process: subprocess.Popen[bytes],
+        tree: ProcessTree,
+        stdout: BoundedPipeCollector,
+        stderr: BoundedPipeCollector,
+    ) -> None:
+        tree.terminate()
+        try:
+            cls._finish_collectors(process, stdout, stderr)
+        finally:
+            try:
+                stdout.close()
+            finally:
+                stderr.close()
 
     def _redact(self, stderr: str) -> str:
         redacted = _SECRET_PATTERN.sub(r"\1=<redacted>", stderr)

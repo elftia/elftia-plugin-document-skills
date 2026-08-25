@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from .constants import NS, qn
+from .constants import NS
 from .formula_state import (
     derive_read_state,
     parse_formula_references,
@@ -11,6 +11,12 @@ from .formula_state import (
 )
 from .shared_strings import read_shared_strings
 from .styles import read_styles, resolve_style_index
+from .xml_numeric import (
+    MAX_UNSIGNED_INT,
+    parse_optional_xml_number,
+    parse_xml_int,
+    parse_xml_number,
+)
 
 _MAIN_NS = NS["main"]
 _COL_ROW_RE = re.compile(r"^([A-Z]+)(\d+)$")
@@ -35,7 +41,12 @@ def parse_ref(ref: str) -> tuple[str, int] | None:
     match = _COL_ROW_RE.match(ref.upper().replace("$", ""))
     if not match:
         return None
-    return match.group(1), int(match.group(2))
+    return match.group(1), parse_xml_int(
+        match.group(2),
+        attribute="cell.ref.row",
+        minimum=1,
+        maximum=1_048_576,
+    )
 
 
 def map_workbook(package: Any) -> dict[str, Any]:
@@ -84,9 +95,11 @@ def _map_sheets(
         sheet_part = rel.resolved_target if rel else None
         sheet_data: dict[str, Any] = {
             "name": name,
+            "part": sheet_part,
             "order": idx,
             "state": sheet_state,
             "rows": [],
+            "columns": [],
             "dimension": "",
             "protection": False,
         }
@@ -111,6 +124,8 @@ def _fill_sheet_data(
         sheet_data["dimension"] = dim.attrib.get("ref", "")
     # Sheet protection
     sheet_data["protection"] = root.find(f"{{{main_ns}}}sheetProtection") is not None
+    columns = _map_columns(root, styles)
+    sheet_data["columns"] = columns
     # Rows and cells
     sheet_data_root = root.find(f"{{{main_ns}}}sheetData")
     if sheet_data_root is None:
@@ -118,26 +133,70 @@ def _fill_sheet_data(
     rows: list[dict[str, Any]] = []
     for row_elem in sheet_data_root.findall(f"{{{main_ns}}}row"):
         row_ref = row_elem.attrib.get("r", "")
-        row_style = int(row_elem.attrib.get("s", "0"))
+        row_style = parse_xml_int(
+            row_elem.attrib.get("s", "0"),
+            attribute="row.s",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
         hidden = row_elem.attrib.get("hidden") == "1"
+        height = row_elem.attrib.get("ht")
         cells: list[dict[str, Any]] = []
         for c_elem in row_elem.findall(f"{{{main_ns}}}c"):
-            cell = _map_cell(c_elem, shared, styles)
+            column_style = _column_style_index(columns, c_elem.attrib.get("r", ""))
+            cell = _map_cell(
+                c_elem,
+                shared,
+                styles,
+                row_style_index=row_style,
+                column_style_index=column_style,
+            )
             cells.append(cell)
         rows.append({
             "ref": row_ref,
             "style_index": row_style,
+            "style": resolve_style_index(styles, row_style),
             "hidden": hidden,
+            "height": parse_optional_xml_number(
+                height,
+                attribute="row.ht",
+                minimum=0,
+                maximum=409.5,
+            ),
             "cells": cells,
         })
     sheet_data["rows"] = rows
 
 
-def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[str, Any]:
+def _map_cell(
+    c_elem: Any,
+    shared: list[str],
+    styles: dict[str, Any],
+    *,
+    row_style_index: int = 0,
+    column_style_index: int = 0,
+) -> dict[str, Any]:
     main_ns = _MAIN_NS
     ref = c_elem.attrib.get("r", "")
     cell_type = c_elem.attrib.get("t", "n")
-    style_index = int(c_elem.attrib.get("s", "0"))
+    raw_style_index = parse_xml_int(
+        c_elem.attrib.get("s", "0"),
+        attribute="cell.s",
+        minimum=0,
+        maximum=MAX_UNSIGNED_INT,
+    )
+    if "s" in c_elem.attrib:
+        resolved_style_index = raw_style_index
+        style_source = "cell"
+    elif row_style_index:
+        resolved_style_index = row_style_index
+        style_source = "row"
+    elif column_style_index:
+        resolved_style_index = column_style_index
+        style_source = "column"
+    else:
+        resolved_style_index = 0
+        style_source = "default"
     formula_elem = c_elem.find(f"{{{main_ns}}}f")
     value_elem = c_elem.find(f"{{{main_ns}}}v")
     inline_str_elem = c_elem.find(f"{{{main_ns}}}is")
@@ -149,7 +208,12 @@ def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[st
     # Resolve value by type
     value: str | None = None
     if cell_type == "s" and value_elem is not None:
-        idx = int(value_elem.text or "0")
+        idx = parse_xml_int(
+            value_elem.text or "0",
+            attribute="cell.sharedStringIndex",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
         value = shared[idx] if 0 <= idx < len(shared) else None
     elif cell_type == "inlineStr" and inline_str_elem is not None:
         t = inline_str_elem.find(f"{{{main_ns}}}t")
@@ -157,12 +221,15 @@ def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[st
     elif value_elem is not None:
         value = value_elem.text
     # Resolve style
-    resolved_style = resolve_style_index(styles, style_index)
+    resolved_style = resolve_style_index(styles, resolved_style_index)
     cell_data: dict[str, Any] = {
         "ref": ref,
         "type": cell_type,
         "value": value,
-        "style_index": style_index,
+        "style_index": raw_style_index,
+        "resolved_style_index": resolved_style_index,
+        "style_source": style_source,
+        "style": resolved_style,
         "number_format": resolved_style.get("num_fmt_code", ""),
         "formula": formula_text if formula_text else None,
         "cached_value": cached_value,
@@ -179,6 +246,69 @@ def _map_cell(c_elem: Any, shared: list[str], styles: dict[str, Any]) -> dict[st
             dependents_count=0,
         )
     return cell_data
+
+
+def _map_columns(root: Any, styles: dict[str, Any]) -> list[dict[str, Any]]:
+    columns: list[dict[str, Any]] = []
+    container = root.find(f"{{{_MAIN_NS}}}cols")
+    if container is None:
+        return columns
+    for column in container.findall(f"{{{_MAIN_NS}}}col"):
+        first = parse_xml_int(
+            column.attrib.get("min", "1"),
+            attribute="col.min",
+            minimum=1,
+            maximum=16_384,
+        )
+        last = parse_xml_int(
+            column.attrib.get("max", str(first)),
+            attribute="col.max",
+            minimum=first,
+            maximum=16_384,
+        )
+        style_index = parse_xml_int(
+            column.attrib.get("style", "0"),
+            attribute="col.style",
+            minimum=0,
+            maximum=MAX_UNSIGNED_INT,
+        )
+        width = column.attrib.get("width")
+        columns.append(
+            {
+                "min": first,
+                "max": last,
+                "ref": (
+                    num_to_col(first)
+                    if first == last
+                    else f"{num_to_col(first)}:{num_to_col(last)}"
+                ),
+                "width": (
+                    None
+                    if width is None
+                    else parse_xml_number(
+                        width,
+                        attribute="col.width",
+                        minimum=0,
+                        maximum=255,
+                    )
+                ),
+                "hidden": column.attrib.get("hidden") == "1",
+                "style_index": style_index,
+                "style": resolve_style_index(styles, style_index),
+            }
+        )
+    return columns
+
+
+def _column_style_index(columns: list[dict[str, Any]], cell_ref: str) -> int:
+    parsed = parse_ref(cell_ref)
+    if parsed is None:
+        return 0
+    column_number = col_to_num(parsed[0])
+    for column in columns:
+        if column["min"] <= column_number <= column["max"]:
+            return column["style_index"]
+    return 0
 
 
 def _map_defined_names(workbook_root: Any) -> list[dict[str, str]]:

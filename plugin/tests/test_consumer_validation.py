@@ -956,6 +956,9 @@ def _known_good(tmp_path: Path, format_id: str) -> tuple[Path, dict[str, Any]]:
         sheet.title = "Data"
         sheet["A1"] = "Independent XLSX"
         sheet["B1"] = 10
+        workbook.properties.title = ""
+        workbook.properties.creator = ""
+        workbook.properties.subject = ""
         workbook.save(artifact)
         return artifact, {
             "sheets": ["Data"],

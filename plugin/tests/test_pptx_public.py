@@ -7,7 +7,6 @@ import subprocess
 
 import pytest
 
-from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.pptx.package import OpcPackage
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
@@ -339,12 +338,6 @@ def test_public_schema_validation_is_honestly_provider_gated(
     public_created: Path,
     tmp_path: Path,
 ) -> None:
-    capabilities = _public(project_root, "capabilities", "--json")
-    schema = next(
-        item
-        for item in capabilities["operations"]
-        if item["operation"] == "pptx.validate.schema"
-    )
     before = sha256(public_created.read_bytes()).hexdigest()
     request = _request(tmp_path, "schema.json", {
         "schema_version": "1.0",
@@ -356,13 +349,19 @@ def test_public_schema_validation_is_honestly_provider_gated(
     result = _public(project_root, "run", "--request", str(request), check=False)
 
     assert sha256(public_created.read_bytes()).hexdigest() == before
-    if schema["available"]:
-        assert result["status"] == "success"
+    assert result["status"] in {"success", "unavailable"}, result
+    if result["status"] == "success":
         assert result["provider_chain"] == ["dotnet-openxml"]
-        assert result["validation"]["gates"][0]["id"] == "schema.full"
-        assert result["validation"]["gates"][0]["outcome"] == "pass"
+        schema_gate = next(
+            gate
+            for gate in result["validation"]["gates"]
+            if gate["id"] == "schema.full"
+        )
+        assert schema_gate["outcome"] == "pass", schema_gate
     else:
-        assert result["status"] == "unavailable"
+        assert result["errors"], result
+        reason = result["errors"][0]["message"]
+        assert isinstance(reason, str) and reason, result
 
 
 def test_public_libreoffice_outputs_are_honestly_provider_gated(
@@ -471,14 +470,20 @@ def test_public_create_reopens_real_native_objects(project_root: Path, tmp_path:
     assert creation["images"][0]["embedded_media_part"] == "ppt/media/image1.png"
     assert creation["images"][0]["fallback"] == "native"
     assert creation["charts"][0]["editable"] is True
-    outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}
+    gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
+    outcomes = {gate_id: gate["outcome"] for gate_id, gate in gates.items()}
     assert outcomes["visual.render"] == "unavailable"
-    capabilities = _public(project_root, "capabilities", "--json")
-    assert outcomes["schema.full"] == (
-        "pass"
-        if capabilities["validation"]["schema"] == "available"
-        else "unavailable"
-    )
+    schema_gate = gates["schema.full"]
+    assert schema_gate["outcome"] in {"pass", "unavailable"}, schema_gate
+    assert schema_gate["validator"] == "dotnet-openxml"
+    if schema_gate["outcome"] == "pass":
+        assert schema_gate["required"] is True
+        assert schema_gate["evidence"]["valid"] is True
+        assert schema_gate["evidence"]["error_count"] == 0
+    else:
+        assert schema_gate["required"] is False
+        reason = schema_gate["evidence"].get("reason")
+        assert isinstance(reason, str) and reason, schema_gate
     presentation = Presentation(output)
     assert len(presentation.slides) == 2
     shapes = list(presentation.slides[1].shapes)

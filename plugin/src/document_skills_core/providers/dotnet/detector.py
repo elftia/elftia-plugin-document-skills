@@ -9,19 +9,25 @@ AND (b) the helper ``--probe-json`` returns ``assembly_loaded: true`` + a parsea
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-from pathlib import Path
 import shutil
+from collections.abc import Callable
+from pathlib import Path
 from typing import Protocol
 
 from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
+    DOTNET_PRIVATE_ENVIRONMENT,
+    HELPER_PROJECT_NAME,
+    LOCKED_RESTORE_FLAGS,
     PROBE_OUTPUT_LIMIT,
     PROBE_PROTOCOL_VERSION,
     PROBE_RUNTIME_MAJOR,
     RUNTIME_PREFIX,
     RUNTIME_PROBE_OUTPUT_LIMIT,
+    TIMEOUT_LOCKED_RESTORE,
+    TIMEOUT_NO_RESTORE_BUILD,
     TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
@@ -41,6 +47,7 @@ class _ProbeRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         stdin_json: object | None = ...,
+        private_environment: tuple[str, ...] = ...,
     ) -> ProcessResult: ...
 
 
@@ -52,17 +59,27 @@ class DotnetOpenXmlDetector:
         project_root: Path,
         helper_dir: Path | None = None,
         runner: _ProbeRunner | None = None,
+        policy: ProcessPolicy | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         if helper_dir is not None:
             self._helper_dir = helper_dir.resolve()
         else:
-            self._helper_dir = (Path(__file__).resolve().parent / "helper")
+            self._helper_dir = Path(__file__).resolve().parent / "helper"
+        self._helper_project = self._helper_dir / HELPER_PROJECT_NAME
         if runner is not None:
             self._runner = runner
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = policy or ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -80,6 +97,28 @@ class DotnetOpenXmlDetector:
             )
         return self._validate_assembly(candidate)
 
+    def detect_and_authorize(
+        self,
+        bind_authorized_executable: Callable[[str | Path], None],
+    ) -> DetectionEvidence:
+        """Bind operation launch to the executable record used by the probe."""
+
+        evidence = self.detect()
+        if not evidence.available or evidence.path is None:
+            return evidence
+        try:
+            bind_authorized_executable(evidence.path)
+        except DocumentSkillsError:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet executable identity changed between the successful "
+                    "probe and operation authorization"
+                ),
+                path=evidence.path,
+            )
+        return evidence
+
     def _find_candidate(self) -> str | None:
         found = shutil.which("dotnet")
         if found:
@@ -92,7 +131,7 @@ class DotnetOpenXmlDetector:
     def _validate_runtime(self, candidate: str) -> str | None:
         """Return the runtime line if .NET 8 is present, else None."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "runtime-detection")
         except DocumentSkillsError:
             return None
         try:
@@ -102,6 +141,7 @@ class DotnetOpenXmlDetector:
                 ["--list-runtimes"],
                 timeout_seconds=TIMEOUT_RUNTIME_PROBE,
                 output_limit=RUNTIME_PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
             )
         except DocumentSkillsError:
             return None
@@ -116,15 +156,80 @@ class DotnetOpenXmlDetector:
     def _validate_assembly(self, candidate: str) -> DetectionEvidence:
         """Run the helper --probe-json to validate the OpenXML assembly."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "dotnet-openxml")
         except DocumentSkillsError:
             return DetectionEvidence(
                 available=False,
                 reason=f"dotnet detected at {candidate} but could not be resolved for assembly probe",
                 path=candidate,
             )
+        restore_argv = _build_locked_restore_argv(self._helper_project)
+        try:
+            restored = self._runner.run(
+                "dotnet-openxml",
+                resolved,
+                restore_argv,
+                cwd=self.project_root,
+                timeout_seconds=TIMEOUT_LOCKED_RESTORE,
+                output_limit=PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
+            )
+        except DocumentSkillsError as error:
+            category = _classify_error(error)
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    f"dotnet detected at {candidate} but locked helper restore "
+                    f"failed: {category}"
+                ),
+                path=candidate,
+            )
+        if restored.returncode != 0:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet detected but the checked-in OpenXML dependency lock "
+                    f"could not be restored (exit {restored.returncode})"
+                ),
+                path=candidate,
+            )
+        build_argv = _build_no_restore_build_argv(self._helper_project)
+        try:
+            built = self._runner.run(
+                "dotnet-openxml",
+                resolved,
+                build_argv,
+                cwd=self.project_root,
+                timeout_seconds=TIMEOUT_NO_RESTORE_BUILD,
+                output_limit=PROBE_OUTPUT_LIMIT,
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
+            )
+        except DocumentSkillsError as error:
+            category = _classify_error(error)
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    f"dotnet detected at {candidate} but no-restore helper "
+                    f"build failed: {category}"
+                ),
+                path=candidate,
+            )
+        if built.returncode != 0:
+            return DetectionEvidence(
+                available=False,
+                reason=(
+                    "dotnet detected but the locked OpenXML helper could not "
+                    f"be built without restore (exit {built.returncode})"
+                ),
+                path=candidate,
+            )
         argv = [
-            "run", "--project", str(self._helper_dir), "--",
+            "run",
+            "--no-restore",
+            "--no-build",
+            "--project",
+            str(self._helper_dir),
+            "--",
             "--probe-json",
         ]
         try:
@@ -135,6 +240,8 @@ class DotnetOpenXmlDetector:
                 cwd=self.project_root,
                 timeout_seconds=TIMEOUT_PROBE,
                 output_limit=PROBE_OUTPUT_LIMIT,
+                stdin_json={},
+                private_environment=DOTNET_PRIVATE_ENVIRONMENT,
             )
         except DocumentSkillsError as error:
             category = _classify_error(error)
@@ -194,13 +301,26 @@ class DotnetOpenXmlDetector:
             path=candidate,
         )
 
-    def _resolve_executable(self, candidate: str) -> Path:
-        policy = ProcessPolicy(self.project_root)
-        return policy.allow_executable("runtime-detection", candidate)
+    def _resolve_executable(self, candidate: str, provider_id: str) -> Path:
+        if not isinstance(self._runner, ProcessRunner):
+            return Path(candidate).absolute()
+        return self._policy.allow_executable(provider_id, candidate)
 
 
 def _classify_error(error: DocumentSkillsError) -> str:
     from ...core.contracts.errors import ErrorCode
+
     if error.code == ErrorCode.PROCESS_TIMEOUT:
         return "timeout"
     return error.code.value.lower().replace("ds_", "")
+
+
+def _build_locked_restore_argv(helper_project: Path) -> list[str]:
+    """Build the only dependency-materialization command the detector permits."""
+    return ["restore", str(helper_project), *LOCKED_RESTORE_FLAGS]
+
+
+def _build_no_restore_build_argv(helper_project: Path) -> list[str]:
+    """Build only the graph materialized by the preceding locked restore."""
+
+    return ["build", str(helper_project), "--no-restore", "--nologo"]

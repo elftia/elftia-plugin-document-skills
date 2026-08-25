@@ -3,15 +3,24 @@
 from pathlib import Path
 from typing import Any
 
-from .constants import CALC_CHAIN_PART, SHARED_STRINGS_PART, STYLES_PART
+from .annotations import project_comments
+from .constants import CALC_CHAIN_PART, NS, SHARED_STRINGS_PART, STYLES_PART
+from .format_policy import assert_package_matches_path
+from .macro_policy import macro_read_evidence
 from .package import OpcPackage
+from .pivot_projection import project_pivot_tables
 from .projection import (
     project_charts,
+    project_conditional_formats,
+    project_data_validations,
     project_drawings,
     project_external_links,
+    project_hyperlinks,
     project_pivot_caches,
     project_tables,
 )
+from .worksheet_metadata import project_worksheet_metadata
+from .workbook_properties import project_workbook_properties
 
 
 def inspect_xlsx(
@@ -24,6 +33,7 @@ def inspect_xlsx(
     but never executed or followed.
     """
     package = OpcPackage.open(path, allow_dangerous_inventory=True)
+    assert_package_matches_path(path, package.workbook_format)
     include_hashes = arguments.get("include_hashes", True)
     warnings: list[dict[str, Any]] = []
 
@@ -68,8 +78,31 @@ def inspect_xlsx(
     tables = project_tables(package)
     charts = project_charts(package)
     pivot_caches = project_pivot_caches(package)
+    pivot_tables = project_pivot_tables(package)
     external_links = project_external_links(package)
     drawings = project_drawings(package)
+    data_validations = project_data_validations(package)
+    conditional_formats = project_conditional_formats(package)
+    worksheet_metadata = project_worksheet_metadata(package)
+    hyperlinks = []
+    workbook = package.xml("xl/workbook.xml")
+    workbook_relationships = {
+        relationship.relationship_id: relationship
+        for relationship in package.relationships
+        if relationship.source_part == "xl/workbook.xml"
+    }
+    for sheet in workbook.findall(f".//{{{NS['main']}}}sheet"):
+        relationship = workbook_relationships.get(
+            sheet.attrib.get(f"{{{NS['r']}}}id", "")
+        )
+        if relationship is not None and relationship.resolved_target:
+            hyperlinks.extend(
+                project_hyperlinks(
+                    package,
+                    relationship.resolved_target,
+                    sheet.attrib.get("name", ""),
+                )
+            )
 
     operation_result: dict[str, Any] = {
         "mutation_authorized": False,
@@ -86,8 +119,15 @@ def inspect_xlsx(
         "tables": tables,
         "charts": charts,
         "pivot_caches": pivot_caches,
+        "pivot_tables": pivot_tables,
         "external_links": external_links,
         "drawings": drawings,
+        "data_validations": data_validations,
+        "conditional_formats": conditional_formats,
+        "worksheet_metadata": worksheet_metadata,
+        "hyperlinks": hyperlinks,
+        "comments": project_comments(package),
+        "workbook_properties": project_workbook_properties(package.parts),
         "unknown_parts": package.unknown_parts,
         "dangerous_content": {
             "present": dangerous_present,
@@ -96,6 +136,8 @@ def inspect_xlsx(
             },
         },
     }
+    if package.workbook_format in {"xlsm", "xltm"}:
+        operation_result["macro"] = macro_read_evidence(package)
     return operation_result, warnings
 
 
