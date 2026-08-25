@@ -1,6 +1,6 @@
 # CLEAN — Document Skills 0.5.3 XLSX Completion Final Review
 
-Date: 2026-08-26
+Date: 2026-08-26 — incremental re-review of `3423c56`
 
 ## Verdict
 
@@ -11,14 +11,16 @@ mapping identified below.
 
 Canonical findings: **0 Blocker, 0 Major, 0 Minor**.
 
-The two Major findings from the preceding review were remediated and
-independently re-reviewed. The current all-release-artifacts mapping contains
+The two Major findings from the preceding review remain remediated. The
+subsequent test-only provenance correction in `3423c56` was independently
+reviewed against the previously approved and bound `5809792` baseline and
+introduced no new finding. The current all-release-artifacts mapping contains
 **541 release files**: **423** risky module records, **115** exact-hash data
 classifications, **0** executable exclusions, exactly **3** self-referential
 metadata exclusions, and **0** review attestations. Its independently
 regenerated SHA-256 is:
 
-`09119c9db27bf5595a59f37d1c5dc43bebc1c70e722467f5793993260e925865`
+`0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
 
 This clean approval binds only to those exact reviewed bytes and mapping. Any
 release-artifact change requires a new mapping and independent review.
@@ -47,20 +49,48 @@ generator, or manifest under review.
 
 - Review branch: `review/xlsx-completion-final-20260826`
 - Base: `origin/main@6525b0ad79db705aa111c012b1c2ebd81d18afe1`
-- Implementation commit: `c9b4e4dc8381fb3b18b24d97e6ef93f8298767e6`
-- Implementation tree: `b1f49ecb67585578dfb24e819a98a1e74cb12721`
-- Reviewer cherry-pick commit: `7fc04a48832d12c8a08aa07c19668db5b1e8f218`
+- Incremental review baseline:
+  `58097929bbff63cc9999f869b8ab4211312f77f6`
+- Baseline tree: `58b8da327f1665f928b948808ce341760a9327d8`
+- Implementation commit: `3423c561f8fa9b8e910d1ca94beccf885dc7997f`
+- Implementation tree: `c6d75d5f6e64aadb59ac5a667470880ecce2cda1`
+- Reviewer integration commit: `10ab0608fae674ea43f5624f6ec7012634a8be6d`
 - Mapping SHA-256:
-  `09119c9db27bf5595a59f37d1c5dc43bebc1c70e722467f5793993260e925865`
+  `0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
 - Runtime source allowlist SHA-256:
   `7d56bad75091de424e25b5f7de62074bce3fad1391975ad71d41d6d3921de722`
 - CycloneDX SBOM SHA-256:
   `8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`
 
-The implementation tree was independently matched after cherry-pick: both the
-source implementation and reviewer branch resolve to
-`b1f49ecb67585578dfb24e819a98a1e74cb12721` before this excluded review report
-is updated.
+The implementation tree was independently matched after conflict resolution:
+both the source implementation and reviewer branch resolve to
+`c6d75d5f6e64aadb59ac5a667470880ecce2cda1` before this excluded review report
+is updated. The only integration conflict was the expected bound-versus-
+unbound `modules.json`; the reviewer selected the exact unbound bytes from
+`3423c56`.
+
+## Incremental review — canonical PPTX provenance owner
+
+`5809792..3423c56` changes one test source plus its unbound generated
+provenance and audit metadata. `tests/test_strategy3.py` now imports the
+canonical `pptx_module_profile` from `tools.html_pptx_provenance` and derives
+the expected requirement from tuple element 2. This removes its duplicate
+reconstruction from separate HTML/Core helpers and makes the test use the same
+combined requirement chosen by production provenance generation.
+
+The canonical combinations were inspected for all eight PPTX-owned paths in
+the shared XLSX test surface. They include HTML-only ownership, combined
+HTML/Core ownership, and the special shared provenance requirement for
+`tools/regenerate_provenance.py`. The focused tests verify those canonical
+requirements compose with Core, completion, and advanced XLSX ownership in
+the generated records.
+
+The checked-in unbound `modules.json` is JSON-semantically equal to a fresh
+in-process regeneration. Its only source hash delta from the previous unbound
+tree is `tests/test_strategy3.py`, whose recorded and actual SHA-256 both equal
+`cc2c01a91755500fec6137e6444dfafad1290b50126d003cb46d46592fec477f`.
+The checked-in audit report is intentionally unbound and contains exactly the
+expected missing-independent-attestation error.
 
 ## Remediation review
 
@@ -90,11 +120,21 @@ for the remediated bytes.
 
 ## Independent verification evidence
 
+- Focused incremental cases, passed to `pytest.main` after pinning the local
+  `tests/` namespace:
+  `pytest -q tests/test_strategy3.py::test_xlsx_provenance_composes_provider_and_existing_shared_owners tests/test_strategy3.py::test_xlsx_provenance_profiles_are_exact_and_cover_the_current_inventory tests/test_strategy3.py::test_shared_xlsx_provenance_composes_requirements_and_direct_evidence`
+  — **3 passed**. Pinning avoided an unrelated user-site package named `tests`
+  shadowing repository fixtures.
+- `python -m tools.regenerate_provenance --project-root . --print-mapping-only`
+  and a separate in-process regeneration both produced
+  `0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`.
+- Strict UTF-8 decoding passed without BOM, U+FFFD, or mojibake markers for all
+  three increment files. Both JSON files parsed, the Python source parsed with
+  `ast.parse`, and `git diff --check 5809792..3423c56` passed.
 - Focused remediation command:
   `pytest -q tests/test_xlsx_macro_template.py::test_xltx_template_instantiation_can_delete_a_plain_sheet tests/test_supply_chain.py::test_sbom_is_deterministic_and_matches_locks`
   — **2 passed**.
-- Two independent mapping regenerations, including the CLI path, produced
-  `09119c9db27bf5595a59f37d1c5dc43bebc1c70e722467f5793993260e925865`.
+- The current checked-in unbound manifest exactly matched fresh regeneration.
 - Mapping inventory: 423 modules, 115 data classifications, 0 executable
   exclusions, 3 metadata exclusions, and 0 review attestations.
 - The regenerated runtime source allowlist matches the checked-in canonical
@@ -103,11 +143,12 @@ for the remediated bytes.
 - The regenerated CycloneDX SBOM matches the checked-in canonical bytes at
   SHA-256
   `8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`.
-- The independent local audit produced exactly one expected error:
+- The prior full local audit produced exactly one expected error:
   `provenance: Independent review attestation is missing`. Its locked `acorn`
   dependency was supplied temporarily for AST audit and removed afterward.
-  All other audit checks passed; this report is the missing independent
-  attestation.
+  All other audit checks passed. For the current increment, the unbound audit
+  JSON was parsed and independently checked to contain exactly the same sole
+  missing-attestation error; this report is that missing attestation.
 - The earlier focused PATH-containment checks remained green:
   `TestRunnerContainment::test_private_dotnet_environment_is_project_scoped_and_cleanable`
   and
@@ -131,13 +172,13 @@ This was a local review of exact repository bytes. Per explicit direction,
 remote CI was not queried, awaited, or investigated and is not part of this
 verdict. The repository-wide verification suite, provider/full pytest suites,
 `npm run verify`, `verify:repro`, a live LibreOffice process, and a real dotnet
-process were not run during this remediation re-review.
+process were not run during this incremental re-review.
 
 ## Attestation
 
 I attest that the Codex reviewer identified above independently reviewed the
-remediated implementation tree and its exact all-release-artifacts mapping and
-found **0 Blocker, 0 Major, 0 Minor** issues within scope. I approve binding
+incrementally updated implementation tree and its exact all-release-artifacts
+mapping and found **0 Blocker, 0 Major, 0 Minor** issues within scope. I approve binding
 this report as the clean independent review attestation for mapping SHA-256
-`09119c9db27bf5595a59f37d1c5dc43bebc1c70e722467f5793993260e925865`
+`0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
 and no other mapping.
