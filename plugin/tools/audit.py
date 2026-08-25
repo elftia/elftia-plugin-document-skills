@@ -117,12 +117,18 @@ def audit_fixtures(root: Path) -> dict[str, Any]:
     fixture_root = root / "tests" / "fixtures"
     manifest = _load_json(fixture_root / "manifest.json")
     records = {record["path"]: record for record in manifest["fixtures"]}
+    support_paths = {
+        "pptx/ecosystem_bc/README.md",
+        "pptx/ecosystem_bc/generate.py",
+    }
     binaries = sorted(
         path.relative_to(fixture_root).as_posix()
         for path in fixture_root.rglob("*")
         if path.is_file()
         and path.name not in {"manifest.json", "POLICY.md"}
         and "recipes" not in path.parts
+        and "__pycache__" not in path.parts
+        and path.relative_to(fixture_root).as_posix() not in support_paths
     )
     _require(sorted(records) == binaries, f"Fixture registry mismatch: {binaries}")
     for relative, record in records.items():
