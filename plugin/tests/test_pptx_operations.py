@@ -3,11 +3,12 @@
 import zipfile
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import fromstring
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.formats.pptx.contracts import parse_pptx_request
+from document_skills_core.formats.pptx.constants import NS
 from document_skills_core.formats.pptx.create import create_pptx
 from document_skills_core.formats.pptx.edit import edit_pptx
 from document_skills_core.formats.pptx.inspect import inspect_pptx
@@ -107,6 +108,41 @@ class TestCreate:
         result = reopen_pptx(created_deck)
         assert result["slides"] == 2
         assert result["parts"] > 0
+
+    def test_graphic_frames_use_presentation_transform_namespace(
+        self,
+        created_deck: Path,
+    ) -> None:
+        with zipfile.ZipFile(created_deck) as archive:
+            slide = fromstring(archive.read("ppt/slides/slide2.xml"))
+
+        graphic_frames = list(slide.iter(f"{{{NS['p']}}}graphicFrame"))
+        assert len(graphic_frames) == 2
+        for frame in graphic_frames:
+            transform = frame.find(f"{{{NS['p']}}}xfrm")
+            assert transform is not None
+            assert frame.find(f"{{{NS['a']}}}xfrm") is None
+            assert [child.tag for child in transform] == [
+                f"{{{NS['a']}}}off",
+                f"{{{NS['a']}}}ext",
+            ]
+
+        for shape in slide.iter(f"{{{NS['p']}}}sp"):
+            properties = shape.find(f"{{{NS['p']}}}spPr")
+            assert properties is not None
+            assert properties.find(f"{{{NS['a']}}}xfrm") is not None
+
+        from pptx import Presentation
+
+        presentation = Presentation(created_deck)
+        shapes = list(presentation.slides[1].shapes)
+        native_frames = [
+            shape
+            for shape in shapes
+            if getattr(shape, "has_chart", False) or getattr(shape, "has_table", False)
+        ]
+        assert len(native_frames) == 2
+        assert all(shape.left is not None and shape.top is not None for shape in native_frames)
 
     def test_create_is_deterministic(self, tmp_path: Path, typed_deck: dict[str, Any]):
         d1 = tmp_path / "d1.pptx"

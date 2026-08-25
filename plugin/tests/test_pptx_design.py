@@ -3,13 +3,17 @@
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
+from xml.etree.ElementTree import Element, fromstring
 
 from pptx import Presentation
 
+from document_skills_core.formats.pptx.constants import NS
+from document_skills_core.formats.pptx.create import _shape_sp_pr
+from document_skills_core.formats.pptx.design_contracts import DEFAULT_THEME
 from document_skills_core.formats.pptx.mutation import MutablePptxPackage
 from document_skills_core.formats.pptx.package import OpcPackage
 from document_skills_core.formats.pptx.read import read_pptx
-from document_skills_core.formats.pptx.scaffold import _to_xml_bytes
+from document_skills_core.formats.pptx.scaffold import _build_theme, _to_xml_bytes
 from document_skills_core.formats.pptx.service import PptxService
 
 _TEMPLATE_MAIN = (
@@ -18,6 +22,48 @@ _TEMPLATE_MAIN = (
 _PRESENTATION_MAIN = (
     "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"
 )
+
+
+def test_native_theme_gradient_fills_have_required_stops() -> None:
+    root = fromstring(_build_theme())
+
+    gradients = root.findall(
+        f"./{{{NS['a']}}}themeElements/{{{NS['a']}}}fmtScheme/"
+        f"{{{NS['a']}}}fillStyleLst/{{{NS['a']}}}gradFill"
+    )
+
+    assert len(gradients) == 2
+    for gradient in gradients:
+        stops = gradient.findall(f"./{{{NS['a']}}}gsLst/{{{NS['a']}}}gs")
+        assert [
+            (
+                stop.attrib,
+                [(child.tag.rsplit("}", 1)[-1], child.attrib) for child in stop],
+            )
+            for stop in stops
+        ] == [
+            ({"pos": "0"}, [("schemeClr", {"val": "phClr"})]),
+            ({"pos": "100000"}, [("schemeClr", {"val": "phClr"})]),
+        ]
+
+
+def test_native_body_shape_properties_follow_schema_child_order() -> None:
+    parent = Element(f"{{{NS['p']}}}sp")
+
+    _shape_sp_pr(
+        parent,
+        {"x": 1, "y": 2, "cx": 3, "cy": 4},
+        DEFAULT_THEME,
+    )
+
+    shape_properties = parent.find(f"{{{NS['p']}}}spPr")
+    assert shape_properties is not None
+    assert [child.tag.rsplit("}", 1)[-1] for child in shape_properties] == [
+        "xfrm",
+        "prstGeom",
+        "solidFill",
+        "ln",
+    ]
 
 
 def _slide(name: str, recipe: str) -> dict[str, Any]:

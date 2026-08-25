@@ -2,8 +2,13 @@
 
 import hashlib
 from pathlib import Path
+from xml.etree.ElementTree import tostring
 
+from document_skills_core.formats.xlsx.constants import NS
+from document_skills_core.formats.xlsx.package import OpcPackage
 from document_skills_core.formats.xlsx.service import XlsxService
+from test_xlsx_pivot import _request as _pivot_request
+from test_xlsx_pivot import _write_source as _write_pivot_source
 
 
 def _service(project_root: Path) -> XlsxService:
@@ -227,6 +232,100 @@ def test_structural_delete_that_would_create_ref_error_fails_without_promotion(
     assert result["status"] == "enhancement_required"
     assert output.read_bytes() == b"existing-structural-destination"
     assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+
+
+def test_special_formula_structural_edit_fails_without_promotion(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook
+
+    ordinary = tmp_path / "ordinary-formula.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet["A1"] = 1
+    sheet["B1"] = "=A1"
+    workbook.save(ordinary)
+    workbook.close()
+
+    package = OpcPackage.open(ordinary)
+    root = package.xml("xl/worksheets/sheet1.xml")
+    formula = root.find(f".//{{{NS['main']}}}f")
+    assert formula is not None
+    formula.attrib.update({"t": "array", "ref": "B1"})
+    source = tmp_path / "array-formula.xlsx"
+    package.write_copy(
+        source,
+        changed_parts={
+            "xl/worksheets/sheet1.xml": tostring(
+                root,
+                encoding="UTF-8",
+                xml_declaration=True,
+            )
+        },
+    )
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "existing-special-formula.xlsx"
+    output.write_bytes(b"existing-special-formula-destination")
+
+    result = _service(project_root).execute(
+        "xlsx.edit",
+        {
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Data", "type": "row_insert", "ref": "1", "count": 1}
+                ]
+            },
+        },
+    )
+
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["details"]["capability"] == (
+        "xlsx.special-formula-structural-edit"
+    )
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+    assert output.read_bytes() == b"existing-special-formula-destination"
+
+
+def test_pivot_structural_edit_fails_without_promotion(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    pivot_source = _write_pivot_source(tmp_path / "pivot-source.xlsx")
+    source = tmp_path / "native-pivot.xlsx"
+    created = _service(project_root).execute(
+        "xlsx.pivot.create",
+        _pivot_request(pivot_source, source),
+    )
+    assert created["status"] == "success", created
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "existing-pivot-structural.xlsx"
+    output.write_bytes(b"existing-pivot-structural-destination")
+
+    result = _service(project_root).execute(
+        "xlsx.edit",
+        {
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Data", "type": "row_insert", "ref": "2", "count": 1}
+                ]
+            },
+        },
+    )
+
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["details"]["capability"] == (
+        "xlsx.pivot-structural-edit"
+    )
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+    assert output.read_bytes() == b"existing-pivot-structural-destination"
 
 
 def test_table_column_mutation_that_needs_table_schema_edit_fails_closed(

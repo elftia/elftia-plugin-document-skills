@@ -373,6 +373,7 @@ def _copy_audit_project(project_root: Path, destination: Path) -> Path:
                 ".venv",
                 "node_modules",
                 ".pytest_cache",
+                ".document-skills-tmp",
                 "__pycache__",
                 "*.pyc",
             ),

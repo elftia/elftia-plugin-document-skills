@@ -257,7 +257,7 @@ def _build_presentation_rels(slides: list[dict[str, Any]], layout_count: int, ha
         })
     if has_notes:
         SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-            "Id": f"rIdNotes",
+            "Id": "rIdNotes",
             "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
             "Target": "notesMasters/notesMaster1.xml",
         })
@@ -374,7 +374,7 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
         SubElement(nv_gf_pr, f"{{{_P_NS}}}cNvGraphicFramePr")
         SubElement(nv_gf_pr, f"{{{_P_NS}}}nvPr")
         table_frame = recipe["data"]
-        _frame_xfrm(
+        _graphic_frame_xfrm(
             gf,
             table_frame["x"],
             table_frame["y"],
@@ -422,7 +422,7 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
         SubElement(nv_gf_pr, f"{{{_P_NS}}}cNvGraphicFramePr")
         SubElement(nv_gf_pr, f"{{{_P_NS}}}nvPr")
         chart_frame = recipe["data"]
-        _frame_xfrm(
+        _graphic_frame_xfrm(
             gf,
             chart_frame["x"],
             chart_frame["y"],
@@ -647,6 +647,8 @@ def _shape_sp_pr(
     """Emit a minimal spPr with transform and rect geometry for body shapes."""
     sp_pr = SubElement(parent, f"{{{_P_NS}}}spPr")
     _frame_xfrm(sp_pr, frame["x"], frame["y"], frame["cx"], frame["cy"])
+    geometry = SubElement(sp_pr, f"{{{_A_NS}}}prstGeom", attrib={"prst": "rect"})
+    SubElement(geometry, f"{{{_A_NS}}}avLst")
     default_shape = theme["default_shape"]
     fill = SubElement(sp_pr, f"{{{_A_NS}}}solidFill")
     color = SubElement(
@@ -667,11 +669,22 @@ def _shape_sp_pr(
         f"{{{_A_NS}}}srgbClr",
         attrib={"val": default_shape["line"]},
     )
-    SubElement(SubElement(sp_pr, f"{{{_A_NS}}}prstGeom", attrib={"prst": "rect"}), f"{{{_A_NS}}}avLst")
 
 
 def _frame_xfrm(parent: Element, x: Any, y: Any, cx: Any, cy: Any) -> None:
     xfrm = SubElement(parent, f"{{{_A_NS}}}xfrm")
+    SubElement(xfrm, f"{{{_A_NS}}}off", attrib={"x": str(x), "y": str(y)})
+    SubElement(xfrm, f"{{{_A_NS}}}ext", attrib={"cx": str(cx), "cy": str(cy)})
+
+
+def _graphic_frame_xfrm(
+    parent: Element,
+    x: Any,
+    y: Any,
+    cx: Any,
+    cy: Any,
+) -> None:
+    xfrm = SubElement(parent, f"{{{_P_NS}}}xfrm")
     SubElement(xfrm, f"{{{_A_NS}}}off", attrib={"x": str(x), "y": str(y)})
     SubElement(xfrm, f"{{{_A_NS}}}ext", attrib={"cx": str(cx), "cy": str(cy)})
 

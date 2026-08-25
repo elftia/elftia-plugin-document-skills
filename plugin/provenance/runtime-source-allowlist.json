@@ -141,6 +141,7 @@
     "src/document_skills_core/formats/pptx/outline.py",
     "src/document_skills_core/formats/pptx/package.py",
     "src/document_skills_core/formats/pptx/png_compare.py",
+    "src/document_skills_core/formats/pptx/presentation_contracts.py",
     "src/document_skills_core/formats/pptx/projection.py",
     "src/document_skills_core/formats/pptx/read.py",
     "src/document_skills_core/formats/pptx/relationships.py",

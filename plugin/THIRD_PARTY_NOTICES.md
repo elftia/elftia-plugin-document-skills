@@ -29,8 +29,10 @@ package has no production transitive dependencies and no install lifecycle scrip
 binary is downloaded or redistributed; the provider can launch only a supported local
 Chrome/Chromium/Edge executable selected from the host-authored platform list.
 
-The optional .NET OpenXML helper uses this exact locked NuGet graph, restored from the user's
-NuGet cache or configured package source and never bundled into this repository:
+The optional .NET OpenXML helper uses this exact locked NuGet graph, restored in locked mode
+from its package source into project-private temporary cache and configuration roots. It never
+reads or depends on the user's NuGet cache or configuration, and the packages are never bundled
+into this repository:
 
 - `DocumentFormat.OpenXml` 3.0.0 — MIT.
 - `DocumentFormat.OpenXml.Framework` 3.0.0 — MIT.

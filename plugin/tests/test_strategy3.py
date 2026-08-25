@@ -1,9 +1,8 @@
 import json
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
-
 from document_skills_core.core.io.portable_paths import PORTABLE_PATH_POLICY
 from tests.support.provenance_review_fixture import bind_test_review
 from tools.audit import run_audits
@@ -11,13 +10,72 @@ from tools.audit_node import audit_node_source
 from tools.audit_python import audit_python_source
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
+from tools.html_pptx_provenance import (
+    HTML_PPTX_REQUIREMENT,
+    SHARED_PROVENANCE_REQUIREMENT,
+    html_pptx_module_profile,
+)
 from tools.regenerate_provenance import (
+    CORE_PPTX_REQUIREMENT,
+    CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+    core_pptx_module_profile,
+    cross_format_capability_module_profile,
     regenerate,
+    xlsx_data_profile,
+    xlsx_module_profile,
     xlsx_shared_data_profile,
     xlsx_shared_module_profile,
 )
 from tools.release_inventory import release_inventory
 from tools.supply_chain import build_sbom, canonical_json
+
+_XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
+_XLSX_COMPLETION_REQUIREMENT = "Rasen document-skills-xlsx-completion"
+_XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
+
+
+def _compose_requirements(*requirements: str | None) -> str:
+    components: list[str] = []
+    for requirement in requirements:
+        if not requirement:
+            continue
+        for component in requirement.removeprefix("Rasen ").split(" + "):
+            if component not in components:
+                components.append(component)
+    return f"Rasen {' + '.join(components)}"
+
+
+def _pptx_requirement(path: str) -> str | None:
+    core_profile = core_pptx_module_profile(path)
+    html_profile = html_pptx_module_profile(path)
+    if not core_profile and not html_profile:
+        return None
+    html_requirement = (
+        SHARED_PROVENANCE_REQUIREMENT
+        if path == "tools/regenerate_provenance.py"
+        else HTML_PPTX_REQUIREMENT
+    )
+    return _compose_requirements(
+        CORE_PPTX_REQUIREMENT if core_profile else None,
+        html_requirement if html_profile else None,
+    )
+
+
+def _cross_format_requirement(path: str) -> str | None:
+    if cross_format_capability_module_profile(path) is None:
+        return None
+    return CROSS_FORMAT_CAPABILITY_REQUIREMENT
+
+
+def _pptx_xlsx_requirement(path: str) -> str:
+    pptx_requirement = _pptx_requirement(path)
+    assert pptx_requirement is not None
+    return _compose_requirements(
+        pptx_requirement,
+        _XLSX_REQUIREMENT,
+        _XLSX_COMPLETION_REQUIREMENT,
+        _XLSX_ADVANCED_REQUIREMENT,
+    )
 
 
 PYTHON_DEFINITION_SURFACE_CASES = [
@@ -250,6 +308,74 @@ def test_safe_quoted_unicode_uv_control_stays_authorized():
     assert FrozenUvGrammar().authorize(discovered) is True
 
 
+def test_cross_format_capability_provenance_is_exact_and_composed(project_root):
+    expected_profiles = {
+        "src/document_skills_core/core/capabilities/reports.py": (
+            (
+                "Foundation capability-report assembly with DOCX, PDF, PPTX, and XLSX "
+                "format isolation: schema and visual availability requires an available "
+                "callable provider registered for the matching format operation."
+            ),
+            ["tests/test_strategy2.py"],
+        ),
+        "tests/test_strategy2.py": (
+            (
+                "Direct cross-format DOCX, PDF, PPTX, and XLSX regression evidence that "
+                "schema and visual capability reporting rejects mismatched, unavailable, "
+                "or non-callable validators and providers."
+            ),
+            ["tests/test_strategy2.py"],
+        ),
+    }
+    assert {
+        path: cross_format_capability_module_profile(path)
+        for path in expected_profiles
+    } == expected_profiles
+    assert cross_format_capability_module_profile(
+        "src/document_skills_core/core/capabilities/catalog.py"
+    ) is None
+
+    manifest, _digest = regenerate(project_root)
+    records = {record["module"]: record for record in manifest["modules"]}
+    expected_requirements = {
+        "src/document_skills_core/core/capabilities/reports.py": (
+            CROSS_FORMAT_CAPABILITY_REQUIREMENT
+        ),
+        "tests/test_strategy2.py": _compose_requirements(
+            CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+            _XLSX_REQUIREMENT,
+            _XLSX_COMPLETION_REQUIREMENT,
+            _XLSX_ADVANCED_REQUIREMENT,
+        ),
+    }
+    for path, profile in expected_profiles.items():
+        xlsx_profile = xlsx_module_profile(path)
+        expected_modifications = (
+            f"{profile[0]} {xlsx_profile[0]}"
+            if xlsx_profile
+            else profile[0]
+        )
+        expected_tests = (
+            list(dict.fromkeys([*profile[1], *xlsx_profile[1]]))
+            if xlsx_profile
+            else profile[1]
+        )
+        record = records[path]
+        assert record["requirement_source"] == expected_requirements[path]
+        assert record["modifications"] == expected_modifications
+        assert record["artifact_tests"] == expected_tests
+        assert "document-skills-foundation strategy-attempt-3" in (
+            record["requirement_source"]
+        )
+        for requirement in (
+            "document-skills-core-docx",
+            "document-skills-core-pdf",
+            "document-skills-core-pptx",
+            "document-skills-core-xlsx",
+        ):
+            assert requirement in record["requirement_source"]
+
+
 def test_consumer_gate_provenance_uses_current_direct_evidence(project_root):
     manifest, _digest = regenerate(project_root)
     records = {record["module"]: record for record in manifest["modules"]}
@@ -274,10 +400,13 @@ def test_consumer_gate_provenance_uses_current_direct_evidence(project_root):
     shared_consumer = records["tests/test_consumer_validation.py"]
     assert shared_consumer["requirement_source"] == (
         "Rasen document-skills-consumer-gates-and-truthful-contracts + "
-        "document-skills-core-xlsx"
+        "document-skills-core-xlsx + document-skills-xlsx-completion + "
+        "document-skills-xlsx-advanced-authoring"
     )
     assert "Strategy-4" in shared_consumer["modifications"]
-    assert "Shared Core XLSX" in shared_consumer["modifications"]
+    assert "Shared Core/completion/advanced XLSX" in (
+        shared_consumer["modifications"]
+    )
     assert set(expected_tests) < set(shared_consumer["artifact_tests"])
 
     for path in (
@@ -302,24 +431,234 @@ def test_consumer_gate_provenance_uses_current_direct_evidence(project_root):
 def test_xlsx_provenance_uses_current_direct_evidence(project_root):
     manifest, _digest = regenerate(project_root)
     records = {record["module"]: record for record in manifest["modules"]}
-    expected_tests = [
-        "tests/test_xlsx_contracts.py",
-        "tests/test_xlsx_operations.py",
-        "tests/test_xlsx_pivot.py",
-        "tests/test_xlsx_provider_qa.py",
-        "tests/test_xlsx_public.py",
-        "tests/test_xlsx_recalculation.py",
-        "tests/test_supply_chain.py",
-    ]
-    for path in (
-        "src/document_skills_core/formats/xlsx/render_operation.py",
-        "skills/document-xlsx/scripts/run.py",
-        "tests/test_xlsx_provider_qa.py",
-    ):
-        record = records[path]
-        assert record["requirement_source"] == "Rasen document-skills-core-xlsx"
-        assert "Core XLSX" in record["modifications"]
-        assert record["artifact_tests"] == expected_tests
+    core_requirement = "Rasen document-skills-core-xlsx"
+    completion_requirement = "Rasen document-skills-xlsx-completion"
+    advanced_requirement = "Rasen document-skills-xlsx-advanced-authoring"
+    core_advanced_requirement = (
+        "Rasen document-skills-core-xlsx + "
+        "document-skills-xlsx-advanced-authoring"
+    )
+    completion_advanced_requirement = (
+        "Rasen document-skills-xlsx-completion + "
+        "document-skills-xlsx-advanced-authoring"
+    )
+    all_change_requirement = (
+        "Rasen document-skills-core-xlsx + document-skills-xlsx-completion + "
+        "document-skills-xlsx-advanced-authoring"
+    )
+    libreoffice_core_completion_requirement = (
+        "Rasen document-skills-libreoffice-enhancement + "
+        "document-skills-core-xlsx + document-skills-xlsx-completion"
+    )
+    libreoffice_core_advanced_requirement = (
+        "Rasen document-skills-libreoffice-enhancement + "
+        "document-skills-core-xlsx + document-skills-xlsx-advanced-authoring"
+    )
+    libreoffice_all_change_requirement = (
+        f"{libreoffice_core_completion_requirement} + "
+        "document-skills-xlsx-advanced-authoring"
+    )
+    expected_requirements = {
+        # The original change still owns its bounded, non-advanced internals.
+        "src/document_skills_core/formats/xlsx/formula_state.py": core_requirement,
+        "src/document_skills_core/formats/xlsx/calc_chain.py": core_requirement,
+        "tests/test_xlsx_core_only.py": core_requirement,
+        # Each completion operation has an independently reviewable direct artifact.
+        "src/document_skills_core/formats/xlsx/recalculation_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/conversion_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/template_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/summary_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/pivot_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/schema_operation.py": completion_requirement,
+        "src/document_skills_core/formats/xlsx/render_operation.py": completion_requirement,
+        "tests/test_xlsx_conversion.py": completion_requirement,
+        "tests/test_xlsx_summary.py": completion_requirement,
+        "tests/test_xlsx_provider_qa.py": completion_requirement,
+        # Recalculation acceptance is shared by the original operations, the
+        # explicit completion operation, and the LibreOffice enhancement.
+        "src/document_skills_core/formats/xlsx/recalculation.py": libreoffice_core_completion_requirement,
+        "tests/test_xlsx_recalculation.py": libreoffice_core_completion_requirement,
+        "src/document_skills_core/formats/xlsx/recalculation_service.py": libreoffice_all_change_requirement,
+        # Advanced authoring is authorized only by its sibling Change.
+        "src/document_skills_core/formats/xlsx/annotations.py": advanced_requirement,
+        "src/document_skills_core/formats/xlsx/chart_edit.py": advanced_requirement,
+        "src/document_skills_core/formats/xlsx/conditional_format.py": advanced_requirement,
+        "src/document_skills_core/formats/xlsx/data_validation.py": advanced_requirement,
+        "src/document_skills_core/formats/xlsx/sparkline.py": advanced_requirement,
+        "src/document_skills_core/formats/xlsx/table_edit.py": advanced_requirement,
+        # Shared implementation is attributed to every Change it implements.
+        "src/document_skills_core/formats/xlsx/create.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/edit.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/read.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/inspect.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/read_operation.py": libreoffice_core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/sheet_edit.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/structural_edit.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/structural_refs.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/style_contract.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/style_patch.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/workbook_properties.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/worksheet_edit.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/worksheet_metadata.py": core_advanced_requirement,
+        "tests/test_xlsx_operations.py": core_advanced_requirement,
+        "tests/test_xlsx_sheet_edit.py": core_advanced_requirement,
+        "tests/test_xlsx_structural_edit.py": core_advanced_requirement,
+        "tests/test_xlsx_structural_refs.py": core_advanced_requirement,
+        "tests/test_xlsx_metadata_public.py": core_advanced_requirement,
+        "tests/test_xlsx_worksheet_edit.py": core_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/formula_analysis.py": completion_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/macro_policy.py": completion_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/pivot_projection.py": completion_advanced_requirement,
+        "tests/test_xlsx_formula_analysis.py": completion_advanced_requirement,
+        "tests/test_xlsx_macro_template.py": completion_advanced_requirement,
+        "tests/test_xlsx_pivot.py": completion_advanced_requirement,
+        "tests/test_xlsx_pivot_public.py": completion_advanced_requirement,
+        "src/document_skills_core/formats/xlsx/contracts.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/content_types.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/package.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/relationships.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/results.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/service.py": libreoffice_all_change_requirement,
+        "src/document_skills_core/formats/xlsx/source_snapshot.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/transaction.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/validation.py": all_change_requirement,
+        "src/document_skills_core/formats/xlsx/xml_numeric.py": all_change_requirement,
+        "skills/document-xlsx/scripts/run.py": all_change_requirement,
+        "tests/test_xlsx_contracts.py": all_change_requirement,
+        "tests/test_xlsx_public.py": all_change_requirement,
+    }
+    for path, requirement in expected_requirements.items():
+        assert records[path]["requirement_source"] == requirement
+
+
+def test_xlsx_provenance_composes_provider_and_existing_shared_owners(project_root):
+    manifest, _digest = regenerate(project_root)
+    records = {record["module"]: record for record in manifest["modules"]}
+    expected_requirements = {
+        "src/document_skills_core/providers/libreoffice/service.py": (
+            "Rasen document-skills-libreoffice-enhancement + "
+            "document-skills-core-xlsx + document-skills-xlsx-completion"
+        ),
+        "src/document_skills_core/providers/dotnet/service.py": (
+            "Rasen document-skills-openxml-dotnet-enhancement + "
+            "document-skills-core-xlsx + document-skills-xlsx-completion"
+        ),
+        "src/document_skills_core/core/process/runner.py": (
+            "Rasen document-skills-foundation strategy-attempt-3 + "
+            "document-skills-core-xlsx + document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "src/document_skills_core/providers/defaults.py": _pptx_xlsx_requirement(
+            "src/document_skills_core/providers/defaults.py"
+        ),
+        "src/document_skills_core/public_cli/supervisor.py": _pptx_xlsx_requirement(
+            "src/document_skills_core/public_cli/supervisor.py"
+        ),
+        "tools/regenerate_provenance.py": _pptx_xlsx_requirement(
+            "tools/regenerate_provenance.py"
+        ),
+    }
+    for path, requirement in expected_requirements.items():
+        assert records[path]["requirement_source"] == requirement
+
+
+def test_xlsx_data_provenance_respects_change_boundaries(project_root):
+    manifest, _digest = regenerate(project_root)
+    records = {
+        record["artifact"]: record
+        for record in manifest["data_classifications"]
+    }
+    expected_requirements = {
+        "skills/document-xlsx/references/styles.md": (
+            "Rasen document-skills-core-xlsx + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/conversion.md": (
+            "Rasen document-skills-xlsx-completion"
+        ),
+        "skills/document-xlsx/references/charts.md": (
+            "Rasen document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/native-objects.md": (
+            "Rasen document-skills-core-xlsx + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/worksheet-metadata.md": (
+            "Rasen document-skills-core-xlsx + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/edits.md": (
+            "Rasen document-skills-core-xlsx + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/formula-analysis.md": (
+            "Rasen document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/macro-templates.md": (
+            "Rasen document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/pivots.md": (
+            "Rasen document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/SKILL.md": (
+            "Rasen document-skills-core-xlsx + document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/feature-truth-table.json": (
+            "Rasen document-skills-core-xlsx + document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+        "skills/document-xlsx/references/recalculation.md": (
+            "Rasen document-skills-libreoffice-enhancement + "
+            "document-skills-core-xlsx + document-skills-xlsx-completion"
+        ),
+        "README.md": (
+            "Rasen html-to-editable-pptx + document-skills-core-xlsx + "
+            "document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
+        ),
+    }
+    for path, requirement in expected_requirements.items():
+        assert records[path]["requirement_source"] == requirement
+
+
+def test_xlsx_provenance_profiles_are_exact_and_cover_the_current_inventory(
+    project_root,
+):
+    manifest, _digest = regenerate(project_root)
+    module_paths = {
+        record["module"]
+        for record in manifest["modules"]
+        if record["module"].startswith(
+            "src/document_skills_core/formats/xlsx/"
+        )
+        or record["module"].startswith("tests/test_xlsx_")
+        or record["module"].startswith("tests/support/xlsx_")
+        or record["module"]
+        in {
+            "skills/document-xlsx/scripts/run.py",
+            "tests/test_dotnet_xlsx_schema_real.py",
+        }
+    }
+    data_paths = {
+        record["artifact"]
+        for record in manifest["data_classifications"]
+        if record["artifact"].startswith("skills/document-xlsx/")
+    }
+
+    assert len(module_paths) == 112
+    assert len(data_paths) == 15
+    assert all(xlsx_module_profile(path) is not None for path in module_paths)
+    assert all(xlsx_data_profile(path) is not None for path in data_paths)
+    assert xlsx_module_profile(
+        "src/document_skills_core/formats/xlsx/future.py"
+    ) is None
+    assert xlsx_data_profile(
+        "skills/document-xlsx/references/future.md"
+    ) is None
 
 
 def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
@@ -381,18 +720,35 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
     }
     assert profiled_paths == expected_paths
     assert len(profiled_paths) == 47
-    xlsx_requirement = "Rasen document-skills-core-xlsx"
-    html_xlsx_requirement = (
-        "Rasen html-to-editable-pptx + document-skills-core-xlsx"
-    )
-    html_paths = {
+    pptx_paths = {
         "src/document_skills_core/providers/defaults.py",
         "src/document_skills_core/public_cli/supervisor.py",
         "tests/test_html_provenance.py",
         "tests/test_runtime.py",
         "tests/test_supply_chain.py",
         "tools/provenance_records.py",
+        "tools/regenerate_provenance.py",
         "tools/supply_chain.py",
+    }
+    assert {
+        path for path in expected_paths if _pptx_requirement(path) is not None
+    } == pptx_paths
+    libreoffice_paths = {
+        path
+        for path in expected_paths
+        if path.startswith("src/document_skills_core/providers/libreoffice/")
+    } | {
+        "tests/test_input_snapshot_security.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+    }
+    dotnet_paths = {
+        path
+        for path in expected_paths
+        if path.startswith("src/document_skills_core/providers/dotnet/")
+    } | {"tests/test_dotnet_provider.py"}
+    advanced_shared_paths = expected_paths - dotnet_paths - libreoffice_paths - {
+        "src/document_skills_core/formats/pdf/byte_preflight.py",
     }
     required_evidence = {
         "tests/test_xlsx_contracts.py",
@@ -427,8 +783,13 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
     ) <= expected_paths
     assert len(atomic_launch_only_paths | atomic_launch_composed_paths) == 8
     shared_description = (
-        "Shared Core XLSX provider execution, managed CLI supervision, and exact "
+        "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact "
         "supply-chain policy for bounded OpenXML validation and LibreOffice rendering."
+    )
+    advanced_shared_description = (
+        "Shared Core/completion/advanced XLSX provider execution, managed CLI "
+        "supervision, and exact supply-chain policy for bounded OpenXML validation "
+        "and LibreOffice rendering."
     )
     atomic_launch_description = (
         "Identity-bound top-level native executable launch: Windows hashes and resolves "
@@ -443,33 +804,58 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "dynamic DLL or dependency closure."
     )
     for path in expected_paths:
-        requirement = (
-            "Rasen html-to-editable-pptx + "
-            "document-skills-consumer-gates-and-truthful-contracts + "
-            "document-skills-core-xlsx"
-            if path == "tools/regenerate_provenance.py"
-            else (
-                "Rasen document-skills-consumer-gates-and-truthful-contracts + "
-                "document-skills-core-xlsx"
+        pptx_requirement = _pptx_requirement(path)
+        cross_format_requirement = _cross_format_requirement(path)
+        format_requirement = (
+            _compose_requirements(
+                cross_format_requirement,
+                pptx_requirement,
             )
+            if cross_format_requirement or pptx_requirement
+            else None
+        )
+        base_requirement = (
+            format_requirement
+            if format_requirement
+            else "Rasen document-skills-consumer-gates-and-truthful-contracts"
             if path == "tests/test_consumer_validation.py"
-            else html_xlsx_requirement
-            if path in html_paths
-            else xlsx_requirement
+            else "Rasen document-skills-libreoffice-enhancement"
+            if path in libreoffice_paths
+            else "Rasen document-skills-openxml-dotnet-enhancement"
+            if path in dotnet_paths
+            else "Rasen document-skills-foundation strategy-attempt-3"
+        )
+        requirement = _compose_requirements(
+            base_requirement,
+            _XLSX_REQUIREMENT,
+            _XLSX_COMPLETION_REQUIREMENT,
+            _XLSX_ADVANCED_REQUIREMENT
+            if path in advanced_shared_paths
+            else None,
         )
         record = records[path]
         assert record["requirement_source"] == requirement
+        expected_shared_description = (
+            advanced_shared_description
+            if path in advanced_shared_paths
+            else shared_description
+        )
         if path in atomic_launch_only_paths:
             assert record["modifications"] == atomic_launch_description
         elif path in atomic_launch_composed_paths:
             assert record["modifications"] == (
-                f"{shared_description} {atomic_launch_description}"
+                f"{expected_shared_description} {atomic_launch_description}"
             )
         elif path.endswith("packages.lock.json"):
             assert "Exact NuGet dependency lock" in record["modifications"]
         else:
-            assert "Shared Core XLSX" in record["modifications"]
+            assert expected_shared_description in record["modifications"]
         assert required_evidence <= set(record["artifact_tests"])
+        if path in advanced_shared_paths:
+            assert {
+                "tests/test_xlsx_formula_analysis.py",
+                "tests/test_xlsx_structural_edit.py",
+            } <= set(record["artifact_tests"])
 
 
 def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
@@ -479,24 +865,27 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         for record in manifest["data_classifications"]
     }
     html_xlsx_requirement = (
-        "Rasen html-to-editable-pptx + document-skills-core-xlsx"
+        "Rasen html-to-editable-pptx + "
+        "document-skills-openxml-dotnet-enhancement + "
+        "document-skills-core-xlsx + document-skills-xlsx-completion"
     )
     expected_requirements = {
         "THIRD_PARTY_NOTICES.md": html_xlsx_requirement,
         "provenance/dependency-allowlist.json": html_xlsx_requirement,
         "provenance/dependency-licenses.json": html_xlsx_requirement,
         "provenance/runtime-source-allowlist.json": (
-            "Rasen document-skills-core-xlsx"
+            "Rasen document-skills-core-xlsx + document-skills-xlsx-completion + "
+            "document-skills-xlsx-advanced-authoring"
         ),
         "sbom.cdx.json": html_xlsx_requirement,
     }
     nuget_description = (
         "Exact NuGet dependency lock, allowlist, license, notice, and SBOM evidence "
-        "for the bounded OpenXML helper used by Core XLSX schema validation."
+        "for the bounded OpenXML helper used by XLSX completion schema validation."
     )
     runtime_description = (
-        "Strict value-flow runtime file inventory for the Core XLSX Python source set "
-        "and its execution-boundary audit."
+        "Strict value-flow runtime file inventory for the Core, completion, and "
+        "advanced XLSX Python source sets and their execution-boundary audit."
     )
     expected_descriptions = {
         "THIRD_PARTY_NOTICES.md": nuget_description,
@@ -533,12 +922,20 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         else:
             assert record["modifications"] == expected_descriptions[path]
         assert required_evidence <= set(record["artifact_tests"])
+        if path == "provenance/runtime-source-allowlist.json":
+            assert {
+                "tests/test_xlsx_formula_analysis.py",
+                "tests/test_xlsx_structural_edit.py",
+            } <= set(record["artifact_tests"])
 
     modules = {record["module"]: record for record in manifest["modules"]}
     lock = modules[
         "src/document_skills_core/providers/dotnet/helper/packages.lock.json"
     ]
-    assert lock["requirement_source"] == "Rasen document-skills-core-xlsx"
+    assert lock["requirement_source"] == (
+        "Rasen document-skills-openxml-dotnet-enhancement + "
+        "document-skills-core-xlsx + document-skills-xlsx-completion"
+    )
     assert lock["modifications"] == nuget_description
     assert required_evidence <= set(lock["artifact_tests"])
 

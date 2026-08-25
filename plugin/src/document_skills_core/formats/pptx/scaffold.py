@@ -99,8 +99,11 @@ def _ph_solid_fill(parent: Element) -> None:
 
 def _ph_grad_fill(parent: Element) -> None:
     grad = SubElement(parent, f"{{{_A}}}gradFill")
-    SubElement(grad, f"{{{_A}}}gsLst")
-    lin = SubElement(grad, f"{{{_A}}}lin", attrib={"ang": "0", "scaled": "0"})
+    stops = SubElement(grad, f"{{{_A}}}gsLst")
+    for position in ("0", "100000"):
+        stop = SubElement(stops, f"{{{_A}}}gs", attrib={"pos": position})
+        SubElement(stop, f"{{{_A}}}schemeClr", attrib={"val": "phClr"})
+    SubElement(grad, f"{{{_A}}}lin", attrib={"ang": "0", "scaled": "0"})
 
 
 def _ph_line(parent: Element, w: str) -> None:

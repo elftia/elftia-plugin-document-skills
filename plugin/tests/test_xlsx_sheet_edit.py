@@ -1,5 +1,6 @@
 """Sheet CRUD, reorder, copy, and reference-aware rename tests."""
 
+import hashlib
 from pathlib import Path
 
 from document_skills_core.formats.xlsx.service import XlsxService
@@ -173,6 +174,48 @@ def test_sheet_delete_with_inbound_formula_fails_without_promotion(
 
     assert result["status"] == "enhancement_required"
     assert output.read_bytes() == b"existing-sheet-delete-destination"
+
+
+def test_sheet_copy_and_delete_with_related_objects_fail_without_promotion(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "related-object-source.xlsx"
+    _rename_source(source)
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    cases = [
+        (
+            {
+                "sheet": "Summary",
+                "type": "sheet_copy",
+                "name": "Summary Copy",
+                "position": 2,
+            },
+            "xlsx.related-object-sheet-copy",
+        ),
+        (
+            {"sheet": "Summary", "type": "sheet_delete"},
+            "xlsx.related-object-sheet-delete",
+        ),
+    ]
+    for index, (edit, capability) in enumerate(cases):
+        expected = f"existing-related-object-{index}".encode()
+        output = tmp_path / f"existing-related-object-{index}.xlsx"
+        output.write_bytes(expected)
+        result = XlsxService(project_root).execute(
+            "xlsx.edit",
+            {
+                "operation": "xlsx.edit",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {"edits": [edit]},
+            },
+        )
+
+        assert result["status"] == "enhancement_required"
+        assert result["errors"][0]["details"]["capability"] == capability
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+        assert output.read_bytes() == expected
 
 
 def test_sheet_edit_output_is_deterministic(

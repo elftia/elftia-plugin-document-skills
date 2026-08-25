@@ -301,6 +301,54 @@
     },
     {
       "authorship": "original-elftia",
+      "format": "markdown",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/README.md",
+      "purpose": "Authoring and safety guidance for deterministic PPTX ecosystem fixtures",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "redistribution_allowed": true,
+      "security_classification": "fixture-documentation",
+      "sha256": "613d9e5aae416e0628ce4f33deb7dc1d4fa0ff5ca7c2045799ba2910644e887b"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/contract-pin.json",
+      "purpose": "Pinned cross-producer presentation contract conformance result",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "94df0d01c322285e862af12220a88db1ef2802544754779745144953e72fb91e"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/contract-pin.json.manifest.json",
+      "purpose": "Hash-bound metadata for the presentation contract fixture",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "3290f679e3063c31f9317e3343f299547c936aec0bc6f1473d340ce12100570d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "python",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/generate.py",
+      "purpose": "Deterministic generator for the presentation contract fixture",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "redistribution_allowed": true,
+      "security_classification": "fixture-generator",
+      "sha256": "a5d08a0f44b9426e6e375f68f2cead77cf0b96820ceb123c11b8d00ef489c43b"
+    },
+    {
+      "authorship": "original-elftia",
       "format": "html",
       "license": "GPL-3.0",
       "origin": "generated",
@@ -362,7 +410,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "c78af497c63084539b9af5a36d52b4b4ba7b670307f17d56c454e0310e4c146f"
+      "sha256": "0e6aa02162c4005c9cc72de0d0ffa4367098f9ba3c47110987585ebdbefbd41f"
     },
     {
       "authorship": "original-elftia",

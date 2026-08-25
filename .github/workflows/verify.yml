@@ -102,9 +102,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $evidenceDir = Join-Path $env:GITHUB_WORKSPACE $env:XLSX_EVIDENCE_DIR
+          $bytecodeRoot = Join-Path $env:RUNNER_TEMP ("document-skills-bytecode-" + [guid]::NewGuid().ToString("N"))
           Push-Location (Join-Path $env:GITHUB_WORKSPACE "plugin")
           try {
-            & uv run --project . --frozen --python 3.13 python -m compileall -q src tools tests 2>&1 |
+            & uv run --project . --frozen --python 3.13 python -X "pycache_prefix=$bytecodeRoot" -m compileall -q src tools tests 2>&1 |
               Tee-Object -FilePath (Join-Path $evidenceDir "compileall.log")
             $compileExit = $LASTEXITCODE
             if ($compileExit -ne 0) {
@@ -115,6 +116,9 @@ jobs:
             $releaseAuditExit = $LASTEXITCODE
           } finally {
             Pop-Location
+            if (Test-Path -LiteralPath $bytecodeRoot) {
+              Remove-Item -LiteralPath $bytecodeRoot -Recurse -Force
+            }
           }
           if ($releaseAuditExit -ne 0) {
             throw "Release audit failed with exit code $releaseAuditExit"
@@ -319,7 +323,7 @@ jobs:
               "uv sync --project plugin --frozen --python 3.13",
               "uv lock --check --offline --project plugin",
               "uv run --project plugin --frozen --python 3.13 python -m pytest -p no:cacheprovider <test-files.txt> -q",
-              "uv run --project plugin --frozen --python 3.13 python -m compileall -q src tools tests",
+              "uv run --project plugin --frozen --python 3.13 python -X pycache_prefix=<runner-temp> -m compileall -q src tools tests",
               "uv run --project plugin --frozen --python 3.13 python -m tools.audit --project-root .",
               "uv run --project plugin --frozen --python 3.13 python plugin/skills/document-xlsx/scripts/run.py run --request <operation-request.json>"
             )

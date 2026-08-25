@@ -8,10 +8,10 @@ The report contains:
 
 - `valid`: whether the checks found invalid syntax or references;
 - `formula_cells`: the number of physical `<f>` elements, including shared-formula followers;
-- category counts for `normal`, `shared`, `array`, `data_table`, `dynamic_array`,
-  `structured_reference`, and `external_reference`;
+- category counts for `active_provider`, `normal`, `shared`, `array`, `data_table`,
+  `dynamic_array`, `structured_reference`, and `external_reference`;
 - counts for cell/range, defined-name, table, and external references;
-- deterministic per-cell categories and issue records;
+- deterministic per-cell categories plus top-level issue records keyed by cell `ref`;
 - `scope: "static-token-reference-checks-only"` and `calculation_engine: false`.
 
 ## Checks

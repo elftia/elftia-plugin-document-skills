@@ -3,8 +3,9 @@
   Module provenance: original Elftia-authored clean-room implementation.
   This project is invoked ONLY through the contained ProcessRunner with a
   validated helper project and separated subcommand. The exact OpenXML dependency
-  graph is pinned by packages.lock.json and restored only in locked mode; packages
-  remain in the user's NuGet cache and are NEVER bundled.
+  graph is pinned by packages.lock.json and restored only in locked mode from its
+  package source into project-private temporary cache and configuration roots. User
+  NuGet cache/configuration is not read or required, and packages are NEVER bundled.
   The helper does NOT execute macros, VBA, DDE, or external-data refresh.
 -->
 <Project Sdk="Microsoft.NET.Sdk">

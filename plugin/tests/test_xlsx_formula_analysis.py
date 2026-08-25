@@ -126,6 +126,12 @@ def test_static_analysis_reports_invalid_syntax_and_references(
 
     assert report["valid"] is False
     assert code in {issue["code"] for issue in report["issues"]}
+    cell = next(item for item in report["cells"] if item["ref"] == "Sheet1!B2")
+    assert cell["formula_type"] == "normal"
+    assert cell["categories"]
+    assert cell["valid"] is False
+    assert "issues" not in cell
+    assert {issue["ref"] for issue in report["issues"]} == {cell["ref"]}
 
 
 def test_analysis_classifies_special_dynamic_external_and_structured_formulas(

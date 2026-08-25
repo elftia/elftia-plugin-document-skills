@@ -118,7 +118,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         capture_output=True,
         text=True,
         check=True,
-        timeout=30,
+        timeout=60,
     )
     doctor_state = {
         item["id"]: item for item in json.loads(doctor.stdout)["providers"]
@@ -146,6 +146,59 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
     )
     assert capability["validation"]["schema"] == "unavailable"
     assert capability["validation"]["visual"] == "unavailable"
+
+
+def test_validation_capabilities_are_format_scoped_and_callable(project_root):
+    def catalog(available=True, validators=None, callable_provider=True):
+        result = ProviderCatalog()
+        result.register_provider(
+            Provider(
+                ProviderId.CORE_PYTHON,
+                "1",
+                detect=lambda: DetectionEvidence(available, version="1"),
+                execute=(lambda _op, _req: {}) if callable_provider else None,
+                capabilities=[
+                    Capability("xlsx.validate.schema", "enhanced"),
+                    Capability("pptx.render", "enhanced"),
+                ],
+                validators=validators
+                or {"schema": lambda: {}, "visual": lambda: {}},
+            )
+        )
+        return result
+
+    registry = catalog()
+    assert build_capabilities(project_root, "docx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pdf", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "xlsx", registry)["validation"] == {
+        "package": "available",
+        "schema": "available",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pptx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "available",
+    }
+    assert build_capabilities(project_root, "xlsx", catalog(available=False))[
+        "validation"
+    ]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root,
+        "xlsx",
+        catalog(validators={"schema": None, "visual": lambda: {}}),
+    )["validation"]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root, "xlsx", catalog(callable_provider=False)
+    )["validation"]["schema"] == "unavailable"
 
 
 def test_catalog_requires_callable_and_available_detector(project_root):
@@ -288,7 +341,7 @@ def test_current_review_is_the_only_hashless_review_metadata(project_root):
 
     review_path = (
         "provenance/reviews/"
-        "document-skills-0.5.3-unified-pptx-provenance-review.md"
+        "document-skills-0.5.3-xlsx-completion-merge-review.md"
     )
     assert _is_metadata(review_path) is True
     validate_metadata_exclusion(

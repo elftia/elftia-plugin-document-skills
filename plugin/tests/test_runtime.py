@@ -34,6 +34,11 @@ from document_skills_core.providers.libreoffice.constants import platform_known_
 from document_skills_core.providers.libreoffice.quota import hard_quota_capability
 
 
+# Covers the bounded 132-second dotnet chain plus the other sequential detectors
+# and Windows process-startup overhead without inheriting their private constants.
+_CORE_REPORT_TIMEOUT_SECONDS = 210
+
+
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
     return {
         "id": provider_id,
@@ -165,18 +170,36 @@ def test_node_health_allows_bounded_startup_and_retains_timeout(
     assert "timed out" in unavailable["reason"]
 
 
-@pytest.mark.parametrize("skill", ["document-docx", "document-xlsx", "document-pptx", "document-pdf"])
-@pytest.mark.parametrize("command", [["doctor", "--json"], ["capabilities", "--json"]])
-def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill, command):
+@pytest.fixture(scope="module")
+def core_report_environment():
+    project_root = Path(__file__).resolve().parents[1]
     uv = shutil.which("uv")
     node = shutil.which("node")
     assert uv is not None
     assert node is not None
-    entrypoint = project_root / "skills" / skill / "scripts" / "run.py"
-    core_only_env = os.environ.copy()
-    core_only_env["PATH"] = os.pathsep.join(
+    managed_path = os.pathsep.join(
         [str(Path(uv).parent), str(Path(node).parent)]
     )
+    core_only_env = os.environ.copy()
+    core_only_env["PATH"] = managed_path
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setenv("PATH", managed_path)
+        registry = build_default_registry(project_root)
+        provider = registry.providers[str(ProviderId.DOTNET_OPENXML)]
+        expected_dotnet = registry.detect(provider)
+    return uv, core_only_env, expected_dotnet
+
+
+@pytest.mark.parametrize("skill", ["document-docx", "document-xlsx", "document-pptx", "document-pdf"])
+@pytest.mark.parametrize("command", [["doctor", "--json"], ["capabilities", "--json"]])
+def test_all_entrypoints_run_core_reports_through_frozen_uv(
+    project_root,
+    skill,
+    command,
+    core_report_environment,
+):
+    uv, core_only_env, expected_dotnet = core_report_environment
+    entrypoint = project_root / "skills" / skill / "scripts" / "run.py"
     completed = subprocess.run(
         [
             uv,
@@ -192,7 +215,7 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         capture_output=True,
         text=True,
         shell=False,
-        timeout=30,
+        timeout=_CORE_REPORT_TIMEOUT_SECONDS,
         env=core_only_env,
     )
     assert completed.returncode == 0, completed.stderr
@@ -222,7 +245,10 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         assert libreoffice["path"] is None
         if known_launchers:
             assert "hard quota" in libreoffice["reason"].lower()
-    assert optional["dotnet-openxml"]["available"] is False
+    dotnet = optional[str(ProviderId.DOTNET_OPENXML)]
+    assert dotnet["required"] is False
+    for field in ("available", "version", "path", "reason"):
+        assert dotnet[field] == expected_dotnet[field]
     if command[0] == "doctor":
         assert report["status"] == "healthy"
     elif skill == "document-xlsx":
