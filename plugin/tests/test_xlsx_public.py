@@ -295,8 +295,12 @@ def test_public_unknown_operation_rejected(project_root: Path, tmp_path: Path) -
     assert result["errors"][0]["code"] == "DS_OPERATION_UNKNOWN"
 
 
-def test_public_formula_state_never_recalculated(project_root: Path, public_created: Path, tmp_path: Path) -> None:
-    """The core invariant: no formula is ever reported as recalculated without a provider."""
+def test_public_formula_state_never_claims_unverified_recalculation(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    """Recalculated formulas must be provider-backed rather than unverified claims."""
     read_request = _request(
         tmp_path,
         "read.json",
@@ -309,10 +313,11 @@ def test_public_formula_state_never_recalculated(project_root: Path, public_crea
     )
     result = _public(project_root, "run", "--request", str(read_request))
     formula_state = result["diagnostics"]["operation_result"]["formula_state"]
-    for ref, cell in formula_state["cells"].items():
-        assert cell["state"] != "recalculated", f"Cell {ref} falsely reports recalculated"
-    assert formula_state["summary"]["no_unverified_claimed_recalculated"] is True
-    assert formula_state["summary"]["recalculation_provider"] == "unavailable"
+    summary = formula_state["summary"]
+    if summary["recalculation_provider"] == "unavailable":
+        for ref, cell in formula_state["cells"].items():
+            assert cell["state"] != "recalculated", f"Cell {ref} falsely reports recalculated"
+    assert summary["no_unverified_claimed_recalculated"] is True
 
 
 def test_public_edit_invalidates_dependents(project_root: Path, public_created: Path, tmp_path: Path) -> None:

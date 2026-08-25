@@ -8,6 +8,8 @@ Module provenance: original Elftia-authored clean-room implementation.
 
 import json
 from pathlib import Path
+import stat
+import sys
 
 import pytest
 
@@ -29,6 +31,7 @@ from document_skills_core.providers.libreoffice.constants import (
     HEADLESS_PREFIX,
     platform_known_paths,
 )
+from document_skills_core.providers.libreoffice.convert import convert_to_pdf
 from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
 from document_skills_core.providers.libreoffice.runner import (
     LibreOfficeRunner,
@@ -177,6 +180,8 @@ class TestConstants:
         paths = platform_known_paths()
         assert isinstance(paths, list)
         assert len(paths) >= 1
+        if sys.platform == "win32":
+            assert paths[0].endswith("soffice.com")
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +196,7 @@ class TestDetector:
         class FakeRunner:
             def run(self, provider_id, executable, args, **kwargs):
                 assert "--version" in args
-                assert kwargs["timeout_seconds"] <= 2.0
+                assert kwargs["timeout_seconds"] <= 10.0
                 return ProcessResult(
                     0, "LibreOffice 25.8.0.0 1234567890", "", 100
                 )
@@ -314,6 +319,7 @@ class TestRunnerContainment:
                 captured["args"] = args
                 captured["timeout"] = kwargs.get("timeout_seconds")
                 captured["output_limit"] = kwargs.get("output_limit")
+                captured["fixed_environment"] = kwargs.get("fixed_environment")
                 return ProcessResult(0, "", "", 10)
 
         runner = LibreOfficeRunner(
@@ -330,6 +336,7 @@ class TestRunnerContainment:
         assert isinstance(captured["args"], list)
         assert captured["timeout"] is not None
         assert captured["output_limit"] > 0
+        assert captured["fixed_environment"] == {"SAL_DISABLE_OPENCL": "1"}
 
     def test_env_sanitized_by_process_runner(self, project_root):
         """The existing ProcessRunner sanitizes env — verify via its allowlist."""
@@ -402,6 +409,37 @@ class TestProviderFactory:
 # ---------------------------------------------------------------------------
 
 class TestConsultationMatrix:
+    def test_convert_pdf_stages_read_only_input(self, tmp_path):
+        source = tmp_path / "input.docx"
+        source.write_bytes(b"PK staged source")
+
+        class ReadOnlyRunner:
+            saw_read_only = False
+
+            def convert(self, input_path, target_format, output_dir):
+                self.saw_read_only = not bool(
+                    input_path.stat().st_mode & stat.S_IWUSR
+                )
+                output = output_dir / f"{input_path.stem}.{target_format}"
+                output.write_bytes(b"%PDF-1.7\n%%EOF\n")
+                return output
+
+        runner = ReadOnlyRunner()
+        result = convert_to_pdf(source, runner)
+
+        assert runner.saw_read_only is True
+        assert result.startswith(b"%PDF-")
+
+    def test_convert_pdf_rejects_provider_output_over_byte_ceiling(self, tmp_path):
+        source = tmp_path / "input.docx"
+        source.write_bytes(b"PK staged source")
+        runner = FakeCallableRunner(canned_data=b"%PDF-" + b"x" * 32)
+
+        with pytest.raises(DocumentSkillsError) as captured:
+            convert_to_pdf(source, runner, max_output_bytes=16)
+
+        assert captured.value.code == ErrorCode.PROVIDER_FAILED
+
     def test_recalc_present_returns_cached_values(
         self, project_root, fake_xlsx
     ):

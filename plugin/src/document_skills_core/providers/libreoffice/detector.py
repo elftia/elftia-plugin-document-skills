@@ -13,6 +13,7 @@ from typing import Protocol
 
 from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
+from ...core.io.temp_roots import OperationTempRoot
 from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
 from .constants import (
     EXECUTABLE_NAMES,
@@ -34,6 +35,7 @@ class _VersionProbeRunner(Protocol):
         *,
         timeout_seconds: float = ...,
         output_limit: int = ...,
+        fixed_environment: dict[str, str] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -46,11 +48,11 @@ class LibreOfficeDetector:
         runner: _VersionProbeRunner | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
+        self._policy = ProcessPolicy(self.project_root)
         if runner is not None:
             self._runner = runner
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -81,13 +83,20 @@ class LibreOfficeDetector:
                 path=candidate,
             )
         try:
-            result = self._runner.run(
-                "runtime-detection",
-                resolved,
-                ["--version"],
-                timeout_seconds=TIMEOUT_VERSION_PROBE,
-                output_limit=VERSION_PROBE_OUTPUT_LIMIT,
-            )
+            with OperationTempRoot() as private_root:
+                profile_uri = (private_root / "profile").as_uri()
+                result = self._runner.run(
+                    "runtime-detection",
+                    resolved,
+                    [
+                        "--headless",
+                        f"-env:UserInstallation={profile_uri}",
+                        "--version",
+                    ],
+                    timeout_seconds=TIMEOUT_VERSION_PROBE,
+                    output_limit=VERSION_PROBE_OUTPUT_LIMIT,
+                    fixed_environment={"SAL_DISABLE_OPENCL": "1"},
+                )
         except DocumentSkillsError as error:
             category = self._classify_probe_error(error)
             return DetectionEvidence(
@@ -117,8 +126,7 @@ class LibreOfficeDetector:
 
     def _resolve_executable(self, candidate: str) -> Path:
         """Resolve and allowlist the executable via ProcessPolicy."""
-        policy = ProcessPolicy(self.project_root)
-        return policy.allow_executable("runtime-detection", candidate)
+        return self._policy.allow_executable("runtime-detection", candidate)
 
     @staticmethod
     def _classify_probe_error(error: DocumentSkillsError) -> str:

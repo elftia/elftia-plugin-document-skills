@@ -12,11 +12,44 @@ from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
 from ..io.portable_paths import PORTABLE_PATH_POLICY
+from ..io.temp_roots import managed_temp_root
 from .streams import BoundedPipeCollector
 from .tree import ProcessTree
 
 _SECRET_PATTERN = re.compile(r"(?i)(token|secret|password|api[_-]?key)=\S+")
-_ENV_ALLOWLIST = ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LANG", "LC_ALL", "DOTNET_ROOT", "DOTNET_CLI_TELEMETRY_OPTOUT")
+_ENV_ALLOWLIST = (
+    "PATH",
+    "SystemRoot",
+    "WINDIR",
+    "TEMP",
+    "TMP",
+    "LANG",
+    "LC_ALL",
+    "DOTNET_ROOT",
+    "DOTNET_CLI_TELEMETRY_OPTOUT",
+    "NUGET_PACKAGES",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "ProgramData",
+)
+_FIXED_ENVIRONMENT = {
+    "DOCUMENT_SKILLS_PROVIDER_PROFILE": "core-only",
+    "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false",
+    "DOTNET_NOLOGO": "1",
+    "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": "1",
+    "SAL_DISABLE_OPENCL": "1",
+}
+_FIXED_TEMP_ENVIRONMENT_KEYS = {
+    "APPDATA",
+    "DOTNET_CLI_HOME",
+    "LOCALAPPDATA",
+    "NUGET_HTTP_CACHE_PATH",
+    "NUGET_PLUGINS_CACHE_PATH",
+    "USERPROFILE",
+}
 _POST_KILL_WAIT_SECONDS = 1.0
 _STREAM_CLOSE_GRACE_SECONDS = 0.25
 
@@ -97,6 +130,7 @@ class ProcessRunner:
         cwd: Path | None = None,
         timeout_seconds: float = 2.0,
         output_limit: int = 1_048_576,
+        fixed_environment: dict[str, str] | None = None,
     ) -> ProcessResult:
         executable_path = self._check_executable(provider_id, executable)
         if script is not None:
@@ -108,9 +142,14 @@ class ProcessRunner:
                     details={"provider": provider_id},
                 )
         isolated_cwd = (cwd or self.policy.project_root).resolve()
-        if not isolated_cwd.is_relative_to(self.policy.project_root.resolve()):
+        cwd_is_project_managed = isolated_cwd.is_relative_to(
+            self.policy.project_root.resolve()
+        )
+        cwd_is_operation_managed = _is_managed_temp_path(str(isolated_cwd))
+        if not cwd_is_project_managed and not cwd_is_operation_managed:
             raise DocumentSkillsError(
-                ErrorCode.PATH_UNSAFE, "Process cwd must remain inside the project root."
+                ErrorCode.PATH_UNSAFE,
+                "Process cwd must remain inside the project or a managed operation root.",
             )
         command = [str(executable_path), *args]
         creation_flags = (
@@ -120,7 +159,7 @@ class ProcessRunner:
         process = subprocess.Popen(
             command,
             cwd=isolated_cwd,
-            env=self._minimal_environment(),
+            env=self._minimal_environment(fixed_environment),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -211,8 +250,33 @@ class ProcessRunner:
             )
 
     @staticmethod
-    def _minimal_environment() -> dict[str, str]:
-        return {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
+    def _minimal_environment(
+        fixed_environment: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        environment = {
+            key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ
+        }
+        if "NUGET_PACKAGES" not in environment:
+            try:
+                packages = (Path.home() / ".nuget" / "packages").resolve()
+            except RuntimeError:
+                packages = None
+            if packages is not None and packages.is_dir():
+                environment["NUGET_PACKAGES"] = str(packages)
+        for key, value in (fixed_environment or {}).items():
+            if _FIXED_ENVIRONMENT.get(key) == value:
+                environment[key] = value
+                continue
+            if key in _FIXED_TEMP_ENVIRONMENT_KEYS and _is_managed_temp_path(value):
+                environment[key] = value
+                continue
+            if _FIXED_ENVIRONMENT.get(key) != value:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Provider requested an unapproved fixed environment value.",
+                    details={"environment_key": key},
+                )
+        return environment
 
     @staticmethod
     def _write_stdin(process: subprocess.Popen[bytes], payload: bytes | None) -> None:
@@ -283,3 +347,11 @@ class ProcessRunner:
     def _redact(self, stderr: str) -> str:
         redacted = _SECRET_PATTERN.sub(r"\1=<redacted>", stderr)
         return redacted.replace(str(self.policy.project_root.resolve()), "<project-root>")
+
+
+def _is_managed_temp_path(value: str) -> bool:
+    try:
+        relative = Path(value).resolve().relative_to(managed_temp_root())
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return len(relative.parts) >= 2 and relative.parts[0].startswith("operation-")

@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docm>",
+  "output": "<edited.docm>",
+  "arguments": {
+    "keep_vba": true,
+    "edits": [
+      {
+        "type": "paragraph_style",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "style": "Heading2"
+      }
+    ]
+  }
+}

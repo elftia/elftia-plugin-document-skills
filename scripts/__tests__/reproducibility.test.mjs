@@ -24,7 +24,7 @@ test('artifact construction preserves every reviewed binary payload byte-for-byt
   const paths = releasePaths();
   await buildArtifact();
   const binaryPaths = paths.filter(isReviewedBinaryReleasePath);
-  assert.equal(binaryPaths.length, 18);
+  assert.equal(binaryPaths.length, 19);
   for (const relative of binaryPaths) {
     const source = await readFile(path.join(pluginRoot, ...relative.split('/')));
     const artifact = await readFile(path.join(artifactRoot, ...relative.split('/')));

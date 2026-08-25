@@ -12,13 +12,14 @@ import document_skills_core.cli as facade
 from document_skills_core.cli import execute_request
 from document_skills_core.core.capabilities import Capability, Provider, ProviderId, ProviderRegistry
 from document_skills_core.core.capabilities.detectors import RuntimeDetectors
-from document_skills_core.core.capabilities.reports import build_capabilities
+from document_skills_core.core.capabilities.reports import build_capabilities, build_doctor
 from document_skills_core.core.contracts import (
     DocumentSkillsError,
     ErrorCode,
     SchemaCatalog,
     make_error_result,
 )
+from document_skills_core.core.io.temp_roots import OperationTempRoot
 from document_skills_core.core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from document_skills_core.providers import build_default_registry
 
@@ -49,6 +50,52 @@ def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
     assert detectors.detect_node_provider().available is True
 
 
+def test_core_only_profile_disables_optional_provider_probes(
+    project_root,
+    monkeypatch,
+):
+    monkeypatch.setenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", "core-only")
+    registry = build_default_registry(project_root)
+
+    for provider_id in ("libreoffice", "dotnet-openxml"):
+        state = registry.detect(registry.providers[provider_id])
+        assert state["available"] is False
+        assert state["path"] is None
+        assert state["reason"] == (
+            f"{provider_id} is disabled by "
+            "DOCUMENT_SKILLS_PROVIDER_PROFILE=core-only"
+        )
+        assert registry.find_callable(provider_id) is False
+
+    capabilities = build_capabilities(project_root, "docx", registry)
+    provider_states = {item["id"]: item for item in capabilities["providers"]}
+    assert provider_states["libreoffice"]["available"] is False
+    assert provider_states["dotnet-openxml"]["available"] is False
+    assert capabilities["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+
+    doctor = build_doctor(project_root, "docx")
+    doctor_states = {item["id"]: item for item in doctor["providers"]}
+    assert doctor_states["libreoffice"]["available"] is False
+    assert doctor_states["dotnet-openxml"]["available"] is False
+
+
+def test_process_environment_accepts_only_the_exact_core_only_profile():
+    environment = ProcessRunner._minimal_environment(
+        {"DOCUMENT_SKILLS_PROVIDER_PROFILE": "core-only"}
+    )
+    assert environment["DOCUMENT_SKILLS_PROVIDER_PROFILE"] == "core-only"
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        ProcessRunner._minimal_environment(
+            {"DOCUMENT_SKILLS_PROVIDER_PROFILE": "auto"}
+        )
+    assert captured.value.code == ErrorCode.PROVIDER_FAILED
+
+
 def test_optional_descriptors_never_create_callable_operations(project_root):
     registry = build_default_registry(project_root)
     assert {
@@ -61,8 +108,11 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
     # Existing public format-prefix operations remain unbound to optional providers.
     public_operations = {
         "docx.create",
+        "docx.edit",
         "docx.edit.replace-text",
+        "docx.inspect.accessibility",
         "docx.inspect.structure",
+        "docx.merge",
         "docx.read",
         "docx.template.apply",
         "pdf.create",
@@ -150,14 +200,18 @@ def test_node_health_allows_bounded_startup_and_retains_timeout(
 
 @pytest.mark.parametrize("skill", ["document-docx", "document-xlsx", "document-pptx", "document-pdf"])
 @pytest.mark.parametrize("command", [["doctor", "--json"], ["capabilities", "--json"]])
-def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill, command):
+def test_all_entrypoints_run_reports_through_frozen_uv_with_minimal_path(
+    project_root,
+    skill,
+    command,
+):
     uv = shutil.which("uv")
     node = shutil.which("node")
     assert uv is not None
     assert node is not None
     entrypoint = project_root / "skills" / skill / "scripts" / "run.py"
-    core_only_env = os.environ.copy()
-    core_only_env["PATH"] = os.pathsep.join(
+    minimal_env = os.environ.copy()
+    minimal_env["PATH"] = os.pathsep.join(
         [str(Path(uv).parent), str(Path(node).parent)]
     )
     completed = subprocess.run(
@@ -176,7 +230,7 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
         text=True,
         shell=False,
         timeout=30,
-        env=core_only_env,
+        env=minimal_env,
     )
     assert completed.returncode == 0, completed.stderr
     report = json.loads(completed.stdout)
@@ -190,8 +244,18 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(project_root, skill,
             else report["providers"]
         )
     }
-    assert optional["libreoffice"]["available"] is False
-    assert optional["dotnet-openxml"]["available"] is False
+    libreoffice = optional["libreoffice"]
+    if libreoffice["available"]:
+        assert libreoffice["path"] is not None
+        assert Path(libreoffice["path"]).is_file()
+    else:
+        assert libreoffice["reason"]
+    dotnet = optional["dotnet-openxml"]
+    if dotnet["available"]:
+        assert dotnet["path"] is not None
+        assert Path(dotnet["path"]).is_file()
+    else:
+        assert dotnet["reason"]
 
 
 def test_detector_timeout_is_reported_as_unavailable(project_root, monkeypatch):
@@ -229,6 +293,31 @@ def test_process_policy_rejects_executable_and_script_escape(project_root, tmp_p
             script=allowed,
         )
     assert argv_error.value.code == ErrorCode.PATH_UNSAFE
+
+
+def test_process_runner_accepts_only_managed_external_cwd(project_root, tmp_path):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    runner = ProcessRunner(policy)
+    with pytest.raises(DocumentSkillsError) as unmanaged_error:
+        runner.run(
+            "fixture",
+            executable,
+            ["-c", "print('unreachable')"],
+            cwd=tmp_path,
+        )
+    assert unmanaged_error.value.code == ErrorCode.PATH_UNSAFE
+
+    with OperationTempRoot() as operation_root:
+        private_cwd = operation_root / "process-cwd"
+        private_cwd.mkdir(mode=0o700)
+        result = runner.run(
+            "fixture",
+            executable,
+            ["-c", "import os; print(os.getcwd())"],
+            cwd=private_cwd,
+        )
+        assert Path(result.stdout.strip()).resolve() == private_cwd.resolve()
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX virtualenv executables are symlinks")

@@ -1,6 +1,7 @@
 """One-shot public command supervisor and sole stdout/cancellation owner."""
 
 import json
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -26,7 +27,31 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
+_LIBREOFFICE_OPERATIONS = frozenset(
+    {
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.compare.visual",
+        "docx.layout.repair",
+        "docx.render",
+        "xlsx.read",
+    }
+)
+_LIBREOFFICE_WORKER_TIMEOUT_SECONDS = 90.0
+_DOTNET_OPERATIONS = frozenset(
+    {
+        "docx.comments.add",
+        "docx.comments.read",
+        "docx.comments.resolve",
+        "docx.revisions.apply",
+        "docx.revisions.read",
+        "docx.validate.schema",
+    }
+)
+_DOTNET_WORKER_TIMEOUT_SECONDS = 90.0
 _PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
+_PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
+_CORE_ONLY_PROFILE = "core-only"
 
 
 class PublicCommandSupervisor:
@@ -154,6 +179,11 @@ class PublicCommandSupervisor:
         runner = ProcessRunner(policy)
         executable = policy.allow_executable("public-command-worker", sys.executable)
         worker = policy.allow_script("public-command-worker", self.worker_script)
+        fixed_environment = (
+            {_PROVIDER_PROFILE_ENV: _CORE_ONLY_PROFILE}
+            if os.environ.get(_PROVIDER_PROFILE_ENV) == _CORE_ONLY_PROFILE
+            else None
+        )
         return runner.run(
             "public-command-worker",
             executable,
@@ -170,6 +200,7 @@ class PublicCommandSupervisor:
             cwd=cwd,
             timeout_seconds=timeout_seconds,
             output_limit=self.output_limit,
+            fixed_environment=fixed_environment,
         )
 
     def _command_limits(
@@ -192,6 +223,19 @@ class PublicCommandSupervisor:
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _LIBREOFFICE_OPERATIONS
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if type(value) is dict and value.get("operation") in _DOTNET_OPERATIONS:
+                return (
+                    max(self.timeout_seconds, _DOTNET_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES

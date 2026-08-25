@@ -1,12 +1,21 @@
 """Deterministic XML construction helpers."""
 
-from xml.etree.ElementTree import Element, SubElement, tostring
+from hashlib import sha256
+from xml.etree.ElementTree import Element, SubElement, canonicalize, tostring
 
 from .constants import qn
 
 
 def xml_bytes(root: Element) -> bytes:
     return tostring(root, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
+
+
+def selector_sha256(root: Element) -> str:
+    """Hash a subtree independently of ElementTree's global prefix registry."""
+
+    serialized = tostring(root, encoding="unicode", short_empty_elements=True)
+    normalized = canonicalize(serialized, rewrite_prefixes=True)
+    return sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def text_run(parent: Element, text: str, *, bold: bool = False) -> Element:

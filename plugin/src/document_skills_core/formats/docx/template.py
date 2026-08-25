@@ -4,7 +4,6 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 import re
-import shutil
 from typing import Any
 from xml.etree.ElementTree import Element, tostring
 
@@ -82,10 +81,15 @@ class TemplatePlan:
         }
 
 
-def plan_template(package: OpcPackage, variables: dict[str, str]) -> TemplatePlan:
+def plan_template(
+    package: OpcPackage,
+    variables: dict[str, str],
+    *,
+    required_story_parts: set[str] | None = None,
+) -> TemplatePlan:
     used: set[str] = set()
     protected: set[str] = set()
-    changed_parts: set[str] = set()
+    changed_parts = set(required_story_parts or set())
     raw_expectations: list[
         tuple[str, int, int, TextGroup, tuple[re.Match[str], ...]]
     ] = []
@@ -258,12 +262,6 @@ def apply_template_with_node(
         "version": envelope["version"],
         "duration_ms": result.duration_ms,
     }
-
-
-def stage_template_source(source: Path, private_root: Path) -> Path:
-    staged = private_root / "template-input.docx"
-    shutil.copyfile(source, staged)
-    return staged
 
 
 def _valid_tokens(text: str) -> set[str]:

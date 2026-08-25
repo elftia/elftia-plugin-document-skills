@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.apply",
+  "input": "<template.dotx>",
+  "output": "<rendered.docx>",
+  "arguments": {
+    "missing_policy": "error",
+    "variables": {
+      "customer": {"name": "Ada"}
+    },
+    "style_overlay": {
+      "source": "<style-library.docx>",
+      "expected_source_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "style_ids": ["AccentQuote", "Normal"],
+      "conflict_policy": "keep-base"
+    }
+  }
+}

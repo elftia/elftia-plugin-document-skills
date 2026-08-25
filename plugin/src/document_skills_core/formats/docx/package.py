@@ -26,6 +26,8 @@ from .constants import (
     WORD_MAIN,
 )
 from .content_types import (
+    WORD_MACRO_ENABLED_MAIN_CONTENT_TYPE,
+    WORD_TEMPLATE_MAIN_CONTENT_TYPE,
     content_type_for,
     parse_content_types,
     validate_package_content_types,
@@ -72,6 +74,8 @@ class OpcPackage:
         path: str | Path,
         *,
         allow_dangerous_inventory: bool = False,
+        allow_template_main: bool = False,
+        allow_vba_preservation: bool = False,
     ) -> "OpcPackage":
         resolved = Path(path).expanduser().resolve()
         if not resolved.is_file():
@@ -84,7 +88,7 @@ class OpcPackage:
             _unsafe("DOCX exceeds the Core byte ceiling.", bytes=resolved.stat().st_size)
         policy = (
             DangerousContentPolicy.PRESERVE_DISABLED
-            if allow_dangerous_inventory
+            if allow_dangerous_inventory or allow_template_main or allow_vba_preservation
             else DangerousContentPolicy.REJECT
         )
         preflight = inspect_ooxml(
@@ -97,12 +101,20 @@ class OpcPackage:
             ),
             dangerous_policy=policy,
         )
+        if allow_template_main:
+            _assert_only_template_main(preflight["security"])
+        if allow_vba_preservation:
+            _assert_only_vba_preservation(preflight["security"])
         parts = _read_parts(resolved)
         if CONTENT_TYPES not in parts or PACKAGE_RELS not in parts or WORD_MAIN not in parts:
             _unsafe("DOCX is missing a required package part.")
         content_types = parse_content_types(parts[CONTENT_TYPES])
         relationships = _parse_all_relationships(parts)
-        validate_package_content_types(content_types, relationships)
+        validate_package_content_types(
+            content_types,
+            relationships,
+            allow_template_main=allow_template_main,
+        )
         unknown = sorted(name for name in parts if not _known_part(name))
         return cls(
             resolved,
@@ -171,6 +183,8 @@ class OpcPackage:
         output: "OpcPackage",
         *,
         allowed_changed: set[str],
+        allowed_added: set[str] | None = None,
+        allowed_removed: set[str] | None = None,
     ) -> PreservationManifest:
         input_names = set(self.parts)
         output_names = set(output.parts)
@@ -182,13 +196,15 @@ class OpcPackage:
             if self.part_hashes[name] != output.part_hashes[name]
         )
         unexpected = sorted(set(changed) - allowed_changed)
-        if added or removed or unexpected:
+        unexpected_added = sorted(set(added) - (allowed_added or set()))
+        unexpected_removed = sorted(set(removed) - (allowed_removed or set()))
+        if unexpected_added or unexpected_removed or unexpected:
             raise DocumentSkillsError(
                 ErrorCode.VALIDATION_FAILED,
                 "Template output changed an undeclared package part.",
                 details={
-                    "added_parts": added,
-                    "removed_parts": removed,
+                    "unexpected_added_parts": unexpected_added,
+                    "unexpected_removed_parts": unexpected_removed,
                     "unexpected_changed_parts": unexpected,
                 },
             )
@@ -263,6 +279,74 @@ def _known_part(name: str) -> bool:
 
 def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _assert_only_template_main(security: dict[str, Any]) -> None:
+    expected = {
+        "part": "/word/document.xml",
+        "kind": "content-type",
+        "type": WORD_TEMPLATE_MAIN_CONTENT_TYPE,
+    }
+    categories = security.get("categories")
+    if type(categories) is not dict:
+        _unsafe("DOTX security inventory is missing.")
+    unexpected = {
+        name: records
+        for name, records in categories.items()
+        if records and (name != "templates" or records != [expected])
+    }
+    if categories.get("templates") != [expected] or unexpected:
+        _unsafe(
+            "DOTX template base contains unsupported active or linked content.",
+            security_inventory=security,
+        )
+
+
+def _assert_only_vba_preservation(security: dict[str, Any]) -> None:
+    categories = security.get("categories")
+    if type(categories) is not dict:
+        _unsafe("DOCM security inventory is missing.")
+    unexpected_categories = {
+        name: records
+        for name, records in categories.items()
+        if name != "vba" and records
+    }
+    vba_records = categories.get("vba")
+    if type(vba_records) is not list or not vba_records:
+        _unsafe("DOCM keep-VBA mode requires an inert VBA inventory.")
+    unexpected_vba = [
+        record for record in vba_records if not _is_allowed_vba_record(record)
+    ]
+    if unexpected_categories or unexpected_vba:
+        _unsafe(
+            "DOCM keep-VBA mode found unsupported active or linked content.",
+            unexpected_categories=unexpected_categories,
+            unexpected_vba=unexpected_vba,
+        )
+
+
+def _is_allowed_vba_record(record: Any) -> bool:
+    if type(record) is not dict:
+        return False
+    kind = record.get("kind")
+    part = record.get("part")
+    if kind == "package-part":
+        return part == "word/vbaProject.bin"
+    if kind == "content-type":
+        content_type = record.get("type")
+        return (
+            part == "/word/document.xml"
+            and content_type == WORD_MACRO_ENABLED_MAIN_CONTENT_TYPE
+        ) or (
+            part == "/word/vbaProject.bin"
+            and content_type == "application/vnd.ms-office.vbaProject"
+        )
+    return (
+        record.get("source") == "word/_rels/document.xml.rels"
+        and record.get("target") == "vbaProject.bin"
+        and record.get("type", "").endswith("/vbaProject")
+        and record.get("target_mode", "") in {"", "Internal"}
+    )
 
 
 def _unsafe(message: str, **details: Any) -> None:

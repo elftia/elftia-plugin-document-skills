@@ -173,12 +173,13 @@ def decode_stream(
             details={"depth": len(filters), "limit": budget.max_decode_filter_depth},
         )
     decoded = raw_stream
-    for filter_name in filters:
+    for raw_filter_name in filters:
+        filter_name = raw_filter_name.removeprefix("/")
         if filter_name not in SUPPORTED_FILTERS:
             raise DocumentSkillsError(
                 ErrorCode.ARCHIVE_UNSAFE,
-                f"Unsupported decode filter: {filter_name}",
-                details={"filter": filter_name},
+                f"Unsupported decode filter: {raw_filter_name}",
+                details={"filter": raw_filter_name},
             )
         if len(decoded) > budget.max_stream_bytes:
             _unsafe("stream_bytes", len(decoded), budget.max_stream_bytes)

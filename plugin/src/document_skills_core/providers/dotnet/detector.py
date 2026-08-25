@@ -11,10 +11,12 @@ Module provenance: original Elftia-authored clean-room implementation.
 
 from pathlib import Path
 import shutil
+import time
 from typing import Protocol
 
 from ...core.capabilities.catalog import DetectionEvidence
 from ...core.contracts.errors import DocumentSkillsError
+from ...core.io.temp_roots import OperationTempRoot
 from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
 from .constants import (
     PROBE_OUTPUT_LIMIT,
@@ -25,6 +27,12 @@ from .constants import (
     TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
+)
+from .runner import (
+    _build_argv,
+    _dotnet_fixed_environment,
+    _exec_argv,
+    _remaining_timeout,
 )
 
 
@@ -41,6 +49,7 @@ class _ProbeRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         stdin_json: object | None = ...,
+        fixed_environment: dict[str, str] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -54,6 +63,7 @@ class DotnetOpenXmlDetector:
         runner: _ProbeRunner | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
+        self._policy = ProcessPolicy(self.project_root)
         if helper_dir is not None:
             self._helper_dir = helper_dir.resolve()
         else:
@@ -61,8 +71,7 @@ class DotnetOpenXmlDetector:
         if runner is not None:
             self._runner = runner
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._runner = ProcessRunner(self._policy)
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -92,7 +101,7 @@ class DotnetOpenXmlDetector:
     def _validate_runtime(self, candidate: str) -> str | None:
         """Return the runtime line if .NET 8 is present, else None."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "runtime-detection")
         except DocumentSkillsError:
             return None
         try:
@@ -116,26 +125,55 @@ class DotnetOpenXmlDetector:
     def _validate_assembly(self, candidate: str) -> DetectionEvidence:
         """Run the helper --probe-json to validate the OpenXML assembly."""
         try:
-            resolved = self._resolve_executable(candidate)
+            resolved = self._resolve_executable(candidate, "dotnet-openxml")
         except DocumentSkillsError:
             return DetectionEvidence(
                 available=False,
                 reason=f"dotnet detected at {candidate} but could not be resolved for assembly probe",
                 path=candidate,
             )
-        argv = [
-            "run", "--project", str(self._helper_dir), "--",
-            "--probe-json",
-        ]
         try:
-            result = self._runner.run(
-                "dotnet-openxml",
-                resolved,
-                argv,
-                cwd=self.project_root,
-                timeout_seconds=TIMEOUT_PROBE,
-                output_limit=PROBE_OUTPUT_LIMIT,
-            )
+            with OperationTempRoot() as private_root:
+                started = time.monotonic()
+                private_cwd = private_root / "process-cwd"
+                private_cwd.mkdir(mode=0o700)
+                fixed_environment = _dotnet_fixed_environment(private_root)
+                build_result = self._runner.run(
+                    "dotnet-openxml",
+                    resolved,
+                    _build_argv(
+                        self._helper_dir,
+                        private_root / "dotnet-build",
+                    ),
+                    cwd=private_cwd,
+                    timeout_seconds=TIMEOUT_PROBE,
+                    output_limit=PROBE_OUTPUT_LIMIT,
+                    fixed_environment=fixed_environment,
+                )
+                if build_result.returncode != 0:
+                    return DetectionEvidence(
+                        available=False,
+                        reason=(
+                            "dotnet detected at "
+                            f"{candidate} but helper build exited "
+                            f"{build_result.returncode}"
+                        ),
+                        path=candidate,
+                    )
+                argv = _exec_argv(
+                    private_root / "dotnet-build",
+                    "--probe-json",
+                )
+                result = self._runner.run(
+                    "dotnet-openxml",
+                    resolved,
+                    argv,
+                    cwd=private_cwd,
+                    timeout_seconds=_remaining_timeout(started, TIMEOUT_PROBE),
+                    output_limit=PROBE_OUTPUT_LIMIT,
+                    stdin_json={},
+                    fixed_environment=fixed_environment,
+                )
         except DocumentSkillsError as error:
             category = _classify_error(error)
             return DetectionEvidence(
@@ -194,9 +232,8 @@ class DotnetOpenXmlDetector:
             path=candidate,
         )
 
-    def _resolve_executable(self, candidate: str) -> Path:
-        policy = ProcessPolicy(self.project_root)
-        return policy.allow_executable("runtime-detection", candidate)
+    def _resolve_executable(self, candidate: str, provider_id: str) -> Path:
+        return self._policy.allow_executable(provider_id, candidate)
 
 
 def _classify_error(error: DocumentSkillsError) -> str:

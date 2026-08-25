@@ -50,8 +50,10 @@ MCP_REGISTRATION = {
 ALLOWED_STDLIB = {
     "__future__",
     "argparse",
+    "base64",
     "builtins",
     "collections",
+    "copy",
     "ctypes",
     "dataclasses",
     "datetime",

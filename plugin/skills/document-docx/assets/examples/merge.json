@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.merge",
+  "input": "base.docx",
+  "output": "merged.docx",
+  "arguments": {
+    "sources": [
+      {
+        "path": "appendix.docx",
+        "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "style_conflict_policy": "require-identical",
+    "numbering_conflict_policy": "require-identical"
+  }
+}

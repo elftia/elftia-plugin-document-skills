@@ -55,11 +55,17 @@ def test_provenance_covers_implementation_modules(project_root, tmp_path):
     assert len(report["mapping_sha256"]) == 64
 
 
+@pytest.mark.parametrize(
+    "report_name",
+    [
+        "core-docx-review-cycle-round-1.md",
+        "document-skills-0.5.3-docx-completion-review.md",
+    ],
+)
 def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
-    project_root, tmp_path
+    project_root, tmp_path, report_name
 ):
     root = _copy_audit_project(project_root, tmp_path / "core-docx-review")
-    report_name = "core-docx-review-cycle-round-1.md"
     bind_test_review(root, report_name=report_name)
     report = audit_provenance(root)
     assert report["review_attestations"] == 1
@@ -158,6 +164,20 @@ def test_consumer_dependencies_are_exactly_allowlisted_but_not_in_runtime_sbom(
     assert runtime_names.isdisjoint({"openpyxl", "pymupdf", "python-docx", "python-pptx"})
 
 
+def test_mammoth_evaluation_does_not_add_a_runtime_dependency(project_root):
+    package = json.loads((project_root / "package.json").read_text(encoding="utf-8"))
+    lock = json.loads(
+        (project_root / "package-lock.json").read_text(encoding="utf-8")
+    )
+    assert "mammoth" not in package.get("dependencies", {})
+    assert "node_modules/mammoth" not in lock.get("packages", {})
+    review = (
+        project_root / "provenance/reviews/mammoth-1.12.1-evaluation.md"
+    ).read_text(encoding="utf-8")
+    assert "evaluated, not adopted" in review
+    assert "lossy_projection" in review
+
+
 def test_machine_readable_audit_report(project_root):
     report = run_audits(project_root)
     audit_path = project_root / "provenance" / "audit-report.json"
@@ -177,10 +197,35 @@ def test_machine_readable_audit_report(project_root):
             }
         ]
     elif len(attestations) == 1:
-        assert report["status"] == "pass"
-        assert report["errors"] == []
-        assert report["checks"]["provenance"]["status"] == "pass"
-        assert report["checks"]["provenance"]["review_attestations"] == 1
+        review = attestations[0]
+        evidence = (project_root / review["report_evidence"]).read_text(
+            encoding="utf-8"
+        )
+        review_binds = all(
+            expected in evidence
+            for expected in (
+                review["identity"],
+                review["reviewed_mapping_sha256"],
+                review["status"],
+            )
+        )
+        if review_binds:
+            assert report["status"] == "pass"
+            assert report["errors"] == []
+            assert report["checks"]["provenance"]["status"] == "pass"
+            assert report["checks"]["provenance"]["review_attestations"] == 1
+        else:
+            assert report["status"] == "fail"
+            assert report["checks"]["provenance"] == {"status": "fail"}
+            assert report["errors"] == [
+                {
+                    "check": "provenance",
+                    "message": (
+                        "Review evidence does not bind the attestation: "
+                        f"{review['reviewer']}"
+                    ),
+                }
+            ]
     else:
         pytest.fail(f"unsupported review attestation count: {len(attestations)}")
 

@@ -19,7 +19,7 @@ from ...core.capabilities.catalog import (
 )
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.contracts.models import make_error_result
-from .comments import add_comment, read_comments
+from .comments import add_comment, read_comments, resolve_comment
 from .detector import DotnetOpenXmlDetector
 from .revisions import accept_reject_revisions, read_revisions
 from .runner import DotnetOpenXmlRunner
@@ -53,6 +53,142 @@ class DotnetOpenXmlProvider:
             "reason": evidence.reason or "unavailable",
         }
 
+    def read_revisions(
+        self,
+        input_path: Path,
+        limit: int,
+        *,
+        filters: dict[str, Any] | None = None,
+        scope: dict[str, Any] | None = None,
+        revision_ids: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Run the strict private helper for the public revisions projection."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return read_revisions(
+            input_path,
+            self.runner,
+            limit=limit,
+            filters=filters,
+            scope=scope,
+            revision_ids=revision_ids,
+        )
+
+    def apply_revisions(
+        self,
+        input_path: Path,
+        output_path: Path,
+        revision_ids: list[str],
+        action: str,
+    ) -> dict[str, Any]:
+        """Apply a bounded revision transaction into a private candidate."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return accept_reject_revisions(
+            input_path,
+            output_path,
+            revision_ids,
+            action,
+            self.runner,
+        )
+
+    def read_comments(
+        self,
+        input_path: Path,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Run the strict private helper for the public comments projection."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return read_comments(input_path, self.runner, max_comments=limit)
+
+    def add_comment(
+        self,
+        input_path: Path,
+        output_path: Path,
+        comment: dict[str, Any],
+    ) -> str:
+        """Add one bounded anchored comment into a private candidate."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return add_comment(input_path, output_path, comment, self.runner)
+
+    def resolve_comment(
+        self,
+        input_path: Path,
+        output_path: Path,
+        comment_id: str,
+        resolved: bool,
+    ) -> dict[str, Any]:
+        """Set the resolved state of one bounded root comment thread."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return resolve_comment(
+            input_path,
+            output_path,
+            comment_id,
+            resolved,
+            self.runner,
+        )
+
+    def validate_schema(
+        self,
+        input_path: Path,
+        limit: int,
+    ) -> dict[str, Any]:
+        """Run OpenXmlValidator and return its bounded private report."""
+
+        evidence = self.detector.detect()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "dotnet-openxml is not callable.",
+                status="unavailable",
+            )
+        if evidence.path:
+            self.runner.set_executable(evidence.path)
+        return validate_schema(input_path, self.runner, max_errors=limit)
+
     def execute(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         try:
             return self._dispatch(operation, request)
@@ -78,6 +214,13 @@ class DotnetOpenXmlProvider:
             return self._do_comments_read(Path(request["input"]), request)
         if operation == "dotnet.docx.comments-add":
             return self._do_comments_add(Path(request["input"]), Path(request["output"]), request["comment"])
+        if operation == "dotnet.docx.comments-resolve":
+            return self._do_comments_resolve(
+                Path(request["input"]),
+                Path(request["output"]),
+                request["comment_id"],
+                request["resolved"],
+            )
         if operation == "dotnet.docx.template-apply":
             return self._do_template(Path(request["input"]), Path(request["output"]), request.get("variables", {}))
         if operation == "dotnet.docx.schema-validate":
@@ -136,6 +279,29 @@ class DotnetOpenXmlProvider:
             if evidence.path:
                 self.runner.set_executable(evidence.path)
             return add_comment(input_path, output_path, comment, self.runner)
+        except DocumentSkillsError:
+            return None
+
+    def try_resolve_comment(
+        self,
+        input_path: Path,
+        output_path: Path,
+        comment_id: str,
+        resolved: bool,
+    ) -> dict[str, Any] | None:
+        evidence = self.detector.detect()
+        if not evidence.available:
+            return None
+        try:
+            if evidence.path:
+                self.runner.set_executable(evidence.path)
+            return resolve_comment(
+                input_path,
+                output_path,
+                comment_id,
+                resolved,
+                self.runner,
+            )
         except DocumentSkillsError:
             return None
 
@@ -202,6 +368,25 @@ class DotnetOpenXmlProvider:
             diagnostics={"comment_id": comment_id},
         )
 
+    def _do_comments_resolve(
+        self,
+        input_path: Path,
+        output_path: Path,
+        comment_id: str,
+        resolved: bool,
+    ) -> dict[str, Any]:
+        result = resolve_comment(
+            input_path,
+            output_path,
+            comment_id,
+            resolved,
+            self.runner,
+        )
+        return _build_success(
+            "dotnet.docx.comments-resolve",
+            diagnostics=result,
+        )
+
     def _do_template(
         self, input_path: Path, output_path: Path, variables: dict[str, str],
     ) -> dict[str, Any]:
@@ -255,6 +440,7 @@ def build_dotnet_provider(
             Capability("dotnet.docx.revisions-reject", "enhanced", validation_strength=1),
             Capability("dotnet.docx.comments-read", "enhanced", validation_strength=1),
             Capability("dotnet.docx.comments-add", "enhanced", validation_strength=1),
+            Capability("dotnet.docx.comments-resolve", "enhanced", validation_strength=1),
             Capability("dotnet.docx.template-apply", "enhanced", validation_strength=1),
             Capability("dotnet.docx.schema-validate", "enhanced", validation_strength=1),
         ],

@@ -5,8 +5,10 @@ from xml.etree.ElementTree import QName, register_namespace
 NS = {
     "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
     "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+    "cust": "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties",
     "dc": "http://purl.org/dc/elements/1.1/",
     "dcterms": "http://purl.org/dc/terms/",
+    "m": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "pic": "http://schemas.openxmlformats.org/drawingml/2006/picture",
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "rels": "http://schemas.openxmlformats.org/package/2006/relationships",
@@ -31,6 +33,9 @@ REL_CORE_PROPERTIES = (
 REL_EXTENDED_PROPERTIES = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties"
 )
+REL_CUSTOM_PROPERTIES = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties"
+)
 REL_STYLES = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"
 REL_NUMBERING = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering"
@@ -40,6 +45,18 @@ REL_HEADER = "http://schemas.openxmlformats.org/officeDocument/2006/relationship
 REL_FOOTER = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer"
 REL_HYPERLINK = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+)
+REL_COMMENTS = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
+)
+REL_FOOTNOTES = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footnotes"
+)
+REL_ENDNOTES = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/endnotes"
+)
+REL_SETTINGS = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings"
 )
 REL_ATTACHED_TEMPLATE = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate"
@@ -56,6 +73,10 @@ MAX_TEXT_CHARS = 1_000_000
 MAX_RESULT_ITEMS = 10_000
 CT_HEADER = "application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"
 CT_FOOTER = "application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"
+CT_COMMENTS = "application/vnd.openxmlformats-officedocument.wordprocessingml.comments+xml"
+CT_FOOTNOTES = "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml"
+CT_ENDNOTES = "application/vnd.openxmlformats-officedocument.wordprocessingml.endnotes+xml"
+CT_SETTINGS = "application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"
 
 MAX_ARGUMENT_TEXT = 64_000
 MAX_RULES = 256

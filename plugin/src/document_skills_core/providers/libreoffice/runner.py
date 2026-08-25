@@ -37,6 +37,7 @@ class _ContainedRunner(Protocol):
         cwd: Path | None = ...,
         timeout_seconds: float = ...,
         output_limit: int = ...,
+        fixed_environment: dict[str, str] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -50,15 +51,22 @@ class LibreOfficeRunner:
         runner: _ContainedRunner | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self._executable = executable
+        self._executable: str | Path | None = None
+        self._policy: ProcessPolicy | None = None
         if runner is not None:
             self._runner = runner
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
+        if executable is not None:
+            self.set_executable(executable)
 
     def set_executable(self, executable: str | Path) -> None:
-        self._executable = executable
+        self._executable = (
+            self._policy.allow_executable("libreoffice", executable)
+            if self._policy is not None
+            else executable
+        )
 
     def convert(
         self,
@@ -81,20 +89,32 @@ class LibreOfficeRunner:
         if timeout_seconds is None:
             timeout_seconds = _timeout_for_format(target_format)
         argv = _build_argv(
+            f"-env:UserInstallation={(output_dir.parent / 'profile').as_uri()}",
             "--convert-to",
             target_format,
             "--outdir",
             str(output_dir.resolve()),
             str(input_path.resolve()),
         )
-        self._runner.run(
+        result = self._runner.run(
             "libreoffice",
             self._executable,
             argv,
             cwd=self.project_root,
             timeout_seconds=timeout_seconds,
             output_limit=OUTPUT_LIMIT,
+            fixed_environment={"SAL_DISABLE_OPENCL": "1"},
         )
+        if result.returncode != 0:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "LibreOffice conversion exited non-zero.",
+                details={
+                    "returncode": result.returncode,
+                    "stdout": result.stdout[:512],
+                    "stderr": result.stderr[:512],
+                },
+            )
         expected = output_dir.resolve() / (input_path.stem + "." + target_format)
         if not expected.is_file():
             raise DocumentSkillsError(

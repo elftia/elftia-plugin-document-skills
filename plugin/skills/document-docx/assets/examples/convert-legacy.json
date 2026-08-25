@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.convert.legacy",
+  "input": "<input.doc>",
+  "output": "<converted.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {"format": "docx", "max_output_bytes": 67108864}
+}

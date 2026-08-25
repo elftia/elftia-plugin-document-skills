@@ -8,6 +8,8 @@ import sys
 # Headless argument prefix — always present for every LibreOffice invocation.
 HEADLESS_PREFIX: list[str] = [
     "--headless",
+    "--invisible",
+    "--nodefault",
     "--norestore",
     "--nofirststartwizard",
     "--nolockcheck",
@@ -24,10 +26,10 @@ FORBIDDEN_TOKENS: frozenset[str] = frozenset({
 
 # Default per-operation timeouts (seconds).
 TIMEOUT_RECALC: float = 60.0
-TIMEOUT_CONVERT: float = 30.0
+TIMEOUT_CONVERT: float = 60.0
 TIMEOUT_RENDER: float = 30.0
 TIMEOUT_LEGACY: float = 30.0
-TIMEOUT_VERSION_PROBE: float = 2.0
+TIMEOUT_VERSION_PROBE: float = 10.0
 
 # Output limit (1 MiB).
 OUTPUT_LIMIT: int = 1_048_576
@@ -48,7 +50,9 @@ def platform_known_paths() -> list[str]:
     """Return platform-known soffice install locations."""
     if sys.platform == "win32":
         return [
+            r"C:\Program Files\LibreOffice\program\soffice.com",
             r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
             r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
         ]
     if sys.platform == "darwin":

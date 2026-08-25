@@ -10,11 +10,12 @@ from defusedxml.ElementTree import fromstring
 
 from ..contracts.errors import DocumentSkillsError
 from ..contracts.models import gate_record
-from ..io.archive import inspect_ooxml
+from ..io.archive import DangerousContentPolicy, inspect_ooxml
 from ..io.paths import sha256_file
 
 _OOXML_REQUIRED = {
     ".docx": "word/document.xml",
+    ".docm": "word/document.xml",
     ".xlsx": "xl/workbook.xml",
     ".pptx": "ppt/presentation.xml",
 }
@@ -103,6 +104,7 @@ def validate_artifact(
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] | None = None,
     visual_available: bool = False,
     schema_available: bool = False,
+    dangerous_policy: DangerousContentPolicy | str = DangerousContentPolicy.REJECT,
 ) -> dict[str, Any]:
     artifact = Path(path).resolve()
     extension = artifact.suffix.lower()
@@ -111,7 +113,10 @@ def validate_artifact(
     runner.run_gate("artifact.exists-size", lambda: _existence(artifact))
     runner.run_gate("artifact.magic-extension", lambda: _magic(artifact, format_id))
     if extension in _OOXML_REQUIRED:
-        runner.run_gate("ooxml.archive-xml", lambda: inspect_ooxml(artifact))
+        runner.run_gate(
+            "ooxml.archive-xml",
+            lambda: inspect_ooxml(artifact, dangerous_policy=dangerous_policy),
+        )
         runner.run_gate("ooxml.content-types", lambda: _content_types(artifact))
         runner.run_gate("ooxml.relationships", lambda: _relationships(artifact))
         runner.run_gate(
@@ -168,7 +173,7 @@ def _existence(path: Path) -> dict[str, Any]:
 def _magic(path: Path, format_id: str) -> dict[str, Any]:
     with path.open("rb") as handle:
         magic = handle.read(8)
-    expected_zip = format_id in {"docx", "xlsx", "pptx"}
+    expected_zip = format_id in {"docm", "docx", "xlsx", "pptx"}
     valid = magic.startswith(b"PK") if expected_zip else magic.startswith(b"%PDF-")
     if not valid:
         raise ValueError(f"Magic bytes do not match {format_id}.")

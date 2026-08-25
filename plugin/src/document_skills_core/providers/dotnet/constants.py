@@ -20,16 +20,18 @@ ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({
     "--revisions-reject",
     "--comments-read",
     "--comments-add",
+    "--comments-resolve",
     "--template-apply",
     "--schema-validate",
 })
 
 # Default per-operation timeouts (seconds).
-TIMEOUT_PROBE: float = 10.0
+TIMEOUT_PROBE: float = 30.0
 TIMEOUT_REVISIONS_READ: float = 30.0
 TIMEOUT_REVISIONS_MUTATE: float = 30.0
 TIMEOUT_COMMENTS_READ: float = 30.0
 TIMEOUT_COMMENTS_ADD: float = 30.0
+TIMEOUT_COMMENTS_RESOLVE: float = 30.0
 TIMEOUT_TEMPLATE_APPLY: float = 60.0
 TIMEOUT_SCHEMA_VALIDATE: float = 30.0
 TIMEOUT_RUNTIME_PROBE: float = 2.0

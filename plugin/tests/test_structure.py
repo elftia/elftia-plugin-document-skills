@@ -1,8 +1,12 @@
 import json
 from pathlib import Path
 import shutil
+import tomllib
+from xml.etree.ElementTree import fromstring
 
 import pytest
+
+from document_skills_core import __version__
 
 from tools.audit import (
     PUBLIC_SKILLS,
@@ -19,6 +23,49 @@ from tools.audit import (
 def test_exact_public_surface_and_manifest_parity(project_root):
     assert audit_skills(project_root)["names"] == PUBLIC_SKILLS
     assert audit_manifests(project_root)["skills_root"] == "skills"
+
+
+def test_release_version_is_one_source_value_across_runtime_manifests(project_root):
+    producer = json.loads((project_root.parent / "package.json").read_text(encoding="utf-8"))
+    plugin = json.loads(
+        (project_root / ".claude-plugin/plugin.json").read_text(encoding="utf-8")
+    )
+    python_package = tomllib.loads(
+        (project_root / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    python_lock = tomllib.loads(
+        (project_root / "uv.lock").read_text(encoding="utf-8")
+    )
+    node_runtime = json.loads(
+        (project_root / "package.json").read_text(encoding="utf-8")
+    )
+    node_lock = json.loads(
+        (project_root / "package-lock.json").read_text(encoding="utf-8")
+    )
+    sbom = json.loads((project_root / "sbom.cdx.json").read_text(encoding="utf-8"))
+    helper_project = fromstring(
+        (
+            project_root
+            / "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj"
+        ).read_bytes()
+    )
+
+    assert {
+        producer["version"],
+        plugin["version"],
+        python_package["project"]["version"],
+        next(
+            package["version"]
+            for package in python_lock["package"]
+            if package["name"] == python_package["project"]["name"]
+        ),
+        node_runtime["version"],
+        node_lock["version"],
+        node_lock["packages"][""]["version"],
+        sbom["metadata"]["component"]["version"],
+        helper_project.findtext("./PropertyGroup/Version"),
+        __version__,
+    } == {"0.5.3"}
 
 
 def test_agent_commands_are_frozen_uv_only(project_root):

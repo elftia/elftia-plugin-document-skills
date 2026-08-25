@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docx>",
+  "output": "<fields.docx>",
+  "arguments": {
+    "edits": [
+      {
+        "type": "field_insert",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "placement": "append",
+        "field": {"kind": "PAGE", "display_text": "1"}
+      },
+      {
+        "type": "toc_insert",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "position": "after",
+        "heading_levels": {"start": 1, "end": 3}
+      }
+    ]
+  }
+}

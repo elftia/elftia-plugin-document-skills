@@ -2,7 +2,7 @@
 
   Module provenance: original Elftia-authored clean-room implementation.
   This project is invoked ONLY through the contained ProcessRunner via
-  ``dotnet run --project <helper> --``. The DocumentFormat.OpenXml package
+  ``dotnet run`` with the project flag and a private subcommand. The DocumentFormat.OpenXml package
   is resolved from the user's NuGet cache at runtime; it is NEVER bundled.
   The helper does NOT execute macros, VBA, DDE, or external-data refresh.
 -->
@@ -14,6 +14,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>OpenXmlHelper</AssemblyName>
+    <Version>0.5.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
