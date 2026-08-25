@@ -1,188 +1,183 @@
-# CLEAN — Document Skills 0.5.3 XLSX Completion Merge Review
+# FINDINGS — Document Skills 0.5.3 XLSX Completion Final Review
 
-Date: 2026-08-25
+Date: 2026-08-26
 
 ## Verdict
 
-Status: `clean`
+Status: `findings`
 
-Approval claimed: `true`, limited to the exact all-release-artifacts provenance
-mapping, classifications, hashes, requirement-source attribution, and review evidence
-described here. This is not remote-CI, pull-request, merge, live-LibreOffice, or general
-maintainer release approval.
+Approval claimed: `false`.
 
-Canonical findings after remediation: **0 Blocker, 0 Major, 0 Minor**.
+Canonical findings: **0 Blocker, 2 Major, 0 Minor**. The reviewed XLSX
+completion merge is not ready for provenance binding or delivery until both
+Major findings below are remediated and independently re-reviewed.
 
-The approved prospective mapping contains **531 release files**: **420** risky module
-records, **108** exact-hash data classifications, **0** adopted sources, **0** executable
-exclusions, and exactly **3** self-referential metadata exclusions. Its SHA-256 is:
+The current unbound all-release-artifacts mapping contains **541 release
+files**: **423** risky module records, **115** exact-hash data classifications,
+**0** executable exclusions, and exactly **3** self-referential metadata
+exclusions. It contains **0** review attestations. Its independently
+regenerated SHA-256 is:
 
-`c6cdb88218cd8d808103ec27e597f34c3c43b803489f3ba6ad7826ca629aadb6`
+`bcd354f97636491dec016968f5f093bff5cd33e7911935476d345860b189d3d3`
+
+This digest is evidence for the exact reviewed bytes, not an approval. It will
+change when the stale SBOM is regenerated and therefore must be recomputed
+after remediation.
 
 ## Reviewer identity
 
-- Reviewer: `Codex collaboration subagent /root/final_merge_provenance_review`
-- Identity: `codex-reviewer/document-skills-0.5.3-xlsx-completion-merge/fresh-non-author-2026-08-25`
+- Reviewer: `Codex collaboration subagent /root/ship_xlsx_completion/xlsx_final_review`
+- Identity: `codex-reviewer/document-skills-0.5.3-xlsx-completion-final/fresh-non-author-2026-08-26`
 - Runtime: `codex`
 - Role: `reviewer`
 - Scope: `all-release-artifacts`
 - Identity assurance: `self-asserted`
-- Identity limitations: This self-asserted reviewer cannot cryptographically prove the
-  backing model, service principal, or human operator; it does not replace maintainer
-  approval and does not establish remote CI, pull-request, merge, live LibreOffice, or
-  unobserved operating-system behavior.
-- Attestation id: `document-skills-0.5.3-xlsx-completion-merge-review`
+- Identity limitations: This self-asserted reviewer cannot cryptographically
+  prove the backing model, service principal, or human operator; it does not
+  replace maintainer approval and does not establish remote CI, pull-request,
+  merge, live LibreOffice, live .NET/OpenXML, or unobserved operating-system
+  behavior.
+- Report id: `document-skills-0.5.3-xlsx-completion-merge-review`
 
-No previous attestation, historical clean verdict, or pre-generated mapping digest was
-treated as approval evidence. This reviewer did not author the implementation, tests,
-planning artifacts, provenance generator, or manifest under review.
+No previous attestation, historical clean verdict, checked-in audit report, or
+pre-generated mapping digest was treated as approval evidence. This reviewer
+did not author the implementation, tests, planning artifacts, provenance
+generator, or manifest under review.
 
-## Reviewed target and exact mapping
+## Reviewed target
 
-- Branch: `feat/xlsx-completion`
-- Base: `origin/main` at `14db457d6a50768ad3f8b4e518e45f3225a092cd`
-- Reviewed HEAD: `d74baac596de4fab738df083946857f4a565cb6d`
-- Reviewed scope: 189 tracked plugin paths changed from the base plus the final
-  prospective working-tree bytes, including this self-referential review tail.
-- Pending manifest SHA-256 before attestation binding:
-  `a3bf474cabed610b33d15f3e3b7f5b33e4ed8e0346c26a9e6e273a7a472d961a`
+- Review branch: `review/xlsx-completion-final-20260826`
+- Base: `origin/main` at `6525b0ad79db705aa111c012b1c2ebd81d18afe1`
+- Reviewed HEAD: `3c94b1c02c3fe87f094c706179eef208e83141f5`
+- Reviewed tree: `56f1d1e3da8e1fc65a16fa137f24d7821c84e979`
+- Diff scope: 183 files, 50,981 insertions, 3,154 deletions
 - Runtime source allowlist SHA-256:
-  `9e42de16d328a9fff168e1b666fb1e6797a30cc3209fad91f7c597a0d36b3920`
-- Pending audit-report SHA-256:
-  `676c0178f52f0af22f12be69702d6da7d1129e330b1559f6e3215f0b8eb23211`
+  `7d56bad75091de424e25b5f7de62074bce3fad1391975ad71d41d6d3921de722`
 
-Two consecutive command-line regenerations and a separate temporary-copy regeneration
-reproduced the approved mapping digest. The runtime allowlist matched canonical generated
-bytes exactly. A temporary copy with the pending manifest and runtime allowlist materialized
-had exactly one audit error, `Independent review attestation is missing`; every other audit
-section passed.
+## Findings
 
-At signing time, the worktree `provenance/modules.json` and `audit-report.json` still contain
-the previous binding. They are not evidence for this verdict and must be regenerated from
-this report before delivery.
+### Major 1 — template sheet deletion always fails preservation validation
 
-## Planning authorization reviewed
+`xlsx.template.instantiate` advertises `optional_bounded_edits` and accepts the
+normal `sheet_delete` edit contract, but a valid template instantiation that
+deletes a plain worksheet fails instead of producing an XLSX.
 
-The completion and advanced-authoring sibling Changes were read in full and both passed
-strict Rasen validation. Their exact planning hashes were:
+The failing call chain is:
 
-| Change | Artifact | SHA-256 |
-| --- | --- | --- |
-| `document-skills-xlsx-completion` | `proposal.md` | `9636b281b27be29e9d4cb3f7c69caba10906dfdcb7ca52efe24be2b8d30dfe6b` |
-| `document-skills-xlsx-completion` | `design.md` | `88b2bb7e6fbded0639b6e65badfcac3053e8b1d29335e50a8123348eeddb6240` |
-| `document-skills-xlsx-completion` | `specs/document-xlsx-completion-operations/spec.md` | `942ad7d9400c3f82208f5955ec5df3ca31648a6395ea6cd90a83ae3bd3744370` |
-| `document-skills-xlsx-completion` | `tasks.md` | `7af8da007fdbc09bc3aa2ebf7ec882a4a5836ec546b007abd8df8e43051ad6b6` |
-| `document-skills-xlsx-advanced-authoring` | `proposal.md` | `efb7bb34e510d7ad0034feb43c24a13734917f755b218d8da34189701b80b290` |
-| `document-skills-xlsx-advanced-authoring` | `design.md` | `120f1382d9eceb082ebe4f9900fd5f802324f147ffa5711b9a5f2cc9a13590a5` |
-| `document-skills-xlsx-advanced-authoring` | `specs/document-xlsx-advanced-authoring/spec.md` | `8ffa3711abd6c1cffa84073f4db8370936664540e241234b957fdd5f1f496ff4` |
-| `document-skills-xlsx-advanced-authoring` | `tasks.md` | `6b5d5c65e3bbf69fccdef71aee59a6e8a47c57acb9549a2c9e02e896dbbcfe05` |
+1. `formats/xlsx/template_operation.py:83` compares the original template with
+   the edited output and correctly supplies `expected_removed`.
+2. `formats/xlsx/package.py:257` computes preserved parts as
+   `input_names - set(changed)` without subtracting `removed`.
+3. The deleted worksheet therefore appears in both `manifest.removed` and
+   `manifest.preserved`.
+4. `formats/xlsx/validation.py:1086-1087` looks up every preserved part in
+   `manifest.output_hashes`; the removed worksheet is absent. The resulting
+   `KeyError` is captured as a failed `operation.part-preservation` gate.
 
-The completion Change owns the seven additional operation identifiers. The advanced
-Change owns richer behavior only within the original `xlsx.read`,
-`xlsx.inspect.structure`, `xlsx.create`, and `xlsx.edit` operations and explicitly does
-not own LibreOffice or .NET provider mechanisms.
+A provider-free reproduction used a two-sheet `.xltx`, requested
+`sheet_delete` for the second sheet, and called the public `XlsxService` path.
+The result was `status=failed`, error `DS_VALIDATION_FAILED`, failed gate
+`operation.part-preservation`, and no destination file was promoted.
 
-## Findings remediated before binding
+Required remediation: exclude removed parts from the preservation set, for
+example `input_names - set(changed) - set(removed)`, and add an end-to-end
+template regression proving a supported `sheet_delete` edit succeeds while
+the source remains unchanged.
 
-1. Runtime tests no longer infer that hiding `dotnet` from `PATH` proves the runtime is
-   absent; platform discovery and the real production provider path are tested honestly.
-2. The seven completion operations and advanced behavior of the original four operations
-   have explicit, strict-valid planning authorization.
-3. NuGet restore/build evidence uses a project-private temporary cache and configuration;
-   notice and project-file descriptions match that production behavior.
-4. Formula-analysis guidance matches the actual stable diagnostic shape.
-5. Fail-closed sheet-copy/delete, special-formula structural edit, and pivot structural
-   edit regressions assert destination preservation and unchanged source SHA-256.
-6. Exact XLSX provenance is partitioned into mutually exclusive, complete profiles for all
-   112 XLSX modules and 15 Skill data artifacts. Shared provider/process/data artifacts are
-   composed only from applicable requirement sources.
-7. Recalculation ownership was corrected across Core, Completion, Advanced where static
-   analysis applies, and LibreOffice; Advanced no longer claims LibreOffice mechanisms.
-8. Recursive fixture registration now covers nested release fixtures exactly while private
-   `.document-skills-tmp` state remains outside copied audit projects.
-9. Native PPTX schema repairs preserve required gradient stops, shape child order,
-   `p:graphicFrame/p:xfrm`, and group-transform order; mutation workers receive the bounded
-   45-second supervisor budget required by their operation layer.
-10. The new Core-PPTX changes, their direct tests, the shared HTML paths, and shared XLSX
-    paths now compose explicit Core-PPTX/HTML/XLSX requirement sources, modification text,
-    and direct test evidence. They no longer fall through to the unrelated Foundation text.
-11. README data attribution uses the complete XLSX profile, and both HTML and Strategy-3
-    provenance regressions derive shared-owner expectations from the same explicit profiles.
-12. Cross-format capability reporting now requires an available callable provider registered
-    for the matching format's public schema or visual operation. Its implementation and direct
-    Strategy-2 regression evidence compose exact Foundation, Core DOCX/PDF/PPTX/XLSX, Completion,
-    and, where already applicable, Advanced XLSX provenance instead of unrelated fallback text.
-13. The deterministic native HTML-to-PPTX oracle was regenerated after the schema repairs. Its
-    ZIP inventory is unchanged; only both slide group-transform child orders and the theme's two
-    required gradient-stop lists changed. The fixture manifest and prospective provenance carry
-    the exact new artifact SHA-256
-    `0e6aa02162c4005c9cc72de0d0ffa4367098f9ba3c47110987585ebdbefbd41f` and checked-in
-    recipe/test evidence.
-14. Public PPTX schema tests no longer compare provider snapshots from independent workers.
-    Each result is assessed from its own response: successful explicit schema validation checks
-    the provider chain and passing schema gate; create checks the schema validator and evidence;
-    unavailable branches require a bounded reason. The test artifact now composes exact Foundation,
-    Core-PPTX, and OpenXML/.NET provenance with itself as the sole direct test evidence.
+### Major 2 — checked-in CycloneDX SBOM does not match the locked dependencies
+
+The release SBOM is stale relative to the exact dependency locks. The
+deterministic builder in `tools/supply_chain.py:83-103` derives its revision
+from `uv.lock`, `package-lock.json`, and the NuGet `packages.lock.json`. It now
+computes lock revision:
+
+`7e15d508fed944f7e55e4d6993825030ae6006620cdc04b45ca7a4661ed3d52d`
+
+The checked-in `sbom.cdx.json:443-444` still records:
+
+`fc6f85098f948a3cb82b03ebf68eafe04eac54583b0c11a182b13b5e60a0e6d9`
+
+The canonical generated SBOM SHA-256 is
+`8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`;
+the checked-in file SHA-256 is
+`46830e0f0d8a2746db70e6440ec7975a1cff9b3f990b3fdd7409baac9f22a5bf`.
+The focused deterministic-SBOM regression fails at
+`tests/test_supply_chain.py:225` on this exact mismatch.
+
+This also means the checked-in audit report, which currently lists only the
+missing independent attestation, is stale and cannot establish current release
+parity. Required remediation: regenerate `sbom.cdx.json`, then regenerate the
+provenance mapping/runtime metadata and audit report from the resulting exact
+bytes before requesting another independent review.
+
+## PATH-containment incident check
+
+The previously reported Windows user-PATH incident is contained in this tree:
+
+- `ProcessRunner._minimal_environment()` unconditionally sets
+  `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0` for managed subprocesses.
+- The dotnet provider supplies private `DOTNET_CLI_HOME`, NuGet, temp, and
+  application-data roots through the shared `ProcessRunner` path.
+- The two focused containment regressions passed, including an inherited
+  hostile `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=1` case and cleanup of the private
+  operation root.
+- Direct real-dotnet test entry points also construct an explicit opt-out
+  environment; no real dotnet command was run during this review.
+
+No remaining production launch path was found that invokes dotnet outside the
+contained runner or permits dotnet to append a per-run tools directory to the
+user PATH.
+
+## Planning and implementation coverage
+
+The proposal, design, specification, and task artifacts for both
+`document-skills-xlsx-completion` and
+`document-skills-xlsx-advanced-authoring` were read in full. Review coverage
+included the seven completion operations, original-operation advanced
+authoring, package/security boundaries, formula state and static analysis,
+conversion typing and injection defenses, macro/template preservation,
+summary and native pivot construction, structural reference migration,
+render/schema provider gates, LibreOffice input/output/quota boundaries,
+process identity pinning, and all-file provenance generation.
+
+One investigated 3-D formula-reference concern was not retained as a finding:
+the current static analysis rejects `Sheet1:Sheet3!A1` as unsupported before a
+mutation candidate can be promoted, so the path fails closed rather than
+silently publishing an incorrectly migrated workbook.
 
 ## Independent verification evidence
 
-- Strict Rasen validation passed for both sibling Changes.
-- Earlier implementation-focused groups passed the fail-closed XLSX, recalculation,
-  original-operation, public XLSX, provider, runtime, process-safety, and completion tests
-  recorded during this review. The real production .NET/OpenXML schema path passed its
-  dedicated test; environment-dependent skips were not treated as passes for absent hosts.
-- After the final provenance fixes, a fresh 32-node focused group passed. It covered the
-  Core-PPTX profiles, full owner composition, README data composition, PPTX gradient/shape/
-  graphic-frame/group-transform schema repairs, mutation budgets, recursive fixtures,
-  mapping-v2 semantics, historical/current review boundaries, all XLSX profiles, formula
-  diagnostics, and fail-closed sheet/structural edits.
-- After the final cross-format capability and provenance remediation, 24 independently selected
-  cases passed and one optional environment-dependent XLSX provider case skipped. The passing
-  cases covered the new format/callability matrix, default-provider detection, public DOCX/PDF/
-  XLSX/PPTX capability reports, provider gating, exact cross-format attribution, all current XLSX
-  provenance profiles, shared-owner composition, and release-inventory coverage.
-- After the deterministic fixture regeneration, 19 independently selected checks passed: all
-  seven HTML/PPTX fixture tests, the supply-chain fixture/manifest audit, and 11 capability,
-  Core-PPTX schema, operation-budget, and provenance regressions. Two recipe generations matched
-  each other and every checked-in fixture byte exactly; all 15 XML/relationship members in the
-  PPTX parsed successfully.
-- After the public PPTX operation-time gating repair, nine independently selected cases passed:
-  both affected public schema/create nodes and seven exact-attribution regressions. The new test
-  record was inspected directly in the prospective manifest and matched the composed Foundation,
-  Core-PPTX, and OpenXML/.NET owners, modification descriptions, and direct-test list exactly.
-- All four HTML/Core-PPTX provenance tests passed against a temporary materialization of the
-  pending manifest, including the complete HTML release-record scan.
-- The 10 explicit Core-PPTX profile records and README were inspected directly in the
-  prospective manifest; every requirement, modification description, and ordered direct-test
-  list matched the intended composed owners. Every referenced `artifact_tests` path exists.
-- Final XLSX profile sets were pairwise disjoint and covered all 112 XLSX modules; all 15
-  `skills/document-xlsx/` data artifacts had an explicit profile. Requirement strings had no
-  duplicate or unknown component.
-- Focused Ruff, strict UTF-8 decoding, JSON parsing, project XML parsing, conflict-marker
-  scanning, and `git diff --check` passed. No replacement character, mojibake marker,
-  unexpected BOM, missing test-evidence path, or unrelated encoding rewrite was found.
-
-Repository-wide verify attempts exposed the stale deterministic fixture and then the cross-worker
-provider-snapshot assertion corrected above. Their remaining setup errors were independently
-traced to a concurrent pytest run in another worktree contending for the shared operation-temp
-root, not to these release bytes. The repository-wide workflow was not rerun alone after the final
-public-test repair; that absence is explicit and is not replaced by the focused evidence above.
+- Provider-free template `sheet_delete` reproduction: returned `failed` with
+  `operation.part-preservation`; destination absent.
+- `pytest -q
+  tests/test_dotnet_provider.py::TestRunnerContainment::test_private_dotnet_environment_is_project_scoped_and_cleanable
+  tests/test_dotnet_provider.py::TestRunnerContainment::test_env_sanitized_by_process_runner`:
+  **2 passed**.
+- `pytest -q
+  tests/test_supply_chain.py::test_sbom_is_deterministic_and_matches_locks`:
+  **1 failed**, confirming the stale lock revision in the checked-in SBOM.
+- Two independent in-process/CLI regenerations produced mapping digest
+  `bcd354f97636491dec016968f5f093bff5cd33e7911935476d345860b189d3d3`
+  with 423 modules, 115 data records, 3 metadata exclusions, and 0
+  attestations.
+- The generated runtime allowlist matched the checked-in canonical bytes at
+  SHA-256
+  `7d56bad75091de424e25b5f7de62074bce3fad1391975ad71d41d6d3921de722`.
+- Production and test dotnet environment construction was inspected without
+  executing dotnet.
 
 ## Evidence boundary
 
-This review establishes the current local prospective release bytes, their exact inventory,
-hashes, classifications, requirement-source attribution, and the listed local test evidence.
-It does not claim that remote Windows, macOS, or Linux CI completed; it did not exercise a
-live LibreOffice installation; and it did not observe a pull request or merge. The real .NET
-schema evidence was obtained through the production private provider environment; no direct
-user NuGet state or uncontained restore command was used. Optional host executables and their
-dynamic dependency closures are not represented as redistributed components.
+This was a local review of exact repository bytes. Per explicit direction, it
+did not investigate, wait for, or treat remote CI as a blocker. It did not run
+the repository-wide verification suite, provider/full pytest suites,
+`npm run verify`, `verify:repro`, a live LibreOffice process, or a real dotnet
+process. No pull request, push, merge, or release approval is claimed here.
 
-## Attestation
+## Non-attestation
 
-I attest that the Codex collaboration subagent identified above independently reviewed the
-complete prospective plugin release with scope `all-release-artifacts`, returned status
-`clean`, and found no remaining Blocker, Major, or Minor issue within the stated provenance
-scope. I approve binding this report to mapping digest
-`c6cdb88218cd8d808103ec27e597f34c3c43b803489f3ba6ad7826ca629aadb6`
-and to no other mapping.
+I attest only that the Codex reviewer identified above independently reviewed
+the stated tree and found **0 Blocker, 2 Major, 0 Minor** issues within scope.
+I do **not** approve binding this report as a clean review attestation, do not
+approve the current mapping for release, and do not approve delivery until the
+findings are remediated and a fresh independent review returns clean.
