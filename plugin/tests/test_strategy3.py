@@ -10,15 +10,9 @@ from tools.audit_node import audit_node_source
 from tools.audit_python import audit_python_source
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
-from tools.html_pptx_provenance import (
-    HTML_PPTX_REQUIREMENT,
-    SHARED_PROVENANCE_REQUIREMENT,
-    html_pptx_module_profile,
-)
+from tools.html_pptx_provenance import pptx_module_profile
 from tools.regenerate_provenance import (
-    CORE_PPTX_REQUIREMENT,
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
-    core_pptx_module_profile,
     cross_format_capability_module_profile,
     regenerate,
     xlsx_data_profile,
@@ -46,19 +40,8 @@ def _compose_requirements(*requirements: str | None) -> str:
 
 
 def _pptx_requirement(path: str) -> str | None:
-    core_profile = core_pptx_module_profile(path)
-    html_profile = html_pptx_module_profile(path)
-    if not core_profile and not html_profile:
-        return None
-    html_requirement = (
-        SHARED_PROVENANCE_REQUIREMENT
-        if path == "tools/regenerate_provenance.py"
-        else HTML_PPTX_REQUIREMENT
-    )
-    return _compose_requirements(
-        CORE_PPTX_REQUIREMENT if core_profile else None,
-        html_requirement if html_profile else None,
-    )
+    profile = pptx_module_profile(path)
+    return profile[2] if profile else None
 
 
 def _cross_format_requirement(path: str) -> str | None:
