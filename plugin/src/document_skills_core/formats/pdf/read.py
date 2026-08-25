@@ -62,7 +62,7 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
             "PDF contains an embedded executable.",
         )
 
-    pages = walk_pages(model)
+    all_pages = walk_pages(model)
     max_pages = arguments.get("max_pages", 10_000)
     max_blocks = arguments.get("max_blocks_per_page", 5_000)
     include_annotations = arguments.get("include_annotations", True)
@@ -70,6 +70,20 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
     include_embedded = arguments.get("include_embedded_files", True)
 
     warnings: list[dict[str, Any]] = []
+    requested_pages = arguments.get("pages")
+    if requested_pages is None:
+        pages = list(all_pages)
+    else:
+        by_number = {page.page_number: page for page in all_pages}
+        missing = [page for page in requested_pages if page not in by_number]
+        if missing:
+            raise DocumentSkillsError(
+                ErrorCode.REQUEST_INVALID,
+                "Requested PDF read page is outside the document.",
+                status="invalid_request",
+                details={"pages": missing, "page_count": len(all_pages)},
+            )
+        pages = [by_number[page] for page in requested_pages]
     if len(pages) > max_pages:
         pages = pages[:max_pages]
         warnings.append({
@@ -94,6 +108,7 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
 
     # Text content
     text_blocks = map_text_blocks(model, pages, max_blocks_per_page=max_blocks)
+    text_blocks = _select_text_blocks(text_blocks, pages, arguments)
     text_by_page: list[dict[str, Any]] = []
     for page in pages:
         page_blocks = [b for b in text_blocks if b.page == page.page_number]
@@ -177,6 +192,7 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
         "info_dictionary": info_dict,
         "xmp_present": xmp_present,
         "page_count": len(pages),
+        "document_page_count": len(all_pages),
         "pages": page_infos,
         "fonts_by_page": fonts_by_page,
         "images_by_page": images_by_page,
@@ -188,10 +204,19 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
                 "font": block.font_name,
                 "size": block.font_size,
                 "color": list(block.color),
+                "reading_order_index": index,
             }
-            for block in text_blocks
+            for index, block in enumerate(text_blocks)
         ],
         "text_by_page": text_by_page,
+        "text_selection": {
+            "pages": [page.page_number for page in pages],
+            "bbox": arguments.get("bbox"),
+            "bbox_mode": "intersects",
+            "reading_order": arguments.get("reading_order", "content_stream"),
+            "column_count": arguments.get("column_count"),
+            "source": "content-stream-operators",
+        },
         "acroform_fields": fields,
         "annotations": annotations,
         "outlines": outline_list,
@@ -199,6 +224,67 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
         "embedded_files": embedded_files,
     }
     return operation_result, warnings
+
+
+def _select_text_blocks(
+    blocks: list[Any],
+    pages: list[Any],
+    arguments: dict[str, Any],
+) -> list[Any]:
+    bbox = arguments.get("bbox")
+    if bbox is not None:
+        blocks = [block for block in blocks if _intersects(block.bbox, bbox)]
+    reading_order = arguments.get("reading_order", "content_stream")
+    if reading_order == "content_stream":
+        return blocks
+    page_order = {page.page_number: index for index, page in enumerate(pages)}
+    if reading_order == "geometric":
+        return sorted(
+            blocks,
+            key=lambda block: (
+                page_order[block.page],
+                -float(block.bbox[3]),
+                float(block.bbox[0]),
+            ),
+        )
+    column_count = int(arguments["column_count"])
+    page_boxes = {
+        page.page_number: page.crop_box or page.media_box
+        for page in pages
+    }
+    return sorted(
+        blocks,
+        key=lambda block: (
+            page_order[block.page],
+            _column_index(block.bbox, page_boxes[block.page], column_count),
+            -float(block.bbox[3]),
+            float(block.bbox[0]),
+        ),
+    )
+
+
+def _intersects(
+    block: tuple[float, float, float, float],
+    selection: list[float],
+) -> bool:
+    return not (
+        block[2] <= selection[0]
+        or block[0] >= selection[2]
+        or block[3] <= selection[1]
+        or block[1] >= selection[3]
+    )
+
+
+def _column_index(
+    block: tuple[float, float, float, float],
+    page_box: tuple[float, float, float, float],
+    column_count: int,
+) -> int:
+    left = float(page_box[0])
+    width = max(float(page_box[2]) - left, 1.0)
+    center = (float(block[0]) + float(block[2])) / 2.0
+    normalized = min(max((center - left) / width, 0.0), 0.999999)
+    return int(normalized * column_count)
 
 
 def _project_uniform_metadata(info_dict: dict[str, Any]) -> dict[str, str | None]:

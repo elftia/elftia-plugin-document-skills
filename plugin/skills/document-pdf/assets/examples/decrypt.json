@@ -3,7 +3,8 @@
   "operation": "pdf.decrypt",
   "input": "<encrypted.pdf>",
   "output": "<decrypted.pdf>",
-  "arguments": {
+  "secrets": {
     "password": "<user-or-owner-password>"
-  }
+  },
+  "arguments": {}
 }

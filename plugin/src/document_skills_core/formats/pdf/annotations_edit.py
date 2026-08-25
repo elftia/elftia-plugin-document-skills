@@ -153,6 +153,7 @@ def _delete_annotation(
 ) -> dict[str, Any]:
     annotation = _target_annotation(model, annotations, primitive)
     index = primitive["index"] - 1
+    _assert_exclusive_delete_reference(model, page_object, annotation, index)
     remaining = annotations[:index] + annotations[index + 1:]
     assert isinstance(page_object.value, PdfDict)
     page_value = _copy_dict(page_object.value)
@@ -207,6 +208,81 @@ def _target_annotation(
             details={"expected_contents": expected, "actual_contents": actual},
         )
     return annotation
+
+
+def _assert_exclusive_delete_reference(
+    model: PdfObjectModel,
+    page_object: PdfObject,
+    annotation: PdfObject,
+    index: int,
+) -> None:
+    allowed_path = ("/Annots", index)
+    allowed_count = 0
+    unexpected_count = 0
+    unexpected: list[dict[str, Any]] = []
+    for owner_number in sorted(model.objects):
+        owner = model.objects[owner_number]
+        for path, reference in _iter_references(owner.value):
+            if reference.obj_num != annotation.obj_num:
+                continue
+            if (
+                owner_number == page_object.obj_num
+                and path == allowed_path
+                and reference.gen_num == annotation.gen_num
+            ):
+                allowed_count += 1
+                continue
+            unexpected_count += 1
+            if len(unexpected) < 16:
+                unexpected.append(
+                    {
+                        "owner_object": owner_number,
+                        "path": list(path),
+                        "generation": reference.gen_num,
+                    }
+                )
+    if allowed_count == 1 and unexpected_count == 0:
+        return
+    raise DocumentSkillsError(
+        ErrorCode.ENHANCEMENT_REQUIRED,
+        "Text annotation deletion requires one exclusive page /Annots reference.",
+        status="enhancement_required",
+        details={
+            "capability": "pdf.annotation-delete-exclusive-reference",
+            "annotation_object": annotation.obj_num,
+            "allowed_reference_count": allowed_count,
+            "unexpected_reference_count": unexpected_count,
+            "unexpected_references": unexpected,
+        },
+    )
+
+
+def _iter_references(
+    value: Any,
+    path: tuple[str | int, ...] = (),
+    depth: int = 0,
+):
+    if depth > 64:
+        raise DocumentSkillsError(
+            ErrorCode.ARCHIVE_UNSAFE,
+            "PDF object graph exceeds the annotation reference scan depth.",
+        )
+    if isinstance(value, IndirectReference):
+        yield path, value
+    elif isinstance(value, PdfDict):
+        for key in sorted(value.entries):
+            yield from _iter_references(
+                value.entries[key],
+                path + (key,),
+                depth + 1,
+            )
+    elif isinstance(value, (list, tuple)):
+        for item_index, item in enumerate(value):
+            yield from _iter_references(
+                item,
+                path + (item_index,),
+                depth + 1,
+            )
 
 
 def _copy_dict(value: PdfDict) -> PdfDict:

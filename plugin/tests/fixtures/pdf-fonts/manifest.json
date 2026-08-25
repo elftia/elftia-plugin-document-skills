@@ -1,0 +1,34 @@
+{
+  "fixtures": [
+    {
+      "family": "Elftia PDF CJK Test",
+      "filename": "elftia-pdf-cjk-test.ttf",
+      "output_bytes": 12548,
+      "output_sha256": "31f520448e10956259f09fbfb37deceb5ff3b913950bf8e663207b7e81e833cb",
+      "source_sha256": "d68bafcb48a2707749396aa12bbbd833cb70401f3a9a689fd2902c7e0d295964",
+      "text": "PDF Unicode Latin 中文测试 标题段落 你好世界"
+    },
+    {
+      "family": "Elftia PDF Arabic Test",
+      "filename": "elftia-pdf-arabic-test.ttf",
+      "output_bytes": 11540,
+      "output_sha256": "61dce7455938573ef1f88456efba810dcc8e21ba477428cfdb2569d960673417",
+      "source_sha256": "63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e",
+      "text": "PDF Unicode Latin مرحبا بالعالم العربية 123"
+    }
+  ],
+  "license": "OFL-1.1",
+  "schema_version": "1.0",
+  "upstream": {
+    "arabic": {
+      "path": "ofl/notosansarabic/NotoSansArabic[wdth,wght].ttf",
+      "repository": "https://github.com/google/fonts",
+      "revision": "ec626514f79f831f1ab848a82114a0ce7e2d6372"
+    },
+    "cjk": {
+      "path": "Sans/Variable/TTF/Subset/NotoSansSC-VF.ttf",
+      "repository": "https://github.com/notofonts/noto-cjk",
+      "revision": "f8d157532fbfaeda587e826d4cd5b21a49186f7c"
+    }
+  }
+}

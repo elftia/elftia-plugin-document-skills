@@ -12,7 +12,7 @@ from typing import Any
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .create_layout import pdf_number
-from .create import _image_placement
+from .create_images import image_placement
 from .image_assets import (
     ImageAsset,
     image_xobject_dictionary,
@@ -30,6 +30,7 @@ from .watermark_layout import (
     watermark_origin,
     watermark_rotation,
 )
+from .watermark_fonts import plan_watermark_font
 from .watermark_resources import WatermarkResourceRewriter
 
 
@@ -64,6 +65,8 @@ def apply_text_watermark(
     added_objects: dict[int, bytes] = {}
     image_asset = None
     image_object = None
+    font_resource = None
+    font_object = None
     image_request = primitive.get("image")
     if image_request is not None:
         image_asset = load_image_asset(image_request)
@@ -72,10 +75,20 @@ def apply_text_watermark(
             image_asset,
             image_request.get("alt"),
         )
+    else:
+        font_plan = plan_watermark_font(
+            model,
+            selected_pages,
+            primitive.get("font", "Helvetica"),
+            added_objects,
+        )
+        font_resource = font_plan.resource_name
+        font_object = font_plan.object_number
     content_additions, image_evidence = _content_additions(
         selected_pages,
         primitive,
         image_asset=image_asset,
+        font_resource=font_resource,
     )
     output_bytes = _copy_with_watermark(
         model,
@@ -85,6 +98,8 @@ def apply_text_watermark(
         image_object,
         added_objects,
         changed,
+        font_resource,
+        font_object,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(output_bytes)
@@ -132,16 +147,18 @@ def _content_additions(
     primitive: dict[str, Any],
     *,
     image_asset: ImageAsset | None,
+    font_resource: str | None,
 ) -> tuple[dict[int, bytes], list[dict[str, Any]]]:
     additions: dict[int, bytes] = {}
     image_evidence: list[dict[str, Any]] = []
     for page in pages:
         if image_asset is None:
             escaped_text = _escape_pdf_string(primitive["text"])
-            font_resource = _watermark_font_resource(
-                page,
-                primitive.get("font", "Helvetica"),
-            )
+            if font_resource is None:
+                raise DocumentSkillsError(
+                    ErrorCode.VALIDATION_FAILED,
+                    "Text watermark font planning did not produce a resource.",
+                )
             size = primitive.get("size", 48.0)
             color = primitive.get("color", [0.7, 0.7, 0.7])
             x, y = watermark_origin(
@@ -169,7 +186,7 @@ def _content_additions(
                 width=image["width"],
                 height=image["height"],
             )
-            placement = _image_placement(
+            placement = image_placement(
                 image,
                 image_asset,
                 left=box_left,
@@ -210,19 +227,6 @@ def _content_additions(
             )
         additions[page.contents[0].obj_num] = operators.encode("latin-1", errors="strict")
     return additions, image_evidence
-
-
-def _watermark_font_resource(page: Any, font: str) -> str:
-    resource_name = "F1" if font == "Helvetica" else ""
-    fonts = page.resources.get("/Font") if page.resources is not None else None
-    if not resource_name or not hasattr(fonts, "get") or fonts.get(f"/{resource_name}") is None:
-        raise DocumentSkillsError(
-            ErrorCode.ENHANCEMENT_REQUIRED,
-            "Page does not expose the requested watermark font resource.",
-            status="enhancement_required",
-            details={"page": page.page_number, "font": font},
-        )
-    return resource_name
 
 
 def _watermark_image_objects(
@@ -277,6 +281,8 @@ def _copy_with_watermark(
     image_object: int | None,
     added_objects: dict[int, bytes],
     changed: set[int],
+    font_resource: str | None,
+    font_object: int | None,
 ) -> bytes:
     header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
     body = bytearray()
@@ -286,6 +292,8 @@ def _copy_with_watermark(
         opacity,
         image_object,
         added_objects,
+        font_resource,
+        font_object,
     )
     for obj_num in sorted(model.objects):
         obj = model.objects[obj_num]

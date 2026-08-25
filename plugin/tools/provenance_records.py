@@ -5,6 +5,16 @@ from pathlib import Path
 from typing import Any
 
 
+CANONICAL_MAPPING_BOUND_REPORT = (
+    "provenance/reviews/core-pdf-review-cycle-round-1.md"
+)
+SELF_REFERENTIAL_METADATA_ALLOWLIST = frozenset({
+    "provenance/audit-report.json",
+    "provenance/modules.json",
+    CANONICAL_MAPPING_BOUND_REPORT,
+})
+
+
 def mapping_digest(
     records: list[dict[str, Any]],
     exclusions: list[dict[str, Any]],
@@ -99,25 +109,7 @@ def validate_metadata_exclusion(
         f"Unsupported metadata exclusion: {artifact}",
     )
     _require(
-        artifact in {
-            "provenance/audit-report.json",
-            "provenance/modules.json",
-            "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
-            "provenance/reviews/core-docx-review-cycle-round-1.md",
-            "provenance/reviews/core-pdf-review-cycle-round-1.md",
-            "provenance/reviews/core-pptx-review-cycle-round-1.md",
-            "provenance/reviews/core-xlsx-review-cycle-round-1.md",
-            "provenance/reviews/docx-create-optional-content-review-cycle-round-1.md",
-            "provenance/reviews/document-skills-0.2.0-release.md",
-            "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
-            "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
-            "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
-            "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
-            "provenance/reviews/foundation-review-cycle-round-1.md",
-            "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
-            "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
-            "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
-        },
+        artifact in SELF_REFERENTIAL_METADATA_ALLOWLIST,
         f"Metadata exclusion is outside the exact self-reference allowlist: {artifact}",
     )
     _require(len(record["reason"].strip()) >= 40, f"Metadata exclusion reason is weak: {artifact}")

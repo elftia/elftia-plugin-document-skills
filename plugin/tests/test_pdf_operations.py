@@ -1,7 +1,7 @@
 """PDF functional operation tests — create, read, inspect, edit, rewrite, validate.
 
 Covers per-operation behavior, preservation manifests, page-layout-preservation-
-on-rewrite reopen gate, CJK/RTL glyph-degradation reporting, inert action
+on-rewrite reopen gate, CJK/RTL fail-closed behavior, inert action
 classification, and malicious-fixture fail-closed behavior.
 
 Module provenance: original Elftia-authored test suite.
@@ -10,10 +10,12 @@ Module provenance: original Elftia-authored test suite.
 import hashlib
 from pathlib import Path
 from typing import Any
+import zlib
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.formats.pdf.byte_preflight import PdfByteLimits, decode_stream
 from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.edit import edit_pdf
 from document_skills_core.formats.pdf.inspect import inspect_pdf
@@ -87,6 +89,13 @@ def created_pdf(tmp_path: Path) -> Path:
 
 def _source_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _merge_inputs(*paths: Path) -> list[dict[str, str]]:
+    return [
+        {"input": str(path), "source_sha256": _source_hash(path)}
+        for path in paths
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +244,7 @@ class TestEditMerge:
         out = tmp_path / "merged.pdf"
         operation_result, manifest = edit_pdf(
             p1, out,
-            {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]},
+            {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]},
         )
         assert operation_result["primitive"] == "merge"
         assert operation_result["input_count"] == 2
@@ -247,7 +256,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         reopened = reopen_pdf(out)
         assert reopened["pages"] == 4
 
@@ -257,7 +266,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         # Walk the merged pages and verify they all have MediaBox + Contents
         merged_model = parse_pdf(out)
         pages = walk_pages(merged_model)
@@ -274,7 +283,7 @@ class TestEditMerge:
         h1 = _source_hash(p1)
         h2 = _source_hash(p2)
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         assert _source_hash(p1) == h1
         assert _source_hash(p2) == h2
 
@@ -285,7 +294,7 @@ class TestEditMerge:
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
         _op_result, manifest = edit_pdf(
-            p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]},
+            p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]},
         )
         # All input objects in the transitive closure should be preserved
         assert len(manifest["preserved_objects"]) > 0
@@ -296,7 +305,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         out = tmp_path / "merged.pdf"
         with pytest.raises(DocumentSkillsError):
-            edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1)]}]})
+            edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1)}]})
 
 
 # ---------------------------------------------------------------------------
@@ -465,7 +474,7 @@ class TestRewrite:
         operation_result, manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Page Modified"}],
             },
         )
@@ -482,7 +491,7 @@ class TestRewrite:
         operation_result, _manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Page Modified"}],
             },
         )
@@ -498,26 +507,26 @@ class TestRewrite:
         rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "New Text"}],
             },
         )
         assert _source_hash(src) == h
 
-    def test_rewrite_cjk_reports_glyph_degradation(self, tmp_path: Path):
+    def test_rewrite_cjk_without_font_fails_before_artifact(self, tmp_path: Path):
         src = tmp_path / "src.pdf"
         create_pdf(src, _document())
         out = tmp_path / "cjk_rewritten.pdf"
-        operation_result, _manifest = rewrite_apply_pdf(
-            src, out,
-            {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
-                "rewrites": [{"block_index": 0, "text": "日本語テスト"}],
-            },
-        )
-        glyph_degradation = operation_result["rewrite"]["glyph_degradation"]
-        assert len(glyph_degradation) > 0
-        assert operation_result.get("status") == "degraded"
+        with pytest.raises(DocumentSkillsError) as captured:
+            rewrite_apply_pdf(
+                src, out,
+                {
+                    "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                    "rewrites": [{"block_index": 0, "text": "日本語テスト"}],
+                },
+            )
+        assert captured.value.code is ErrorCode.ENHANCEMENT_REQUIRED
+        assert not out.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -570,7 +579,7 @@ class TestPageLayoutPreservation:
         operation_result, manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Valid New Text"}],
             },
         )
@@ -720,6 +729,19 @@ def _build_embedded_executable_pdf(path: Path) -> Path:
 
 
 class TestSecurityFailClosed:
+    def test_flate_decode_stops_at_uncompressed_budget(self):
+        compressed = zlib.compress(b"A" * 4096)
+        limits = PdfByteLimits(
+            max_uncompressed_bytes=64,
+            max_expansion_ratio=100_000,
+        )
+
+        with pytest.raises(DocumentSkillsError) as captured:
+            decode_stream(compressed, ["/FlateDecode"], limits)
+
+        assert captured.value.code == ErrorCode.ARCHIVE_UNSAFE
+        assert captured.value.details == {"uncompressed_bytes": 65, "limit": 64}
+
     def test_malformed_header_rejected(self, tmp_path: Path):
         bad = tmp_path / "bad.pdf"
         bad.write_bytes(b"NOTPDF-1.7\n%%EOF\n")

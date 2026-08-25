@@ -15,6 +15,8 @@ import zlib
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
+from .create_text_utils import pdf_text_string
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 JPEG_SIGNATURE = b"\xff\xd8"
 MAX_IMAGE_FILE_BYTES = 16 * 1024 * 1024
@@ -60,6 +62,14 @@ def load_image_asset(spec: dict[str, Any]) -> ImageAsset:
             "Image asset changed while it was being read.",
             details={"path": str(path)},
         )
+    actual_sha256 = hashlib.sha256(raw).hexdigest()
+    if actual_sha256 != spec["sha256"]:
+        raise DocumentSkillsError(
+            ErrorCode.REQUEST_INVALID,
+            "Image asset does not match sha256.",
+            status="invalid_request",
+            details={"capability": "pdf.image-source-precondition"},
+        )
     content_type = spec["content_type"]
     if content_type == "image/png":
         asset = _load_png(path, raw)
@@ -67,6 +77,13 @@ def load_image_asset(spec: dict[str, Any]) -> ImageAsset:
         asset = _load_jpeg(path, raw)
     else:
         _invalid_image("Only image/png and image/jpeg are supported.", path)
+    if hashlib.sha256(path.read_bytes()).hexdigest() != actual_sha256:
+        raise DocumentSkillsError(
+            ErrorCode.REQUEST_INVALID,
+            "Image asset changed while it was being read.",
+            status="invalid_request",
+            details={"capability": "pdf.image-source-precondition"},
+        )
     return asset
 
 
@@ -91,7 +108,7 @@ def image_xobject_dictionary(
     if soft_mask_object is not None:
         parts.append(f"/SMask {soft_mask_object} 0 R")
     if alt:
-        parts.append(f"/Alt ({_escape_pdf_string(alt)})")
+        parts.append(f"/Alt {pdf_text_string(alt)}")
     return f"<< {' '.join(parts)} >>".encode("ascii")
 
 
@@ -353,10 +370,6 @@ def _paeth(left: int, above: int, upper_left: int) -> int:
     if above_distance <= upper_left_distance:
         return above
     return upper_left
-
-
-def _escape_pdf_string(text: str) -> str:
-    return text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
 
 
 def _invalid_image(message: str, path: Path, error: Exception | None = None) -> None:

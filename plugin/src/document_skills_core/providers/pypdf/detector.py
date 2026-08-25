@@ -6,12 +6,14 @@ from document_skills_core.core.capabilities import DetectionEvidence
 
 EXPECTED_PYPDF_VERSION = "6.16.2"
 EXPECTED_CRYPTOGRAPHY_VERSION = "50.0.0"
+EXPECTED_PILLOW_VERSION = "12.3.0"
 
 
 def detect_pypdf() -> DetectionEvidence:
     try:
         import cryptography
         import pypdf
+        from PIL import __version__ as pillow_version
     except ModuleNotFoundError:
         return DetectionEvidence(
             False,
@@ -30,6 +32,12 @@ def detect_pypdf() -> DetectionEvidence:
             False,
             version=pypdf_version,
             reason="The installed cryptography version does not match policy.",
+        )
+    if pillow_version != EXPECTED_PILLOW_VERSION:
+        return DetectionEvidence(
+            False,
+            version=pypdf_version,
+            reason="The installed Pillow version does not match PDF compression policy.",
         )
     try:
         payload = BytesIO()
@@ -58,8 +66,10 @@ def detect_pypdf() -> DetectionEvidence:
 def pypdf_diagnostics() -> dict[str, str]:
     import cryptography
     import pypdf
+    from PIL import __version__ as pillow_version
 
     return {
         "pypdf": pypdf.__version__,
         "cryptography": cryptography.__version__,
+        "pillow": pillow_version,
     }

@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
+from .base14_metrics import base14_text_width
 from .create_contracts import DEFAULT_MARGIN, resolved_page_size
 
 
@@ -23,6 +24,15 @@ class PageLayout:
     @property
     def content_width(self) -> float:
         return self.width - self.left - self.right
+
+    @property
+    def content_bbox(self) -> list[float]:
+        return [
+            self.left,
+            self.bottom,
+            self.width - self.right,
+            self.height - self.top,
+        ]
 
 
 def resolve_page_layout(
@@ -49,18 +59,27 @@ def build_text_block(
     page_number: int,
     block_index: int,
     escape_text: Callable[[str], str],
+    spacing_after: float = 8.0,
 ) -> tuple[list[str], float, list[dict[str, Any]]]:
     """Lay out a heading or paragraph and return operators plus evidence."""
     block_type = block["type"]
     style = _resolved_style(block_type, block.get("style"))
     text = block.get("text") or ""
-    lines = _wrap_text(text, style["font_size"], layout.content_width)
+    lines = _wrap_text(
+        text,
+        style["font_size"],
+        layout.content_width,
+        style["font_resource"],
+    )
     operators: list[str] = []
     evidence: list[dict[str, Any]] = []
-    current_baseline = baseline
+    current_baseline = min(
+        baseline,
+        layout.height - layout.top - style["font_size"] * 0.8,
+    )
     for line in lines:
         bbox = _line_bbox(line, style, layout, current_baseline)
-        if bbox[1] < layout.bottom:
+        if not bbox_within(bbox, layout.content_bbox):
             raise DocumentSkillsError(
                 ErrorCode.REQUEST_INVALID,
                 "Text content exceeds the page content box.",
@@ -69,6 +88,7 @@ def build_text_block(
                     "field": f"pages.{page_number - 1}.blocks.{block_index}",
                     "page": page_number,
                     "bbox": bbox,
+                    "content_bbox": layout.content_bbox,
                     "content_bottom": layout.bottom,
                 },
             )
@@ -86,6 +106,7 @@ def build_text_block(
             {
                 "page": page_number,
                 "block_index": block_index,
+                "source_text": text,
                 "text": line,
                 "bbox": bbox,
                 "font": f"/{style['font_resource']}",
@@ -96,7 +117,7 @@ def build_text_block(
             }
         )
         current_baseline -= style["line_height"]
-    return operators, current_baseline - 8.0, evidence
+    return operators, current_baseline - spacing_after, evidence
 
 
 def shape_path(shape: dict[str, Any]) -> list[str]:
@@ -107,6 +128,22 @@ def shape_path(shape: dict[str, Any]) -> list[str]:
     height = shape["height"]
     if shape["kind"] == "rectangle":
         return [f"{pdf_number(x)} {pdf_number(y)} {pdf_number(width)} {pdf_number(height)} re"]
+    if shape["kind"] == "rounded_rectangle":
+        radius = min(float(shape["corner_radius"]), width / 2.0, height / 2.0)
+        kappa = 0.5522847498307793
+        control = radius * kappa
+        return [
+            f"{pdf_number(x + radius)} {pdf_number(y)} m",
+            f"{pdf_number(x + width - radius)} {pdf_number(y)} l",
+            _curve(x + width - control, y, x + width, y + control, x + width, y + radius),
+            f"{pdf_number(x + width)} {pdf_number(y + height - radius)} l",
+            _curve(x + width, y + height - control, x + width - control, y + height, x + width - radius, y + height),
+            f"{pdf_number(x + radius)} {pdf_number(y + height)} l",
+            _curve(x + control, y + height, x, y + height - control, x, y + height - radius),
+            f"{pdf_number(x)} {pdf_number(y + radius)} l",
+            _curve(x, y + control, x + control, y, x + radius, y),
+            "h",
+        ]
     if shape["kind"] == "line":
         return [
             f"{pdf_number(x)} {pdf_number(y)} m",
@@ -166,12 +203,27 @@ def shape_evidence(
         "fill": shape["fill"],
         "opacity": shape["opacity"],
         "dash": shape["dash"],
+        "corner_radius": shape.get("corner_radius", 0.0),
     }
 
 
 def pdf_number(value: float) -> str:
     rendered = f"{float(value):.6f}".rstrip("0").rstrip(".")
     return rendered if rendered not in {"", "-0"} else "0"
+
+
+def bbox_within(
+    bbox: list[float],
+    container: list[float],
+    *,
+    tolerance: float = 0.02,
+) -> bool:
+    return (
+        bbox[0] >= container[0] - tolerance
+        and bbox[1] >= container[1] - tolerance
+        and bbox[2] <= container[2] + tolerance
+        and bbox[3] <= container[3] + tolerance
+    )
 
 
 def _resolved_style(block_type: str, style: dict[str, Any] | None) -> dict[str, Any]:
@@ -194,24 +246,57 @@ def _resolved_style(block_type: str, style: dict[str, Any] | None) -> dict[str, 
     return {**style, "font_resource": font_resource}
 
 
-def _wrap_text(text: str, font_size: float, max_width: float) -> list[str]:
+def _wrap_text(
+    text: str,
+    font_size: float,
+    max_width: float,
+    font_resource: str,
+) -> list[str]:
     lines: list[str] = []
     for source_line in text.split("\n"):
         words = source_line.split(" ")
         current = ""
         for word in words:
             candidate = word if not current else f"{current} {word}"
-            if not current or _text_width(candidate, font_size) <= max_width:
+            if _text_width(candidate, font_size, font_resource) <= max_width:
                 current = candidate
                 continue
-            lines.append(current)
-            current = word
-            while _text_width(current, font_size) > max_width and len(current) > 1:
-                split_at = max(1, int(max_width / (font_size * 0.5)))
-                lines.append(current[:split_at])
-                current = current[split_at:]
+            if current:
+                lines.append(current)
+            broken, current = _break_long_token(
+                word,
+                font_size,
+                max_width,
+                font_resource,
+            )
+            lines.extend(broken)
         lines.append(current)
     return lines or [""]
+
+
+def _break_long_token(
+    token: str,
+    font_size: float,
+    max_width: float,
+    font_resource: str,
+) -> tuple[list[str], str]:
+    completed: list[str] = []
+    current = ""
+    for character in token:
+        candidate = current + character
+        if _text_width(candidate, font_size, font_resource) <= max_width:
+            current = candidate
+            continue
+        if not current:
+            raise DocumentSkillsError(
+                ErrorCode.REQUEST_INVALID,
+                "A text glyph exceeds the page content width.",
+                status="invalid_request",
+                details={"max_width": round(max_width, 4)},
+            )
+        completed.append(current)
+        current = character
+    return completed, current
 
 
 def _line_bbox(
@@ -220,7 +305,11 @@ def _line_bbox(
     layout: PageLayout,
     baseline: float,
 ) -> list[float]:
-    text_width = _text_width(text, style["font_size"])
+    text_width = _text_width(
+        text,
+        style["font_size"],
+        style["font_resource"],
+    )
     if style["alignment"] == "center":
         x = layout.left + (layout.content_width - text_width) / 2.0
     elif style["alignment"] == "right":
@@ -235,8 +324,8 @@ def _line_bbox(
     ]
 
 
-def _text_width(text: str, font_size: float) -> float:
-    return len(text) * font_size * 0.5
+def _text_width(text: str, font_size: float, font_resource: str) -> float:
+    return base14_text_width(text, font_size, font_resource)
 
 
 def _rgb_operator(color: list[float], operator: str) -> str:

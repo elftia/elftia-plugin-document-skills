@@ -22,7 +22,6 @@
       "lxml": "6.1.1",
       "openpyxl": "3.1.5",
       "packaging": "26.2",
-      "pillow": "12.3.0",
       "pluggy": "1.6.0",
       "pygments": "2.20.0",
       "pymupdf": "1.27.2.2",
@@ -34,22 +33,30 @@
     "import_roots": [
       "cryptography",
       "defusedxml",
+      "fontTools",
       "jsonschema",
+      "PIL",
+      "bidi",
       "pypdf",
-      "referencing"
+      "referencing",
+      "uharfbuzz"
     ],
     "packages": {
       "attrs": "26.1.0",
       "cffi": "2.1.1",
       "cryptography": "50.0.0",
       "defusedxml": "0.7.1",
+      "fonttools": "4.63.0",
       "jsonschema": "4.25.1",
       "jsonschema-specifications": "2025.9.1",
+      "pillow": "12.3.0",
       "pycparser": "3.0",
+      "python-bidi": "0.6.11",
       "pypdf": "6.16.2",
       "referencing": "0.37.0",
       "rpds-py": "2026.6.3",
-      "typing-extensions": "4.16.0"
+      "typing-extensions": "4.16.0",
+      "uharfbuzz": "0.56.0"
     }
   }
 }

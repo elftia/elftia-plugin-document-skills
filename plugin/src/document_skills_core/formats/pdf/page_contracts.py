@@ -3,11 +3,110 @@
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from pathlib import Path
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.core.io.paths import same_path
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_PAGES
+from .font_contracts import parse_sha256
+
+
+def parse_merge_primitive(
+    primitive: dict[str, Any],
+    index: int,
+) -> dict[str, Any]:
+    """Parse a bounded list of hash-bound PDF merge inputs."""
+    field = f"primitives.{index}.inputs"
+    unknown = sorted(set(primitive) - {"type", "inputs"})
+    if unknown:
+        _invalid("Unknown merge argument.", field=field, unknown=unknown)
+    inputs = primitive.get("inputs")
+    if type(inputs) is not list or not 2 <= len(inputs) <= 10:
+        _invalid("merge.inputs must contain 2-10 hash-bound inputs.", field=field)
+    parsed: list[dict[str, str]] = []
+    for input_index, item in enumerate(inputs):
+        item_field = f"{field}.{input_index}"
+        if type(item) is not dict:
+            _invalid("Each merge input must be an object.", field=item_field)
+        item_unknown = sorted(set(item) - {"input", "source_sha256"})
+        if item_unknown:
+            _invalid(
+                "Unknown merge input argument.",
+                field=item_field,
+                unknown=item_unknown,
+            )
+        source = item.get("input")
+        if type(source) is not str or not source or len(source) > MAX_ARGUMENT_TEXT:
+            _invalid("merge input must be a bounded path.", field=f"{item_field}.input")
+        resolved = Path(source).expanduser().resolve(strict=False)
+        if resolved.suffix.casefold() != ".pdf":
+            _invalid("merge input must use the .pdf extension.", field=f"{item_field}.input")
+        source_sha256 = parse_sha256(
+            item.get("source_sha256"),
+            f"{item_field}.source_sha256",
+        )
+        if source_sha256 is None:
+            _invalid(
+                "merge input source_sha256 is required.",
+                field=f"{item_field}.source_sha256",
+            )
+        if any(same_path(resolved, Path(existing["input"])) for existing in parsed):
+            _invalid("merge inputs must be unique.", field=f"{item_field}.input")
+        parsed.append({
+            "input": str(resolved),
+            "source_sha256": source_sha256,
+        })
+    return {"type": "merge", "inputs": parsed}
+
+
+def parse_page_insert_primitive(
+    primitive: dict[str, Any],
+    index: int,
+) -> dict[str, Any]:
+    field = f"primitives.{index}"
+    unknown = sorted(
+        set(primitive) - {"type", "input", "source_sha256", "at", "pages"}
+    )
+    if unknown:
+        _invalid("Unknown page_insert argument.", field=field, unknown=unknown)
+    source = primitive.get("input")
+    if type(source) is not str or not source or len(source) > MAX_ARGUMENT_TEXT:
+        _invalid("page_insert.input must be a bounded path.", field=f"{field}.input")
+    source_sha256 = parse_sha256(
+        primitive.get("source_sha256"),
+        f"{field}.source_sha256",
+    )
+    if source_sha256 is None:
+        _invalid(
+            "page_insert.source_sha256 is required.",
+            field=f"{field}.source_sha256",
+        )
+    pages = primitive.get("pages")
+    parsed_pages = None
+    if pages is not None:
+        if type(pages) is not list or not pages or len(pages) > MAX_PAGES:
+            _invalid(
+                "page_insert.pages must be a non-empty bounded array.",
+                field=f"{field}.pages",
+            )
+        parsed_pages = [
+            _bounded_integer(page, 1, MAX_PAGES, f"{field}.pages")
+            for page in pages
+        ]
+        if len(parsed_pages) != len(set(parsed_pages)):
+            _invalid(
+                "page_insert.pages cannot contain duplicates.",
+                field=f"{field}.pages",
+            )
+    return {
+        "type": "page_insert",
+        "input": str(Path(source).expanduser().resolve(strict=False)),
+        "source_sha256": source_sha256,
+        "at": _bounded_integer(primitive.get("at"), 1, MAX_PAGES, f"{field}.at"),
+        "pages": parsed_pages,
+    }
 
 
 def parse_page_sequence_primitive(

@@ -13,7 +13,7 @@ from .html_pptx_provenance import (
     html_pptx_data_profile,
     html_pptx_module_profile,
 )
-from .provenance_records import mapping_digest
+from .provenance_records import SELF_REFERENTIAL_METADATA_ALLOWLIST, mapping_digest
 from .release_inventory import release_artifacts
 
 PENDING_REVIEWER = "PENDING independent review"
@@ -99,6 +99,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx_" in artifact.path
         or "docx-" in artifact.path
     )
+    is_pdf_tools = "/pdf_tools/" in artifact.path
     is_pdf = (
         "/pdf/" in artifact.path
         or "/pypdf/" in artifact.path
@@ -108,6 +109,14 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "pdf-" in artifact.path
     )
     tests = html_profile[1] if html_profile else (
+        [
+            "tests/test_pdf_tools_provider.py",
+            "tests/test_pdf_render_diff.py",
+            "tests/test_pdf_public.py",
+            "tests/test_supply_chain.py",
+        ]
+        if is_pdf_tools
+        else
         ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
         if is_docx_consumer_gate
         else [
@@ -232,25 +241,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
 
 
 def _is_metadata(path: str) -> bool:
-    return path in {
-        "provenance/audit-report.json",
-        "provenance/modules.json",
-        "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
-        "provenance/reviews/core-docx-review-cycle-round-1.md",
-        "provenance/reviews/core-pdf-review-cycle-round-1.md",
-        "provenance/reviews/core-pptx-review-cycle-round-1.md",
-        "provenance/reviews/core-xlsx-review-cycle-round-1.md",
-        "provenance/reviews/docx-create-optional-content-review-cycle-round-1.md",
-        "provenance/reviews/document-skills-0.2.0-release.md",
-        "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
-        "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
-        "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
-        "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
-        "provenance/reviews/foundation-review-cycle-round-1.md",
-        "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
-        "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
-        "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
-    }
+    return path in SELF_REFERENTIAL_METADATA_ALLOWLIST
 
 
 def main() -> int:

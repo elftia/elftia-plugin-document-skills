@@ -79,6 +79,7 @@ ALLOWED_STDLIB = {
     "typing",
     "unicodedata",
     "uuid",
+    "warnings",
     "xml",
     "zipfile",
     "zlib",

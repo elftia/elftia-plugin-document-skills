@@ -13,16 +13,23 @@ status: degraded; NEVER silently emit .notdef/wrong glyphs.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
-import hashlib
 from pathlib import Path
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
-from .content_streams import extract_content_stream, walk_text_operators, TextBlock
-from .object_model import IndirectReference, PdfObjectModel, parse_pdf
+from .hash_bound_sources import load_hash_bound_pdf
+from .object_model import PdfObjectModel, parse_pdf
 from .page_tree import walk_pages
-from .trailer import trailer_bytes
+from .rewrite_font_encoding import encode_text_for_font
+from .rewrite_fonts import apply_unicode_rewrites, verify_unicode_rewrite_layout
+from .rewrite_operator_targeting import (
+    apply_targeted_rewrites,
+    locate_block_selectors,
+    replacement_fits_layout,
+    verify_rewrite_candidate,
+)
+from .rewrite_unicode_verification import assert_unicode_operator_rewrites
 
 
 def rewrite_apply_pdf(
@@ -34,61 +41,119 @@ def rewrite_apply_pdf(
 
     Returns (operation_result, preservation_manifest).
     """
-    model = parse_pdf(input_path)
+    expected_source = arguments.get("source_sha256")
+    if expected_source is None:
+        # Internal callers exercise the rewrite engine directly. Public requests
+        # are contractually required to take the hash-bound branch below.
+        model = parse_pdf(input_path)
+    else:
+        model, _source_sha256 = load_hash_bound_pdf(
+            input_path,
+            expected_source,
+            capability="pdf.rewrite.apply",
+            field="source_sha256",
+        )
     input_hashes = model.object_hashes()
     pages = walk_pages(model)
 
     blocks = arguments["blocks"]
     rewrites = arguments["rewrites"]
+    locators = locate_block_selectors(model, pages, blocks)
+    locator_by_block = {locator.block_index: locator for locator in locators}
 
-    # Group blocks by page
-    blocks_by_page: dict[int, list[dict[str, Any]]] = {}
-    for block in blocks:
-        page = block["page"]
-        blocks_by_page.setdefault(page, []).append(block)
-
-    # Apply rewrites to content stream operators
     rewrite_map: dict[int, str] = {}
     for rewrite in rewrites:
         rewrite_map[rewrite["block_index"]] = rewrite["text"]
 
-    # Identify content stream objects that need modification
     changed_content_objs: set[int] = set()
     glyph_degradation: list[dict[str, Any]] = []
     rewrite_evidence: list[dict[str, Any]] = []
+    targeted_blocks_by_page: dict[int, list[dict[str, Any]]] = {}
+    for block_index, rewritten_text in rewrite_map.items():
+        block = blocks[block_index]
+        locator = locator_by_block[block_index]
+        targeted_blocks_by_page.setdefault(block["page"], []).append(block)
+        rewrite_evidence.append({
+            "page": block["page"],
+            "block_index": block_index,
+            "original_text": block["text"],
+            "rewritten_text": rewritten_text,
+            "font": block.get("font", "F1"),
+            "size": block.get("size", 12.0),
+            "bbox": block.get("bbox"),
+            "content_object": locator.content_object,
+            "content_operator_index": locator.content_operator_index,
+            "operator": locator.operator,
+            "glyph_degradation_count": 0,
+        })
 
-    for page in pages:
-        page_blocks = blocks_by_page.get(page.page_number, [])
-        if not page_blocks:
-            continue
-        # Identify content streams for this page
-        for ref in page.contents:
-            changed_content_objs.add(ref.obj_num)
-
-        # Build rewrite evidence and check CJK/RTL coverage
-        for idx, block in enumerate(blocks):
-            if block["page"] != page.page_number:
-                continue
-            if idx not in rewrite_map:
-                continue
-            original_text = block["text"]
-            rewritten_text = rewrite_map[idx]
-            # Check CJK/RTL glyph coverage
-            degraded = _check_glyph_coverage(rewritten_text, block.get("font", "F1"))
-            glyph_degradation.extend(degraded)
-            rewrite_evidence.append({
-                "page": page.page_number,
-                "block_index": idx,
-                "original_text": original_text,
-                "rewritten_text": rewritten_text,
-                "font": block.get("font", "F1"),
-                "size": block.get("size", 12.0),
-                "bbox": block.get("bbox"),
-                "glyph_degradation_count": len(degraded),
-            })
-
-    # Build the output with modified content streams
-    output_bytes = _copy_with_rewrite(model, changed_content_objs, rewrite_map, blocks, pages)
+    unsafe_rewrites: list[tuple[dict[str, Any], str]] = []
+    for rewrite in rewrites:
+        locator = locator_by_block[rewrite["block_index"]]
+        page = pages[locator.page_number - 1]
+        if encode_text_for_font(
+            model,
+            page,
+            locator.font_name,
+            rewrite["text"],
+        ) is None:
+            unsafe_rewrites.append((rewrite, "font-encoding"))
+        elif not replacement_fits_layout(
+            model,
+            page,
+            locator,
+            rewrite["text"],
+        ):
+            unsafe_rewrites.append((rewrite, "layout-bounds"))
+    uses_overlay = bool(unsafe_rewrites)
+    if uses_overlay:
+        font_ids = {font["id"] for font in arguments.get("fonts", [])}
+        overlay_ready = all(
+            rewrite.get("style") is not None
+            and rewrite["style"]["font_family"] in font_ids
+            for rewrite in rewrites
+        )
+        if not overlay_ready:
+            raise DocumentSkillsError(
+                ErrorCode.ENHANCEMENT_REQUIRED,
+                "The in-place rewrite cannot preserve its font mapping and visible bounds, and no explicit embedded-font overlay is available.",
+                status="enhancement_required",
+                details={
+                    "capability": (
+                        "pdf.rewrite-layout-bounds"
+                        if any(
+                            reason == "layout-bounds"
+                            for _rewrite, reason in unsafe_rewrites
+                        )
+                        else "pdf.rewrite-font-encoding"
+                    ),
+                    "block_indexes": [
+                        rewrite["block_index"]
+                        for rewrite, _reason in unsafe_rewrites
+                    ],
+                    "reasons": {
+                        str(rewrite["block_index"]): reason
+                        for rewrite, reason in unsafe_rewrites
+                    },
+                },
+            )
+    added_objects: set[int] = set()
+    if uses_overlay:
+        output_bytes, unicode_changed, added_objects, rewrite_evidence = apply_unicode_rewrites(
+            model,
+            pages,
+            blocks,
+            rewrites,
+            locators,
+            arguments.get("fonts", []),
+        )
+        changed_content_objs = unicode_changed
+    else:
+        output_bytes, changed_content_objs = apply_targeted_rewrites(
+            model,
+            locators,
+            rewrite_map,
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_bytes(output_bytes)
 
@@ -97,15 +162,36 @@ def rewrite_apply_pdf(
     from .edit import _build_manifest
     manifest = _build_manifest(
         input_hashes, output_hashes,
-        changed=changed_content_objs, added=set(), removed=set(),
+        changed=changed_content_objs, added=added_objects, removed=set(),
     )
 
     # Determine status
     is_degraded = len(glyph_degradation) > 0
     status = "degraded" if is_degraded else "success"
 
-    # Page-layout-preservation evidence
-    layout_preservation = _verify_layout_preservation(model, output_model, pages, blocks_by_page)
+    if uses_overlay:
+        assert_unicode_operator_rewrites(
+            model,
+            output_model,
+            locators,
+            rewrite_map,
+        )
+        verify_unicode_rewrite_layout(output_model, blocks, rewrites)
+        layout_preservation = _verify_layout_preservation(
+            model,
+            output_model,
+            pages,
+            targeted_blocks_by_page,
+        )
+    else:
+        layout_preservation = verify_rewrite_candidate(
+            model,
+            output_model,
+            locators,
+            rewrite_map,
+            changed_content_objs,
+            added_objects,
+        )
 
     operation_result: dict[str, Any] = {
         "rewrite": {
@@ -125,109 +211,6 @@ def rewrite_apply_pdf(
             "uncovered_count": len(glyph_degradation),
         }
     return operation_result, manifest
-
-
-def _check_glyph_coverage(text: str, font_name: str) -> list[dict[str, Any]]:
-    """Check if the rewritten text's codepoints are covered by the embedded font.
-
-    For Helvetica (standard 14 font), only WinAnsi/Latin coverage is assumed.
-    CJK/RTL characters are flagged as uncovered honestly.
-    """
-    degradation: list[dict[str, Any]] = []
-    for i, ch in enumerate(text):
-        codepoint = ord(ch)
-        # Standard Latin range (0x00-0xFF) is covered by WinAnsi encoding
-        # CJK Unified Ideographs (0x4E00-0x9FFF) are NOT covered by standard fonts
-        # Arabic (0x0600-0x06FF) is NOT covered by standard fonts
-        # Hebrew (0x0590-0x05FF) is NOT covered by standard fonts
-        if codepoint > 0xFF:
-            reason = "CJK ideograph not in embedded font subset"
-            if 0x0600 <= codepoint <= 0x06FF:
-                reason = "Arabic RTL joining form not in embedded font"
-            elif 0x0590 <= codepoint <= 0x05FF:
-                reason = "Hebrew RTL codepoint not in embedded font"
-            elif codepoint > 0x9FFF:
-                reason = f"Codepoint U+{codepoint:04X} not in embedded font subset"
-            degradation.append({
-                "page": None,  # filled by caller
-                "block_index": None,  # filled by caller
-                "codepoint": f"U+{codepoint:04X}",
-                "character": ch,
-                "font_reference": font_name,
-                "reason": reason,
-            })
-    return degradation
-
-
-def _copy_with_rewrite(
-    model: PdfObjectModel,
-    changed_objs: set[int],
-    rewrite_map: dict[int, str],
-    blocks: list[dict[str, Any]],
-    pages: list,
-) -> bytes:
-    """Copy the model with rewritten content stream text-showing operators."""
-    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-    body = bytearray()
-    offsets: dict[int, int] = {}
-
-    # Build a mapping of which text positions to replace per content stream
-    # For each changed content object, find the page it belongs to
-    page_by_content: dict[int, int] = {}
-    for page in pages:
-        for ref in page.contents:
-            page_by_content[ref.obj_num] = page.page_number
-
-    # Build replacement texts by page
-    replacements_by_page: dict[int, list[tuple[int, str, str]]] = {}
-    for idx, block in enumerate(blocks):
-        page_num = block["page"]
-        if idx in rewrite_map:
-            replacements_by_page.setdefault(page_num, []).append(
-                (idx, block["text"], rewrite_map[idx])
-            )
-
-    for orig_num in sorted(model.objects):
-        obj = model.objects[orig_num]
-        payload = obj.payload_bytes
-
-        if orig_num in changed_objs and obj.is_stream:
-            page_num = page_by_content.get(orig_num)
-            replacements = replacements_by_page.get(page_num, [])
-            for _block_idx, original_text, rewritten_text in replacements:
-                escaped_orig = original_text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-                escaped_new = rewritten_text.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
-                # Only replace if the original text appears in the stream
-                orig_bytes = f"({escaped_orig})".encode("latin-1", errors="replace")
-                new_bytes = f"({escaped_new})".encode("latin-1", errors="replace")
-                if orig_bytes in payload:
-                    payload = payload.replace(orig_bytes, new_bytes, 1)
-                    # Update /Length
-                    import re
-                    length_diff = len(new_bytes) - len(orig_bytes)
-                    payload = re.sub(
-                        rb"/Length\s+(\d+)",
-                        lambda m: f"/Length {int(m.group(1)) + length_diff}".encode("ascii"),
-                        payload,
-                        count=1,
-                    )
-
-        offsets[orig_num] = len(header) + len(body)
-        body.extend(payload + b"\n")
-
-    xref_offset = len(header) + len(body)
-    max_obj = max(offsets.keys()) if offsets else 0
-    xref = bytearray(b"xref\n")
-    xref.extend(f"0 {max_obj + 1}\n".encode("ascii"))
-    xref.extend(b"0000000000 65535 f\r\n")
-    for i in range(1, max_obj + 1):
-        offset = offsets.get(i, 0)
-        xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(trailer_bytes(model, size=max_obj + 1))
-    xref.extend(f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
-    return header + bytes(body) + bytes(xref)
-
-
 def _verify_layout_preservation(
     input_model: PdfObjectModel,
     output_model: PdfObjectModel,

@@ -91,12 +91,6 @@ def _parse_compress(value: dict[str, Any]) -> dict[str, Any]:
     mode = value.get("mode", "lossless")
     if mode not in {"lossless", "balanced", "aggressive"}:
         _invalid("Unknown compression mode.", field="mode")
-    if mode != "lossless":
-        _enhancement(
-            "Only evidence-backed lossless PDF compression is implemented.",
-            field="mode",
-            requested_mode=mode,
-        )
     return {"mode": mode}
 
 

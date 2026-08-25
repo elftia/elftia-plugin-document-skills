@@ -1,45 +1,40 @@
-"""Bounded extraction of directly invoked PDF Image XObjects.
-
-The Core path copies JPEG codestreams and reconstructs 8-bit grayscale/RGB
-PNG files from lossless image samples, including a compatible soft mask.
-
-Module provenance: original Elftia-authored clean-room implementation.
-"""
+"""Bounded extraction of PDF images, including nested Form XObjects."""
 
 from dataclasses import dataclass
 import hashlib
+import math
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .actions import classify_actions, has_dangerous_actions, has_executable_embedded_files
 from .byte_preflight import PdfByteLimits, preflight_pdf
 from .constants import MAX_CONTENT_STREAM_OPERATORS
-from .content_streams import extract_content_stream
-from .image_assets import MAX_IMAGE_PIXELS
+from .content_streams import extract_content_stream, tokenize_content_stream
 from .image_extraction_archive import (
     encode_png,
-    validate_image_archive,
     write_deterministic_image_zip,
 )
+from .image_extraction_limits import ImageExtractionBudget, MAX_TOTAL_IMAGE_PIXELS
+from .image_xobject_extract import ExtractedImage, extract_image
+from .inline_images import parse_inline_images
 from .object_model import IndirectReference, PdfDict, PdfObject, PdfObjectModel, parse_pdf
 from .page_tree import PageInfo, walk_pages
-from .xobject_draws import walk_xobject_draws
+from .xobject_draws import (
+    AffineMatrix,
+    concatenate_matrix,
+    IDENTITY_MATRIX,
+    walk_xobject_draws,
+)
 
-_MAX_TOTAL_IMAGE_PIXELS = 100_000_000
+_MAX_TOTAL_IMAGE_PIXELS = MAX_TOTAL_IMAGE_PIXELS
+_MAX_FORM_DEPTH = 32
 
 
-@dataclass(frozen=True)
-class _ExtractedImage:
-    format: str
-    payload: bytes
-    width: int
-    height: int
-    bits_per_component: int
-    color_space: str
-    filter_chain: list[str]
-    soft_mask: bool
+@dataclass
+class _TraversalBudget:
+    remaining_operators: int = MAX_CONTENT_STREAM_OPERATORS
 
 
 def extract_pdf_images(
@@ -67,81 +62,80 @@ def extract_pdf_images(
     selected = _select_pages(all_pages, arguments["pages"])
     payloads: dict[str, bytes] = {}
     images: list[dict[str, Any]] = []
-    total_bytes = 0
-    total_pixels = 0
+    page_image_counts: dict[int, int] = {}
+    image_budget = ImageExtractionBudget(
+        max_images=arguments["max_images"],
+        max_output_bytes=arguments["max_total_bytes"],
+        max_pixels=_MAX_TOTAL_IMAGE_PIXELS,
+    )
+
+    def add_extracted(
+        extracted: ExtractedImage,
+        *,
+        page_number: int,
+        object_number: int | None,
+        resource: str | None,
+        bbox: tuple[float, float, float, float],
+        source_kind: str,
+        inline_index: int | None = None,
+        pre_reserved: bool = False,
+    ) -> None:
+        if not pre_reserved:
+            image_budget.reserve_image(extracted.width, extracted.height)
+        image_budget.add_output_bytes(len(extracted.payload))
+        page_image_index = page_image_counts.get(page_number, 0) + 1
+        page_image_counts[page_number] = page_image_index
+        extension = "jpg" if extracted.format == "jpeg" else "png"
+        identity = (
+            f"object-{object_number:08d}"
+            if object_number is not None
+            else f"inline-{inline_index or 0:04d}"
+        )
+        archive_path = (
+            f"page-{page_number:04d}-image-{len(images) + 1:04d}-"
+            f"{identity}.{extension}"
+        )
+        payloads[archive_path] = extracted.payload
+        images.append({
+            "archive_path": archive_path,
+            "format": extracted.format,
+            "source": source_kind,
+            "page": page_number,
+            "page_image_index": page_image_index,
+            "object": object_number,
+            "inline_index": inline_index,
+            "resource": resource,
+            "bbox": list(bbox),
+            "width": extracted.width,
+            "height": extracted.height,
+            "bits_per_component": extracted.bits_per_component,
+            "color_space": extracted.color_space,
+            "filter_chain": extracted.filter_chain,
+            "soft_mask": extracted.soft_mask,
+            "decode": list(extracted.decode) if extracted.decode is not None else None,
+            "source_object_sha256": extracted.source_object_sha256,
+            "pixel_sha256": extracted.pixel_sha256,
+            "bytes": len(extracted.payload),
+            "sha256": hashlib.sha256(extracted.payload).hexdigest(),
+        })
+
     for page in selected:
         content = extract_content_stream(model, page.contents, page.page_number, limits)
-        draws, has_inline_image = walk_xobject_draws(
+        _walk_content_images(
+            model,
             content,
-            page.page_number,
-            max_operators=MAX_CONTENT_STREAM_OPERATORS,
+            page=page,
+            resources=page.resources,
+            add_extracted=add_extracted,
+            budget=_TraversalBudget(),
+            image_budget=image_budget,
         )
-        if has_inline_image:
-            _enhancement(
-                "Inline PDF images are not yet extractable by the Core provider.",
-                capability="pdf.inline-image-extraction",
-                page=page.page_number,
-            )
-        xobjects = _xobject_resources(model, page)
-        for draw in draws:
-            resource = xobjects.get(draw.resource_name)
-            if resource is None:
-                _unsafe(
-                    "Page content invokes a missing XObject resource.",
-                    page=page.page_number,
-                    resource=draw.resource_name,
-                )
-            image_object = _image_object(model, resource)
-            if image_object is None:
-                continue
-            if len(images) >= arguments["max_images"]:
-                _unsafe(
-                    "Extracted image count exceeds the caller-selected limit.",
-                    limit=arguments["max_images"],
-                )
-            extracted = _extract_image(model, image_object)
-            total_pixels += extracted.width * extracted.height
-            if total_pixels > _MAX_TOTAL_IMAGE_PIXELS:
-                _unsafe(
-                    "Extracted image pixels exceed the aggregate safety limit.",
-                    pixels=total_pixels,
-                    limit=_MAX_TOTAL_IMAGE_PIXELS,
-                )
-            total_bytes += len(extracted.payload)
-            if total_bytes > arguments["max_total_bytes"]:
-                _unsafe(
-                    "Extracted image bytes exceed the caller-selected limit.",
-                    bytes=total_bytes,
-                    limit=arguments["max_total_bytes"],
-                )
-            extension = "jpg" if extracted.format == "jpeg" else "png"
-            archive_path = (
-                f"page-{page.page_number:04d}-image-{len(images) + 1:04d}-"
-                f"object-{image_object.obj_num:08d}.{extension}"
-            )
-            payloads[archive_path] = extracted.payload
-            images.append({
-                "archive_path": archive_path,
-                "format": extracted.format,
-                "page": page.page_number,
-                "object": image_object.obj_num,
-                "resource": draw.resource_name,
-                "bbox": list(draw.bbox),
-                "width": extracted.width,
-                "height": extracted.height,
-                "bits_per_component": extracted.bits_per_component,
-                "color_space": extracted.color_space,
-                "filter_chain": extracted.filter_chain,
-                "soft_mask": extracted.soft_mask,
-                "bytes": len(extracted.payload),
-                "sha256": hashlib.sha256(extracted.payload).hexdigest(),
-            })
 
     write_deterministic_image_zip(output, payloads)
     return {
         "image_count": len(images),
-        "total_image_bytes": total_bytes,
-        "total_image_pixels": total_pixels,
+        "total_image_bytes": image_budget.total_output_bytes,
+        "total_image_pixels": image_budget.total_pixels,
         "selected_pages": [page.page_number for page in selected],
         "images": images,
     }
@@ -162,10 +156,157 @@ def _select_pages(pages: list[PageInfo], requested: list[int] | None) -> list[Pa
     return [by_number[page] for page in requested]
 
 
-def _xobject_resources(model: PdfObjectModel, page: PageInfo) -> dict[str, Any]:
-    if page.resources is None:
+def _walk_content_images(
+    model: PdfObjectModel,
+    content: bytes,
+    *,
+    page: PageInfo,
+    resources: PdfDict | None,
+    add_extracted: Callable[..., None],
+    budget: _TraversalBudget,
+    image_budget: ImageExtractionBudget,
+    initial_matrix: AffineMatrix = IDENTITY_MATRIX,
+    resource_path: tuple[str, ...] = (),
+    active_forms: frozenset[int] = frozenset(),
+) -> None:
+    inline_images, sanitized_content = parse_inline_images(
+        content,
+        budget=image_budget,
+    )
+    operator_count = len(tokenize_content_stream(sanitized_content))
+    if operator_count > budget.remaining_operators:
+        _unsafe(
+            "Nested PDF content exceeds the image-operator budget.",
+            page=page.page_number,
+            limit=MAX_CONTENT_STREAM_OPERATORS,
+        )
+    budget.remaining_operators -= operator_count
+    draws, inline_draws = walk_xobject_draws(
+        sanitized_content,
+        page.page_number,
+        max_operators=operator_count,
+        initial_matrix=initial_matrix,
+    )
+    if len(inline_images) != len(inline_draws):
+        _unsafe(
+            "Inline image parsing and graphics-state tracking disagree.",
+            page=page.page_number,
+        )
+
+    xobjects = _xobject_resources(model, resources)
+    for draw in draws:
+        resource = xobjects.get(draw.resource_name)
+        if resource is None:
+            _unsafe(
+                "PDF content invokes a missing XObject resource.",
+                page=page.page_number,
+                resource=_resource_name(resource_path + (draw.resource_name,)),
+            )
+        xobject = _xobject_object(model, resource)
+        if xobject is None:
+            continue
+        dictionary, stream = xobject.value
+        assert isinstance(dictionary, PdfDict)
+        nested_path = resource_path + (draw.resource_name,)
+        subtype = dictionary.get("/Subtype")
+        if subtype == "/Image":
+            width = dictionary.get("/Width")
+            height = dictionary.get("/Height")
+            reserved = (
+                type(width) is int
+                and type(height) is int
+                and width > 0
+                and height > 0
+            )
+            if reserved:
+                image_budget.reserve_image(width, height)
+            add_extracted(
+                extract_image(model, xobject),
+                page_number=page.page_number,
+                object_number=xobject.obj_num,
+                resource=_resource_name(nested_path),
+                bbox=draw.bbox,
+                source_kind="xobject",
+                pre_reserved=reserved,
+            )
+        elif subtype == "/Form":
+            if xobject.obj_num in active_forms:
+                _unsafe(
+                    "Form XObject graph contains a recursive invocation.",
+                    page=page.page_number,
+                    object=xobject.obj_num,
+                )
+            if len(active_forms) >= _MAX_FORM_DEPTH:
+                _unsafe(
+                    "Form XObject nesting exceeds the safety limit.",
+                    page=page.page_number,
+                    limit=_MAX_FORM_DEPTH,
+                )
+            _validate_form_bbox(dictionary.get("/BBox"), xobject.obj_num)
+            form_resources = _form_resources(
+                model,
+                dictionary.get("/Resources"),
+                inherited=resources,
+                object_number=xobject.obj_num,
+            )
+            _walk_content_images(
+                model,
+                stream,
+                page=page,
+                resources=form_resources,
+                add_extracted=add_extracted,
+                budget=budget,
+                image_budget=image_budget,
+                initial_matrix=concatenate_matrix(
+                    _form_matrix(dictionary.get("/Matrix"), xobject.obj_num),
+                    draw.matrix,
+                ),
+                resource_path=nested_path,
+                active_forms=active_forms | {xobject.obj_num},
+            )
+
+    for inline_index, (inline_image, inline_draw) in enumerate(
+        zip(inline_images, inline_draws),
+        start=1,
+    ):
+        channels = 1 if inline_image.color_space == "/DeviceGray" else 3
+        add_extracted(
+            ExtractedImage(
+                "png",
+                encode_png(
+                    inline_image.width,
+                    inline_image.height,
+                    inline_image.samples,
+                    channels,
+                    None,
+                ),
+                inline_image.width,
+                inline_image.height,
+                inline_image.bits_per_component,
+                inline_image.color_space,
+                list(inline_image.filter_chain),
+                False,
+                inline_image.decode,
+                None,
+                hashlib.sha256(inline_image.samples).hexdigest(),
+            ),
+            page_number=page.page_number,
+            object_number=None,
+            resource=_resource_name(resource_path) if resource_path else None,
+            bbox=inline_draw.bbox,
+            source_kind="inline",
+            inline_index=inline_index,
+            pre_reserved=True,
+        )
+
+
+def _xobject_resources(
+    model: PdfObjectModel,
+    resources: PdfDict | None,
+) -> dict[str, Any]:
+    if resources is None:
         return {}
-    xobjects = page.resources.get("/XObject")
+    xobjects = resources.get("/XObject")
     if isinstance(xobjects, IndirectReference):
         xobjects = model.get_object(xobjects).value
     if not isinstance(xobjects, PdfDict):
@@ -173,185 +314,74 @@ def _xobject_resources(model: PdfObjectModel, page: PageInfo) -> dict[str, Any]:
     return xobjects.entries
 
 
-def _image_object(model: PdfObjectModel, resource: Any) -> PdfObject | None:
+def _xobject_object(model: PdfObjectModel, resource: Any) -> PdfObject | None:
     if not isinstance(resource, IndirectReference):
         _enhancement(
-            "Direct Image XObject resources are not supported by the Core extractor.",
-            capability="pdf.direct-image-xobject",
+            "Direct XObject resources are not supported by the Core extractor.",
+            capability="pdf.direct-xobject",
         )
     obj = model.get_object(resource)
     if not obj.is_stream or not isinstance(obj.value, tuple):
         return None
     dictionary = obj.value[0]
-    if not isinstance(dictionary, PdfDict) or dictionary.get("/Subtype") != "/Image":
+    if not isinstance(dictionary, PdfDict):
         return None
     return obj
 
 
-def _extract_image(
-    model: PdfObjectModel,
-    obj: PdfObject,
-) -> _ExtractedImage:
-    dictionary, stream = obj.value
-    assert isinstance(dictionary, PdfDict)
-    width = _positive_integer(dictionary.get("/Width"), "Width", obj.obj_num)
-    height = _positive_integer(dictionary.get("/Height"), "Height", obj.obj_num)
-    pixels = width * height
-    if pixels > MAX_IMAGE_PIXELS:
-        _unsafe(
-            "PDF image dimensions exceed the bounded pixel policy.",
-            object=obj.obj_num,
-            pixels=pixels,
-            limit=MAX_IMAGE_PIXELS,
-        )
-    bits = _positive_integer(
-        dictionary.get("/BitsPerComponent", 8),
-        "BitsPerComponent",
-        obj.obj_num,
-    )
-    color_space = _color_space(model, dictionary.get("/ColorSpace", "/DeviceRGB"))
-    filters = _filter_chain(dictionary.get("/Filter"))
-    if dictionary.get("/ImageMask") is True or dictionary.get("/Mask") is not None:
-        _enhancement(
-            "Image masks other than an 8-bit soft mask require an enhancement provider.",
-            capability="pdf.image-mask-extraction",
-            object=obj.obj_num,
-        )
-
-    if filters and filters[-1] == "/DCTDecode":
-        if dictionary.get("/SMask") is not None:
-            _enhancement(
-                "JPEG XObjects with a soft mask require a raster decode provider.",
-                capability="pdf.jpeg-alpha-extraction",
-                object=obj.obj_num,
-            )
-        # PdfObjectModel keeps the bounded, filter-decoded stream. DCTDecode is
-        # intentionally a no-op there, so this remains the original JPEG.
-        payload = stream
-        if not payload.startswith(b"\xff\xd8") or not payload.endswith(b"\xff\xd9"):
-            _unsafe("DCTDecode image is not a complete JPEG codestream.", object=obj.obj_num)
-        return _ExtractedImage(
-            "jpeg", payload, width, height, bits, color_space, filters, False,
-        )
-
-    if filters and filters[-1] != "/FlateDecode":
-        _enhancement(
-            "The PDF image filter chain requires an enhancement provider.",
-            capability="pdf.image-filter-extraction",
-            object=obj.obj_num,
-            filters=filters,
-        )
-    _assert_no_predictor(model, dictionary, obj.obj_num)
-    if bits != 8 or color_space not in {"/DeviceGray", "/DeviceRGB"}:
-        _enhancement(
-            "Core PNG reconstruction supports only 8-bit DeviceGray and DeviceRGB images.",
-            capability="pdf.png-sample-reconstruction",
-            object=obj.obj_num,
-            bits_per_component=bits,
-            color_space=color_space,
-        )
-    samples = stream
-    color_channels = 1 if color_space == "/DeviceGray" else 3
-    expected = width * height * color_channels
-    if len(samples) != expected:
-        _unsafe(
-            "Decoded PDF image sample count does not match its dimensions.",
-            object=obj.obj_num,
-            expected=expected,
-            actual=len(samples),
-        )
-    alpha = _soft_mask_samples(model, dictionary.get("/SMask"), width, height)
-    payload = encode_png(width, height, samples, color_channels, alpha)
-    return _ExtractedImage(
-        "png", payload, width, height, bits, color_space, filters, alpha is not None,
-    )
-
-
-def _soft_mask_samples(
+def _form_resources(
     model: PdfObjectModel,
     value: Any,
-    width: int,
-    height: int,
-) -> bytes | None:
+    *,
+    inherited: PdfDict | None,
+    object_number: int,
+) -> PdfDict | None:
     if value is None:
-        return None
-    if not isinstance(value, IndirectReference):
-        _enhancement(
-            "Direct soft-mask streams require an enhancement provider.",
-            capability="pdf.soft-mask-extraction",
-        )
-    obj = model.get_object(value)
-    if not obj.is_stream or not isinstance(obj.value, tuple):
-        _unsafe("Image soft mask is not a stream object.", object=obj.obj_num)
-    dictionary, stream = obj.value
-    if not isinstance(dictionary, PdfDict):
-        _unsafe("Image soft mask dictionary is malformed.", object=obj.obj_num)
-    if (
-        dictionary.get("/Width") != width
-        or dictionary.get("/Height") != height
-        or dictionary.get("/BitsPerComponent", 8) != 8
-        or _color_space(model, dictionary.get("/ColorSpace", "/DeviceGray"))
-        != "/DeviceGray"
-    ):
-        _enhancement(
-            "Image soft mask dimensions or sample format are unsupported.",
-            capability="pdf.soft-mask-extraction",
-            object=obj.obj_num,
-        )
-    _assert_no_predictor(model, dictionary, obj.obj_num)
-    filters = _filter_chain(dictionary.get("/Filter"))
-    if filters and filters[-1] != "/FlateDecode":
-        _enhancement(
-            "Image soft mask filter chain requires an enhancement provider.",
-            capability="pdf.soft-mask-extraction",
-            object=obj.obj_num,
-        )
-    samples = stream
-    if len(samples) != width * height:
-        _unsafe("Decoded image soft-mask byte count is invalid.", object=obj.obj_num)
-    return samples
-
-
-def _assert_no_predictor(
-    model: PdfObjectModel,
-    dictionary: PdfDict,
-    obj_num: int,
-) -> None:
-    decode_parameters = dictionary.get("/DecodeParms")
-    if isinstance(decode_parameters, IndirectReference):
-        decode_parameters = model.get_object(decode_parameters).value
-    candidates = decode_parameters if isinstance(decode_parameters, list) else [decode_parameters]
-    for candidate in candidates:
-        if isinstance(candidate, IndirectReference):
-            candidate = model.get_object(candidate).value
-        if isinstance(candidate, PdfDict) and candidate.get("/Predictor", 1) != 1:
-            _enhancement(
-                "Predictor-encoded image samples require an enhancement provider.",
-                capability="pdf.image-predictor-extraction",
-                object=obj_num,
-            )
-
-
-def _color_space(model: PdfObjectModel, value: Any) -> str:
+        return inherited
     if isinstance(value, IndirectReference):
         value = model.get_object(value).value
-    return value if isinstance(value, str) else "/Unsupported"
-
-
-def _filter_chain(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list) and all(isinstance(item, str) for item in value):
-        return list(value)
-    _unsafe("PDF image filter chain is malformed.")
-
-
-def _positive_integer(value: Any, field: str, obj_num: int) -> int:
-    if type(value) is not int or type(value) is bool or value <= 0:
-        _unsafe("PDF image dimension metadata is invalid.", object=obj_num, field=field)
+    if not isinstance(value, PdfDict):
+        _unsafe("Form XObject resources are malformed.", object=object_number)
     return value
+
+
+def _form_matrix(value: Any, object_number: int) -> AffineMatrix:
+    if value is None:
+        return IDENTITY_MATRIX
+    if not isinstance(value, list) or len(value) != 6:
+        _unsafe("Form XObject matrix is malformed.", object=object_number)
+    numbers: list[float] = []
+    for item in value:
+        if not isinstance(item, (int, float)) or isinstance(item, bool):
+            _unsafe("Form XObject matrix is malformed.", object=object_number)
+        number = float(item)
+        if not math.isfinite(number):
+            _unsafe("Form XObject matrix is non-finite.", object=object_number)
+        numbers.append(number)
+    return (
+        numbers[0],
+        numbers[1],
+        numbers[2],
+        numbers[3],
+        numbers[4],
+        numbers[5],
+    )
+
+
+def _validate_form_bbox(value: Any, object_number: int) -> None:
+    if not isinstance(value, list) or len(value) != 4:
+        _unsafe("Form XObject BBox is malformed.", object=object_number)
+    for item in value:
+        if (
+            not isinstance(item, (int, float))
+            or isinstance(item, bool)
+            or not math.isfinite(float(item))
+        ):
+            _unsafe("Form XObject BBox is malformed.", object=object_number)
+
+
+def _resource_name(path: tuple[str, ...]) -> str:
+    return "/" + "/".join(item.lstrip("/") for item in path)
 
 
 def _unsafe(message: str, **details: Any) -> None:

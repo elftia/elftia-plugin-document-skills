@@ -8,12 +8,10 @@ Module provenance: original Elftia-authored clean-room implementation.
 """
 
 from dataclasses import dataclass, field
-import re
-from typing import Any
 
-from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-
+from .base14_metrics import base14_text_width
 from .byte_preflight import PdfByteLimits
+from .content_tokenizer import tokenize_content_stream
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
 
 
@@ -56,6 +54,12 @@ class TextBlock:
     color: tuple[float, ...]
 
 
+@dataclass
+class _MarkedText:
+    text: str
+    blocks: list[TextBlock] = field(default_factory=list)
+
+
 def extract_content_stream(
     model: PdfObjectModel,
     content_refs: list[IndirectReference],
@@ -91,6 +95,7 @@ def walk_text_operators(
     ts = TextState()
     gs = GraphicsState()
     op_count = 0
+    marked_stack: list[_MarkedText | None] = []
     # Parse operators using a tokenizer
     operators = tokenize_content_stream(content)
     for op, operands in operators:
@@ -103,18 +108,19 @@ def walk_text_operators(
                 ts.font_size = float(operands[1]) if operands[1] else 0.0
         elif op == "Tj":
             text = str(operands[0]) if operands else ""
-            block = _make_block(page_number, "Tj", text, ts, gs)
-            blocks.append(block)
+            if text:
+                block = _make_block(page_number, "Tj", text, ts, gs)
+                _capture_or_append(block, marked_stack, blocks)
         elif op == "TJ":
             if operands and isinstance(operands[0], list):
                 text = "".join(str(item) for item in operands[0] if isinstance(item, (str, bytes)))
                 block = _make_block(page_number, "TJ", text, ts, gs)
-                blocks.append(block)
+                _capture_or_append(block, marked_stack, blocks)
         elif op == "'":
             text = str(operands[0]) if operands else ""
             _apply_t_star(gs, ts)
             block = _make_block(page_number, "'", text, ts, gs)
-            blocks.append(block)
+            _capture_or_append(block, marked_stack, blocks)
         elif op == '"':
             if len(operands) >= 3:
                 ts.word_space = float(operands[0])
@@ -122,7 +128,7 @@ def walk_text_operators(
                 text = str(operands[2])
                 _apply_t_star(gs, ts)
                 block = _make_block(page_number, '"', text, ts, gs)
-                blocks.append(block)
+                _capture_or_append(block, marked_stack, blocks)
         elif op == "Tm":
             if len(operands) >= 6:
                 gs.text_matrix = tuple(float(o) for o in operands[:6])
@@ -134,14 +140,12 @@ def walk_text_operators(
         elif op == "Td":
             if len(operands) >= 2:
                 dx, dy = float(operands[0]), float(operands[1])
-                gs.text_x = gs.line_x + dx
-                gs.text_y = gs.line_y + dy
+                _translate_text_line(gs, dx, dy)
         elif op == "TD":
             if len(operands) >= 2:
                 dx, dy = float(operands[0]), float(operands[1])
                 ts.leading = -dy
-                gs.text_x = gs.line_x + dx
-                gs.text_y = gs.line_y + dy
+                _translate_text_line(gs, dx, dy)
         elif op == "T*":
             _apply_t_star(gs, ts)
         elif op == "rg":
@@ -158,209 +162,125 @@ def walk_text_operators(
                 gs.stroke_color = (float(operands[0]),) * 3
         elif op == "sc" or op == "SC":
             pass  # color space dependent — record approximate
+        elif op == "BDC":
+            properties = next(
+                (operand for operand in reversed(operands) if isinstance(operand, dict)),
+                {},
+            )
+            actual_text = properties.get("/ActualText")
+            marked_stack.append(
+                _MarkedText(actual_text)
+                if isinstance(actual_text, str)
+                else None
+            )
+        elif op == "BMC":
+            marked_stack.append(None)
+        elif op == "EMC" and marked_stack:
+            capture = marked_stack.pop()
+            if capture is not None:
+                block = _actual_text_block(page_number, capture, ts, gs)
+                _capture_or_append(block, marked_stack, blocks)
     return blocks
+
+
+def _capture_or_append(
+    block: TextBlock,
+    marked_stack: list[_MarkedText | None],
+    blocks: list[TextBlock],
+) -> None:
+    capture = next(
+        (item for item in reversed(marked_stack) if item is not None),
+        None,
+    )
+    if capture is not None:
+        capture.blocks.append(block)
+    else:
+        blocks.append(block)
+
+
+def _actual_text_block(
+    page_number: int,
+    capture: _MarkedText,
+    ts: TextState,
+    gs: GraphicsState,
+) -> TextBlock:
+    if not capture.blocks:
+        return _make_block(page_number, "ActualText", capture.text, ts, gs)
+    return TextBlock(
+        page=page_number,
+        operator="ActualText",
+        text=capture.text,
+        bbox=(
+            min(block.bbox[0] for block in capture.blocks),
+            min(block.bbox[1] for block in capture.blocks),
+            max(block.bbox[2] for block in capture.blocks),
+            max(block.bbox[3] for block in capture.blocks),
+        ),
+        font_name=capture.blocks[0].font_name,
+        font_size=capture.blocks[0].font_size,
+        color=capture.blocks[0].color,
+    )
 
 
 def _apply_t_star(gs: GraphicsState, ts: TextState) -> None:
     """Apply T* (move to next line)."""
-    gs.text_x = gs.line_x
-    gs.text_y = gs.line_y - ts.leading
-    gs.line_x = gs.text_x
-    gs.line_y = gs.text_y
+    _translate_text_line(gs, 0.0, -ts.leading)
+
+
+def _translate_text_line(gs: GraphicsState, tx: float, ty: float) -> None:
+    """Move the text line matrix by a text-space translation."""
+    a, b, c, d, e, f = gs.text_line_matrix
+    translated = (
+        a,
+        b,
+        c,
+        d,
+        e + tx * a + ty * c,
+        f + tx * b + ty * d,
+    )
+    gs.text_line_matrix = translated
+    gs.text_matrix = translated
+    gs.text_x = translated[4]
+    gs.text_y = translated[5]
+    gs.line_x = translated[4]
+    gs.line_y = translated[5]
 
 
 def _make_block(page: int, op: str, text: str, ts: TextState, gs: GraphicsState) -> TextBlock:
     """Build a TextBlock from current text/graphics state."""
-    # Approximate bbox from text position and font size
-    x0 = gs.text_x
-    y0 = gs.text_y - ts.font_size * 0.2  # approximate descender
-    text_width = len(text) * ts.font_size * 0.5  # approximate monospace width
-    x1 = x0 + text_width
-    y1 = gs.text_y + ts.font_size * 0.8
+    # Approximate the glyph box in text space, then transform all four corners.
+    # Taking the user-space envelope keeps scale, rotation, and reflection visible
+    # to promotion validation instead of trusting only the Tm translation.
+    text_width = (
+        base14_text_width(text, ts.font_size, ts.font_name)
+        if ts.font_name in {"/F1", "/F2", "/F3", "/F4"}
+        else len(text) * ts.font_size * 0.5
+    )
+    bbox = _transformed_bbox(
+        (0.0, -ts.font_size * 0.2, text_width, ts.font_size * 0.8),
+        gs.text_matrix,
+    )
     return TextBlock(
         page=page,
         operator=op,
         text=text,
-        bbox=(x0, y0, x1, y1),
+        bbox=bbox,
         font_name=ts.font_name,
         font_size=ts.font_size,
         color=gs.fill_color,
     )
 
 
-def tokenize_content_stream(content: bytes) -> list[tuple[str, list[Any]]]:
-    """Tokenize a PDF content stream into (operator, operands) pairs."""
-    operators: list[tuple[str, list[Any]]] = []
-    pos = 0
-    operands: list[Any] = []
-    while pos < len(content):
-        # Skip whitespace
-        while pos < len(content) and content[pos] in b" \t\r\n\f":
-            pos += 1
-        if pos >= len(content):
-            break
-        ch = content[pos]
-        # Comment
-        if ch == ord("%"):
-            while pos < len(content) and content[pos] != ord("\n"):
-                pos += 1
-            continue
-        # String
-        if ch == ord("("):
-            text, pos = _parse_content_string(content, pos)
-            operands.append(text)
-            continue
-        # Hex string or dict
-        if ch == ord("<"):
-            if pos + 1 < len(content) and content[pos + 1] == ord("<"):
-                # Skip dict
-                depth = 0
-                while pos < len(content):
-                    if content[pos : pos + 2] == b"<<":
-                        depth += 1
-                        pos += 2
-                    elif content[pos : pos + 2] == b">>":
-                        depth -= 1
-                        pos += 2
-                        if depth == 0:
-                            break
-                    else:
-                        pos += 1
-                operands.append("<<dict>>")
-                continue
-            # Hex string
-            end = content.find(b">", pos)
-            if end < 0:
-                break
-            operands.append(content[pos + 1 : end].decode("latin-1", errors="replace"))
-            pos = end + 1
-            continue
-        # Array
-        if ch == ord("["):
-            arr, pos = _parse_content_array(content, pos)
-            operands.append(arr)
-            continue
-        # Name
-        if ch == ord("/"):
-            pos += 1
-            start = pos
-            while pos < len(content) and content[pos] not in b" \t\r\n\f/[]<>()":
-                pos += 1
-            operands.append("/" + content[start:pos].decode("utf-8", errors="replace"))
-            continue
-        # Number, operator, or keyword
-        start = pos
-        while pos < len(content) and content[pos] not in b" \t\r\n\f/[]<>()":
-            pos += 1
-        token = content[start:pos].decode("ascii", errors="replace")
-        # Check if this is an operator (keyword)
-        if token in _OPERATORS:
-            operators.append((token, operands))
-            operands = []
-        else:
-            # Try as number
-            try:
-                if "." in token:
-                    operands.append(float(token))
-                else:
-                    operands.append(int(token))
-            except ValueError:
-                operands.append(token)
-    return operators
-
-
-_OPERATORS = frozenset({
-    "Tj", "TJ", "'", '"', "Tf", "Tm", "Td", "TD", "T*",
-    "rg", "RG", "g", "G", "sc", "SC", "scn", "SCN",
-    "BT", "ET", "q", "Q", "cm", "w", "J", "j", "M", "d",
-    "ri", "i", "gs", "CS", "cs", "sh", "re", "m", "l", "c",
-    "v", "y", "h", "S", "s", "f", "F", "f*", "B", "b", "n",
-    "W", "W*", "Mp", "DP", "BDC", "BMC", "EMC", "d0", "d1",
-    "BI", "ID", "EI", "Do", "MP", "DP",
-})
-
-
-def _parse_content_string(content: bytes, pos: int) -> tuple[str, int]:
-    """Parse a literal string in content stream."""
-    depth = 1
-    pos += 1
-    result = bytearray()
-    while pos < len(content) and depth > 0:
-        ch = content[pos]
-        if ch == ord("\\"):
-            pos += 1
-            if pos >= len(content):
-                break
-            esc = content[pos]
-            mapping = {ord("n"): 0x0A, ord("r"): 0x0D, ord("t"): 0x09,
-                       ord("b"): 0x08, ord("f"): 0x0C,
-                       ord("("): 0x28, ord(")"): 0x29, ord("\\"): 0x5C}
-            if esc in mapping:
-                result.append(mapping[esc])
-            elif ord("0") <= esc <= ord("7"):
-                octal = chr(esc)
-                for _ in range(2):
-                    if pos + 1 < len(content) and ord("0") <= content[pos + 1] <= ord("7"):
-                        pos += 1
-                        octal += chr(content[pos])
-                    else:
-                        break
-                result.append(int(octal, 8) & 0xFF)
-            else:
-                result.append(esc)
-            pos += 1
-        elif ch == ord("("):
-            depth += 1
-            result.append(ch)
-            pos += 1
-        elif ch == ord(")"):
-            depth -= 1
-            if depth > 0:
-                result.append(ch)
-            pos += 1
-        else:
-            result.append(ch)
-            pos += 1
-    return result.decode("latin-1", errors="replace"), pos
-
-
-def _parse_content_array(content: bytes, pos: int) -> tuple[list, int]:
-    """Parse an array in content stream."""
-    pos += 1  # skip [
-    items: list[Any] = []
-    while pos < len(content) and content[pos] != ord("]"):
-        while pos < len(content) and content[pos] in b" \t\r\n\f":
-            pos += 1
-        if pos >= len(content) or content[pos] == ord("]"):
-            break
-        ch = content[pos]
-        if ch == ord("("):
-            text, pos = _parse_content_string(content, pos)
-            items.append(text)
-        elif ch == ord("<"):
-            end = content.find(b">", pos)
-            if end < 0:
-                break
-            items.append(content[pos + 1 : end].decode("latin-1", errors="replace"))
-            pos = end + 1
-        elif ch == ord("/"):
-            pos += 1
-            start = pos
-            while pos < len(content) and content[pos] not in b" \t\r\n\f/[]<>()":
-                pos += 1
-            items.append("/" + content[start:pos].decode("utf-8", errors="replace"))
-        else:
-            start = pos
-            while pos < len(content) and content[pos] not in b" \t\r\n\f/[]<>()":
-                pos += 1
-            token = content[start:pos].decode("ascii", errors="replace")
-            try:
-                if "." in token:
-                    items.append(float(token))
-                else:
-                    items.append(int(token))
-            except ValueError:
-                items.append(token)
-    if pos < len(content):
-        pos += 1  # skip ]
-    return items, pos
+def _transformed_bbox(
+    bbox: tuple[float, float, float, float],
+    matrix: tuple[float, float, float, float, float, float],
+) -> tuple[float, float, float, float]:
+    x0, y0, x1, y1 = bbox
+    a, b, c, d, e, f = matrix
+    points = tuple(
+        (a * x + c * y + e, b * x + d * y + f)
+        for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1))
+    )
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    return min(xs), min(ys), max(xs), max(ys)

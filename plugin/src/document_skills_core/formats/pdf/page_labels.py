@@ -9,7 +9,7 @@ from typing import Any, Callable
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .mutation_writer import write_pdf_mutation
-from .object_model import IndirectReference, PdfDict, PdfObject, PdfObjectModel, parse_pdf
+from .object_model import IndirectReference, PdfDict, PdfObjectModel, parse_pdf
 from .object_serialization import serialize_pdf_value
 from .page_tree import walk_pages
 
@@ -60,6 +60,38 @@ def project_page_labels(model: PdfObjectModel, page_count: int) -> list[str]:
         start = start if isinstance(start, int) and start > 0 else 1
         labels.append(prefix + _format_label(spec.get("/S"), start + page_index - range_start))
     return labels
+
+
+def selected_page_labels(
+    model: PdfObjectModel,
+    page_count: int,
+    selected_pages: list[int],
+) -> list[str] | None:
+    """Return visible labels for a page selection, rejecting non-flat trees."""
+    catalog = model.get_object(model.catalog_ref).value
+    if not isinstance(catalog, PdfDict):
+        raise DocumentSkillsError(ErrorCode.ARCHIVE_UNSAFE, "PDF Catalog is not a dictionary.")
+    if catalog.get("/PageLabels") is None:
+        return None
+    _existing_labels(model, catalog)
+    labels = project_page_labels(model, page_count)
+    if len(labels) != page_count:
+        raise DocumentSkillsError(
+            ErrorCode.ARCHIVE_UNSAFE,
+            "PageLabels does not define a valid label for every page.",
+        )
+    return [labels[page - 1] for page in selected_pages]
+
+
+def page_labels_catalog_entry(labels: list[str] | None) -> bytes:
+    """Serialize exact visible labels as a direct flat PageLabels number tree."""
+    if labels is None:
+        return b""
+    nums: list[Any] = []
+    for page_index, label in enumerate(labels):
+        nums.extend([page_index, PdfDict({"/P": label})])
+    value = serialize_pdf_value(PdfDict({"/Nums": nums}))
+    return b" /PageLabels " + value
 
 
 def edit_page_labels(

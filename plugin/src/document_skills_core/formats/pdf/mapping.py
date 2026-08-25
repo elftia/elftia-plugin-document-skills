@@ -8,11 +8,10 @@ from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 
-from .actions import ActionClassification, classify_actions
 from .content_streams import TextBlock, extract_content_stream, walk_text_operators
+from .form_graph import collect_form_fields, FormFieldNode
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
 from .page_tree import PageInfo, walk_pages
-from .resources import FontInfo, inventory_fonts, inventory_images, ImageInfo
 
 
 @dataclass(frozen=True)
@@ -93,36 +92,38 @@ def map_acroform_fields(model: PdfObjectModel) -> list[AcroFieldInfo]:
             return []
     if not isinstance(acroform, PdfDict):
         return []
-    fields = acroform.get("/Fields")
-    if not isinstance(fields, list):
-        return []
     page_numbers = {page.obj_num: page.page_number for page in _safe_pages(model)}
     result: list[AcroFieldInfo] = []
-    for field_ref in fields:
-        if isinstance(field_ref, IndirectReference):
-            try:
-                f_obj = model.get_object(field_ref)
-                f_val = f_obj.value
-                if isinstance(f_val, PdfDict):
-                    result.append(_build_field_info(f_val, page_numbers, model))
-            except Exception:
-                pass
+    try:
+        fields = collect_form_fields(model)
+    except Exception:
+        return []
+    for field in fields:
+        result.append(_build_field_info(field, page_numbers))
     return result
 
 
 def _build_field_info(
-    d: PdfDict,
+    field: FormFieldNode,
     page_numbers: dict[int, int],
-    model: PdfObjectModel,
 ) -> AcroFieldInfo:
     """Build an AcroFieldInfo from a field dictionary."""
-    ft = d.get("/FT", "/Unknown")
-    name = d.get("/T", "")
-    flags = d.get("/Ff", 0)
+    d = field.field.value
+    assert isinstance(d, PdfDict)
+    ft = field.field_type
+    name = field.qualified_name
+    flags = field.flags
     value = d.get("/V")
     default_value = d.get("/DV")
     value_type = type(value).__name__ if value is not None else "null"
+    widget_values = [
+        widget.value
+        for widget in field.widgets
+        if isinstance(widget.value, PdfDict)
+    ]
     rect = d.get("/Rect")
+    if rect is None and widget_values:
+        rect = widget_values[0].get("/Rect")
     annotation_rect = None
     if isinstance(rect, list) and len(rect) >= 4:
         try:
@@ -130,7 +131,7 @@ def _build_field_info(
         except (TypeError, ValueError):
             pass
     numeric_flags = int(flags) if isinstance(flags, int) else 0
-    widgets = _field_widgets(model, d)
+    widgets = widget_values
     field_type = "text"
     ft_str = str(ft) if isinstance(ft, str) else ""
     if ft_str == "/Tx":
@@ -157,7 +158,6 @@ def _build_field_info(
     if not isinstance(page_ref, IndirectReference) and widgets:
         page_ref = widgets[0].get("/P")
     page = page_numbers.get(page_ref.obj_num) if isinstance(page_ref, IndirectReference) else None
-    subtype = d.get("/Subtype")
     return AcroFieldInfo(
         qualified_name=str(name) if isinstance(name, str) else "",
         field_type=field_type,
@@ -169,26 +169,12 @@ def _build_field_info(
         readonly=bool(numeric_flags & 1),
         options=options,
         page=page,
-        widget=subtype == "/Widget" or bool(widgets),
+        widget=bool(widgets),
         has_appearance=d.get("/AP") is not None or any(
             widget.get("/AP") is not None for widget in widgets
         ),
         annotation_rect=annotation_rect,
     )
-
-
-def _field_widgets(model: PdfObjectModel, field: PdfDict) -> list[PdfDict]:
-    kids = field.get("/Kids")
-    if not isinstance(kids, list):
-        return []
-    widgets: list[PdfDict] = []
-    for kid in kids:
-        if not isinstance(kid, IndirectReference):
-            continue
-        value = model.get_object(kid).value
-        if isinstance(value, PdfDict) and value.get("/Subtype") == "/Widget":
-            widgets.append(value)
-    return widgets
 
 
 def _appearance_states(widget: PdfDict) -> list[str]:

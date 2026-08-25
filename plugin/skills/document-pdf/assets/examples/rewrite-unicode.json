@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.rewrite.apply",
+  "input": "<source.pdf>",
+  "output": "<unicode-rewritten.pdf>",
+  "arguments": {
+    "source_sha256": "<64-hex-source-sha256>",
+    "fonts": [
+      {
+        "id": "cjk",
+        "filename": "<local-cjk-font.ttf>",
+        "sha256": "<64-hex-font-sha256>"
+      }
+    ],
+    "blocks": [
+      {
+        "page": 1,
+        "bbox": [72, 750, 300, 780],
+        "text": "Current source text",
+        "font": "F1",
+        "size": 12,
+        "color": [0, 0, 0]
+      }
+    ],
+    "rewrites": [
+      {
+        "block_index": 0,
+        "text": "中文测试",
+        "style": {
+          "font_family": "cjk",
+          "font_size": 12,
+          "font_weight": "normal",
+          "font_style": "normal",
+          "color": [0, 0, 0],
+          "line_height": 14,
+          "alignment": "left",
+          "fallback_fonts": [],
+          "direction": "ltr",
+          "language": "zh-Hans"
+        }
+      }
+    ]
+  }
+}

@@ -10,13 +10,16 @@ Module provenance: original Elftia-authored test suite.
 
 import base64
 import hashlib
+from io import BytesIO
 import json
 from pathlib import Path
 import subprocess
 import zipfile
+import zlib
 
+from PIL import Image
 import pytest
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.pdf.create import create_pdf
@@ -88,6 +91,31 @@ def _request(tmp_path: Path, name: str, payload: dict[str, object]) -> Path:
     return path
 
 
+def _assert_canonical_edit_report(report: dict[str, object]) -> None:
+    preservation = report["preservation"]
+    assert type(preservation) is dict
+    for field in ("changed_objects", "added_objects", "removed_objects"):
+        values = report[field]
+        assert type(values) is list
+        assert values == sorted(set(values))
+        assert all(type(value) is int and value > 0 for value in values)
+        assert values == preservation[field]
+    page_impact = report["page_impact"]
+    assert type(page_impact) is dict
+    assert set(page_impact) == {
+        "mode",
+        "source_page_count",
+        "output_page_count",
+        "source_pages",
+        "output_pages",
+    }
+    for side in ("source", "output"):
+        pages = page_impact[f"{side}_pages"]
+        page_count = page_impact[f"{side}_page_count"]
+        assert pages == sorted(set(pages))
+        assert all(1 <= page <= page_count for page in pages)
+
+
 def _document() -> dict[str, object]:
     return {
         "metadata": {"title": "Public PDF", "author": "Test", "subject": ""},
@@ -119,9 +147,21 @@ def _minimal_text_document() -> dict[str, object]:
     return payload["arguments"]["document"]
 
 
-def _text_form_pdf(path: Path, *, second_field: bool = False) -> Path:
+def _text_form_pdf(
+    path: Path,
+    *,
+    second_field: bool = False,
+    field_flags: int = 0,
+    xfa: bool = False,
+) -> Path:
     acroform_object = 8 if second_field else 7
     annotations = b"[6 0 R 7 0 R]" if second_field else b"[6 0 R]"
+    field_flags_entry = (
+        f" /Ff {field_flags}".encode("ascii")
+        if field_flags
+        else b""
+    )
+    xfa_entry = b" /XFA (legacy-xfa-packet)" if xfa else b""
     objects = [
         f"<< /Type /Catalog /Pages 2 0 R /AcroForm {acroform_object} 0 R >>".encode("ascii"),
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -134,7 +174,8 @@ def _text_form_pdf(path: Path, *, second_field: bool = False) -> Path:
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
         (
             b"<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /V () "
-            b"/Rect [72 700 300 730] /P 3 0 R /DA (/Helv 12 Tf 0 g) >>"
+            + field_flags_entry
+            + b" /Rect [72 700 300 730] /P 3 0 R /DA (/Helv 12 Tf 0 g) >>"
         ),
     ]
     if second_field:
@@ -144,10 +185,35 @@ def _text_form_pdf(path: Path, *, second_field: bool = False) -> Path:
         )
     fields = b"[6 0 R 7 0 R]" if second_field else b"[6 0 R]"
     objects.append(
-        b"<< /Fields " + fields + b" /DR << /Font << /Helv 5 0 R >> >> "
+        b"<< /Fields " + fields + xfa_entry
+        + b" /DR << /Font << /Helv 5 0 R >> >> "
         b"/DA (/Helv 12 Tf 0 g) >>"
     )
     return _write_pdf_fixture(path, objects)
+
+
+def _nested_text_form_pdf(path: Path) -> Path:
+    return _write_pdf_fixture(path, [
+        b"<< /Type /Catalog /Pages 2 0 R /AcroForm 9 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            b"/Resources << /Font << /Helv 5 0 R >> >> /Contents 4 0 R "
+            b"/Annots [8 0 R] >>"
+        ),
+        b"<< /Length 0 >>\nstream\n\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        b"<< /T (person) /FT /Tx /Ff 2 /Kids [7 0 R] >>",
+        b"<< /Parent 6 0 R /T (name) /V () /Kids [8 0 R] >>",
+        (
+            b"<< /Type /Annot /Subtype /Widget /Parent 7 0 R "
+            b"/Rect [72 700 300 730] /P 3 0 R /DA (/Helv 12 Tf 0 g) >>"
+        ),
+        (
+            b"<< /Fields [6 0 R] /DR << /Font << /Helv 5 0 R >> >> "
+            b"/DA (/Helv 12 Tf 0 g) >>"
+        ),
+    ])
 
 
 def _checkbox_form_pdf(path: Path) -> Path:
@@ -442,6 +508,15 @@ def test_public_create_minimal_text_document_round_trips(
     assert create_result["status"] == "success", create_result
     assert output.is_file()
     assert create_result["diagnostics"]["promotion"]["transaction_residue_paths"] == []
+    creation = create_result["diagnostics"]["operation_result"]["creation"]
+    mapping = creation["mapping"]
+    assert mapping["schema_version"] == "1.0"
+    assert mapping["pages"][0]["blocks"] == [{
+        "block_index": 0,
+        "type": "paragraph",
+        "object": mapping["pages"][0]["content_stream_object"],
+        "bbox": creation["text_blocks"][0]["bbox"],
+    }]
 
     read_request = _request(
         tmp_path,
@@ -629,9 +704,10 @@ def test_public_create_applies_text_shape_style_and_page_layout(
     assert creation["page_sizes"] == [[400.0, 300.0]]
     assert creation["shapes"] == [
         {
-            "bbox": [50.0, 50.0, 130.0, 80.0],
-            "block_index": 1,
-            "dash": [4.0, 2.0],
+                "bbox": [50.0, 50.0, 130.0, 80.0],
+                "block_index": 1,
+                "corner_radius": 0.0,
+                "dash": [4.0, 2.0],
             "fill": [0.0, 1.0, 0.0],
             "kind": "rectangle",
             "opacity": 0.5,
@@ -665,6 +741,100 @@ def test_public_create_applies_text_shape_style_and_page_layout(
     assert styled_block["size"] == 18.0
     assert styled_block["color"] == [1.0, 0.0, 0.0]
     assert styled_block["bbox"][0] > 50.0
+
+
+def test_public_create_line_and_ellipse_have_candidate_derived_evidence(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "line-ellipse.pdf"
+    document = _minimal_text_document()
+    document["pages"][0]["blocks"].extend([
+        {
+            "type": "vector_shape",
+            "text": None,
+            "style": None,
+            "table": None,
+            "image": None,
+            "shape": {
+                "kind": "line",
+                "x": 30,
+                "y": 40,
+                "width": 70,
+                "height": 20,
+                "stroke": [1, 0, 0],
+                "fill": None,
+                "opacity": 0.4,
+                "dash": [3, 2],
+            },
+        },
+        {
+            "type": "vector_shape",
+            "text": None,
+            "style": None,
+            "table": None,
+            "image": None,
+            "shape": {
+                "kind": "ellipse",
+                "x": 120,
+                "y": 80,
+                "width": 50,
+                "height": 30,
+                "stroke": [0, 0, 1],
+                "fill": [0.2, 0.4, 0.6],
+                "opacity": 0.6,
+                "dash": [],
+            },
+        },
+    ])
+    request = _request(
+        tmp_path,
+        "create-line-ellipse.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.create",
+            "output": str(output),
+            "arguments": {"document": document},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "success", result
+    gate = next(
+        item
+        for item in result["validation"]["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    shapes = gate["evidence"]["shapes"]
+    assert [shape["kind"] for shape in shapes] == ["line", "ellipse"]
+    assert [shape["bbox"] for shape in shapes] == [
+        [30.0, 40.0, 100.0, 60.0],
+        [120.0, 80.0, 170.0, 110.0],
+    ]
+    assert [shape["path_operators"] for shape in shapes] == [
+        ["m", "l"],
+        ["m", "c", "c", "c", "c", "h"],
+    ]
+    assert [shape["paint_operator"] for shape in shapes] == ["S", "B"]
+    assert [shape["dash"] for shape in shapes] == [[3, 2], []]
+    assert [shape["fill_opacity"] for shape in shapes] == [0.4, 0.6]
+    assert [shape["stroke_opacity"] for shape in shapes] == [0.4, 0.6]
+    assert [shape["stroke"] for shape in shapes] == [[1, 0, 0], [0, 0, 1]]
+    assert [shape["fill"] for shape in shapes] == [None, [0.2, 0.4, 0.6]]
+    assert all(shape["graphics_state_indirect"] for shape in shapes)
+    assert all(shape["graphics_state_object_sha256"] for shape in shapes)
+
+    reader = PdfReader(output)
+    content = reader.pages[0].get_contents().get_data()
+    assert b"30 40 m\n100 60 l" in content
+    assert content.count(b" c\n") >= 4
 
 
 def test_public_create_text_overflow_preserves_destination(
@@ -722,6 +892,7 @@ def test_public_create_embeds_real_png_and_read_projects_it(
             "table": None,
             "image": {
                 "filename": str(image),
+                "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
                 "content_type": "image/png",
                 "fit": "contain",
                 "width": 40,
@@ -753,11 +924,12 @@ def test_public_create_embeds_real_png_and_read_projects_it(
     assert output.is_file()
     creation = create_result["diagnostics"]["operation_result"]["creation"]
     assert creation["structures"]["image"] is True
+    expected_bbox = [72.0, 698.29, 112.0, 738.29]
     assert creation["images"] == [
         {
             "asset_bytes": len(_PNG),
             "asset_sha256": hashlib.sha256(_PNG).hexdigest(),
-            "bbox": [72.0, 707.89, 112.0, 747.89],
+            "bbox": expected_bbox,
             "block_index": 1,
             "content_type": "image/png",
             "image_object": creation["images"][0]["image_object"],
@@ -769,6 +941,32 @@ def test_public_create_embeds_real_png_and_read_projects_it(
         }
     ]
     assert b"placeholder" not in output.read_bytes().lower()
+    create_gate = next(
+        item
+        for item in create_result["validation"]["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    image_evidence = create_gate["evidence"]["images"][0]
+    assert creation["mapping"]["pages"][0]["blocks"][1]["bbox"] == expected_bbox
+    assert image_evidence["bbox"] == expected_bbox
+    assert image_evidence["visible_bbox"] == expected_bbox
+    with Image.open(BytesIO(_PNG)) as source_image:
+        expected_alpha = source_image.getchannel("A").tobytes()
+    assert image_evidence["soft_mask_object"] > 0
+    assert image_evidence["soft_mask_object_sha256"]
+    assert image_evidence["alpha_sha256"] == hashlib.sha256(
+        expected_alpha
+    ).hexdigest()
+
+    reader = PdfReader(output)
+    image_object = reader.pages[0]["/Resources"]["/XObject"]["/Im1"].get_object()
+    assert image_object.raw_get("/SMask").indirect_reference is not None
+    soft_mask = image_object["/SMask"].get_object()
+    assert soft_mask["/Width"] == 1
+    assert soft_mask["/Height"] == 1
+    assert str(soft_mask["/ColorSpace"]) == "/DeviceGray"
+    assert soft_mask["/BitsPerComponent"] == 8
+    assert soft_mask.get_data() == expected_alpha
 
     read_request = _request(
         tmp_path,
@@ -802,6 +1000,58 @@ def test_public_create_embeds_real_png_and_read_projects_it(
     ]
 
 
+def test_public_create_resolves_relative_image_from_invocation_base(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    invocation_base = tmp_path / "用户 image workspace"
+    image = invocation_base / "素材" / "像素.png"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(_PNG)
+    document = _minimal_text_document()
+    document["pages"][0]["blocks"].append({
+        "type": "image",
+        "text": None,
+        "style": None,
+        "table": None,
+        "image": {
+            "filename": "素材/像素.png",
+            "sha256": hashlib.sha256(_PNG).hexdigest(),
+            "content_type": "image/png",
+            "fit": "contain",
+            "width": 40,
+            "height": 40,
+            "alt": "relative image",
+        },
+        "shape": None,
+    })
+    request_dir = invocation_base / "请求"
+    request_dir.mkdir()
+    request = _request(
+        request_dir,
+        "relative-image.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.create",
+            "output": "结果/relative-image.pdf",
+            "arguments": {"document": document},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        request.relative_to(invocation_base).as_posix(),
+        cwd=invocation_base,
+    )
+
+    assert result["status"] == "success", result
+    created = result["diagnostics"]["operation_result"]["creation"]["images"][0]
+    assert created["resolved_path"] == str(image.resolve())
+    assert (invocation_base / "结果" / "relative-image.pdf").is_file()
+
+
 def test_public_create_embeds_jpeg_without_recompressing(
     project_root: Path,
     tmp_path: Path,
@@ -818,6 +1068,7 @@ def test_public_create_embeds_jpeg_without_recompressing(
             "table": None,
             "image": {
                 "filename": str(image),
+                "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
                 "content_type": "image/jpeg",
                 "fit": "contain",
                 "width": 80,
@@ -901,6 +1152,7 @@ def test_public_images_extract_writes_real_png_and_jpeg_artifacts(
                 "table": None,
                 "image": {
                     "filename": str(path),
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
                     "content_type": content_type,
                     "fit": "contain",
                     "width": 40,
@@ -949,6 +1201,132 @@ def test_public_images_extract_writes_real_png_and_jpeg_artifacts(
     jpeg_bytes = next(value for name, value in extracted.items() if name.endswith(".jpg"))
     assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
     assert jpeg_bytes == _JPEG
+
+
+def test_public_images_extract_reverses_png_predictor_samples(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    content = b"q 2 0 0 1 10 10 cm /Im1 Do Q"
+    predicted = bytes([1, 255, 0, 0, 1, 255, 0])
+    compressed = zlib.compress(predicted, level=9)
+    source = _write_pdf_fixture(
+        tmp_path / "predictor-image.pdf",
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] "
+                b"/Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>"
+            ),
+            (
+                f"<< /Length {len(content)} >>\nstream\n".encode("ascii")
+                + content
+                + b"\nendstream"
+            ),
+            (
+                b"<< /Type /XObject /Subtype /Image /Width 2 /Height 1 "
+                b"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode "
+                b"/DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 "
+                b"/Columns 2 >> /Length "
+                + str(len(compressed)).encode("ascii")
+                + b" >>\nstream\n"
+                + compressed
+                + b"\nendstream"
+            ),
+        ],
+    )
+    output = tmp_path / "predictor-images.zip"
+    request = _request(
+        tmp_path,
+        "extract-predictor-image.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.images.extract",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "success", result
+    image_record = result["diagnostics"]["operation_result"]["images"][0]
+    with zipfile.ZipFile(output) as archive:
+        payload = archive.read(image_record["archive_path"])
+    with Image.open(BytesIO(payload)) as image:
+        rgb = image.convert("RGB")
+        assert [rgb.getpixel((x, 0)) for x in range(2)] == [
+            (255, 0, 0),
+            (0, 255, 0),
+        ]
+
+
+def test_public_images_extract_combines_jpeg_with_soft_mask_as_png(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    content = b"q 2 0 0 1 10 10 cm /Im1 Do Q"
+    alpha = zlib.compress(bytes([0, 255]), level=9)
+    source = _write_pdf_fixture(
+        tmp_path / "jpeg-soft-mask.pdf",
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] "
+                b"/Resources << /XObject << /Im1 5 0 R >> >> /Contents 4 0 R >>"
+            ),
+            (
+                f"<< /Length {len(content)} >>\nstream\n".encode("ascii")
+                + content
+                + b"\nendstream"
+            ),
+            (
+                b"<< /Type /XObject /Subtype /Image /Width 2 /Height 1 "
+                b"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode "
+                b"/SMask 6 0 R /Length "
+                + str(len(_JPEG)).encode("ascii")
+                + b" >>\nstream\n"
+                + _JPEG
+                + b"\nendstream"
+            ),
+            (
+                b"<< /Type /XObject /Subtype /Image /Width 2 /Height 1 "
+                b"/ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /FlateDecode "
+                b"/Length "
+                + str(len(alpha)).encode("ascii")
+                + b" >>\nstream\n"
+                + alpha
+                + b"\nendstream"
+            ),
+        ],
+    )
+    output = tmp_path / "jpeg-soft-mask.zip"
+    request = _request(
+        tmp_path,
+        "extract-jpeg-soft-mask.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.images.extract",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "success", result
+    image_record = result["diagnostics"]["operation_result"]["images"][0]
+    assert image_record["format"] == "png"
+    assert image_record["soft_mask"] is True
+    with zipfile.ZipFile(output) as archive:
+        payload = archive.read(image_record["archive_path"])
+    with Image.open(BytesIO(payload)) as image:
+        assert image.mode == "RGBA"
+        assert [image.getpixel((x, 0))[3] for x in range(2)] == [0, 255]
 
 
 def test_public_table_extract_reports_low_confidence_stream_heuristic(
@@ -1071,6 +1449,7 @@ def test_public_create_missing_image_preserves_destination(
             "table": None,
             "image": {
                 "filename": str(tmp_path / "missing.png"),
+                "sha256": "0" * 64,
                 "content_type": "image/png",
                 "fit": "contain",
                 "width": 40,
@@ -1103,6 +1482,57 @@ def test_public_create_missing_image_preserves_destination(
     assert result["errors"][0]["code"] == "DS_REQUEST_INVALID"
     assert result["validation"]["status"] == "fail"
     assert result["artifacts"] == []
+    assert output.read_bytes() == b"existing-destination"
+
+
+def test_public_create_image_hash_mismatch_preserves_destination(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    image = tmp_path / "hash-bound.png"
+    image.write_bytes(_PNG)
+    document = _minimal_text_document()
+    document["pages"][0]["blocks"].append({
+        "type": "image",
+        "text": None,
+        "style": None,
+        "table": None,
+        "image": {
+            "filename": str(image),
+            "sha256": "0" * 64,
+            "content_type": "image/png",
+            "fit": "contain",
+            "width": 40,
+            "height": 40,
+            "alt": "hash bound",
+        },
+        "shape": None,
+    })
+    output = tmp_path / "image-hash-mismatch.pdf"
+    output.write_bytes(b"existing-destination")
+    request = _request(
+        tmp_path,
+        "image-hash-mismatch.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.create",
+            "output": str(output),
+            "arguments": {"document": document},
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "invalid_request"
+    assert result["errors"][0]["details"]["capability"] == (
+        "pdf.image-source-precondition"
+    )
     assert output.read_bytes() == b"existing-destination"
 
 
@@ -1152,6 +1582,86 @@ def test_public_edit_rotate(project_root: Path, public_created: Path, tmp_path: 
     assert output.is_file()
     assert public_created.is_file()
     assert any(item["path"] == str(output.resolve()) for item in result["artifacts"])
+
+
+def test_public_edit_reports_object_sets_and_page_impact_per_primitive(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "public-reported-edit.pdf"
+    request = _request(
+        tmp_path,
+        "reported-edit.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "primitives": [
+                    {"type": "rotate", "pages": [1], "degrees": 90},
+                    {
+                        "type": "annotation",
+                        "action": "add",
+                        "subtype": "text",
+                        "page": 2,
+                        "rectangle": [100, 650, 124, 674],
+                        "contents": "Transient note",
+                    },
+                    {
+                        "type": "annotation",
+                        "action": "delete",
+                        "page": 2,
+                        "index": 1,
+                        "expected_contents": "Transient note",
+                    },
+                    {
+                        "type": "metadata_update",
+                        "metadata": {"title": "Reported edit"},
+                    },
+                ],
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    _assert_canonical_edit_report(operation)
+    reports = operation["primitives"]
+    assert [report["primitive"] for report in reports] == [
+        "rotate",
+        "annotation",
+        "annotation",
+        "metadata_update",
+    ]
+    for report in reports:
+        _assert_canonical_edit_report(report)
+    assert reports[0]["changed_objects"]
+    assert reports[0]["added_objects"] == reports[0]["removed_objects"] == []
+    assert reports[0]["page_impact"] == {
+        "mode": "page_content",
+        "source_page_count": 2,
+        "output_page_count": 2,
+        "source_pages": [1],
+        "output_pages": [1],
+    }
+    assert reports[1]["added_objects"]
+    assert reports[1]["page_impact"]["source_pages"] == [2]
+    assert reports[1]["page_impact"]["output_pages"] == [2]
+    assert reports[2]["removed_objects"]
+    assert reports[2]["page_impact"]["source_pages"] == [2]
+    assert reports[2]["page_impact"]["output_pages"] == [2]
+    assert reports[3]["changed_objects"] or reports[3]["added_objects"]
+    assert reports[3]["page_impact"] == {
+        "mode": "document_metadata",
+        "source_page_count": 2,
+        "output_page_count": 2,
+        "source_pages": [],
+        "output_pages": [],
+    }
 
 
 def test_public_edit_applies_multiple_primitives_and_watermark_opacity(
@@ -1269,7 +1779,8 @@ def test_public_text_watermark_applies_requested_style_and_position(
     assert operation_result["color"] == [0.1, 0.2, 0.3]
     assert operation_result["position"] == {"x": 100.0, "y": 200.0}
     output_bytes = output.read_bytes()
-    assert b"/F1 24 Tf" in output_bytes
+    assert b"/DSWMFont 24 Tf" in output_bytes
+    assert b"/BaseFont /Helvetica /Encoding /WinAnsiEncoding" in output_bytes
     assert b"0.1 0.2 0.3 rg" in output_bytes
     assert b"0.866025 0.5 -0.5 0.866025 100 200 Tm" in output_bytes
 
@@ -1341,6 +1852,7 @@ def test_public_edit_embeds_image_watermark_with_opacity(
                         "type": "watermark",
                         "image": {
                             "filename": str(image),
+                            "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
                             "content_type": "image/png",
                             "fit": "contain",
                             "width": 80,
@@ -1408,6 +1920,7 @@ def test_public_image_watermark_applies_requested_rotation_and_position(
                         "type": "watermark",
                         "image": {
                             "filename": str(image),
+                            "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
                             "content_type": "image/png",
                             "fit": "contain",
                             "width": 80,
@@ -1476,8 +1989,9 @@ def test_public_text_watermark_clones_referenced_page_resources(
     operation_result = result["diagnostics"]["operation_result"]
     preservation = operation_result["preservation"]
     assert 6 in preservation["preserved_objects"]
-    assert preservation["added_objects"] == [7]
-    assert b"/Resources 7 0 R" in output.read_bytes()
+    assert preservation["added_objects"] == [7, 8]
+    assert b"/BaseFont /Helvetica /Encoding /WinAnsiEncoding" in output.read_bytes()
+    assert b"/Resources 8 0 R" in output.read_bytes()
 
     read_request = _request(
         tmp_path,
@@ -1515,7 +2029,23 @@ def test_public_edit_merge(project_root: Path, public_created: Path, tmp_path: P
             "output": str(output),
             "arguments": {
                 "primitives": [
-                    {"type": "merge", "inputs": [str(public_created), str(second)]},
+                    {
+                        "type": "merge",
+                        "inputs": [
+                            {
+                                "input": str(public_created),
+                                "source_sha256": hashlib.sha256(
+                                    public_created.read_bytes()
+                                ).hexdigest(),
+                            },
+                            {
+                                "input": str(second),
+                                "source_sha256": hashlib.sha256(
+                                    second.read_bytes()
+                                ).hexdigest(),
+                            },
+                        ],
+                    },
                 ],
             },
         },
@@ -1526,6 +2056,118 @@ def test_public_edit_merge(project_root: Path, public_created: Path, tmp_path: P
     op_result = result["diagnostics"]["operation_result"]
     assert op_result["primitive"] == "merge"
     assert op_result["page_count"] == 4
+
+
+def test_public_edit_merge_hash_mismatch_is_atomic(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    donor = tmp_path / "hash-mismatch-donor.pdf"
+    create_pdf(donor, _document())
+    primary_before = public_created.read_bytes()
+    donor_before = donor.read_bytes()
+    output = tmp_path / "hash-mismatch-output.pdf"
+    output.write_bytes(b"existing destination")
+    request = _request(
+        tmp_path,
+        "merge-hash-mismatch.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "primitives": [
+                    {"type": "rotate", "pages": [1], "degrees": 90},
+                    {
+                        "type": "merge",
+                        "inputs": [
+                            {
+                                "input": str(public_created),
+                                "source_sha256": hashlib.sha256(
+                                    primary_before
+                                ).hexdigest(),
+                            },
+                            {
+                                "input": str(donor),
+                                "source_sha256": "0" * 64,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "invalid_request"
+    assert result["errors"][0]["code"] == "DS_REQUEST_INVALID"
+    assert output.read_bytes() == b"existing destination"
+    assert public_created.read_bytes() == primary_before
+    assert donor.read_bytes() == donor_before
+
+
+def test_public_edit_merge_resolves_relative_inputs_from_invocation_base(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    invocation_base = tmp_path / "用户 merge workspace"
+    invocation_base.mkdir()
+    primary = invocation_base / "主文档.pdf"
+    donor = invocation_base / "资料" / "附加.pdf"
+    donor.parent.mkdir()
+    create_pdf(primary, _document())
+    create_pdf(donor, _document())
+    request_dir = invocation_base / "请求"
+    request_dir.mkdir()
+    request = _request(
+        request_dir,
+        "merge-relative.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": "主文档.pdf",
+            "output": "结果/合并.pdf",
+            "arguments": {
+                "primitives": [{
+                    "type": "merge",
+                    "inputs": [
+                        {
+                            "input": "主文档.pdf",
+                            "source_sha256": hashlib.sha256(
+                                primary.read_bytes()
+                            ).hexdigest(),
+                        },
+                        {
+                            "input": "资料/附加.pdf",
+                            "source_sha256": hashlib.sha256(
+                                donor.read_bytes()
+                            ).hexdigest(),
+                        },
+                    ],
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        request.relative_to(invocation_base).as_posix(),
+        cwd=invocation_base,
+    )
+
+    assert result["status"] == "success", result
+    assert (invocation_base / "结果" / "合并.pdf").is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -1608,6 +2250,15 @@ def test_public_edit_page_sequence_reorders_and_removes_pages(
     operation_result = result["diagnostics"]["operation_result"]
     assert operation_result["selected_pages"] == [3, 1]
     assert operation_result["removed_pages"] == 1
+    _assert_canonical_edit_report(operation_result)
+    assert operation_result["removed_objects"]
+    assert operation_result["page_impact"] == {
+        "mode": "page_tree",
+        "source_page_count": 3,
+        "output_page_count": 2,
+        "source_pages": [1, 2, 3],
+        "output_pages": [1, 2],
+    }
 
     read_request = _request(
         tmp_path,
@@ -1626,6 +2277,335 @@ def test_public_edit_page_sequence_reorders_and_removes_pages(
         "Third page",
         "Title\nA\nB",
     ]
+
+
+def test_public_edit_page_sequence_reconciles_flat_page_labels(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    document = _document()
+    document["pages"].append({
+        "blocks": [{"type": "paragraph", "text": "Third page"}],
+        "metadata": None,
+    })
+    source = tmp_path / "sequence-label-source.pdf"
+    create_pdf(source, document)
+    labeled = tmp_path / "sequence-labeled.pdf"
+    labels_request = _request(
+        tmp_path,
+        "sequence-set-labels.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(labeled),
+            "arguments": {
+                "primitives": [{
+                    "type": "page_labels",
+                    "action": "set",
+                    "ranges": [
+                        {
+                            "page": 1,
+                            "style": "roman-lower",
+                            "prefix": "Sec-",
+                            "start": 3,
+                        },
+                        {
+                            "page": 3,
+                            "style": "decimal",
+                            "prefix": "App-",
+                            "start": 10,
+                        },
+                    ],
+                }],
+            },
+        },
+    )
+    labels_result = _public(project_root, "run", "--request", str(labels_request))
+    assert labels_result["status"] == "success", labels_result
+    output = tmp_path / "sequence-label-output.pdf"
+    sequence_request = _request(
+        tmp_path,
+        "sequence-with-labels.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(labeled),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{"type": "page_sequence", "pages": [3, 1]}],
+            },
+        },
+    )
+
+    sequence_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(sequence_request),
+        check=False,
+    )
+
+    assert sequence_result["status"] == "success", sequence_result
+    assert sequence_result["diagnostics"]["operation_result"]["page_labels"] == [
+        "App-10",
+        "Sec-iii",
+    ]
+    read_request = _request(
+        tmp_path,
+        "sequence-label-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    assert read_result["diagnostics"]["operation_result"]["page_labels"] == [
+        "App-10",
+        "Sec-iii",
+    ]
+
+
+def test_public_edit_page_sequence_retargets_flat_outlines(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    document = _document()
+    document["pages"].append({
+        "blocks": [{"type": "paragraph", "text": "Third page"}],
+        "metadata": None,
+    })
+    source = tmp_path / "sequence-outline-source.pdf"
+    create_pdf(source, document)
+    outlined = tmp_path / "sequence-outlined.pdf"
+    outline_request = _request(
+        tmp_path,
+        "sequence-add-outlines.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(outlined),
+            "arguments": {
+                "primitives": [
+                    {"type": "outline", "action": "add", "title": "One", "page": 1},
+                    {"type": "outline", "action": "add", "title": "Two", "page": 2},
+                    {"type": "outline", "action": "add", "title": "Three", "page": 3},
+                ],
+            },
+        },
+    )
+    outline_result = _public(project_root, "run", "--request", str(outline_request))
+    assert outline_result["status"] == "success", outline_result
+    output = tmp_path / "sequence-outline-output.pdf"
+    sequence_request = _request(
+        tmp_path,
+        "sequence-with-outlines.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(outlined),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{"type": "page_sequence", "pages": [3, 1]}],
+            },
+        },
+    )
+
+    sequence_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(sequence_request),
+        check=False,
+    )
+
+    assert sequence_result["status"] == "success", sequence_result
+    assert sequence_result["diagnostics"]["operation_result"]["outlines"] == [
+        {"title": "One", "page": 2},
+        {"title": "Three", "page": 1},
+    ]
+    read_request = _request(
+        tmp_path,
+        "sequence-outline-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    assert read_result["diagnostics"]["operation_result"]["outlines"] == [
+        {"title": "One", "destination_page": 2},
+        {"title": "Three", "destination_page": 1},
+    ]
+
+
+def test_public_edit_inserts_hash_bound_selected_pages_with_page_semantics(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "insert-destination.pdf"
+    create_pdf(source, _document())
+    first_content = b"BT /F1 12 Tf 1 0 0 1 30 100 Tm (Donor one) Tj ET"
+    second_content = b"BT /F1 12 Tf 1 0 0 1 30 100 Tm (Donor two) Tj ET"
+    donor = _write_pdf_fixture(
+        tmp_path / "insert-source.pdf",
+        [
+            (
+                b"<< /Type /Catalog /Pages 2 0 R /PageLabels "
+                b"<< /Nums [0 << /P (Donor-) /S /D /St 7 >>] >> "
+                b"/Outlines 9 0 R >>"
+            ),
+            b"<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 300] "
+                b"/Resources << /Font << /F1 8 0 R >> >> /Contents 5 0 R >>"
+            ),
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 320 480] /Rotate 90 "
+                b"/Resources << /Font << /F1 8 0 R >> >> /Contents 6 0 R "
+                b"/Annots [7 0 R] >>"
+            ),
+            (
+                f"<< /Length {len(first_content)} >>\nstream\n".encode("ascii")
+                + first_content
+                + b"\nendstream"
+            ),
+            (
+                f"<< /Length {len(second_content)} >>\nstream\n".encode("ascii")
+                + second_content
+                + b"\nendstream"
+            ),
+            (
+                b"<< /Type /Annot /Subtype /Text /Rect [20 20 40 40] "
+                b"/Contents (Inserted note) /P 4 0 R >>"
+            ),
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            b"<< /Type /Outlines /First 10 0 R /Last 10 0 R /Count 1 >>",
+            (
+                b"<< /Title (Donor bookmark) /Parent 9 0 R "
+                b"/Dest [4 0 R /Fit] >>"
+            ),
+        ],
+    )
+    output = tmp_path / "inserted.pdf"
+    insert_request = _request(
+        tmp_path,
+        "page-insert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "page_insert",
+                    "input": str(donor),
+                    "source_sha256": hashlib.sha256(donor.read_bytes()).hexdigest(),
+                    "at": 2,
+                    "pages": [2],
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(insert_request),
+        check=False,
+    )
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    assert operation["primitive"] == "page_insert"
+    assert operation["inserted_pages"] == [2]
+    assert operation["page_count"] == 3
+    assert operation["outlines"] == [{"title": "Donor bookmark", "page": 2}]
+    assert operation["preservation"]["changed_objects"] == []
+    reader = PdfReader(output)
+    inserted_page = reader.pages[1]
+    assert [
+        float(inserted_page.mediabox.width),
+        float(inserted_page.mediabox.height),
+    ] == [320.0, 480.0]
+    assert inserted_page.rotation == 90
+    assert len(inserted_page["/Annots"]) == 1
+
+    read_request = _request(
+        tmp_path,
+        "read-page-insert.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    assert [
+        item["text"]
+        for item in read_result["diagnostics"]["operation_result"]["text_by_page"]
+    ] == ["Title\nA\nB", "Donor two", "Content"]
+    assert read_result["diagnostics"]["operation_result"]["page_labels"] == [
+        "1",
+        "Donor-8",
+        "2",
+    ]
+    assert read_result["diagnostics"]["operation_result"]["outlines"] == [{
+        "title": "Donor bookmark",
+        "destination_page": 2,
+    }]
+
+
+def test_public_edit_page_insert_hash_mismatch_is_atomic(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "insert-hash-destination.pdf"
+    donor = tmp_path / "insert-hash-source.pdf"
+    create_pdf(source, _document())
+    create_pdf(donor, _minimal_text_document())
+    output = tmp_path / "insert-hash-output.pdf"
+    output.write_bytes(b"existing-destination")
+    request = _request(
+        tmp_path,
+        "page-insert-hash-mismatch.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "page_insert",
+                    "input": str(donor),
+                    "source_sha256": "0" * 64,
+                    "at": 1,
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "invalid_request"
+    assert result["errors"][0]["details"]["capability"] == (
+        "pdf.page-insert-source-precondition"
+    )
+    assert result["artifacts"] == []
+    assert output.read_bytes() == b"existing-destination"
 
 
 def test_public_edit_sets_and_clears_page_labels(
@@ -2039,6 +3019,173 @@ def test_public_form_fill_writes_value_and_widget_appearance(
     assert field["has_appearance"] is True
 
 
+@pytest.mark.parametrize("flatten", [False, True])
+def test_public_form_fill_rejects_readonly_field_atomically(
+    project_root: Path,
+    tmp_path: Path,
+    flatten: bool,
+) -> None:
+    source = _text_form_pdf(
+        tmp_path / f"readonly-{'flatten' if flatten else 'fill'}.pdf",
+        field_flags=1,
+    )
+    source_before = source.read_bytes()
+    output = tmp_path / f"readonly-{'flatten' if flatten else 'fill'}-output.pdf"
+    destination_before = b"existing destination"
+    output.write_bytes(destination_before)
+    request = _request(
+        tmp_path,
+        f"readonly-{'flatten' if flatten else 'fill'}.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "form_fill",
+                    "fields": {"name": "Alice"},
+                    "flatten": flatten,
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "invalid_request", result
+    assert result["errors"][0]["code"] == "DS_REQUEST_INVALID"
+    assert result["errors"][0]["details"] == {
+        "capability": "pdf.form-readonly",
+        "readonly_fields": ["name"],
+    }
+    assert result["artifacts"] == []
+    assert output.read_bytes() == destination_before
+    assert source.read_bytes() == source_before
+
+
+@pytest.mark.parametrize("flatten", [False, True])
+def test_public_form_fill_rejects_xfa_atomically(
+    project_root: Path,
+    tmp_path: Path,
+    flatten: bool,
+) -> None:
+    source = _text_form_pdf(
+        tmp_path / f"xfa-{'flatten' if flatten else 'fill'}.pdf",
+        xfa=True,
+    )
+    source_before = source.read_bytes()
+    output = tmp_path / f"xfa-{'flatten' if flatten else 'fill'}-output.pdf"
+    destination_before = b"existing destination"
+    output.write_bytes(destination_before)
+    request = _request(
+        tmp_path,
+        f"xfa-{'flatten' if flatten else 'fill'}.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "form_fill",
+                    "fields": {"name": "Alice"},
+                    "flatten": flatten,
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "enhancement_required", result
+    assert result["errors"][0]["code"] == "DS_ENHANCEMENT_REQUIRED"
+    assert result["errors"][0]["details"] == {
+        "capability": "pdf.form-xfa",
+    }
+    assert result["artifacts"] == []
+    assert output.read_bytes() == destination_before
+    assert source.read_bytes() == source_before
+
+
+def test_public_form_fill_resolves_nested_qualified_field_and_widget(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _nested_text_form_pdf(tmp_path / "nested-text-form.pdf")
+    output = tmp_path / "nested-text-filled.pdf"
+    request = _request(
+        tmp_path,
+        "fill-nested-text.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "form_fill",
+                    "fields": {"person.name": "Alice"},
+                    "flatten": False,
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    assert operation["fields_filled"] == ["person.name"]
+    assert operation["appearances_written"] == 1
+    assert b"/V (Alice)" in output.read_bytes()
+    read_request = _request(
+        tmp_path,
+        "read-nested-text.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    fields = read_result["diagnostics"]["operation_result"]["acroform_fields"]
+    assert fields == [{
+        "qualified_name": "person.name",
+        "field_type": "text",
+        "flags": 2,
+        "value_type": "str",
+        "value": "Alice",
+        "default_value": None,
+        "required": True,
+        "readonly": False,
+        "options": [],
+        "page": 1,
+        "widget": True,
+        "has_appearance": True,
+        "annotation_rect": [72.0, 700.0, 300.0, 730.0],
+    }]
+
+
 def test_public_form_fill_can_flatten_widget_into_page_content(
     project_root: Path,
     tmp_path: Path,
@@ -2412,9 +3559,11 @@ def test_public_encrypt_writes_verified_aes_256_r5_without_secret_disclosure(
             "operation": "pdf.encrypt",
             "input": str(public_created),
             "output": str(output),
-            "arguments": {
+            "secrets": {
                 "user_password": user_password,
                 "owner_password": owner_password,
+            },
+            "arguments": {
                 "algorithm": "AES-256-R5",
                 "permissions": ["print", "extract"],
                 "encrypt_metadata": True,
@@ -2444,6 +3593,7 @@ def test_public_encrypt_writes_verified_aes_256_r5_without_secret_disclosure(
     assert "Title" in (reader.pages[0].extract_text() or "")
 
     operation_result = result["diagnostics"]["operation_result"]
+    assert operation_result["output_version"] == "1.7"
     assert operation_result["encryption"] == {
         "algorithm": "AES-256-R5",
         "encrypt_metadata": True,
@@ -2469,9 +3619,11 @@ def test_public_encrypted_read_fails_closed_and_explicit_decrypt_round_trips(
             "operation": "pdf.encrypt",
             "input": str(public_created),
             "output": str(encrypted),
-            "arguments": {
+            "secrets": {
                 "user_password": user_password,
                 "owner_password": owner_password,
+            },
+            "arguments": {
                 "algorithm": "AES-256-R5",
                 "permissions": ["extract", "print"],
                 "encrypt_metadata": True,
@@ -2508,6 +3660,34 @@ def test_public_encrypted_read_fails_closed_and_explicit_decrypt_round_trips(
     assert read_encrypted["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
 
     encrypted_hash = hashlib.sha256(encrypted.read_bytes()).hexdigest()
+    edit_destination = tmp_path / "encrypted-edit-output.pdf"
+    original_destination = b"existing destination"
+    edit_destination.write_bytes(original_destination)
+    edit_request = _request(
+        tmp_path,
+        "edit-encrypted.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(encrypted),
+            "output": str(edit_destination),
+            "arguments": {
+                "primitives": [{"type": "rotate", "pages": [1], "degrees": 90}],
+            },
+        },
+    )
+    edit_result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(edit_request),
+        check=False,
+    )
+    assert edit_result["status"] == "enhancement_required"
+    assert edit_result["errors"][0]["code"] == "DS_ENHANCEMENT_REQUIRED"
+    assert edit_destination.read_bytes() == original_destination
+    assert hashlib.sha256(encrypted.read_bytes()).hexdigest() == encrypted_hash
+
     decrypt_request = _request(
         tmp_path,
         "decrypt.json",
@@ -2516,7 +3696,8 @@ def test_public_encrypted_read_fails_closed_and_explicit_decrypt_round_trips(
             "operation": "pdf.decrypt",
             "input": str(encrypted),
             "output": str(decrypted),
-            "arguments": {"password": user_password},
+            "secrets": {"password": user_password},
+            "arguments": {},
         },
     )
     decrypt_result = _public(
@@ -2535,7 +3716,9 @@ def test_public_encrypted_read_fails_closed_and_explicit_decrypt_round_trips(
     assert decrypted_reader.is_encrypted is False
     assert len(decrypted_reader.pages) == 2
     assert "Title" in (decrypted_reader.pages[0].extract_text() or "")
-    assert decrypt_result["diagnostics"]["operation_result"]["decryption"] == {
+    decrypt_operation = decrypt_result["diagnostics"]["operation_result"]
+    assert decrypt_operation["output_version"] == "1.7"
+    assert decrypt_operation["decryption"] == {
         "encrypted_input": True,
         "encrypted_output": False,
         "verified": True,
@@ -2561,6 +3744,80 @@ def test_public_encrypted_read_fails_closed_and_explicit_decrypt_round_trips(
     assert read_decrypted["diagnostics"]["operation_result"]["page_count"] == 2
 
 
+def test_public_edit_rejects_filtered_encrypted_input_before_stream_decode(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    encrypted = tmp_path / "filtered-encrypted.pdf"
+    writer = PdfWriter()
+    writer.append_pages_from_reader(PdfReader(public_created))
+    for page in writer.pages:
+        page.compress_content_streams()
+    writer.encrypt(
+        user_password="filtered-user-3141",
+        owner_password="filtered-owner-2718",
+        algorithm="AES-256-R5",
+    )
+    with encrypted.open("wb") as stream:
+        writer.write(stream)
+    assert b"/Encrypt" in encrypted.read_bytes()
+    assert b"/FlateDecode" in encrypted.read_bytes()
+
+    destination = tmp_path / "filtered-encrypted-edit.pdf"
+    original_destination = b"existing destination"
+    destination.write_bytes(original_destination)
+    request = _request(
+        tmp_path,
+        "edit-filtered-encrypted.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(encrypted),
+            "output": str(destination),
+            "arguments": {
+                "primitives": [{"type": "rotate", "pages": [1], "degrees": 90}],
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["code"] == "DS_ENHANCEMENT_REQUIRED"
+    assert result["errors"][0]["details"]["capability"] == "pdf.decrypt"
+    assert destination.read_bytes() == original_destination
+
+
+def test_public_edit_does_not_treat_content_text_as_encryption(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "plain-encrypt-text.pdf"
+    document = _minimal_text_document()
+    document["pages"][0]["blocks"][0]["text"] = "Use /Encrypt here"
+    create_pdf(source, document)
+    output = tmp_path / "plain-encrypt-text-rotated.pdf"
+    request = _request(
+        tmp_path,
+        "edit-plain-encrypt-text.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{"type": "rotate", "pages": [1], "degrees": 90}],
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "success", result
+    assert output.is_file()
+
+
 def test_public_decrypt_wrong_password_preserves_existing_destination(
     project_root: Path,
     public_created: Path,
@@ -2577,9 +3834,11 @@ def test_public_decrypt_wrong_password_preserves_existing_destination(
             "operation": "pdf.encrypt",
             "input": str(public_created),
             "output": str(encrypted),
-            "arguments": {
+            "secrets": {
                 "user_password": user_password,
                 "owner_password": owner_password,
+            },
+            "arguments": {
                 "algorithm": "AES-256-R5",
                 "permissions": [],
                 "encrypt_metadata": True,
@@ -2608,7 +3867,8 @@ def test_public_decrypt_wrong_password_preserves_existing_destination(
             "operation": "pdf.decrypt",
             "input": str(encrypted),
             "output": str(destination),
-            "arguments": {"password": wrong_password},
+            "secrets": {"password": wrong_password},
+            "arguments": {},
         },
     )
 
@@ -2721,8 +3981,9 @@ def test_public_rewrite(project_root: Path, public_created: Path, tmp_path: Path
             "input": str(public_created),
             "output": str(output),
             "arguments": {
+                "source_sha256": hashlib.sha256(public_created.read_bytes()).hexdigest(),
                 "blocks": [
-                    {"page": 1, "bbox": [72, 754, 300, 770], "text": "Title", "font": "F2", "size": 16.0, "color": None},
+                    {"page": 1, "bbox": [72, 753, 300, 770], "text": "Title", "font": "F2", "size": 16.0, "color": None},
                 ],
                 "rewrites": [
                     {"block_index": 0, "text": "Modified Title"},
@@ -2738,6 +3999,242 @@ def test_public_rewrite(project_root: Path, public_created: Path, tmp_path: Path
     assert op_result["rewrite"]["blocks_processed"] == 1
 
 
+def test_public_rewrite_source_hash_mismatch_preserves_source_and_destination(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    source_before = public_created.read_bytes()
+    output = tmp_path / "existing-rewrite.pdf"
+    destination_before = b"existing rewrite destination"
+    output.write_bytes(destination_before)
+    request = _request(
+        tmp_path,
+        "rewrite-wrong-source-hash.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.rewrite.apply",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "source_sha256": "0" * 64,
+                "blocks": [{
+                    "page": 1,
+                    "bbox": [72, 754, 300, 770],
+                    "text": "Title",
+                    "font": "F2",
+                    "size": 16.0,
+                    "color": None,
+                }],
+                "rewrites": [{"block_index": 0, "text": "Modified Title"}],
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request), check=False)
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_VALIDATION_FAILED"
+    assert public_created.read_bytes() == source_before
+    assert output.read_bytes() == destination_before
+
+
+def test_public_rewrite_rejects_stale_text_bbox_and_page_selectors(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    source_before = public_created.read_bytes()
+    source_sha256 = hashlib.sha256(source_before).hexdigest()
+    stale_selectors = [
+        ("text", {"text": "Stale title"}),
+        ("bbox", {"bbox": [0, 0, 10, 10]}),
+        ("page", {"page": 2}),
+    ]
+    for name, override in stale_selectors:
+        output = tmp_path / f"existing-stale-{name}.pdf"
+        destination_before = f"existing stale {name}".encode("ascii")
+        output.write_bytes(destination_before)
+        block = {
+            "page": 1,
+            "bbox": [72, 754, 300, 770],
+            "text": "Title",
+            "font": "F2",
+            "size": 16.0,
+            "color": None,
+            **override,
+        }
+        request = _request(
+            tmp_path,
+            f"rewrite-stale-{name}.json",
+            {
+                "schema_version": "1.0",
+                "operation": "pdf.rewrite.apply",
+                "input": str(public_created),
+                "output": str(output),
+                "arguments": {
+                    "source_sha256": source_sha256,
+                    "blocks": [block],
+                    "rewrites": [{"block_index": 0, "text": "Modified Title"}],
+                },
+            },
+        )
+
+        result = _public(project_root, "run", "--request", str(request), check=False)
+
+        assert result["status"] == "failed", (name, result)
+        assert result["errors"][0]["code"] == "DS_VALIDATION_FAILED"
+        assert output.read_bytes() == destination_before
+        assert public_created.read_bytes() == source_before
+
+
+def test_public_rewrite_formula_multicolumn_and_rotated_page_preserves_layout(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    def stream(content: bytes) -> bytes:
+        return (
+            f"<< /Length {len(content)} >>\nstream\n".encode("ascii")
+            + content
+            + b"\nendstream"
+        )
+
+    source = _write_pdf_fixture(
+        tmp_path / "rewrite-layout-source.pdf",
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                b"/CropBox [20 30 592 762] /Resources << /Font << /F1 11 0 R >> >> "
+                b"/Contents 7 0 R >>"
+            ),
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                b"/Resources << /Font << /F1 11 0 R >> >> /Contents 8 0 R >>"
+            ),
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Rotate 90 "
+                b"/Resources << /Font << /F1 11 0 R >> >> /Contents 9 0 R >>"
+            ),
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 500] "
+                b"/CropBox [10 20 390 480] /Rotate 180 "
+                b"/Resources << /Font << /F1 11 0 R >> >> /Contents 10 0 R >>"
+            ),
+            stream(
+                b"BT /F1 12 Tf 1 0 0 1 72 700 Tm (Formula: E = mc^2) Tj "
+                b"0 -24 Td (Formula note stays) Tj ET"
+            ),
+            stream(
+                b"BT /F1 12 Tf 1 0 0 1 72 650 Tm (Left column stays) Tj ET "
+                b"BT /F1 12 Tf 1 0 0 1 320 650 Tm (Right column target) Tj ET"
+            ),
+            stream(
+                b"BT /F1 12 Tf 1 0 0 1 100 500 Tm (Rotated target) Tj "
+                b"0 -24 Td (Rotated note stays) Tj ET"
+            ),
+            stream(b"BT /F1 12 Tf 1 0 0 1 40 400 Tm (Untargeted page) Tj ET"),
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+        ],
+    )
+    source_before = source.read_bytes()
+    read_request = _request(
+        tmp_path,
+        "rewrite-layout-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+    read_result = _public(project_root, "run", "--request", str(read_request))
+    available_blocks = {
+        block["text"]: block
+        for block in read_result["diagnostics"]["operation_result"]["text_blocks"]
+    }
+    selector_keys = ("page", "bbox", "text", "font", "size", "color")
+    selectors = [
+        {key: available_blocks[text][key] for key in selector_keys}
+        for text in (
+            "Formula: E = mc^2",
+            "Right column target",
+            "Rotated target",
+        )
+    ]
+    for selector in selectors:
+        selector["bbox"] = list(selector["bbox"])
+        selector["bbox"][2] += 60.0
+    output = tmp_path / "rewrite-layout-output.pdf"
+    rewrite_request = _request(
+        tmp_path,
+        "rewrite-layout.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.rewrite.apply",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "source_sha256": hashlib.sha256(source_before).hexdigest(),
+                "blocks": selectors,
+                "rewrites": [
+                    {"block_index": 0, "text": "Formula: F = ma"},
+                    {"block_index": 1, "text": "Right column revised"},
+                    {"block_index": 2, "text": "Rotated revised"},
+                ],
+            },
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(rewrite_request), check=False)
+
+    assert result["status"] == "success", result
+    assert source.read_bytes() == source_before
+    rewrite = result["diagnostics"]["operation_result"]["rewrite"]
+    assert rewrite["blocks_processed"] == 3
+    layout = rewrite["page_layout_preservation"]
+    assert layout == {
+        "page_count_match": True,
+        "page_box_preserved": True,
+        "non_targeted_objects_preserved": True,
+        "targeted_pages": [1, 2, 3],
+        "verified": True,
+    }
+    before_reader = PdfReader(source)
+    after_reader = PdfReader(output)
+    assert len(before_reader.pages) == len(after_reader.pages) == 4
+    for before_page, after_page in zip(before_reader.pages, after_reader.pages, strict=True):
+        assert list(before_page.mediabox) == list(after_page.mediabox)
+        assert list(before_page.cropbox) == list(after_page.cropbox)
+        assert before_page.rotation == after_page.rotation
+    assert after_reader.pages[2].rotation == 90
+    assert after_reader.pages[3].rotation == 180
+
+    output_read_request = _request(
+        tmp_path,
+        "rewrite-layout-output-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.read",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+    output_read = _public(project_root, "run", "--request", str(output_read_request))
+    text_by_page = [
+        page["text"]
+        for page in output_read["diagnostics"]["operation_result"]["text_by_page"]
+    ]
+    assert "Formula: F = ma" in text_by_page[0]
+    assert "Formula note stays" in text_by_page[0]
+    assert "Left column stays" in text_by_page[1]
+    assert "Right column revised" in text_by_page[1]
+    assert "Rotated revised" in text_by_page[2]
+    assert "Rotated note stays" in text_by_page[2]
+    assert text_by_page[3] == "Untargeted page"
+
+
 def test_public_rewrite_cjk_fails_closed(project_root: Path, public_created: Path, tmp_path: Path) -> None:
     output = tmp_path / "public-cjk.pdf"
     rewrite_request = _request(
@@ -2749,6 +4246,7 @@ def test_public_rewrite_cjk_fails_closed(project_root: Path, public_created: Pat
             "input": str(public_created),
             "output": str(output),
             "arguments": {
+                "source_sha256": hashlib.sha256(public_created.read_bytes()).hexdigest(),
                 "blocks": [
                     {"page": 1, "bbox": [72, 754, 300, 770], "text": "Title", "font": "F2", "size": 16.0, "color": None},
                 ],

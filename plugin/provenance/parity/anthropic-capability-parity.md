@@ -114,16 +114,16 @@ The implementation sources are:
 | Edit (rotate/watermark/text)         | `PRESENT`     | `formats/pdf/edit.py`                                                    |
 | Inspect structure                    | `PRESENT`     | `formats/pdf/inspect.py`                                                 |
 | Inspect security_summary (uniform)   | `PRESENT`     | GAP-CROSS-2 closure: `formats/pdf/inspect.py::_project_security_summary` |
-| Merge / split                        | `PRESENT`     | `formats/pdf/rewrite.py::rewrite_apply_pdf`                              |
+| Merge / split                        | `PRESENT`     | `formats/pdf/edit.py`, `formats/pdf/page_merge_split.py`                 |
 | Watermark                            | `PRESENT`     | `formats/pdf/edit.py`                                                    |
 | Rewrite extract/apply                | `PRESENT`     | `formats/pdf/rewrite.py`                                                 |
 | Forms inspect                        | `PRESENT`     | `formats/pdf/mapping.py::map_acroform_fields` (inventory)                |
-| Forms fill                           | `GAP`         | `CR-PDF-001`: inspect exists; fill is a dedicated feature.               |
-| OCR                                  | `GAP`         | `CR-PDF-002`: dedicated feature provider integration.                    |
-| Image extraction                     | `GAP`         | `CR-PDF-002`: dedicated feature provider integration.                    |
-| Encryption / decryption              | `GAP`         | `CR-PDF-002`: encrypted sources are rejected; decryption is out of scope.|
-| Compression                          | `GAP`         | `CR-PDF-002`: dedicated feature; out of scope.                           |
-| Visual QA                            | `GAP`         | LibreOffice render exists; full visual QA pipeline is out of scope.      |
+| Forms fill / flatten                 | `PRESENT`     | `formats/pdf/forms.py`, `formats/pdf/form_appearance.py`, `formats/pdf/form_flatten.py` |
+| OCR                                  | `PRESENT`     | Provider-gated `providers/pdf_tools/ocr.py` + source-bound semantic gate |
+| Image extraction                     | `PRESENT`     | `formats/pdf/images_extract.py`, bounded XObject/Form/inline extraction  |
+| Encryption / decryption              | `PRESENT`     | Provider-gated `providers/pypdf/` AES-256-R5 implementation              |
+| Compression                          | `PRESENT`     | Provider-gated `providers/pypdf/` measured compression/semantic evidence |
+| Visual QA                            | `PRESENT`     | Provider-gated `providers/pdf_tools/` render geometry and visual diff    |
 
 ## Cross-cutting capability matrix
 
@@ -142,7 +142,7 @@ The implementation sources are:
 | Security_summary uniformity          | `PRESENT`     | GAP-CROSS-2 closure across all four formats                              |
 | Cross-format visual diff             | `GAP`         | Large feature work; out of scope for final hardening slice.              |
 | Full dogfood coverage                | `OUT-OF-SCOPE`| North Star non-goal in this environment: requires live Electron clean-profile boot + multi-backend session; recorded as `unavailable` honestly. |
-| Remote macOS/Linux CI                | `OUT-OF-SCOPE`| North Star non-goal locally: observed-remote CI stays absent; recorded honestly. |
+| Remote macOS/Linux CI                | `GAP`         | Workflow definitions exist, but observed current-revision receipts remain an external delivery gate. |
 | MCP server / daemon / global command | `OUT-OF-SCOPE`| North Star non-goal: four narrow Skills are the sole agent surface.     |
 | Macro execution / DDE / external refresh | `OUT-OF-SCOPE`| North Star non-goal: dangerous content is inventoried but never executed. |
 
@@ -154,8 +154,6 @@ The implementation sources are:
 | `CR-OFFICE-001` | Schema validator for XLSX/PPTX            | Needs .NET provider extension; out of scope.           |
 | `CR-PPTX-001` | Chart/axis/package corruption validator     | Deep schema work; out of scope.                        |
 | `CR-PPTX-002` | Content/file/visual three-layer QA pipeline | Large pipeline; out of scope.                          |
-| `CR-PDF-001`  | Forms fill                                  | Dedicated feature; inert inspect is sufficient.        |
-| `CR-PDF-002`  | OCR / image extraction / encryption / compression | Each is a dedicated feature provider integration. |
 
 ## Honest evidence boundaries
 

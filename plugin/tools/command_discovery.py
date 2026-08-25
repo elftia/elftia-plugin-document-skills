@@ -27,6 +27,7 @@ _KNOWN_EXECUTABLES = {
     "nodejs",
     "npm",
     "npx",
+    "pdftoppm",
     "pip",
     "pip3",
     "pipx",

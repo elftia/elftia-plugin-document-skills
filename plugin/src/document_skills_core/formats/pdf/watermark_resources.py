@@ -7,8 +7,8 @@ import re
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
-from .create_layout import pdf_number
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
+from .object_serialization import serialize_pdf_value
 
 
 class WatermarkResourceRewriter:
@@ -20,11 +20,15 @@ class WatermarkResourceRewriter:
         opacity: float,
         image_object: int | None,
         added_objects: dict[int, bytes],
+        font_resource: str | None,
+        font_object: int | None,
     ) -> None:
         self._model = model
         self._opacity = opacity
         self._image_object = image_object
         self._added_objects = added_objects
+        self._font_resource = font_resource
+        self._font_object = font_object
         self._clones: dict[tuple[str, int, int], int] = {}
 
     def rewrite_page(self, page_object: int, payload: bytes) -> bytes:
@@ -35,22 +39,16 @@ class WatermarkResourceRewriter:
         local_resources = page.get("/Resources")
         if isinstance(local_resources, PdfDict):
             start, end = _inline_resource_bounds(payload)
-            resources = _inject_resource_dictionary(
-                payload[start:end],
-                self._opacity,
-                self._image_object,
+            resources = self._inject_resource_dictionary(
+                local_resources,
             )
-            return payload[:start] + resources + payload[end:]
+            return payload[:start] + serialize_pdf_value(resources) + payload[end:]
 
         source_key, resources = self._find_resource_source(page_object)
         clone_object = self._clones.get(source_key)
         if clone_object is None:
             clone_object = self._next_object_number()
-            clone = _inject_resource_dictionary(
-                resources,
-                self._opacity,
-                self._image_object,
-            )
+            clone = serialize_pdf_value(self._inject_resource_dictionary(resources))
             self._added_objects[clone_object] = (
                 f"{clone_object} 0 obj\n".encode("ascii")
                 + clone
@@ -59,10 +57,44 @@ class WatermarkResourceRewriter:
             self._clones[source_key] = clone_object
         return _attach_page_resources(payload, clone_object, local_resources)
 
+    def _inject_resource_dictionary(self, resources: PdfDict) -> PdfDict:
+        rewritten = PdfDict(dict(resources.entries))
+        graphics = self._resource_category(rewritten.get("/ExtGState"))
+        graphics.entries["/DSWMGS"] = PdfDict({
+            "/Type": "/ExtGState",
+            "/ca": self._opacity,
+            "/CA": self._opacity,
+        })
+        rewritten.entries["/ExtGState"] = graphics
+        if self._image_object is not None:
+            images = self._resource_category(rewritten.get("/XObject"))
+            images.entries["/DSWMImage"] = IndirectReference(
+                self._image_object,
+                0,
+            )
+            rewritten.entries["/XObject"] = images
+        if self._font_object is not None and self._font_resource is not None:
+            fonts = self._resource_category(rewritten.get("/Font"))
+            name = f"/{self._font_resource}"
+            if name in fonts:
+                raise _unsupported_resources()
+            fonts.entries[name] = IndirectReference(self._font_object, 0)
+            rewritten.entries["/Font"] = fonts
+        return rewritten
+
+    def _resource_category(self, value: object) -> PdfDict:
+        if value is None:
+            return PdfDict()
+        if isinstance(value, IndirectReference):
+            value = self._model.get_object(value).value
+        if not isinstance(value, PdfDict):
+            raise _unsupported_resources()
+        return PdfDict(dict(value.entries))
+
     def _find_resource_source(
         self,
         page_object: int,
-    ) -> tuple[tuple[str, int, int], bytes]:
+    ) -> tuple[tuple[str, int, int], PdfDict]:
         current_object = page_object
         visited: set[int] = set()
         while current_object not in visited:
@@ -73,15 +105,16 @@ class WatermarkResourceRewriter:
             resources = obj.value.get("/Resources")
             if isinstance(resources, IndirectReference):
                 resource_obj = self._model.get_object(resources)
+                if not isinstance(resource_obj.value, PdfDict):
+                    raise _unsupported_resources()
                 return (
                     ("reference", resources.obj_num, resources.gen_num),
-                    _object_dictionary(resource_obj.payload_bytes),
+                    resource_obj.value,
                 )
             if isinstance(resources, PdfDict):
-                start, end = _inline_resource_bounds(obj.payload_bytes)
                 return (
                     ("inline", current_object, 0),
-                    obj.payload_bytes[start:end],
+                    resources,
                 )
             parent = obj.value.get("/Parent")
             if not isinstance(parent, IndirectReference):
@@ -90,7 +123,12 @@ class WatermarkResourceRewriter:
         raise _unsupported_resources()
 
     def _next_object_number(self) -> int:
-        return max(set(self._model.objects) | set(self._added_objects)) + 1
+        occupied = (
+            set(self._model.objects)
+            | set(self._added_objects)
+            | {self._model.trailer.size - 1}
+        )
+        return max(occupied) + 1
 
 
 def _attach_page_resources(
@@ -116,14 +154,6 @@ def _attach_page_resources(
     return payload[:end - 2] + b" " + entry + b" " + payload[end - 2:]
 
 
-def _object_dictionary(payload: bytes) -> bytes:
-    start = payload.find(b"<<")
-    end = _matching_dict_end(payload, start)
-    if start < 0 or end is None:
-        raise _unsupported_resources()
-    return payload[start:end]
-
-
 def _inline_resource_bounds(payload: bytes) -> tuple[int, int]:
     position = payload.find(b"/Resources")
     if position < 0:
@@ -138,39 +168,6 @@ def _inline_resource_bounds(payload: bytes) -> tuple[int, int]:
     if end is None:
         raise _unsupported_resources()
     return start, end
-
-
-def _inject_resource_dictionary(
-    resources: bytes,
-    opacity: float,
-    image_object: int | None,
-) -> bytes:
-    opacity_entry = (
-        f" /DSWMGS << /Type /ExtGState /ca {pdf_number(opacity)} "
-        f"/CA {pdf_number(opacity)} >>"
-    ).encode("ascii")
-    resources = _inject_named_resource(resources, b"/ExtGState", opacity_entry)
-    if image_object is not None:
-        resources = _inject_named_resource(
-            resources,
-            b"/XObject",
-            f" /DSWMImage {image_object} 0 R".encode("ascii"),
-        )
-    return resources
-
-
-def _inject_named_resource(resources: bytes, category: bytes, entry: bytes) -> bytes:
-    category_position = resources.find(category)
-    if category_position >= 0:
-        category_start = resources.find(b"<<", category_position + len(category))
-        if category_start < 0:
-            raise _unsupported_resources()
-        category_end = _matching_dict_end(resources, category_start)
-        if category_end is None:
-            raise _unsupported_resources()
-        return resources[:category_end - 2] + entry + resources[category_end - 2:]
-    category_entry = b" " + category + b" <<" + entry + b" >>"
-    return resources[:-2] + category_entry + resources[-2:]
 
 
 def _matching_dict_end(data: bytes, start: int) -> int | None:
@@ -197,7 +194,7 @@ def _matching_dict_end(data: bytes, start: int) -> int | None:
 def _unsupported_resources() -> DocumentSkillsError:
     return DocumentSkillsError(
         ErrorCode.ENHANCEMENT_REQUIRED,
-        "Watermark opacity requires an editable page resource dictionary.",
+        "Watermarking requires an editable page resource dictionary.",
         status="enhancement_required",
         details={"capability": "pdf.watermark-resource-rewrite"},
     )

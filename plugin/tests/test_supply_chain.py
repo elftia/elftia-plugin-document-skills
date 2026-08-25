@@ -9,7 +9,11 @@ import pytest
 
 from tools.audit import audit_fixtures, audit_provenance, release_inventory, run_audits
 from tools.audit_provenance import provenance_modules
-from tools.provenance_records import validate_metadata_exclusion
+from tools.provenance_records import (
+    SELF_REFERENTIAL_METADATA_ALLOWLIST,
+    validate_metadata_exclusion,
+)
+from tools.regenerate_provenance import regenerate
 from tools.supply_chain import build_sbom, canonical_json
 from tests.support.provenance_review_fixture import bind_test_review
 
@@ -55,66 +59,98 @@ def test_provenance_covers_implementation_modules(project_root, tmp_path):
     assert len(report["mapping_sha256"]) == 64
 
 
-def test_core_docx_review_metadata_binding_uses_an_exact_allowlist(
-    project_root, tmp_path
+@pytest.mark.parametrize(
+    "report_name",
+    [
+        "core-docx-review-cycle-round-1.md",
+        "core-pptx-review-cycle-round-1.md",
+    ],
+)
+def test_historical_review_is_hash_bound_data_not_metadata(
+    project_root,
+    tmp_path,
+    report_name,
 ):
-    root = _copy_audit_project(project_root, tmp_path / "core-docx-review")
-    report_name = "core-docx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
-    report = audit_provenance(root)
-    assert report["review_attestations"] == 1
-
-    manifest = json.loads(
-        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    root = _copy_audit_project(project_root, tmp_path / report_name)
+    manifest, _digest = regenerate(root)
+    artifact = f"provenance/reviews/{report_name}"
+    record = next(
+        item
+        for item in manifest["data_classifications"]
+        if item["artifact"] == artifact
     )
-    core_record = next(
-        record
-        for record in manifest["metadata_exclusions"]
-        if record["artifact"] == f"provenance/reviews/{report_name}"
-    )
-    reviewers = {manifest["review_attestations"][0]["reviewer"]}
-    validate_metadata_exclusion(root, core_record, reviewers)
 
-    unexpected = {
-        **core_record,
-        "artifact": "provenance/reviews/core-docx-review-cycle-round-2.md",
+    assert record["sha256"] == hashlib.sha256((root / artifact).read_bytes()).hexdigest()
+    assert artifact not in {
+        item["artifact"] for item in manifest["metadata_exclusions"]
+    }
+    forged_metadata = {
+        "artifact": artifact,
+        "classification": "self-referential-audit-metadata",
+        "reason": "Historical review bytes do not participate in a digest cycle.",
+        "reviewer": record["reviewer"],
+        "review_evidence": ["PROVENANCE.md"],
     }
     with pytest.raises(
         AssertionError,
         match="outside the exact self-reference allowlist",
     ):
-        validate_metadata_exclusion(root, unexpected, reviewers)
+        validate_metadata_exclusion(root, forged_metadata, {record["reviewer"]})
 
 
-def test_core_pptx_review_metadata_binding_uses_an_exact_allowlist(
-    project_root, tmp_path
+def test_metadata_exclusion_boundary_is_exactly_three_paths(project_root, tmp_path):
+    root = _copy_audit_project(project_root, tmp_path / "metadata-boundary")
+    manifest, _digest = regenerate(root)
+
+    assert {
+        record["artifact"] for record in manifest["metadata_exclusions"]
+    } == SELF_REFERENTIAL_METADATA_ALLOWLIST
+
+
+def test_historical_review_report_drift_changes_mapping_digest(
+    project_root,
+    tmp_path,
 ):
-    root = _copy_audit_project(project_root, tmp_path / "core-pptx-review")
-    report_name = "core-pptx-review-cycle-round-1.md"
-    bind_test_review(root, report_name=report_name)
-    report = audit_provenance(root)
-    assert report["review_attestations"] == 1
+    root = _copy_audit_project(project_root, tmp_path / "historical-mapping")
+    relative = "provenance/reviews/core-docx-review-cycle-round-1.md"
+    report_path = root / relative
 
-    manifest = json.loads(
-        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
-    )
-    core_record = next(
+    before, before_digest = regenerate(root)
+    before_record = next(
         record
-        for record in manifest["metadata_exclusions"]
-        if record["artifact"] == f"provenance/reviews/{report_name}"
+        for record in before["data_classifications"]
+        if record["artifact"] == relative
     )
-    reviewers = {manifest["review_attestations"][0]["reviewer"]}
-    validate_metadata_exclusion(root, core_record, reviewers)
+    report_path.write_bytes(report_path.read_bytes() + b"\nHistorical drift.\n")
+    after, after_digest = regenerate(root)
+    after_record = next(
+        record
+        for record in after["data_classifications"]
+        if record["artifact"] == relative
+    )
 
-    unexpected = {
-        **core_record,
-        "artifact": "provenance/reviews/core-pptx-review-cycle-round-2.md",
-    }
-    with pytest.raises(
-        AssertionError,
-        match="outside the exact self-reference allowlist",
-    ):
-        validate_metadata_exclusion(root, unexpected, reviewers)
+    assert before_record["sha256"] != after_record["sha256"]
+    assert before_digest != after_digest
+
+
+def test_historical_review_report_drift_invalidates_bound_audit(
+    project_root,
+    tmp_path,
+):
+    root = _copy_audit_project(project_root, tmp_path / "historical-audit")
+    bind_test_review(root)
+    report_path = (
+        root
+        / "provenance"
+        / "reviews"
+        / "core-docx-review-cycle-round-1.md"
+    )
+    report_path.write_bytes(report_path.read_bytes() + b"\nHistorical drift.\n")
+
+    report = run_audits(root)
+
+    assert report["status"] == "fail"
+    assert report["checks"]["provenance"]["status"] == "fail"
 
 
 def test_sbom_is_deterministic_and_matches_locks(project_root):
@@ -123,6 +159,26 @@ def test_sbom_is_deterministic_and_matches_locks(project_root):
     assert first == second
     assert json.loads(first)["bomFormat"] == "CycloneDX"
     assert (project_root / "sbom.cdx.json").read_text(encoding="utf-8") == first
+
+
+def test_sbom_application_identity_matches_both_plugin_manifests(project_root):
+    sbom_identity = build_sbom(project_root)["metadata"]["component"]
+    manifest_identities = {
+        (manifest["name"], manifest["version"])
+        for manifest in (
+            json.loads((project_root / "elftia-plugin.json").read_text(encoding="utf-8")),
+            json.loads(
+                (project_root / ".claude-plugin" / "plugin.json").read_text(
+                    encoding="utf-8"
+                )
+            ),
+        )
+    }
+
+    assert manifest_identities == {
+        (sbom_identity["name"], sbom_identity["version"])
+    }
+    assert sbom_identity["bom-ref"] == "application:document-skills"
 
 
 def test_sbom_records_docx_node_provider_and_transitive_graph(project_root):

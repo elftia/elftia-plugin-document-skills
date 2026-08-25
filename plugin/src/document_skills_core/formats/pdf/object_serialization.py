@@ -8,6 +8,8 @@ from typing import Any
 from .create_layout import pdf_number
 from .object_model import IndirectReference, PdfDict
 
+_NAME_DELIMITERS = frozenset(" \t\r\n/[]<>()")
+
 
 def serialize_pdf_value(value: Any) -> bytes:
     """Serialize the bounded value types produced by the Core PDF parser."""
@@ -24,7 +26,9 @@ def serialize_pdf_value(value: Any) -> bytes:
     if isinstance(value, list):
         return b"[" + b" ".join(serialize_pdf_value(item) for item in value) + b"]"
     if isinstance(value, str):
-        if value.startswith("/"):
+        if value.startswith("/") and not any(
+            character in _NAME_DELIMITERS for character in value[1:]
+        ):
             return value.encode("latin-1", errors="strict")
         escaped = value.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
         return b"(" + escaped.encode("latin-1", errors="strict") + b")"

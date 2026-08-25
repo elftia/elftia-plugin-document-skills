@@ -30,3 +30,33 @@ jobs:
           enable-cache: true
       - run: npm ci --ignore-scripts
       - run: npm run verify
+      - name: Verify explicit PDF Core-only profile
+        run: uv run --project plugin --frozen python plugin/tools/pdf_provider_profile.py --profile core-only --strict
+
+  pdf-provider-profiles:
+    name: PDF ${{ matrix.profile }} provider profile (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: render
+            packages: poppler-utils
+          - profile: ocr
+            packages: poppler-utils tesseract-ocr tesseract-ocr-eng
+          - profile: full
+            packages: poppler-utils tesseract-ocr tesseract-ocr-eng
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.13"
+          enable-cache: true
+      - name: Refresh Ubuntu package metadata
+        run: sudo apt-get update
+      - name: Install explicit PDF provider profile
+        run: sudo apt-get install -y ${{ matrix.packages }}
+      - name: Run real public PDF provider smoke
+        run: uv run --project plugin --frozen python plugin/tools/pdf_provider_profile.py --profile ${{ matrix.profile }} --strict

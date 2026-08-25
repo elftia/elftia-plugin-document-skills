@@ -97,7 +97,12 @@ class PypdfService:
                         staged,
                         parsed.arguments,
                     )
-                    validation = validate_compressed(parsed.input_path, staged)
+                    validation = validate_compressed(
+                        parsed.input_path,
+                        staged,
+                        parsed.arguments,
+                        operation_result,
+                    )
                     operation_result["compression"]["verified"] = True
                 result = write_candidate_result(
                     self.schemas,

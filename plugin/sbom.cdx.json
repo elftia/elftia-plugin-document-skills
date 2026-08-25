@@ -142,6 +142,20 @@
       "version": "0.7.1"
     },
     {
+      "bom-ref": "pkg:pypi/fonttools@4.63.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "fonttools",
+      "purl": "pkg:pypi/fonttools@4.63.0",
+      "type": "library",
+      "version": "4.63.0"
+    },
+    {
       "bom-ref": "pkg:pypi/jsonschema-specifications@2025.9.1",
       "licenses": [
         {
@@ -170,6 +184,20 @@
       "version": "4.25.1"
     },
     {
+      "bom-ref": "pkg:pypi/pillow@12.3.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "HPND"
+          }
+        }
+      ],
+      "name": "pillow",
+      "purl": "pkg:pypi/pillow@12.3.0",
+      "type": "library",
+      "version": "12.3.0"
+    },
+    {
       "bom-ref": "pkg:pypi/pycparser@3.0",
       "licenses": [
         {
@@ -196,6 +224,20 @@
       "purl": "pkg:pypi/pypdf@6.16.2",
       "type": "library",
       "version": "6.16.2"
+    },
+    {
+      "bom-ref": "pkg:pypi/python-bidi@0.6.11",
+      "licenses": [
+        {
+          "license": {
+            "id": "LGPL-3.0-only"
+          }
+        }
+      ],
+      "name": "python-bidi",
+      "purl": "pkg:pypi/python-bidi@0.6.11",
+      "type": "library",
+      "version": "0.6.11"
     },
     {
       "bom-ref": "pkg:pypi/referencing@0.37.0",
@@ -238,6 +280,20 @@
       "purl": "pkg:pypi/typing-extensions@4.16.0",
       "type": "library",
       "version": "4.16.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/uharfbuzz@0.56.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "name": "uharfbuzz",
+      "purl": "pkg:pypi/uharfbuzz@0.56.0",
+      "type": "library",
+      "version": "0.56.0"
     },
     {
       "bom-ref": "provider:core-node-docx-template",
@@ -321,8 +377,12 @@
         "pkg:npm/playwright-core@1.62.1",
         "pkg:pypi/cryptography@50.0.0",
         "pkg:pypi/defusedxml@0.7.1",
+        "pkg:pypi/fonttools@4.63.0",
         "pkg:pypi/jsonschema@4.25.1",
-        "pkg:pypi/pypdf@6.16.2"
+        "pkg:pypi/pillow@12.3.0",
+        "pkg:pypi/pypdf@6.16.2",
+        "pkg:pypi/python-bidi@0.6.11",
+        "pkg:pypi/uharfbuzz@0.56.0"
       ],
       "ref": "application:document-skills"
     },
@@ -375,6 +435,10 @@
       "ref": "pkg:pypi/defusedxml@0.7.1"
     },
     {
+      "dependsOn": [],
+      "ref": "pkg:pypi/fonttools@4.63.0"
+    },
+    {
       "dependsOn": [
         "pkg:pypi/referencing@0.37.0"
       ],
@@ -391,11 +455,19 @@
     },
     {
       "dependsOn": [],
+      "ref": "pkg:pypi/pillow@12.3.0"
+    },
+    {
+      "dependsOn": [],
       "ref": "pkg:pypi/pycparser@3.0"
     },
     {
       "dependsOn": [],
       "ref": "pkg:pypi/pypdf@6.16.2"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/python-bidi@0.6.11"
     },
     {
       "dependsOn": [
@@ -412,6 +484,10 @@
     {
       "dependsOn": [],
       "ref": "pkg:pypi/typing-extensions@4.16.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/uharfbuzz@0.56.0"
     }
   ],
   "metadata": {
@@ -419,16 +495,16 @@
       "bom-ref": "application:document-skills",
       "name": "document-skills",
       "type": "application",
-      "version": "0.1.0"
+      "version": "0.5.4"
     },
     "properties": [
       {
         "name": "elftia:lock-sha256",
-        "value": "8a2e90db0405516166b976772d0d9bc06f2004ba6f6362f0485bd9ba6d1aef3d"
+        "value": "2d5e8da7a5ba74d47ac09f3d7aadc9ba56f91ce9b0d74ff06e3714d135c8af90"
       }
     ]
   },
-  "serialNumber": "urn:uuid:8a2e90db-0405-5161-66b9-76772d0d9bc0",
+  "serialNumber": "urn:uuid:2d5e8da7-a5ba-74d4-7ac0-9f3d7aadc9ba",
   "specVersion": "1.5",
   "version": 1
 }

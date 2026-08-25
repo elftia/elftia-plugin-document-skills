@@ -8,6 +8,7 @@
   "defusedxml": "PSF-2.0",
   "docxtemplater": "MIT",
   "et-xmlfile": "MIT",
+  "fonttools": "MIT",
   "iniconfig": "MIT",
   "jsonschema": "MIT",
   "jsonschema-specifications": "MIT",
@@ -25,9 +26,11 @@
   "pypdf": "BSD-3-Clause",
   "pytest": "MIT",
   "python-docx": "MIT",
+  "python-bidi": "LGPL-3.0-only",
   "python-pptx": "MIT",
   "referencing": "MIT",
   "rpds-py": "MIT",
   "typing-extensions": "PSF-2.0",
+  "uharfbuzz": "Apache-2.0",
   "xlsxwriter": "BSD-2-Clause"
 }

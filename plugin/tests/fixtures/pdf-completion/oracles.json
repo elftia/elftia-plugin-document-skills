@@ -1,0 +1,98 @@
+{
+  "assets": {
+    "emoji-success.pdf": {
+      "embedded_font": true,
+      "unicode": "😀"
+    },
+    "emoji-success.ttf": {
+      "required_codepoints": [
+        32,
+        128512
+      ]
+    },
+    "exif-orientation-6.jpg": {
+      "exif_orientation": 6,
+      "stored_size": [
+        48,
+        32
+      ]
+    }
+  },
+  "cases": [
+    {
+      "expected_text": [
+        "SCANNED INVOICE 2026",
+        "TOTAL 42.50"
+      ],
+      "kind": "scanned",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-scanned.pdf",
+      "rotation": 0
+    },
+    {
+      "expected_text": [
+        "Native layer",
+        "SCANNED INVOICE 2026"
+      ],
+      "kind": "mixed",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-mixed.pdf",
+      "rotation": 0
+    },
+    {
+      "expected_text": [
+        "SCANNED INVOICE 2026"
+      ],
+      "kind": "rotated",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-rotated.pdf",
+      "rotation": 90
+    },
+    {
+      "expected_text": [
+        "中文测试 你好世界",
+        "مرحبا بالعالم"
+      ],
+      "kind": "cjk-rtl",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-cjk-rtl.pdf",
+      "rotation": 0
+    },
+    {
+      "expected_text": [
+        "LEFT ONE",
+        "LEFT TWO",
+        "LEFT THREE",
+        "RIGHT ONE",
+        "RIGHT TWO",
+        "RIGHT THREE"
+      ],
+      "kind": "multi-column",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-multi-column.pdf",
+      "rotation": 0
+    },
+    {
+      "expected_text": [
+        "FAINT 123"
+      ],
+      "kind": "low-quality",
+      "oracle_scope": "provider-independent-input-and-expected-semantics",
+      "page_count": 1,
+      "path": "ocr-low-quality.pdf",
+      "rotation": 0
+    }
+  ],
+  "malformed_provider_outputs": {
+    "provider-malformed-binary.bin": "non-utf8-output",
+    "provider-malformed-binding.bin": "nonce-binding-mismatch",
+    "provider-malformed-truncated.bin": "truncated-json"
+  },
+  "provider_claim": "input-only-no-ocr-accuracy-claim",
+  "schema_version": "1.0"
+}

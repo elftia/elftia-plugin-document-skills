@@ -9,6 +9,9 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .content_streams import tokenize_content_stream
 
+AffineMatrix = tuple[float, float, float, float, float, float]
+IDENTITY_MATRIX: AffineMatrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
 
 @dataclass(frozen=True)
 class XObjectDraw:
@@ -17,6 +20,16 @@ class XObjectDraw:
     page: int
     resource_name: str
     bbox: tuple[float, float, float, float]
+    matrix: AffineMatrix
+
+
+@dataclass(frozen=True)
+class InlineImageDraw:
+    """One inline-image invocation and its unit-square user-space bbox."""
+
+    page: int
+    bbox: tuple[float, float, float, float]
+    matrix: AffineMatrix
 
 
 def walk_xobject_draws(
@@ -24,13 +37,13 @@ def walk_xobject_draws(
     page_number: int,
     *,
     max_operators: int = 500_000,
-) -> tuple[list[XObjectDraw], bool]:
-    """Capture bounded XObject invocations and detect unsupported inline images."""
-    identity = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
-    current = identity
-    stack: list[tuple[float, float, float, float, float, float]] = []
+    initial_matrix: AffineMatrix = IDENTITY_MATRIX,
+) -> tuple[list[XObjectDraw], list[InlineImageDraw]]:
+    """Capture bounded XObject and inline-image invocations."""
+    current = initial_matrix
+    stack: list[AffineMatrix] = []
     draws: list[XObjectDraw] = []
-    inline_image = False
+    inline_images: list[InlineImageDraw] = []
     for index, (operator, operands) in enumerate(tokenize_content_stream(content)):
         if index >= max_operators:
             raise DocumentSkillsError(
@@ -41,15 +54,19 @@ def walk_xobject_draws(
         if operator == "q":
             stack.append(current)
         elif operator == "Q":
-            current = stack.pop() if stack else identity
+            current = stack.pop() if stack else initial_matrix
         elif operator == "cm" and len(operands) >= 6:
             try:
                 matrix = tuple(float(value) for value in operands[-6:])
             except (TypeError, ValueError):
                 continue
-            current = _concatenate_matrix(matrix, current)
+            current = concatenate_matrix(matrix, current)
         elif operator == "BI":
-            inline_image = True
+            inline_images.append(InlineImageDraw(
+                page=page_number,
+                bbox=unit_square_bbox(current),
+                matrix=current,
+            ))
         elif operator == "Do" and operands and isinstance(operands[-1], str):
             resource_name = operands[-1]
             if resource_name.startswith("/"):
@@ -57,16 +74,14 @@ def walk_xobject_draws(
                     XObjectDraw(
                         page=page_number,
                         resource_name=resource_name,
-                        bbox=_unit_square_bbox(current),
+                        bbox=unit_square_bbox(current),
+                        matrix=current,
                     )
                 )
-    return draws, inline_image
+    return draws, inline_images
 
 
-def _concatenate_matrix(
-    matrix: tuple[float, float, float, float, float, float],
-    current: tuple[float, float, float, float, float, float],
-) -> tuple[float, float, float, float, float, float]:
+def concatenate_matrix(matrix: AffineMatrix, current: AffineMatrix) -> AffineMatrix:
     """Return ``matrix × current`` using the PDF affine-matrix convention."""
     a, b, c, d, e, f = matrix
     ca, cb, cc, cd, ce, cf = current
@@ -80,9 +95,7 @@ def _concatenate_matrix(
     )
 
 
-def _unit_square_bbox(
-    matrix: tuple[float, float, float, float, float, float],
-) -> tuple[float, float, float, float]:
+def unit_square_bbox(matrix: AffineMatrix) -> tuple[float, float, float, float]:
     a, b, c, d, e, f = matrix
     points = (
         (e, f),

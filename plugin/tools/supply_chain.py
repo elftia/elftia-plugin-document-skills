@@ -17,6 +17,7 @@ _NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+")
 
 def build_sbom(project_root: Path) -> dict[str, Any]:
     root = project_root.resolve()
+    application_name, application_version = _plugin_identity(root)
     for relative in release_inventory(root):
         try:
             PORTABLE_PATH_POLICY.require_release_safe(relative)
@@ -72,8 +73,8 @@ def build_sbom(project_root: Path) -> dict[str, Any]:
         "metadata": {
             "component": {
                 "type": "application",
-                "name": "document-skills",
-                "version": "0.1.0",
+                "name": application_name,
+                "version": application_version,
                 "bom-ref": "application:document-skills",
             },
             "properties": [{"name": "elftia:lock-sha256", "value": revision}],
@@ -228,6 +229,28 @@ def _normalize(name: str) -> str:
 
 def _load_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _plugin_identity(root: Path) -> tuple[str, str]:
+    manifests = [
+        _load_json(root / "elftia-plugin.json"),
+        _load_json(root / ".claude-plugin" / "plugin.json"),
+    ]
+    identities = [(item.get("name"), item.get("version")) for item in manifests]
+    if any(
+        type(name) is not str
+        or not name
+        or type(version) is not str
+        or not version
+        for name, version in identities
+    ):
+        raise ValueError("Plugin manifests require non-empty name and version fields")
+    if len(set(identities)) != 1:
+        raise ValueError("Plugin manifest identities do not match")
+    name, version = identities[0]
+    if name != "document-skills":
+        raise ValueError("Plugin manifest name does not match the SBOM application reference")
+    return name, version
 
 
 def _sha256(path: Path) -> str:

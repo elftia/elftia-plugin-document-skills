@@ -152,9 +152,11 @@ def test_manifest_has_exact_hashes_and_original_recipe_metadata(
     manifest = _load_json(fixture_root / "manifest.json")
     registered = {record["path"]: record for record in manifest["fixtures"]}
     actual = {
-        path.name
-        for path in fixture_root.iterdir()
-        if path.is_file() and path.name not in {"manifest.json", "POLICY.md"}
+        path.relative_to(fixture_root).as_posix()
+        for path in fixture_root.rglob("*")
+        if path.is_file()
+        and path.name not in {"manifest.json", "POLICY.md"}
+        and "recipes" not in path.parts
     }
     assert set(registered) == actual
     assert audit_fixtures(project_root)["fixture_count"] == len(registered)

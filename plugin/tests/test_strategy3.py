@@ -235,6 +235,16 @@ def test_platform_environment_prefixes_are_discovered_and_rejected(source):
     assert FrozenUvGrammar().authorize(discovered) is False
 
 
+def test_direct_pdftoppm_command_is_discovered_and_rejected():
+    discovered = CommandDiscovery().discover(
+        "pdftoppm -png -f 1 -l 1 input.pdf output-prefix"
+    )
+
+    assert discovered is not None
+    assert discovered.effective_executable.casefold() == "pdftoppm"
+    assert FrozenUvGrammar().authorize(discovered) is False
+
+
 def test_safe_quoted_unicode_uv_control_stays_authorized():
     source = (
         'uv run --project "<project-root>" --frozen python '

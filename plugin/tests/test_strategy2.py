@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -297,14 +296,24 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
     ],
 )
-def test_is_metadata_accepts_every_bound_review_path(review_path):
-    """Both the regenerate_provenance and provenance_records allowlists must
-    accept every review path that can be bound as a metadata exclusion."""
+def test_is_metadata_rejects_historical_review_paths(review_path):
     from tools.regenerate_provenance import _is_metadata
 
-    assert _is_metadata(review_path) is True, (
-        f"_is_metadata must accept {review_path}"
-    )
+    assert _is_metadata(review_path) is False
+
+
+@pytest.mark.parametrize(
+    "metadata_path",
+    [
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        "provenance/reviews/core-pdf-review-cycle-round-1.md",
+    ],
+)
+def test_is_metadata_accepts_only_digest_cycle_paths(metadata_path):
+    from tools.regenerate_provenance import _is_metadata
+
+    assert _is_metadata(metadata_path) is True
 
 
 @pytest.mark.parametrize(
