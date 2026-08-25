@@ -46,6 +46,12 @@ _PRIVATE_ENVIRONMENT_PATHS = {
     "NUGET_PACKAGES": "nuget-packages",
     "PROGRAMFILES(X86)": "program-files-x86",
 }
+_PRIVATE_DOTNET_ENVIRONMENT = {
+    # The .NET CLI can persist its per-run global-tools directory directly to
+    # HKCU\Environment on Windows. HOME/USERPROFILE isolation does not contain
+    # that write, so this opt-out must accompany every private DOTNET_CLI_HOME.
+    "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
+}
 
 
 class _RuntimeCheckWatcher:
@@ -437,6 +443,8 @@ class ProcessRunner:
                 details={"entries": sorted(unsupported)},
             )
         root = self._ensure_private_environment_root()
+        if "DOTNET_CLI_HOME" in requested:
+            environment.update(_PRIVATE_DOTNET_ENVIRONMENT)
         for name in private_environment:
             path = (root / _PRIVATE_ENVIRONMENT_PATHS[name]).resolve(strict=False)
             if path.parent != root:

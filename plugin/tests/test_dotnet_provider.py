@@ -562,6 +562,7 @@ class TestRunnerContainment:
         runner = ProcessRunner(policy)
         observed_names = (
             *DOTNET_PRIVATE_ENVIRONMENT,
+            "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH",
             "HOME",
             "USERPROFILE",
         )
@@ -597,6 +598,7 @@ class TestRunnerContainment:
         assert private_root.name.startswith("operation-")
         assert environment["HOME"] is None
         assert environment["USERPROFILE"] is None
+        assert environment["DOTNET_ADD_GLOBAL_TOOLS_TO_PATH"] == "0"
 
         runner.close()
         assert not private_root.exists()
