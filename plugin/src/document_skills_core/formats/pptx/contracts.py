@@ -26,6 +26,7 @@ PPTX_OPERATIONS = frozenset(
         "pptx.create",
         "pptx.create.from-markdown",
         "pptx.create.from-html",
+        "pptx.template.sanitize",
         "pptx.edit",
     }
 )
@@ -78,6 +79,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     expected_input_suffixes = {
         "pptx.create.from-html": {".htm", ".html"},
         "pptx.create.from-markdown": {".markdown", ".md"},
+        "pptx.template.sanitize": {".potx", ".pptx"},
         "pptx.edit": {".pptm", ".pptx"},
         "pptx.inspect.structure": {".pptm", ".pptx"},
         "pptx.convert.legacy": {".ppt"},
@@ -102,7 +104,13 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
             f"{operation} output must use the {expected_output_suffix} extension.",
             field="output",
         )
-    if operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.edit", "pptx.render"}:
+    if operation in {
+        "pptx.convert.legacy",
+        "pptx.convert.pdf",
+        "pptx.edit",
+        "pptx.render",
+        "pptx.template.sanitize",
+    }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -124,6 +132,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
         "pptx.create.from-markdown": parse_markdown_arguments,
+        "pptx.template.sanitize": _parse_template_sanitize,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
     if operation == "pptx.edit":
@@ -178,6 +187,42 @@ def _parse_schema_validation(value: dict[str, Any]) -> dict[str, Any]:
 def _parse_provider_output(value: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(value, set())
     return {}
+
+
+def _parse_template_sanitize(value: dict[str, Any]) -> dict[str, Any]:
+    _exact_keys(value, {"expected_input_sha256", "policy"})
+    expected_sha256 = value.get("expected_input_sha256")
+    if expected_sha256 is not None:
+        expected_sha256 = _text(expected_sha256, "expected_input_sha256", allow_empty=False)
+        if len(expected_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in expected_sha256
+        ):
+            _invalid(
+                "expected_input_sha256 must be a lowercase SHA-256 digest.",
+                field="expected_input_sha256",
+            )
+    policy = value.get("policy")
+    if type(policy) is not dict:
+        _invalid("template sanitize requires a policy object.", field="policy")
+    expected_policy = {
+        "active_content": "reject",
+        "external_relationships": "remove",
+        "hidden_or_unselected_content": "keep",
+        "ole_and_embedded_files": "remove",
+        "signatures": "reject",
+        "unreachable_parts": "purge",
+    }
+    _exact_keys(policy, set(expected_policy))
+    if policy != expected_policy:
+        _invalid(
+            "template sanitize accepts only the fixed inert fail-closed policy.",
+            field="policy",
+            expected=expected_policy,
+        )
+    return {
+        "expected_input_sha256": expected_sha256,
+        "policy": expected_policy,
+    }
 
 
 def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
