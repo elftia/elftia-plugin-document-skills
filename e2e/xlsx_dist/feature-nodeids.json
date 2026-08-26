@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "core_dist_nodeids": [
+    "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_capabilities_are_the_exact_eleven_operation_contract",
+    "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_feature_truth_table_has_auditable_execution_nodeids",
+    "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate",
+    "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit",
+    "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_canonical_json_xlsx_read_json_and_csv_typed_roundtrip"
+  ],
+  "provider_dist_nodeids": [
+    "dist/document-skills/tests/test_xlsx_macro_template.py::test_legacy_xls_conversion_requires_provider_and_validates_output",
+    "dist/document-skills/tests/test_xlsx_recalculation.py::test_explicit_recalculate_preserves_source_unknown_part_and_is_deterministic",
+    "dist/document-skills/tests/test_xlsx_provider_qa.py::test_libreoffice_xlsx_render_promotes_reopened_pdf_with_scoped_evidence",
+    "dist/document-skills/tests/test_dotnet_xlsx_schema_real.py::test_default_registry_provider_validates_real_x14_sparklines"
+  ],
+  "core_operation_nodeids": {
+    "xlsx.read": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate",
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit"
+    ],
+    "xlsx.inspect.structure": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate"
+    ],
+    "xlsx.create": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate"
+    ],
+    "xlsx.edit": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate",
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit"
+    ],
+    "xlsx.recalculate": [],
+    "xlsx.convert": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_canonical_json_xlsx_read_json_and_csv_typed_roundtrip"
+    ],
+    "xlsx.template.instantiate": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit"
+    ],
+    "xlsx.summary.aggregate": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit"
+    ],
+    "xlsx.pivot.create": [
+      "e2e/xlsx_dist/test_xlsx_dist_e2e.py::test_dist_template_summary_pivot_and_transactional_followup_edit"
+    ],
+    "xlsx.validate.schema": [],
+    "xlsx.render": []
+  },
+  "provider_operation_nodeids": {
+    "xlsx.convert": [
+      "dist/document-skills/tests/test_xlsx_macro_template.py::test_legacy_xls_conversion_requires_provider_and_validates_output"
+    ],
+    "xlsx.recalculate": [
+      "dist/document-skills/tests/test_xlsx_recalculation.py::test_explicit_recalculate_preserves_source_unknown_part_and_is_deterministic"
+    ],
+    "xlsx.render": [
+      "dist/document-skills/tests/test_xlsx_provider_qa.py::test_libreoffice_xlsx_render_promotes_reopened_pdf_with_scoped_evidence"
+    ],
+    "xlsx.validate.schema": [
+      "dist/document-skills/tests/test_dotnet_xlsx_schema_real.py::test_default_registry_provider_validates_real_x14_sparklines"
+    ]
+  },
+  "provider_feature_ids": [
+    "xlsx.recalculate/formula_identity_validation",
+    "xlsx.recalculate/formula_error_token_scan",
+    "xlsx.recalculate/cached_value_harvest",
+    "xlsx.recalculate/static_formula_syntax_and_reference_validation",
+    "xlsx.recalculate/special_formula_fail_closed",
+    "xlsx.recalculate/unknown_part_copy_through",
+    "xlsx.recalculate/source_preservation",
+    "xlsx.recalculate/atomic_promotion",
+    "xlsx.convert/legacy_xls_to_xlsx_via_libreoffice",
+    "xlsx.validate.schema/spreadsheetdocument_openxml_schema_validation",
+    "xlsx.validate.schema/bounded_per_part_error_report",
+    "xlsx.validate.schema/xlsx_and_inert_xlsm_read_only_validation",
+    "xlsx.validate.schema/source_preservation",
+    "xlsx.render/libreoffice_xlsx_to_pdf",
+    "xlsx.render/pdf_reopen_validation",
+    "xlsx.render/bounded_per_sheet_risk_sampling",
+    "xlsx.render/hidden_data_wide_column_and_text_truncation_inventory",
+    "xlsx.render/print_setup_table_and_chart_inventory",
+    "xlsx.render/source_preservation",
+    "xlsx.render/atomic_promotion"
+  ]
+}
