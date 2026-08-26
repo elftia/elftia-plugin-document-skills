@@ -149,6 +149,7 @@ def template_inspection_validation(
         "not_run": "unavailable",
         "unavailable": "unavailable",
     }[contact["status"]]
+    content_lint = operation_result["content_lint"]
     gates = [
         gate_record(
             "pptx.package-security",
@@ -161,6 +162,16 @@ def template_inspection_validation(
             evidence={
                 "descriptor": operation_result["descriptor"]["status"],
                 "slides": operation_result["slide_count"],
+            },
+        ),
+        gate_record(
+            "operation.template-content-lint",
+            "pass" if content_lint["status"] == "passed" else "fail",
+            required=False,
+            evidence={
+                "finding_count": content_lint["finding_count"],
+                "summary": content_lint["summary"],
+                "truncated": content_lint["truncated"],
             },
         ),
         gate_record(

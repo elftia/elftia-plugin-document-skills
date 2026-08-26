@@ -22,5 +22,11 @@ semantic inspect/fill, dependency purge, CJK/content lint, external/OLE removal,
 active/signature rejection, and orphan/dangling/duplicate relationship rejection.
 No third-party template, preview, logo, photo, or evaluation artifact is present.
 
+B-TPL-03 deliberately contains a long Chinese title, a body/title type-scale
+inversion, Chinese table text, a placeholder, a standalone ellipsis, and a
+speaker-only notes marker. Its expected public operation set is
+`pptx.template.inspect,pptx.create.from-template`; content lint is part of those
+existing contracts, not a standalone public operation.
+
 Use --write only when an intentionally upgraded owner-package pin has already
 been reviewed in the operation-name/contract ADR.

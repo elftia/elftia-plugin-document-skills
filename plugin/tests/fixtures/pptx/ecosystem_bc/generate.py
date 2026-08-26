@@ -249,15 +249,17 @@ def _write_b2_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
             FixtureMetadata(
                 fixture_id="B-TPL-03",
                 format="pptx",
-                purpose="CJK capacity, placeholder, ellipsis, and speaker-notes leak fixture.",
+                purpose="CJK capacity, type-scale, placeholder, ellipsis, and speaker-notes leak fixture.",
                 origin="Elftia-authored synthetic OOXML fixture.",
                 recipe=recipe,
                 license="GPL-3.0",
-                expected_operation="pptx.template.inspect,pptx.create.from-template,pptx.template.lint",
+                expected_operation="pptx.template.inspect,pptx.create.from-template",
                 expected_consumers=("document-skills",),
                 resource_limits={"maxBytes": 4_000_000},
                 invariants=(
                     "long CJK text exceeds the declared recommended capacity",
+                    "body type scale intentionally exceeds the title type scale",
+                    "Chinese table content remains detectable",
                     "placeholder and ellipsis markers remain detectable",
                     "speaker-only notes marker remains detectable",
                 ),
@@ -271,16 +273,36 @@ def _write_b2_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
 def _cjk_capacity_template(base: Path, destination: Path) -> None:
     package = OpcPackage.open(base)
     parts = dict(package.parts)
-    replacements = (
-        "这是一个明显超过推荐容量并用于验证中文字符计数与层级字号检查的超长标题",
-        "[PLACEHOLDER]",
-        "…",
-    )
+    replacements = ("正文层级反转", "[PLACEHOLDER]", "…")
     for index, replacement in enumerate(replacements, 1):
         part = f"ppt/slides/slide{index}.xml"
         root = fromstring(parts[part])
-        text = next(node for node in root.iter(qn("a", "t")) if node.text)
+        text = next(
+            node
+            for node in root.iter(qn("a", "t"))
+            if node.text == f"Body {index}"
+        )
         text.text = replacement
+        if index == 1:
+            title = next(
+                node
+                for node in root.iter(qn("a", "t"))
+                if node.text == "Template page 1"
+            )
+            title.text = "这是一个明显超过推荐容量并用于验证中文字符计数与层级字号检查的超长标题"
+            body_run = next(
+                node
+                for node in root.iter(qn("a", "r"))
+                if node.find(qn("a", "t")) is text
+            )
+            body_run.find(qn("a", "rPr")).set("sz", "3600")
+        if index == 2:
+            table_text = next(
+                node
+                for node in root.iter(qn("a", "t"))
+                if node.text == "Metric"
+            )
+            table_text.text = "指标"
         parts[part] = tostring(root, encoding="UTF-8", xml_declaration=True)
     notes = fromstring(parts["ppt/notesSlides/notesSlide1.xml"])
     note_text = next(node for node in notes.iter(qn("a", "t")) if node.text)

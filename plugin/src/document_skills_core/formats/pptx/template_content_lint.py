@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
-from .constants import NS
-from .mapping import map_slides
 from .package import OpcPackage
+from .template_content_analysis import inspect_template_content
+from .template_content_metrics import contains_cjk
 from .template_descriptor import TemplateDescriptor
-
-_A_TEXT = f"{{{NS['a']}}}t"
-_CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
-_PLACEHOLDER = re.compile(r"\{\{[^{}]+\}\}|\[placeholder\]|lorem ipsum|\bTODO\b", re.I)
-_PROMOTIONAL = re.compile(r"buy this template|download the full template|template marketplace", re.I)
-_NOTES_LEAK = re.compile(r"speaker only|do not share|internal script", re.I)
 
 
 def validate_binding_plan(
@@ -80,28 +73,20 @@ def validate_binding_plan(
     return {"findings": findings, "status": "passed"}
 
 
-def lint_materialized_content(candidate: Any) -> dict[str, Any]:
+def lint_materialized_content(
+    candidate: Any,
+    *,
+    descriptor: TemplateDescriptor | None = None,
+    output_object_sources: dict[str, str] | None = None,
+) -> dict[str, Any]:
     package = candidate if isinstance(candidate, OpcPackage) else OpcPackage.open(candidate)
-    findings: list[dict[str, Any]] = []
-    for slide in map_slides(package):
-        part = slide.get("part")
-        if part is None:
-            continue
-        for text in _part_text(package, part):
-            if _PLACEHOLDER.search(text):
-                findings.append(_finding("placeholder-content", part, text))
-            if text.strip() in {"...", "…"}:
-                findings.append(_finding("ellipsis-content", part, text))
-            if _PROMOTIONAL.search(text):
-                findings.append(_finding("promotional-content", part, text))
-        notes = slide.get("notes")
-        notes_part = None if notes is None else notes.get("part")
-        if notes_part:
-            for text in _part_text(package, notes_part):
-                if _NOTES_LEAK.search(text):
-                    findings.append(_finding("speaker-notes-leak", notes_part, text))
-    _raise_findings(findings)
-    return {"findings": findings, "status": "passed"}
+    report = inspect_template_content(
+        package,
+        descriptor=descriptor,
+        output_object_sources=output_object_sources,
+    )
+    _raise_findings(report["findings"])
+    return report
 
 
 def _binding_capacity(slot: dict[str, Any], value: dict[str, Any]) -> list[dict[str, Any]]:
@@ -112,7 +97,7 @@ def _binding_capacity(slot: dict[str, Any], value: dict[str, Any]) -> list[dict[
     capacity = slot["capacity"]
     recommended = (
         capacity["cjkRecommendedCharacters"]
-        if _CJK.search(content)
+        if contains_cjk(content)
         else capacity["latinRecommendedCharacters"]
     )
     if len(content) <= recommended or capacity["overflowPolicy"] != "reject":
@@ -145,20 +130,6 @@ def _binding_texts(value: dict[str, Any]) -> list[str]:
             return []
         return [str(cell) for row in rows for cell in row]
     return []
-
-
-def _part_text(package: OpcPackage, part: str) -> list[str]:
-    root = package.xml(part)
-    return [node.text or "" for node in root.iter(_A_TEXT) if node.text]
-
-
-def _finding(code: str, part: str, text: str) -> dict[str, Any]:
-    return {
-        "code": code,
-        "part": part,
-        "sample": text[:80],
-        "severity": "error",
-    }
 
 
 def _raise_findings(findings: list[dict[str, Any]]) -> None:

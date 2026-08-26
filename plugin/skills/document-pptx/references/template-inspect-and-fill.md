@@ -58,6 +58,30 @@ state, dangerous/external/embedded inventory, and catalog verification state.
 Without Governance evidence, signature verification remains `not_provided` or
 `not_available_without_governance`; inspection never upgrades that state.
 
+## Read the content-lint report
+
+Every inspection returns `diagnostics.operation_result.content_lint`. It is a
+bounded, deterministic, read-only report; it never authorizes mutation and
+there is no separate `pptx.template.lint` operation. The report detects:
+
+- `cjk-capacity-exceeded`, treating Han, kana, and Hangul as CJK and using an
+  A-Contract slot capacity when available or an explicitly labelled
+  geometry/font heuristic for structural-only inspect;
+- `placeholder-content`, `ellipsis-content`, and `promotional-content`;
+- `speaker-notes-leak` markers; and
+- `type-scale-hierarchy` when body text is not smaller than the title under a
+  semantic/placeholder role or a labelled topmost-text heuristic. Font size
+  resolution follows run, paragraph/list, layout placeholder, master
+  placeholder, and master text-style inheritance; grouped children remain
+  separate bounded content objects.
+
+`status=failed` means content findings exist, while the surrounding inert
+inspection may still be `success`. Its validation report exposes
+`operation.template-content-lint` as a non-required failed gate. Use the
+findings to repair content or bindings; never use heuristic shape names or
+coordinates as fill selectors. Only descriptor-bound stable slot ids and
+precondition hashes are writable.
+
 ## Fill selected pages
 
 Use only ids and hashes returned by a successful strict semantic inspection:
@@ -146,7 +170,8 @@ private directory.
 
 Creation always rejects unbound required slots and always physically purges
 unselected content. Promotion is blocked by stale source/slot/catalog hashes,
-capacity or placeholder lint, speaker-note leaks, unsupported bindings,
+CJK/slot capacity, type-scale, placeholder, ellipsis, promotional-content, or
+speaker-note-leak findings, unsupported bindings,
 validation failures, or purge failures. The bundled runtime has no
 A-Governance signature verifier, so every `commercial` delivery profile is
 currently fail-closed with `DS_LICENSE_BLOCKED`, including a descriptor that
