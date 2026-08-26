@@ -26,8 +26,10 @@ from .outline import outline_validation, write_outline
 from .read import read_pptx
 from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
+from .scene_export import export_scene_bundle
 from .scene_normalizer import normalize_scene
 from .schema_validation import validate_schema_gate, with_schema_gate
+from .svg_service import create_from_svg
 from .template_sanitize import (
     build_template_sanitize_receipt,
     sanitize_template,
@@ -87,6 +89,15 @@ class PptxService:
             return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
+        if operation == "pptx.create.from-svg":
+            return create_from_svg(
+                parsed,
+                schemas=self.schemas,
+                libreoffice=self.libreoffice,
+                dotnet=self.dotnet,
+            )
+        if operation == "pptx.scene.export":
+            return export_scene_bundle(parsed, schemas=self.schemas)
         if operation == "pptx.template.inspect":
             return self._inspect_template(parsed)
         if operation == "pptx.create.from-template":

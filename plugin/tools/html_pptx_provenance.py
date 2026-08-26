@@ -6,6 +6,7 @@ HTML_PPTX_REQUIREMENT = "Rasen html-to-editable-pptx"
 CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
 PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
+PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
 COMBINED_PPTX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx"
 )
@@ -21,6 +22,10 @@ SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT = (
 )
 SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT = (
     SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT + " + pptx-ecosystem-phase-bc-b4"
+)
+SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT = (
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT
+    + " + pptx-ecosystem-phase-bc-b5"
 )
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
@@ -105,6 +110,79 @@ _PPTX_TEMPLATE_B4_TESTS = [
     "tests/test_runtime.py",
     "tests/test_supply_chain.py",
 ]
+_PPTX_SVG_B5_MODULES = {
+    "src/document_skills_core/core/io/directory_promotion.py",
+    "src/document_skills_core/core/io/parent_anchor.py",
+    "src/document_skills_core/core/io/parent_anchor_windows.py",
+    "src/document_skills_core/formats/pptx/contracts.py",
+    "src/document_skills_core/formats/pptx/mapping.py",
+    "src/document_skills_core/formats/pptx/presentation_contracts.py",
+    "src/document_skills_core/formats/pptx/scene_custom_geometry.py",
+    "src/document_skills_core/formats/pptx/scene_emitter.py",
+    "src/document_skills_core/formats/pptx/scene_export.py",
+    "src/document_skills_core/formats/pptx/scene_export_chart.py",
+    "src/document_skills_core/formats/pptx/scene_export_geometry.py",
+    "src/document_skills_core/formats/pptx/scene_export_leaf.py",
+    "src/document_skills_core/formats/pptx/scene_export_models.py",
+    "src/document_skills_core/formats/pptx/scene_export_objects.py",
+    "src/document_skills_core/formats/pptx/scene_export_support.py",
+    "src/document_skills_core/formats/pptx/scene_export_svg.py",
+    "src/document_skills_core/formats/pptx/scene_group_emitter.py",
+    "src/document_skills_core/formats/pptx/scene_opc_validation.py",
+    "src/document_skills_core/formats/pptx/service.py",
+    "src/document_skills_core/formats/pptx/svg_assets.py",
+    "src/document_skills_core/formats/pptx/svg_contracts.py",
+    "src/document_skills_core/formats/pptx/svg_geometry.py",
+    "src/document_skills_core/formats/pptx/svg_item_projection.py",
+    "src/document_skills_core/formats/pptx/svg_parser.py",
+    "src/document_skills_core/formats/pptx/svg_profile.py",
+    "src/document_skills_core/formats/pptx/svg_semantics.py",
+    "src/document_skills_core/formats/pptx/svg_service.py",
+    "src/document_skills_core/formats/pptx/svg_values.py",
+    "src/document_skills_core/formats/pptx/validation.py",
+    "src/document_skills_core/providers/defaults.py",
+    "src/document_skills_core/public_cli/supervisor.py",
+    "tests/fixtures/pptx/ecosystem_bc/generate.py",
+    "tests/support/pptx_svg_fixture.py",
+    "tests/test_directory_promotion.py",
+    "tests/test_html_provenance.py",
+    "tests/test_pptx_contracts.py",
+    "tests/test_pptx_public.py",
+    "tests/test_pptx_scene_export.py",
+    "tests/test_pptx_scene_export_chart_strict.py",
+    "tests/test_pptx_scene_export_depth.py",
+    "tests/test_pptx_svg_contracts.py",
+    "tests/test_pptx_svg_fixtures.py",
+    "tests/test_pptx_svg_public.py",
+    "tests/test_pptx_svg_scene.py",
+    "tests/test_pptx_svg_service.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tools/capture_pptx_powerpoint_evidence.py",
+    "tools/html_pptx_provenance.py",
+    "tools/prepare_pptx_svg_roundtrip.py",
+    "tools/provenance_records.py",
+    "tools/regenerate_provenance.py",
+}
+_PPTX_SVG_B5_TESTS = [
+    "tests/test_directory_promotion.py",
+    "tests/test_pptx_scene_export.py",
+    "tests/test_pptx_scene_export_chart_strict.py",
+    "tests/test_pptx_scene_export_depth.py",
+    "tests/test_pptx_svg_contracts.py",
+    "tests/test_pptx_svg_fixtures.py",
+    "tests/test_pptx_svg_public.py",
+    "tests/test_pptx_svg_scene.py",
+    "tests/test_pptx_svg_service.py",
+    "tests/test_pptx_contracts.py",
+    "tests/test_pptx_public.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_html_provenance.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tests/test_supply_chain.py",
+]
 
 
 def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
@@ -169,9 +247,16 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
     core_profile = core_pptx_module_profile(path)
     template_profile = template_b2_module_profile(path)
     template_b4_profile = template_b4_module_profile(path)
+    svg_b5_profile = svg_b5_module_profile(path)
     if all(
         profile is None
-        for profile in (html_profile, core_profile, template_profile, template_b4_profile)
+        for profile in (
+            html_profile,
+            core_profile,
+            template_profile,
+            template_b4_profile,
+            svg_b5_profile,
+        )
     ):
         return None
     profiles = [
@@ -181,6 +266,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             core_profile,
             template_profile,
             template_b4_profile,
+            svg_b5_profile,
         )
         if profile
     ]
@@ -193,6 +279,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             (core_profile, CORE_PPTX_REQUIREMENT),
             (template_profile, PPTX_TEMPLATE_B2_REQUIREMENT),
             (template_b4_profile, PPTX_TEMPLATE_B4_REQUIREMENT),
+            (svg_b5_profile, PPTX_SVG_B5_REQUIREMENT),
         )
         if profile is not None
     ]
@@ -207,6 +294,11 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             *(
                 [PPTX_TEMPLATE_B4_REQUIREMENT]
                 if template_b4_profile is not None
+                else []
+            ),
+            *(
+                [PPTX_SVG_B5_REQUIREMENT]
+                if svg_b5_profile is not None
                 else []
             ),
         ]
@@ -238,6 +330,17 @@ def template_b4_module_profile(path: str) -> tuple[str, list[str]] | None:
             "type-scale content lint shared by inert template inspection and "
             "fail-closed template materialization.",
             _PPTX_TEMPLATE_B4_TESTS,
+        )
+    return None
+
+
+def svg_b5_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_SVG_B5_MODULES:
+        return (
+            "Bounded constrained-SVG parsing and native DrawingML compilation, "
+            "A-Contract scene export and round trip, directory no-replace atomic "
+            "promotion, and real PowerPoint consumer evidence.",
+            _PPTX_SVG_B5_TESTS,
         )
     return None
 
@@ -370,5 +473,28 @@ def template_b4_data_profile(path: str) -> tuple[str, list[str]] | None:
             "B4 template-content guidance, deterministic CJK fixture bytes, "
             "hash-bound metadata, and exact runtime-source policy.",
             _PPTX_TEMPLATE_B4_TESTS,
+        )
+    return None
+
+
+def svg_b5_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if (
+        path.startswith("tests/fixtures/pptx/ecosystem_bc/svg/")
+        or path.startswith("tests/fixtures/pptx/ecosystem_bc/expected/scene/")
+        or path.startswith("tests/fixtures/pptx/ecosystem_bc/expected/visual/")
+        or path
+        in {
+            "provenance/runtime-source-allowlist.json",
+            "skills/document-pptx/SKILL.md",
+            "skills/document-pptx/references/svg-and-scene.md",
+            "tests/fixtures/manifest.json",
+            "tests/fixtures/pptx/ecosystem_bc/README.md",
+        }
+    ):
+        return (
+            "B5 constrained-SVG and scene guidance, deterministic fixtures, "
+            "hash-bound semantic and real-consumer evidence, and exact "
+            "runtime-source policy.",
+            _PPTX_SVG_B5_TESTS,
         )
     return None

@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.scene.export,pptx.create.from-svg",
+  "fixture_id": "B-SVG-04",
+  "format": "pptx",
+  "invariants": [
+    "PPTX exports to pinned A-Contract Deck IR and constrained SVG",
+    "exported SVG recompiles to editable native objects",
+    "semantic object identity, z-order, text, table, chart, image, and group survive"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/roundtrip-source.pptx",
+  "purpose": "Native text, shape, table, chart, image, and group scene round-trip source.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 4000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-pptx",
+  "sha256": "sha256:44deff5f1e7f028089de2ec3b0a9bef11a54ccdbfc11df1458490754dac56d04",
+  "sizeBytes": 7009
+}

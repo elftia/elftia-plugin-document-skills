@@ -15,7 +15,7 @@
   "origin": "Elftia-authored metadata derived from the owner package.",
   "path": "expected/contract-pin.json",
   "purpose": "Pin the cross-producer presentation contract conformance result.",
-  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
   "redistributable": true,
   "resource_limits": {
     "maxBytes": 16384

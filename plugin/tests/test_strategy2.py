@@ -388,7 +388,7 @@ def test_current_review_is_the_only_hashless_review_metadata(project_root):
     )
 
 
-def test_xlsx_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
+def test_b5_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
     project_root,
     tmp_path,
 ):
@@ -396,11 +396,11 @@ def test_xlsx_review_is_exact_self_referential_metadata_and_mapping_stays_stable
 
     expected_review = (
         "provenance/reviews/"
-        "document-skills-0.5.3-xlsx-completion-merge-review.md"
+        "document-skills-0.5.3-pptx-b5-merge-review.md"
     )
-    previous_pptx_review = (
+    previous_review = (
         "provenance/reviews/"
-        "document-skills-0.5.3-pptx-b2-merge-review.md"
+        "document-skills-0.5.3-xlsx-completion-merge-review.md"
     )
     assert CURRENT_REVIEW_ARTIFACT == expected_review
 
@@ -417,7 +417,7 @@ def test_xlsx_review_is_exact_self_referential_metadata_and_mapping_stays_stable
     data_paths = {
         record["artifact"] for record in manifest["data_classifications"]
     }
-    assert previous_pptx_review in data_paths
+    assert previous_review in data_paths
 
     report_path = root / expected_review
     report_path.write_bytes(report_path.read_bytes() + b"\npost-review binding bytes\n")

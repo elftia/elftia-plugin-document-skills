@@ -28,6 +28,7 @@ _XLSX_COMPLETION_REQUIREMENT = "Rasen document-skills-xlsx-completion"
 _XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
 _PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 _PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
+_PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
 _PPTX_TEMPLATE_B2_DATA_DESCRIPTION = (
     "Elftia-authored semantic-template guidance, deterministic fixtures, "
     "hash-bound metadata, and exact runtime-source policy for PPTX B2."
@@ -35,6 +36,11 @@ _PPTX_TEMPLATE_B2_DATA_DESCRIPTION = (
 _PPTX_TEMPLATE_B4_DATA_DESCRIPTION = (
     "B4 template-content guidance, deterministic CJK fixture bytes, "
     "hash-bound metadata, and exact runtime-source policy."
+)
+_PPTX_SVG_B5_DATA_DESCRIPTION = (
+    "B5 constrained-SVG and scene guidance, deterministic fixtures, "
+    "hash-bound semantic and real-consumer evidence, and exact "
+    "runtime-source policy."
 )
 
 
@@ -336,22 +342,29 @@ def test_cross_format_capability_provenance_is_exact_and_composed(project_root):
         ),
         "tests/test_strategy2.py": _compose_requirements(
             CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+            _PPTX_SVG_B5_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
         ),
     }
     for path, profile in expected_profiles.items():
+        pptx_profile = pptx_module_profile(path)
         xlsx_profile = xlsx_module_profile(path)
-        expected_modifications = (
-            f"{profile[0]} {xlsx_profile[0]}"
-            if xlsx_profile
-            else profile[0]
+        combined_profiles = [profile]
+        if pptx_profile:
+            combined_profiles.append((pptx_profile[0], pptx_profile[1]))
+        if xlsx_profile:
+            combined_profiles.append(xlsx_profile)
+        expected_modifications = " ".join(
+            item[0] for item in combined_profiles
         )
-        expected_tests = (
-            list(dict.fromkeys([*profile[1], *xlsx_profile[1]]))
-            if xlsx_profile
-            else profile[1]
+        expected_tests = list(
+            dict.fromkeys(
+                test
+                for item in combined_profiles
+                for test in item[1]
+            )
         )
         record = records[path]
         assert record["requirement_source"] == expected_requirements[path]
@@ -718,6 +731,8 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         "src/document_skills_core/public_cli/supervisor.py",
         "tests/test_html_provenance.py",
         "tests/test_runtime.py",
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
         "tests/test_supply_chain.py",
         "tools/provenance_records.py",
         "tools/regenerate_provenance.py",
@@ -869,6 +884,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "provenance/runtime-source-allowlist.json": _compose_requirements(
             _PPTX_TEMPLATE_B2_REQUIREMENT,
             _PPTX_TEMPLATE_B4_REQUIREMENT,
+            _PPTX_SVG_B5_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
@@ -889,7 +905,8 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "provenance/dependency-licenses.json": nuget_description,
         "provenance/runtime-source-allowlist.json": (
             f"{_PPTX_TEMPLATE_B2_DATA_DESCRIPTION} "
-            f"{_PPTX_TEMPLATE_B4_DATA_DESCRIPTION} {runtime_description}"
+            f"{_PPTX_TEMPLATE_B4_DATA_DESCRIPTION} "
+            f"{_PPTX_SVG_B5_DATA_DESCRIPTION} {runtime_description}"
         ),
         "sbom.cdx.json": nuget_description,
     }

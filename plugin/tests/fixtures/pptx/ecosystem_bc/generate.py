@@ -39,6 +39,7 @@ from tests.support.pptx_ecosystem_fixture import (  # noqa: E402
     FixtureMetadata,
 )
 from tests.support.pptx_template_fixture import build_semantic_template  # noqa: E402
+from tests.support.pptx_svg_fixture import write_svg_fixtures  # noqa: E402
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1  # noqa: E402
 
 
@@ -47,7 +48,13 @@ _REGISTRY_PREFIX = "pptx/ecosystem_bc/"
 _REGISTRY_RECIPE = "tests/fixtures/pptx/ecosystem_bc/generate.py"
 _REGISTRY_RECIPE_DEPENDENCIES = [
     "tests/support/pptx_ecosystem_fixture.py",
+    "tests/support/pptx_svg_fixture.py",
     "tests/support/pptx_template_fixture.py",
+]
+_POWERPOINT_EVIDENCE_RECIPE = "tools/capture_pptx_powerpoint_evidence.py"
+_POWERPOINT_EVIDENCE_DEPENDENCIES = [
+    "src/document_skills_core/formats/pptx/png_compare.py",
+    "tools/prepare_pptx_svg_roundtrip.py",
 ]
 
 
@@ -59,7 +66,7 @@ def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
         purpose="Pin the cross-producer presentation contract conformance result.",
         origin="Elftia-authored metadata derived from the owner package.",
         recipe=(
-            "uv run --project plugin python "
+            "uv run --project plugin --frozen python "
             "plugin/tests/fixtures/pptx/ecosystem_bc/generate.py "
             "<presentation-contract-root> --write"
         ),
@@ -76,13 +83,17 @@ def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
     )
     writer = EcosystemFixtureWriter(output_root)
     writer.write_json(_RELATIVE, summary, metadata)
-    fixture_summary = _write_b2_template_fixtures(writer) + _write_template_fixtures(writer)
+    fixture_summary = (
+        _write_b2_template_fixtures(writer)
+        + _write_template_fixtures(writer)
+        + write_svg_fixtures(writer, contract_root)
+    )
     return {**summary, "fixtureCount": 1 + len(fixture_summary), "fixtures": fixture_summary}
 
 
 def _write_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
     recipe = (
-        "uv run --project plugin python "
+        "uv run --project plugin --frozen python "
         "plugin/tests/fixtures/pptx/ecosystem_bc/generate.py "
         "<presentation-contract-root> --write"
     )
@@ -157,7 +168,7 @@ def _write_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
 
 def _write_b2_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
     recipe = (
-        "uv run --project plugin python "
+        "uv run --project plugin --frozen python "
         "plugin/tests/fixtures/pptx/ecosystem_bc/generate.py "
         "<presentation-contract-root> --write"
     )
@@ -559,12 +570,23 @@ def _fixture_registry_records(ecosystem_root: Path) -> list[dict[str, object]]:
         metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
         payload_path = ecosystem_root / metadata["path"]
         payload_relative = _REGISTRY_PREFIX + metadata["path"]
+        is_powerpoint_evidence = (
+            metadata["security_classification"] == "benign-consumer-evidence"
+        )
         common = {
             "authorship": "original-elftia",
             "license": metadata["license"],
             "origin": "generated",
-            "recipe": _REGISTRY_RECIPE,
-            "recipe_dependencies": _REGISTRY_RECIPE_DEPENDENCIES,
+            "recipe": (
+                _POWERPOINT_EVIDENCE_RECIPE
+                if is_powerpoint_evidence
+                else _REGISTRY_RECIPE
+            ),
+            "recipe_dependencies": (
+                _POWERPOINT_EVIDENCE_DEPENDENCIES
+                if is_powerpoint_evidence
+                else _REGISTRY_RECIPE_DEPENDENCIES
+            ),
             "redistribution_allowed": metadata["redistributable"],
         }
         records.append({

@@ -17,6 +17,7 @@ from .parent_anchor_posix import (
 )
 from .parent_anchor_windows import (
     close_windows_handle as _close_windows_handle,
+    create_windows_relative_directory as _create_windows_relative_directory,
     open_windows_directory as _open_windows_directory,
     open_windows_relative_file as _open_windows_relative_file,
     windows_final_path as _windows_final_path,
@@ -219,6 +220,44 @@ class DestinationParentAnchor:
             writable=False,
         )
 
+    def create_directory_exclusive(
+        self,
+        name: str,
+        *,
+        on_created: Callable[[FileIdentity], None],
+    ) -> Path:
+        """Create one identity-bound private directory inside this parent."""
+
+        leaf = _safe_leaf(name)
+        self.assert_bound("directory_stage_create")
+        if self._descriptor is not None:
+            os.mkdir(leaf, mode=0o700, dir_fd=self._descriptor)
+            metadata = os.stat(leaf, dir_fd=self._descriptor, follow_symlinks=False)
+            created_path = self.current_path() / leaf
+        else:
+            assert self._windows_handle is not None
+            handle = _create_windows_relative_directory(self._windows_handle, leaf)
+            try:
+                created_path = _windows_final_path(handle)
+                metadata = os.stat(created_path, follow_symlinks=False)
+            finally:
+                _close_windows_handle(handle)
+        identity = (metadata.st_dev, metadata.st_ino)
+        on_created(identity)
+        if (
+            metadata.st_dev != self.device
+            or not stat.S_ISDIR(metadata.st_mode)
+            or _is_reparse(metadata)
+        ):
+            raise ParentSafetyError(
+                "cross_volume_or_redirected_directory_stage",
+                phase="directory_stage_create",
+                original_path=self.original_path,
+                current_path=created_path,
+            )
+        self.assert_bound("directory_stage_created")
+        return created_path
+
     def entry_stat(self, name: str) -> os.stat_result:
         leaf = _safe_leaf(name)
         if self._descriptor is not None:
@@ -226,7 +265,13 @@ class DestinationParentAnchor:
         with self.open_entry(leaf) as handle:
             return os.fstat(handle.fileno())
 
-    def rename_no_replace(self, source_name: str, destination_name: str) -> None:
+    def rename_no_replace(
+        self,
+        source_name: str,
+        destination_name: str,
+        *,
+        source_is_directory: bool = False,
+    ) -> None:
         source_leaf = _safe_leaf(source_name)
         destination_leaf = _safe_leaf(destination_name)
         self.assert_bound("rename_before")
@@ -235,6 +280,7 @@ class DestinationParentAnchor:
                 self._windows_handle,
                 source_leaf,
                 destination_leaf,
+                source_is_directory=source_is_directory,
             )
         elif sys.platform.startswith("linux"):
             assert self._descriptor is not None

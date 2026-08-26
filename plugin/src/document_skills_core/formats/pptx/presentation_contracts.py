@@ -404,6 +404,12 @@ class PresentationContractConsumer:
             ],
         )
 
+    @staticmethod
+    def deck_content_hash(value: Mapping[str, Any]) -> str:
+        """Build the owner-defined canonical Deck IR content hash."""
+
+        return _canonical_deck_hash(value)
+
     def summary(self) -> dict[str, Any]:
         vectors = _load_json(
             _resolve_member(self.root, "fixtures/v1/stable-id-vectors.json")

@@ -280,7 +280,13 @@ def _map_table(tbl_elem: Any) -> dict[str, Any]:
 
 def _get_nv_pr(elem: Any) -> dict[str, str]:
     tag = local_name(elem.tag)
-    nv_tag = f"nv{tag.capitalize()}Pr"
+    nv_tag = {
+        "cxnSp": "nvCxnSpPr",
+        "graphicFrame": "nvGraphicFramePr",
+        "grpSp": "nvGrpSpPr",
+        "pic": "nvPicPr",
+        "sp": "nvSpPr",
+    }.get(tag, f"nv{tag.capitalize()}Pr")
     nv_pr_elem = elem.find(P(nv_tag))
     if nv_pr_elem is None:
         for child in elem:

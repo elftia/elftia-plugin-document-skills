@@ -12,6 +12,7 @@ from .content_contracts import parse_markdown_arguments, parse_outline_arguments
 from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
+from .svg_contracts import parse_scene_export_arguments, parse_svg_create_arguments
 from .template_contracts import (
     parse_template_create_arguments,
     parse_template_inspect_arguments,
@@ -30,9 +31,11 @@ PPTX_OPERATIONS = frozenset(
         "pptx.create",
         "pptx.create.from-markdown",
         "pptx.create.from-html",
+        "pptx.create.from-svg",
         "pptx.create.from-template",
         "pptx.template.sanitize",
         "pptx.template.inspect",
+        "pptx.scene.export",
         "pptx.edit",
     }
 )
@@ -74,7 +77,12 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
             _invalid("PPTX outline planning requires an explicit output path.", field="output")
         if input_path is not None:
             _invalid("PPTX outline planning does not accept input.", field="input")
-    elif operation in {"pptx.create.from-html", "pptx.create.from-markdown"}:
+    elif operation in {
+        "pptx.create.from-html",
+        "pptx.create.from-markdown",
+        "pptx.create.from-svg",
+        "pptx.scene.export",
+    }:
         if input_path is None or output_path is None:
             _invalid("PPTX content reconstruction requires input and output paths.")
     elif operation == "pptx.template.inspect":
@@ -91,6 +99,8 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     expected_input_suffixes = {
         "pptx.create.from-html": {".htm", ".html"},
         "pptx.create.from-markdown": {".markdown", ".md"},
+        "pptx.create.from-svg": {".svg"},
+        "pptx.scene.export": {".pptx"},
         "pptx.template.sanitize": {".potx", ".pptx"},
         "pptx.template.inspect": {".potx", ".pptx"},
         "pptx.create.from-template": {".pptx"},
@@ -106,6 +116,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.outline.create": ".json",
         "pptx.render": ".zip",
         "pptx.template.inspect": ".png",
+        "pptx.scene.export": None,
     }.get(
         operation,
         ".pptm" if operation == "pptx.edit" and input_path is not None
@@ -113,6 +124,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     )
     if (
         output_path is not None
+        and expected_output_suffix is not None
         and output_path.suffix.casefold() != expected_output_suffix
     ):
         _invalid(
@@ -125,6 +137,8 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.edit",
         "pptx.render",
         "pptx.create.from-template",
+        "pptx.create.from-svg",
+        "pptx.scene.export",
         "pptx.template.sanitize",
     }:
         assert input_path is not None and output_path is not None
@@ -147,10 +161,12 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
+        "pptx.create.from-svg": parse_svg_create_arguments,
         "pptx.create.from-template": parse_template_create_arguments,
         "pptx.create.from-markdown": parse_markdown_arguments,
         "pptx.template.inspect": parse_template_inspect_arguments,
         "pptx.template.sanitize": _parse_template_sanitize,
+        "pptx.scene.export": parse_scene_export_arguments,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
     if operation == "pptx.template.inspect":

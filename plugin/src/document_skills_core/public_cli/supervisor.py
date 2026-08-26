@@ -51,6 +51,7 @@ _DOCX_DOTNET_WORKER_TIMEOUT_SECONDS = 90.0
 _PPTX_MUTATION_OPERATIONS = {
     "pptx.create",
     "pptx.create.from-markdown",
+    "pptx.create.from-svg",
     "pptx.create.from-template",
     "pptx.edit",
     "pptx.template.sanitize",
@@ -58,6 +59,7 @@ _PPTX_MUTATION_OPERATIONS = {
 _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS = 45.0
 _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS = 150.0
 _PROVIDER_OPERATION_TIMEOUTS = {
+    "pptx.scene.export": 90.0,
     "pptx.template.inspect": _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS,
     "xlsx.convert": 45.0,
     "xlsx.recalculate": 90.0,

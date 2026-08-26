@@ -1,6 +1,6 @@
 ---
 name: document-pptx
-description: Plan, read, inspect, create, edit, render, convert, and validate PPTX presentations through the bundled document core.
+description: Plan, read, inspect, create, edit, export scenes, render, convert, and validate PPTX presentations through the bundled document core.
 ---
 
 # PPTX presentations
@@ -35,6 +35,8 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
+| `pptx.create.from-svg` | yes (distinct `.pptx` output) | Closed-profile local SVG to editable DrawingML primitives/groups/text/table/chart/image objects; whole-slide raster is forbidden |
+| `pptx.scene.export` | yes (new distinct directory) | Inert PPTX to pinned A-Contract Deck IR, constrained per-slide SVG, hash-bound assets, and source mapping |
 | `pptx.template.sanitize` | yes (distinct `.pptx` output) | Inert fail-closed removal of external/OLE relationships plus unreachable-part purge and `.potx` identity downgrade |
 | `pptx.template.inspect` | optional (distinct `.png` evidence) | Inert structural inventory, bounded content lint, descriptor-bound semantic slots, and optional provider-rendered contact sheet |
 | `pptx.create.from-template` | yes (distinct `.pptx` output) | Descriptor-bound semantic fill, page selection/repetition/reorder, and physical purge of unselected private content |
@@ -51,6 +53,24 @@ state that no PPTX was created.
 The fixed-canvas/local-asset contract, exact request, safe fallback policy, and
 diagnostic interpretation are in
 `references/html-to-editable-pptx.md`.
+
+## Constrained SVG and scene bundles
+
+Use `pptx.create.from-svg` only for an explicit 16:9 SVG viewport and the
+closed editable profile. Native primitives, bounded paths/transforms, groups,
+text/tspan, approved gradients, local bounded PNG/JPEG images, and typed
+Elftia table/chart semantic groups enter the shared scene emitter. Script,
+foreign namespaces, event handlers, external references, animation, and
+resource bombs fail closed. Optional `element-rasterize` fallback requires an
+explicit local fallback asset and can never cover the whole slide.
+
+Use `pptx.scene.export` for an inert `.pptx` source only when the caller has the
+pinned `@elftia/presentation-contracts@1.0.0` owner artifact. The output is a
+new absent directory containing `manifest.json`, `deck-ir.json`, one constrained
+SVG per slide, and content-addressed assets. `strict` rejects unsupported
+objects; `tolerant` keeps stable source identity and opaque inventory without
+claiming editability. Read `references/svg-and-scene.md` for exact requests,
+supported semantics, directory publication rules, and result interpretation.
 
 ## LibreOffice rendering and conversion
 
@@ -199,6 +219,13 @@ provider is absent, but becomes a required promotion gate when it is callable.
   an optional failed validation gate while preserving read-only inspection
   success. `pptx.create.from-template` treats error findings as required and
   publishes no output. There is no separate `pptx.template.lint` operation.
+- **Scene bundle identity:** `pptx.scene.export` consumes the exact pinned
+  A-Contract version/hash, assigns stable deck/slide/object ids, hashes every
+  non-manifest member, and publishes the directory with atomic no-replace
+  semantics. An existing directory, file, or broken symlink is never replaced.
+- **SVG fallback boundary:** Whole-slide or near-whole-slide raster fallback is
+  forbidden. Native/approximated/rasterized coverage and every SVG-node-to-PPTX
+  mapping remain explicit under `diagnostics.operation_result`.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
   becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
   required visual gate only after every slide PNG and the full-deck PDF reopen
