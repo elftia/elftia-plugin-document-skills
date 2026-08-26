@@ -1,6 +1,5 @@
 """Transactional constrained-SVG creation through the shared scene emitter."""
 
-from pathlib import Path
 from typing import Any
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog

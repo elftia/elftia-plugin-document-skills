@@ -26,6 +26,8 @@ from .scene_export_support import projection_support_issue
 
 _P = NS["p"]
 _SVG = "http://www.w3.org/2000/svg"
+MAX_GROUP_DEPTH = 64
+_DRAWABLE_TAGS = {"cxnSp", "graphicFrame", "grpSp", "pic", "sp"}
 
 
 def _p(tag: str) -> str:
@@ -90,6 +92,7 @@ class _Projector(SceneExportLeafMixin):
                 if local_name(element.tag)
                 not in {"nvGrpSpPr", "grpSpPr", "extLst"}
             ]
+        _require_group_depth(elements)
         svg = Element(
             f"{{{_SVG}}}svg",
             {
@@ -287,4 +290,29 @@ def project_scene_objects(
     ).project()
 
 
-__all__ = ["SceneObjectProjection", "project_scene_objects"]
+def _require_group_depth(elements: list[Element]) -> None:
+    stack = [(element, 0) for element in reversed(elements)]
+    while stack:
+        element, parent_depth = stack.pop()
+        tag = local_name(element.tag)
+        depth = parent_depth + 1 if tag == "grpSp" else parent_depth
+        if depth > MAX_GROUP_DEPTH:
+            raise DocumentSkillsError(
+                ErrorCode.RESOURCE_LIMIT,
+                "PresentationML group nesting exceeds policy.",
+                status="failed",
+                details={"limit": MAX_GROUP_DEPTH},
+            )
+        if tag == "grpSp":
+            stack.extend(
+                (child, depth)
+                for child in reversed(list(element))
+                if local_name(child.tag) in _DRAWABLE_TAGS
+            )
+
+
+__all__ = [
+    "MAX_GROUP_DEPTH",
+    "SceneObjectProjection",
+    "project_scene_objects",
+]

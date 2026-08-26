@@ -86,7 +86,6 @@ def emit_scene_pptx(
             slide_index,
             media,
             root_fill,
-            charts,
         )
         parts[f"ppt/slides/slide{slide_index}.xml"] = slide_xml
         parts[f"ppt/slides/_rels/slide{slide_index}.xml.rels"] = _slide_rels(
@@ -121,7 +120,6 @@ def _slide(
     slide_index: int,
     media: dict[str, str],
     root_fill: str,
-    charts: dict[tuple[int, str], dict[str, Any]],
 ) -> tuple[bytes, list[dict[str, Any]], list[dict[str, str]]]:
     root = Element(f"{{{_P}}}sld")
     common = SubElement(root, f"{{{_P}}}cSld")
@@ -161,7 +159,6 @@ def _slide(
             }))
         elif item["kind"] == "chart":
             assert relationship_id is not None
-            chart = charts[(slide_index, item["source_id"])]
             parent.append(build_chart_frame(shape_id, {
                 "frame": {
                     "cx": _emu(item["width"]),
