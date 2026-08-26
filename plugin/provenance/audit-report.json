@@ -34,15 +34,7 @@
       "status": "pass"
     },
     "provenance": {
-      "data_classification_count": 135,
-      "exclusion_count": 0,
-      "mapping_sha256": "3cbdace427acaaafbd73c789a7e4f306af469ed96668905b0b56dd1ee78b8241",
-      "metadata_exclusion_count": 3,
-      "module_count": 435,
-      "record_count": 435,
-      "release_file_count": 573,
-      "review_attestations": 1,
-      "status": "pass"
+      "status": "fail"
     },
     "public_skills": {
       "count": 4,
@@ -59,7 +51,12 @@
       "status": "pass"
     }
   },
-  "errors": [],
+  "errors": [
+    {
+      "check": "provenance",
+      "message": "Independent review attestation is missing"
+    }
+  ],
   "schema_version": "1.0",
-  "status": "pass"
+  "status": "fail"
 }
