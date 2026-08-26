@@ -169,6 +169,18 @@ class PdfService:
                 operation_result, manifest = edit_pdf(
                     request.input_path, staged, request.arguments
                 )
+                watermark_stage_hashes = manifest.pop(
+                    "_watermark_stage_hashes",
+                    {},
+                )
+                watermark_source_objects = manifest.pop(
+                    "_watermark_source_objects",
+                    {},
+                )
+                reported_manifest = operation_result.get("preservation")
+                if isinstance(reported_manifest, dict):
+                    reported_manifest.pop("_watermark_stage_hashes", None)
+                    reported_manifest.pop("_watermark_source_objects", None)
                 validation = validate_mutation(
                     staged,
                     source=request.input_path,
@@ -177,6 +189,9 @@ class PdfService:
                     assertion=edit_semantic_assertion(
                         request.input_path,
                         request.arguments["primitives"],
+                        operation_result,
+                        watermark_stage_hashes,
+                        watermark_source_objects,
                     ),
                     visual_check=lambda: self._visual_validator().validate(
                         operation="pdf.edit",

@@ -44,11 +44,17 @@ def run_edit_pipeline(
     staged_paths: list[Path] = []
     primitive_results: list[dict[str, Any]] = []
     step_manifests: list[dict[str, Any]] = []
+    watermark_stage_hashes: dict[int, dict[str, str]] = {}
+    watermark_source_objects: dict[int, list[int]] = {}
     try:
         for index, primitive in enumerate(primitives):
             current_model = parse_pdf(current_path)
             preflight_edit_primitive(current_model, primitive)
             plan = declare_mutation_plan(current_model, primitive)
+            if primitive["type"] == "watermark":
+                # This comes from the parsed input/prior authorized stage, not
+                # from the watermark writer's report.
+                watermark_source_objects[index] = sorted(current_model.objects)
             staged_path = _new_staged_path(output_path, index)
             staged_paths.append(staged_path)
             result, primitive_manifest = run_primitive(
@@ -65,6 +71,11 @@ def run_edit_pipeline(
                 output_model.object_hashes(),
             )
             step_manifests.append(step_manifest)
+            if primitive["type"] == "watermark":
+                watermark_stage_hashes[index] = _watermark_role_hashes(
+                    result,
+                    step_manifest,
+                )
             primitive_results.append({
                 "index": index,
                 **_with_mutation_report(
@@ -79,6 +90,8 @@ def run_edit_pipeline(
 
         final_model = parse_pdf(current_path)
         manifest = aggregate_manifests(original_hashes, step_manifests)
+        manifest["_watermark_stage_hashes"] = watermark_stage_hashes
+        manifest["_watermark_source_objects"] = watermark_source_objects
         os.replace(current_path, output_path)
         staged_paths.remove(current_path)
         if len(primitive_results) == 1:
@@ -116,6 +129,42 @@ def _reject_encrypted_edit() -> None:
         status="enhancement_required",
         details={"capability": "pdf.decrypt"},
     )
+
+
+def _watermark_role_hashes(
+    result: dict[str, Any],
+    manifest: dict[str, Any],
+) -> dict[str, str]:
+    """Snapshot authorized stage hashes for objects named by watermark roles."""
+    object_numbers: set[int] = set()
+    uses = result.get("watermark_uses")
+    if isinstance(uses, list):
+        for record in uses:
+            if not isinstance(record, dict):
+                continue
+            for field in ("content_object", "font_object", "image_object"):
+                value = record.get(field)
+                if type(value) is int:
+                    object_numbers.add(value)
+    image = result.get("image")
+    if isinstance(image, dict):
+        image_object = image.get("image_object")
+        if type(image_object) is int:
+            object_numbers.add(image_object)
+        soft_mask = image.get("soft_mask")
+        if isinstance(soft_mask, dict):
+            soft_mask_object = soft_mask.get("object")
+            if type(soft_mask_object) is int:
+                object_numbers.add(soft_mask_object)
+    hashes = manifest.get("expected_output_hashes")
+    if not isinstance(hashes, dict):
+        return {}
+    trusted: dict[str, str] = {}
+    for number in sorted(object_numbers):
+        digest = hashes.get(str(number))
+        if isinstance(digest, str):
+            trusted[str(number)] = digest
+    return trusted
 
 
 def _new_staged_path(output_path: Path, index: int) -> Path:

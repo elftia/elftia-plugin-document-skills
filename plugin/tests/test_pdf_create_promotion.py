@@ -203,6 +203,120 @@ def test_create_gate_rejects_png_soft_mask_contract_tampering(
     assert caught.value.code == ErrorCode.VALIDATION_FAILED
 
 
+@pytest.mark.parametrize(
+    "addition",
+    [
+        pytest.param(b"/Decode [1 0]", id="decode"),
+        pytest.param(
+            b"/DecodeParms << /Predictor 2 /Colors 1 /BitsPerComponent 8 /Columns 2 >>",
+            id="decode-parms",
+        ),
+        pytest.param(b"/Interpolate true", id="interpolate"),
+        pytest.param(b"/Matte [0 0 0]", id="matte"),
+    ],
+)
+def test_create_gate_rejects_png_soft_mask_extra_dictionary_semantics(
+    tmp_path: Path,
+    addition: bytes,
+) -> None:
+    image = tmp_path / "alpha-extra.png"
+    image.write_bytes(_alpha_png())
+    document = _image_document(image)
+    candidate = tmp_path / "alpha-extra.pdf"
+    creation = create_pdf(candidate, document)
+    raw = candidate.read_bytes()
+    soft_mask_match = re.search(rb"/SMask\s+(\d+)\s+0\s+R", raw)
+    assert soft_mask_match is not None
+
+    _inject_dictionary_entry(candidate, int(soft_mask_match.group(1)), addition)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        validate_created(candidate, document, creation)
+    assert caught.value.code == ErrorCode.VALIDATION_FAILED
+    gate = next(
+        item
+        for item in caught.value.validation["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    assert gate["evidence"]["image_mismatches"] == [
+        {
+            "reason": "soft-mask-mismatch",
+            "object": creation["images"][0]["image_object"],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    ("reference_pattern", "reason"),
+    [
+        (rb"/Im1\s+\d+\s+0\s+R", "image-object-mismatch"),
+        (rb"/SMask\s+\d+\s+0\s+R", "soft-mask-mismatch"),
+    ],
+    ids=["main-image", "soft-mask"],
+)
+def test_create_gate_rejects_image_reference_generation_tampering(
+    tmp_path: Path,
+    reference_pattern: bytes,
+    reason: str,
+) -> None:
+    image = tmp_path / "alpha-generation.png"
+    image.write_bytes(_alpha_png())
+    document = _image_document(image)
+    candidate = tmp_path / "alpha-generation.pdf"
+    creation = create_pdf(candidate, document)
+    raw = candidate.read_bytes()
+    reference = re.search(reference_pattern, raw)
+    assert reference is not None
+    original = reference.group(0)
+    tampered = original.replace(b" 0 R", b" 1 R")
+    assert len(original) == len(tampered)
+    candidate.write_bytes(raw.replace(original, tampered, 1))
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        validate_created(candidate, document, creation)
+    assert caught.value.code == ErrorCode.VALIDATION_FAILED
+    gate = next(
+        item
+        for item in caught.value.validation["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    assert gate["evidence"]["image_mismatches"] == [
+        {"reason": reason, "object": creation["images"][0]["image_object"]}
+    ]
+
+
+@pytest.mark.parametrize(
+    "addition",
+    [
+        pytest.param(b"/Mask [0 255 0 255 0 255]", id="color-key-mask"),
+        pytest.param(b"/Interpolate true", id="interpolate"),
+    ],
+)
+def test_create_gate_rejects_main_image_extra_visual_semantics(
+    tmp_path: Path,
+    addition: bytes,
+) -> None:
+    image = tmp_path / "main-extra.png"
+    image.write_bytes(_png())
+    document = _image_document(image)
+    candidate = tmp_path / "main-extra.pdf"
+    creation = create_pdf(candidate, document)
+    image_object = creation["images"][0]["image_object"]
+    _inject_dictionary_entry(candidate, image_object, addition)
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        validate_created(candidate, document, creation)
+    assert caught.value.code == ErrorCode.VALIDATION_FAILED
+    gate = next(
+        item
+        for item in caught.value.validation["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    assert gate["evidence"]["image_mismatches"] == [
+        {"reason": "image-object-mismatch", "object": image_object}
+    ]
+
+
 def test_create_gate_rejects_cover_image_without_clip(tmp_path: Path) -> None:
     image = tmp_path / "wide.png"
     image.write_bytes(_png(width=4, height=2))
@@ -893,6 +1007,41 @@ def _alpha_png() -> bytes:
     ])
     image.save(payload, format="PNG")
     return payload.getvalue()
+
+
+def _inject_dictionary_entry(candidate: Path, object_number: int, addition: bytes) -> None:
+    """Add a direct entry while retaining correct classical-xref offsets."""
+    raw = candidate.read_bytes()
+    object_start = raw.index(f"{object_number} 0 obj\n".encode("ascii"))
+    stream_start = raw.index(b"\nstream\n", object_start)
+    dictionary_end = raw.rfind(b">>", object_start, stream_start)
+    startxref_match = re.search(rb"startxref\s+([0-9]+)", raw)
+    assert dictionary_end > object_start
+    assert startxref_match is not None
+    old_xref = int(startxref_match.group(1))
+    assert raw[old_xref : old_xref + 5] == b"xref\n"
+
+    insertion = b" " + addition
+    delta = len(insertion)
+
+    def shifted_entry(match: re.Match[bytes]) -> bytes:
+        offset = int(match.group(1))
+        if offset >= dictionary_end:
+            offset += delta
+        return f"{offset:010d}".encode("ascii") + match.group(2)
+
+    tail = re.sub(
+        rb"(?m)^([0-9]{10})( [0-9]{5} [nf]\r?)$",
+        shifted_entry,
+        raw[old_xref:],
+    )
+    old_startxref = f"startxref\n{old_xref}\n".encode("ascii")
+    new_startxref = f"startxref\n{old_xref + delta}\n".encode("ascii")
+    assert old_startxref in tail
+    tail = tail.replace(old_startxref, new_startxref, 1)
+    candidate.write_bytes(
+        raw[:dictionary_end] + insertion + raw[dictionary_end:old_xref] + tail
+    )
 
 
 def _build_object_graph_pdf(path: Path, objects: list[bytes]) -> Path:

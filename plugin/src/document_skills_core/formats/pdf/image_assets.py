@@ -1,8 +1,7 @@
 """Bounded local PNG/JPEG decoding for PDF Image XObjects.
 
-Module provenance: original Elftia-authored clean-room implementation. Only
-Python's standard library is used; no system image command or optional provider
-is invoked.
+Module provenance: original Elftia-authored clean-room implementation. No
+system image command or optional provider is invoked.
 """
 
 from dataclasses import dataclass
@@ -16,6 +15,13 @@ import zlib
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .create_text_utils import pdf_text_string
+from .jpeg_assets import (
+    inspect_jpeg,
+    JpegParseError,
+    JpegUnsupportedError,
+    normalize_exif_jpeg,
+    verify_direct_jpeg,
+)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 JPEG_SIGNATURE = b"\xff\xd8"
@@ -37,6 +43,8 @@ class ImageAsset:
     alpha_data: bytes | None
     sha256: str
     byte_count: int
+    decode: tuple[int, ...] | None = None
+    decode_parms: tuple[tuple[str, int], ...] | None = None
     transcoded: bool = False
 
 
@@ -105,6 +113,11 @@ def image_xobject_dictionary(
         f"/Filter {asset.filter_name}",
         f"/Length {stream_length}",
     ]
+    if asset.decode is not None:
+        parts.append(f"/Decode [{' '.join(str(value) for value in asset.decode)}]")
+    if asset.decode_parms is not None:
+        parameters = " ".join(f"{key} {value}" for key, value in asset.decode_parms)
+        parts.append(f"/DecodeParms << {parameters} >>")
     if soft_mask_object is not None:
         parts.append(f"/SMask {soft_mask_object} 0 R")
     if alt:
@@ -192,51 +205,64 @@ def _load_png(path: Path, raw: bytes) -> ImageAsset:
 def _load_jpeg(path: Path, raw: bytes) -> ImageAsset:
     if not raw.startswith(JPEG_SIGNATURE) or not raw.endswith(b"\xff\xd9"):
         _invalid_image("JPEG content type does not match a complete JPEG file.", path)
-    width = height = components = precision = None
-    orientation = 1
-    offset = 2
-    while offset < len(raw):
-        if raw[offset] != 0xFF:
-            _invalid_image("JPEG marker stream is malformed.", path)
-        while offset < len(raw) and raw[offset] == 0xFF:
-            offset += 1
-        if offset >= len(raw):
-            break
-        marker = raw[offset]
-        offset += 1
-        if marker in {0xD8, 0xD9}:
-            continue
-        if marker == 0xDA:
-            break
-        if offset + 2 > len(raw):
-            _invalid_image("JPEG contains a truncated segment.", path)
-        length = struct.unpack(">H", raw[offset : offset + 2])[0]
-        if length < 2 or offset + length > len(raw):
-            _invalid_image("JPEG segment length is invalid.", path)
-        segment = raw[offset + 2 : offset + length]
-        if marker in {0xC0, 0xC2}:
-            if len(segment) < 6:
-                _invalid_image("JPEG frame header is truncated.", path)
-            precision = segment[0]
-            height, width = struct.unpack(">HH", segment[1:5])
-            components = segment[5]
-        elif marker == 0xE1 and segment.startswith(b"Exif\x00\x00"):
-            orientation = _jpeg_orientation(segment[6:])
-        offset += length
-    if width is None or height is None or components not in {1, 3, 4} or precision != 8:
+    try:
+        metadata = inspect_jpeg(raw)
+    except JpegUnsupportedError as error:
+        _enhancement(str(error), path, capability="pdf.jpeg-variant")
+    except JpegParseError as error:
+        _invalid_image(str(error), path, error)
+    if (
+        metadata.width is None
+        or metadata.height is None
+        or metadata.components not in {1, 3, 4}
+        or metadata.precision != 8
+    ):
         _enhancement(
             "JPEG frame precision or color components are unsupported.",
             path,
             capability="pdf.jpeg-variant",
         )
-    if orientation != 1:
-        _enhancement(
-            "JPEG EXIF orientation requires a caller-authorized transform provider.",
-            path,
-            capability="pdf.image-exif-orientation",
-        )
+    width = metadata.width
+    height = metadata.height
+    components = metadata.components
     _check_pixel_budget(path, width, height, components)
+    if metadata.orientation != 1:
+        try:
+            normalized = normalize_exif_jpeg(raw, metadata)
+        except JpegParseError as error:
+            _invalid_image(str(error), path, error)
+        channels = 1 if normalized.color_space == "/DeviceGray" else 3
+        _check_pixel_budget(path, normalized.width, normalized.height, channels)
+        return ImageAsset(
+            path=path,
+            content_type="image/jpeg",
+            width=normalized.width,
+            height=normalized.height,
+            bits_per_component=8,
+            color_space=normalized.color_space,
+            filter_name="/FlateDecode",
+            image_data=zlib.compress(normalized.pixels, level=9),
+            alpha_data=None,
+            sha256=hashlib.sha256(raw).hexdigest(),
+            byte_count=len(raw),
+            transcoded=True,
+        )
+    if components == 4 and metadata.adobe_transform not in {None, 0, 2}:
+        _enhancement(
+            "JPEG uses an unsupported Adobe APP14 color transform.",
+            path,
+            capability="pdf.jpeg-adobe-transform",
+        )
+    try:
+        verify_direct_jpeg(raw, metadata)
+    except JpegParseError as error:
+        _invalid_image(str(error), path, error)
     color_space = {1: "/DeviceGray", 3: "/DeviceRGB", 4: "/DeviceCMYK"}[components]
+    decode = (
+        (1, 0, 1, 0, 1, 0, 1, 0)
+        if components == 4 and metadata.adobe_transform in {0, 2}
+        else None
+    )
     return ImageAsset(
         path=path,
         content_type="image/jpeg",
@@ -249,6 +275,7 @@ def _load_jpeg(path: Path, raw: bytes) -> ImageAsset:
         alpha_data=None,
         sha256=hashlib.sha256(raw).hexdigest(),
         byte_count=len(raw),
+        decode=decode,
     )
 
 
@@ -321,27 +348,6 @@ def _split_png_channels(pixels: bytes, color_type: int) -> tuple[bytes, bytes | 
         color.extend(pixels[offset : offset + color_channels])
         alpha.append(pixels[offset + color_channels])
     return bytes(color), bytes(alpha)
-
-
-def _jpeg_orientation(tiff: bytes) -> int:
-    if len(tiff) < 8 or tiff[:2] not in {b"II", b"MM"}:
-        return 1
-    endian = "<" if tiff[:2] == b"II" else ">"
-    if struct.unpack(f"{endian}H", tiff[2:4])[0] != 42:
-        return 1
-    ifd_offset = struct.unpack(f"{endian}I", tiff[4:8])[0]
-    if ifd_offset + 2 > len(tiff):
-        return 1
-    count = struct.unpack(f"{endian}H", tiff[ifd_offset : ifd_offset + 2])[0]
-    for index in range(count):
-        start = ifd_offset + 2 + index * 12
-        entry = tiff[start : start + 12]
-        if len(entry) < 12:
-            return 1
-        tag, value_type, value_count = struct.unpack(f"{endian}HHI", entry[:8])
-        if tag == 0x0112 and value_type == 3 and value_count == 1:
-            return struct.unpack(f"{endian}H", entry[8:10])[0]
-    return 1
 
 
 def _check_pixel_budget(path: Path, width: int, height: int, channels: int) -> None:

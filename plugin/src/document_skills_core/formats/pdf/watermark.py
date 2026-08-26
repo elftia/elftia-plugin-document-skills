@@ -6,7 +6,6 @@ Module provenance: original Elftia-authored clean-room implementation.
 from collections.abc import Callable
 import math
 from pathlib import Path
-import re
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -15,13 +14,11 @@ from .create_layout import pdf_number
 from .create_images import image_placement
 from .image_assets import (
     ImageAsset,
-    image_xobject_dictionary,
     load_image_asset,
-    soft_mask_dictionary,
 )
+from .mutation_writer import write_pdf_mutation
 from .object_model import PdfObjectModel, parse_pdf
 from .page_tree import walk_pages
-from .trailer import trailer_bytes
 from .watermark_layout import (
     image_box_origin,
     image_matrix,
@@ -31,7 +28,17 @@ from .watermark_layout import (
     watermark_rotation,
 )
 from .watermark_fonts import plan_watermark_font
-from .watermark_resources import WatermarkResourceRewriter
+from .watermark_objects import (
+    allocate_watermark_content_objects,
+    reopened_image_evidence,
+    reopened_use_evidence,
+    watermark_image_objects,
+)
+from .watermark_resources import (
+    WatermarkResourceRewriter,
+    plan_watermark_graphics_state,
+    plan_watermark_image_resource,
+)
 
 
 def apply_text_watermark(
@@ -61,16 +68,22 @@ def apply_text_watermark(
             details={"capability": "pdf.watermark-empty-page"},
         )
     page_objects = {page.obj_num for page in selected_pages}
+    graphics_state_resource = plan_watermark_graphics_state(
+        model,
+        selected_pages,
+    )
     changed: set[int] = set()
     added_objects: dict[int, bytes] = {}
     image_asset = None
     image_object = None
+    image_resource = None
     font_resource = None
     font_object = None
     image_request = primitive.get("image")
     if image_request is not None:
         image_asset = load_image_asset(image_request)
-        image_object, added_objects = _watermark_image_objects(
+        image_resource = plan_watermark_image_resource(model, selected_pages)
+        image_object, added_objects = watermark_image_objects(
             model,
             image_asset,
             image_request.get("alt"),
@@ -84,20 +97,29 @@ def apply_text_watermark(
         )
         font_resource = font_plan.resource_name
         font_object = font_plan.object_number
-    content_additions, image_evidence = _content_additions(
+    content_additions, use_evidence = _content_additions(
         selected_pages,
         primitive,
         image_asset=image_asset,
+        image_resource=image_resource,
         font_resource=font_resource,
+        graphics_state_resource=graphics_state_resource,
+    )
+    content_objects = allocate_watermark_content_objects(
+        model,
+        content_additions,
+        added_objects,
     )
     output_bytes = _copy_with_watermark(
         model,
-        content_additions,
+        content_objects,
         page_objects,
         primitive["opacity"],
         image_object,
         added_objects,
         changed,
+        graphics_state_resource,
+        image_resource,
         font_resource,
         font_object,
     )
@@ -106,6 +128,15 @@ def apply_text_watermark(
 
     output_model = parse_pdf(output)
     output_hashes = output_model.object_hashes()
+    use_evidence = reopened_use_evidence(
+        output_model,
+        use_evidence,
+        content_objects,
+        graphics_state_resource=graphics_state_resource,
+        image_resource=image_resource,
+        image_object=image_object,
+        font_resource=font_resource,
+    )
     manifest = build_manifest(
         input_hashes,
         output_hashes,
@@ -118,7 +149,8 @@ def apply_text_watermark(
         "text": primitive["text"],
         "pages": sorted(target_pages),
         "opacity": primitive["opacity"],
-        "graphics_state": "/DSWMGS",
+        "graphics_state": f"/{graphics_state_resource}",
+        "watermark_uses": use_evidence,
         "rotation": watermark_rotation(primitive, image_asset is not None),
         "font": primitive.get("font", "Helvetica") if image_asset is None else None,
         "size": primitive.get("size", 48.0) if image_asset is None else None,
@@ -127,6 +159,7 @@ def apply_text_watermark(
         "preservation": manifest,
     }
     if image_asset is not None:
+        image_semantics = reopened_image_evidence(output_model, image_object)
         result["image"] = {
             "resolved_path": str(image_asset.path),
             "asset_sha256": image_asset.sha256,
@@ -134,9 +167,10 @@ def apply_text_watermark(
             "content_type": image_asset.content_type,
             "source_width": image_asset.width,
             "source_height": image_asset.height,
-            "image_object": image_object,
-            "bbox": image_evidence[0]["bbox"],
-            "page_bboxes": image_evidence,
+            "resource": f"/{image_resource}",
+            **image_semantics,
+            "bbox": use_evidence[0]["bbox"],
+            "page_bboxes": use_evidence,
             "transcoded": image_asset.transcoded,
         }
     return result, manifest
@@ -147,7 +181,9 @@ def _content_additions(
     primitive: dict[str, Any],
     *,
     image_asset: ImageAsset | None,
+    image_resource: str | None,
     font_resource: str | None,
+    graphics_state_resource: str,
 ) -> tuple[dict[int, bytes], list[dict[str, Any]]]:
     additions: dict[int, bytes] = {}
     image_evidence: list[dict[str, Any]] = []
@@ -172,13 +208,18 @@ def _content_additions(
             sine = pdf_number(math.sin(radians))
             negative_sine = pdf_number(-math.sin(radians))
             operators = (
-                f"\nq\n/DSWMGS gs\n{rgb_operator(color)}\nBT\n"
+                f"\nq\n/{graphics_state_resource} gs\n{rgb_operator(color)}\nBT\n"
                 f"/{font_resource} {pdf_number(size)} Tf\n"
                 f"{cosine} {sine} {negative_sine} {cosine} "
                 f"{pdf_number(x)} {pdf_number(y)} Tm\n"
                 f"({escaped_text}) Tj\nET\nQ\n"
             )
         else:
+            if image_resource is None:
+                raise DocumentSkillsError(
+                    ErrorCode.VALIDATION_FAILED,
+                    "Image watermark resource planning did not produce a resource.",
+                )
             image = primitive["image"]
             box_left, box_bottom = image_box_origin(
                 page,
@@ -202,7 +243,7 @@ def _content_additions(
                     details={"capability": "pdf.watermark-rotated-cover"},
                 )
             matrix = image_matrix(drawing, rotation)
-            operator_parts = ["\nq", "/DSWMGS gs"]
+            operator_parts = ["\nq", f"/{graphics_state_resource} gs"]
             if image["fit"] == "cover":
                 box = placement["box"]
                 operator_parts.append(
@@ -212,7 +253,7 @@ def _content_additions(
             operator_parts.extend(
                 [
                     " ".join(pdf_number(component) for component in matrix)
-                    + " cm /DSWMImage Do",
+                    + f" cm /{image_resource} Do",
                     "Q\n",
                 ]
             )
@@ -222,130 +263,47 @@ def _content_additions(
                 if rotation == 0.0
                 else transformed_unit_bbox(matrix)
             )
-            image_evidence.append(
-                {"page": page.page_number, "bbox": bbox}
-            )
-        additions[page.contents[0].obj_num] = operators.encode("latin-1", errors="strict")
+        image_evidence.append({
+            "page": page.page_number,
+            "page_object": page.obj_num,
+            "bbox": bbox if image_asset is not None else None,
+        })
+        additions[page.obj_num] = operators.encode("latin-1", errors="strict")
     return additions, image_evidence
-
-
-def _watermark_image_objects(
-    model: PdfObjectModel,
-    asset: ImageAsset,
-    alt: str | None,
-) -> tuple[int, dict[int, bytes]]:
-    next_object = max(model.objects) + 1
-    objects: dict[int, bytes] = {}
-    soft_mask_object = None
-    if asset.alpha_data is not None:
-        soft_mask_object = next_object
-        objects[soft_mask_object] = _stream_object_payload(
-            soft_mask_object,
-            soft_mask_dictionary(asset),
-            asset.alpha_data,
-        )
-        next_object += 1
-    image_object = next_object
-    objects[image_object] = _stream_object_payload(
-        image_object,
-        image_xobject_dictionary(
-            asset,
-            stream_length=len(asset.image_data),
-            soft_mask_object=soft_mask_object,
-            alt=alt,
-        ),
-        asset.image_data,
-    )
-    return image_object, objects
-
-
-def _stream_object_payload(
-    obj_num: int,
-    dictionary: bytes,
-    stream_data: bytes,
-) -> bytes:
-    return (
-        f"{obj_num} 0 obj\n".encode("ascii")
-        + dictionary
-        + b"\nstream\n"
-        + stream_data
-        + b"\nendstream\nendobj"
-    )
 
 
 def _copy_with_watermark(
     model: PdfObjectModel,
-    content_additions: dict[int, bytes],
+    content_objects: dict[int, int],
     page_objects: set[int],
     opacity: float,
     image_object: int | None,
     added_objects: dict[int, bytes],
     changed: set[int],
+    graphics_state_resource: str,
+    image_resource: str | None,
     font_resource: str | None,
     font_object: int | None,
 ) -> bytes:
-    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-    body = bytearray()
-    offsets: dict[int, int] = {}
     resource_rewriter = WatermarkResourceRewriter(
         model,
         opacity,
         image_object,
         added_objects,
+        graphics_state_resource,
+        image_resource,
         font_resource,
         font_object,
     )
-    for obj_num in sorted(model.objects):
-        obj = model.objects[obj_num]
-        payload = obj.payload_bytes
-        if obj_num in page_objects:
-            payload = resource_rewriter.rewrite_page(obj_num, payload)
-            changed.add(obj_num)
-        if obj_num in content_additions:
-            payload = _append_stream_bytes(payload, content_additions[obj_num])
-            changed.add(obj_num)
-        offsets[obj_num] = len(header) + len(body)
-        body.extend(payload + b"\n")
-
-    for obj_num in sorted(added_objects):
-        offsets[obj_num] = len(header) + len(body)
-        body.extend(added_objects[obj_num] + b"\n")
-
-    return _finish_pdf(header, body, offsets, model)
-
-
-def _append_stream_bytes(payload: bytes, addition: bytes) -> bytes:
-    insert_pos = payload.rfind(b"endstream")
-    if insert_pos < 0:
-        raise DocumentSkillsError(
-            ErrorCode.ARCHIVE_UNSAFE,
-            "Watermark target is not a valid content stream.",
+    mutations = {
+        obj_num: resource_rewriter.rewrite_page(
+            obj_num,
+            content_objects[obj_num],
         )
-    result = payload[:insert_pos] + addition + payload[insert_pos:]
-    return re.sub(
-        rb"/Length\s+(\d+)",
-        lambda match: f"/Length {int(match.group(1)) + len(addition)}".encode("ascii"),
-        result,
-        count=1,
-    )
-
-
-def _finish_pdf(
-    header: bytes,
-    body: bytearray,
-    offsets: dict[int, int],
-    model: PdfObjectModel,
-) -> bytes:
-    xref_offset = len(header) + len(body)
-    max_object = max(offsets) if offsets else 0
-    xref = bytearray(b"xref\n")
-    xref.extend(f"0 {max_object + 1}\n".encode("ascii"))
-    xref.extend(b"0000000000 65535 f\r\n")
-    for obj_num in range(1, max_object + 1):
-        xref.extend(f"{offsets.get(obj_num, 0):010d} 00000 n\r\n".encode("ascii"))
-    xref.extend(trailer_bytes(model, size=max_object + 1))
-    xref.extend(f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
-    return header + bytes(body) + bytes(xref)
+        for obj_num in sorted(page_objects)
+    }
+    changed.update(mutations)
+    return write_pdf_mutation(model, mutations, added_objects, set())
 
 
 def _escape_pdf_string(value: str) -> str:

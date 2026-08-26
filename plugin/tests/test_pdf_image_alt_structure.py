@@ -7,6 +7,7 @@ from pypdf import PdfReader
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.create_image_validation import (
     actual_image_draws,
 )
@@ -226,6 +227,42 @@ def test_create_validation_fails_closed_on_broken_image_structure_binding(
     with pytest.raises(DocumentSkillsError) as caught:
         validate_created(output, document, creation)
     assert caught.value.code is ErrorCode.VALIDATION_FAILED
+
+
+@pytest.mark.parametrize("tamper", ["remove", "replace"])
+def test_create_validation_binds_image_xobject_alt_exactly(
+    tmp_path: Path,
+    tamper: str,
+) -> None:
+    image = tmp_path / "alt-xobject.png"
+    image.write_bytes(_PNG)
+    document = _image_document(image, [["Cover image"]])
+    output = tmp_path / f"alt-xobject-{tamper}.pdf"
+    creation = create_pdf(output, document)
+    raw = output.read_bytes()
+    image_object = creation["images"][0]["image_object"]
+    object_start = raw.index(f"{image_object} 0 obj\n".encode("ascii"))
+    object_end = raw.index(b"endobj", object_start)
+    payload = raw[object_start:object_end]
+    original = b"/Alt (Cover image)"
+    replacement = b" " * len(original) if tamper == "remove" else b"/Alt (Wrong image)"
+    assert len(original) == len(replacement)
+    assert original in payload
+    output.write_bytes(
+        raw[:object_start] + payload.replace(original, replacement, 1) + raw[object_end:]
+    )
+
+    with pytest.raises(DocumentSkillsError) as caught:
+        validate_created(output, document, creation)
+    assert caught.value.code is ErrorCode.VALIDATION_FAILED
+    gate = next(
+        item
+        for item in caught.value.validation["gates"]
+        if item["id"] == "operation.create-semantics"
+    )
+    assert gate["evidence"]["image_mismatches"] == [
+        {"reason": "image-object-mismatch", "object": image_object}
+    ]
 
 
 def _image_document(

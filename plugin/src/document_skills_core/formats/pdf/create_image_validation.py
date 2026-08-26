@@ -5,11 +5,16 @@ from pathlib import Path
 import re
 from typing import Any
 
-from .byte_preflight import decode_stream
 from .content_streams import extract_content_stream
 from .content_tokenizer import tokenize_content_stream
+from .create_image_contracts import (
+    image_dictionary_mismatch,
+    image_dictionary_record,
+    soft_mask_mismatch,
+    soft_mask_record,
+)
 from .create_image_structure import image_structure_mismatches
-from .image_assets import ImageAsset, load_image_asset
+from .image_assets import load_image_asset
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
 from .page_tree import PageInfo
 from .xobject_draws import (
@@ -49,16 +54,11 @@ def actual_image_draws(
             records.append({
                 "page": page.page_number,
                 "resource": draw["resource"],
-                "object": obj.obj_num,
                 "bbox": list(draw["bbox"]),
                 "visible_bbox": list(draw["visible_bbox"]),
-                "width": dictionary.get("/Width"),
-                "height": dictionary.get("/Height"),
-                "color_space": dictionary.get("/ColorSpace"),
-                "stream": stream,
-                "object_sha256": obj.sha256,
+                **image_dictionary_record(dictionary, stream, reference, obj),
                 "mcid": draw["mcid"],
-                "soft_mask": _soft_mask_record(
+                "soft_mask": soft_mask_record(
                     model,
                     dictionary.get("/SMask"),
                 ),
@@ -104,7 +104,6 @@ def image_evidence_mismatches(
             "sha256": record["asset_sha256"],
             "content_type": record["content_type"],
         })
-        expected_stream = decode_stream(asset.image_data, [asset.filter_name])
         candidate = next(
             (
                 item
@@ -121,24 +120,19 @@ def image_evidence_mismatches(
                 "object": record["image_object"],
             })
             continue
-        if (
-            candidate["stream"] != expected_stream
-            or candidate["width"] != asset.width
-            or candidate["height"] != asset.height
-            or candidate["color_space"] != asset.color_space
-        ):
+        if image_dictionary_mismatch(candidate, asset, record.get("alt")):
             mismatches.append({
                 "reason": "image-object-mismatch",
                 "object": record["image_object"],
             })
             continue
-        soft_mask_mismatch, soft_mask_evidence = _soft_mask_mismatch(
+        soft_mask_reason, soft_mask_evidence = soft_mask_mismatch(
             candidate.get("soft_mask"),
             asset,
         )
-        if soft_mask_mismatch is not None:
+        if soft_mask_reason is not None:
             mismatches.append({
-                "reason": soft_mask_mismatch,
+                "reason": soft_mask_reason,
                 "object": record["image_object"],
             })
             continue
@@ -194,68 +188,6 @@ def _bind_structure_evidence(
             },
         })
     return enriched, ([] if valid else [{"reason": "invalid-image-structure-evidence"}])
-
-
-def _soft_mask_record(
-    model: PdfObjectModel,
-    value: Any,
-) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    if not isinstance(value, IndirectReference):
-        return {"indirect": False}
-    obj = model.get_object(value)
-    if not isinstance(obj.value, tuple):
-        return {"indirect": True, "object": obj.obj_num, "stream": None}
-    dictionary, stream = obj.value
-    if not isinstance(dictionary, PdfDict):
-        return {"indirect": True, "object": obj.obj_num, "stream": None}
-    return {
-        "indirect": True,
-        "object": obj.obj_num,
-        "object_sha256": obj.sha256,
-        "type": dictionary.get("/Type"),
-        "subtype": dictionary.get("/Subtype"),
-        "width": dictionary.get("/Width"),
-        "height": dictionary.get("/Height"),
-        "color_space": dictionary.get("/ColorSpace"),
-        "bits_per_component": dictionary.get("/BitsPerComponent"),
-        "filter": dictionary.get("/Filter"),
-        "stream": stream,
-    }
-
-
-def _soft_mask_mismatch(
-    candidate: dict[str, Any] | None,
-    asset: ImageAsset,
-) -> tuple[str | None, dict[str, Any] | None]:
-    if asset.alpha_data is None:
-        return (
-            ("unexpected-soft-mask" if candidate is not None else None),
-            None,
-        )
-    if candidate is None:
-        return "missing-soft-mask", None
-    expected_alpha = decode_stream(asset.alpha_data, ["/FlateDecode"])
-    if not candidate.get("indirect"):
-        return "soft-mask-not-indirect", None
-    if (
-        candidate.get("type") != "/XObject"
-        or candidate.get("subtype") != "/Image"
-        or candidate.get("width") != asset.width
-        or candidate.get("height") != asset.height
-        or candidate.get("color_space") != "/DeviceGray"
-        or candidate.get("bits_per_component") != 8
-        or candidate.get("filter") != "/FlateDecode"
-        or candidate.get("stream") != expected_alpha
-    ):
-        return "soft-mask-mismatch", None
-    alpha_sha256 = hashlib.sha256(candidate["stream"]).hexdigest()
-    return None, {
-        "soft_mask_object": candidate["object"],
-        "soft_mask_object_sha256": candidate["object_sha256"],
-        "alpha_sha256": alpha_sha256,
-    }
 
 
 def _requested_image_assets(

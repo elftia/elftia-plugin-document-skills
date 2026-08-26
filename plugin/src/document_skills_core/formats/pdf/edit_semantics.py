@@ -9,9 +9,14 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .content_streams import extract_content_stream, walk_text_operators
 from .edit_form_semantics import assert_form_semantics
 from .mapping import map_annotations
-from .object_model import PdfDict, PdfObjectModel, parse_pdf
+from .object_model import PdfObjectModel, parse_pdf
 from .page_tree import PageInfo, walk_pages
-from .watermark_fonts import watermark_font_matches
+from .watermark_expectations import (
+    new_page_watermark_state,
+    PageWatermarkState,
+    plan_watermark_expectation,
+)
+from .watermark_semantics import assert_watermarks
 
 
 @dataclass
@@ -22,8 +27,8 @@ class _PageExpectation:
     trim_box: tuple[float, float, float, float] | None
     art_box: tuple[float, float, float, float] | None
     rotation: int
+    watermark_state: PageWatermarkState
     annotations: list[dict[str, Any]] = field(default_factory=list)
-    watermarks: list[dict[str, Any]] = field(default_factory=list)
     redacted_text: set[str] = field(default_factory=set)
 
 
@@ -33,6 +38,7 @@ class _EditExpectation:
     form_values: dict[str, Any] = field(default_factory=dict)
     flattened_fields: set[str] = field(default_factory=set)
     counts: dict[str, int] = field(default_factory=dict)
+    watermark_baselines_valid: bool = True
 
 
 def preflight_edit_primitive(
@@ -75,14 +81,28 @@ def preflight_edit_primitive(
 def edit_semantic_assertion(
     source: Path,
     primitives: list[dict[str, Any]],
+    operation_result: dict[str, Any],
+    watermark_stage_hashes: object,
+    watermark_source_objects: object,
 ) -> Callable[[Path], dict[str, Any]]:
     """Build the mandatory final assertion from source state and requests."""
     expectation = _initial_expectation(parse_pdf(source))
-    for primitive in primitives:
-        _apply_expectation(expectation, primitive)
+    for primitive_index, primitive in enumerate(primitives):
+        _apply_expectation(
+            expectation,
+            primitive,
+            primitive_index,
+            watermark_source_objects,
+        )
 
     def assert_candidate(candidate: Path) -> dict[str, Any]:
-        return _assert_candidate(parse_pdf(candidate), expectation)
+        return _assert_candidate(
+            parse_pdf(candidate),
+            expectation,
+            operation_result,
+            primitives,
+            watermark_stage_hashes,
+        )
 
     return assert_candidate
 
@@ -111,6 +131,7 @@ def _initial_expectation(model: PdfObjectModel) -> _EditExpectation:
             page.trim_box,
             page.art_box,
             page.rotation,
+            new_page_watermark_state(model, page),
             annotations=annotations[page.page_number],
         )
         for page in pages
@@ -120,6 +141,8 @@ def _initial_expectation(model: PdfObjectModel) -> _EditExpectation:
 def _apply_expectation(
     expected: _EditExpectation,
     primitive: dict[str, Any],
+    primitive_index: int,
+    watermark_source_objects: object,
 ) -> None:
     primitive_type = primitive["type"]
     expected.counts[primitive_type] = expected.counts.get(primitive_type, 0) + 1
@@ -152,13 +175,18 @@ def _apply_expectation(
         for number in primitive["pages"]:
             expected.pages[number - 1].rotation = primitive["degrees"]
     elif primitive_type == "watermark":
-        marker = {
-            "text": primitive.get("text"),
-            "image": primitive.get("image") is not None,
-            "font": primitive.get("font"),
-        }
-        for number in primitive["pages"]:
-            expected.pages[number - 1].watermarks.append(marker)
+        source_objects = _watermark_source_object_set(
+            watermark_source_objects,
+            primitive_index,
+        )
+        if source_objects is None:
+            expected.watermark_baselines_valid = False
+        plan_watermark_expectation(
+            expected.pages,
+            primitive,
+            primitive_index,
+            source_objects,
+        )
     elif primitive_type == "annotation":
         _apply_annotation(expected.pages[primitive["page"] - 1], primitive)
     elif primitive_type == "redact_text":
@@ -207,16 +235,29 @@ def _apply_annotation(
 def _assert_candidate(
     model: PdfObjectModel,
     expected: _EditExpectation,
+    operation_result: dict[str, Any],
+    primitives: list[dict[str, Any]],
+    watermark_stage_hashes: object,
 ) -> dict[str, Any]:
     pages = walk_pages(model)
     failures: list[str] = []
+    if not expected.watermark_baselines_valid:
+        failures.append("watermark-stage-baseline")
     if len(pages) != len(expected.pages):
         failures.append("page-count")
     for page, wanted in zip(pages, expected.pages):
         if _page_signature(page) != _expected_page_signature(wanted):
             failures.append(f"page-tree:{page.page_number}")
     _assert_annotations(model, pages, expected.pages, failures)
-    watermark_count = _assert_watermarks(model, pages, expected.pages, failures)
+    watermark_count = assert_watermarks(
+        model,
+        pages,
+        expected.pages,
+        failures,
+        operation_result,
+        primitives,
+        watermark_stage_hashes,
+    )
     redaction_count = _assert_redactions(model, pages, expected.pages, failures)
     form_count = assert_form_semantics(
         model,
@@ -264,47 +305,6 @@ def _assert_annotations(
             failures.append(f"annotation:{number}")
 
 
-def _assert_watermarks(
-    model: PdfObjectModel,
-    pages: list[PageInfo],
-    expected_pages: list[_PageExpectation],
-    failures: list[str],
-) -> int:
-    count = 0
-    for page, wanted in zip(pages, expected_pages):
-        if not wanted.watermarks:
-            continue
-        content = extract_content_stream(model, page.contents, page.page_number)
-        markers = content.count(b"/DSWMGS gs")
-        if markers < len(wanted.watermarks) or not _has_watermark_resource(page):
-            failures.append(f"watermark:{page.page_number}")
-        if any(item["image"] for item in wanted.watermarks) and b"/DSWMImage Do" not in content:
-            failures.append(f"watermark-image:{page.page_number}")
-        text_blocks = walk_text_operators(content, page.page_number)
-        for item in wanted.watermarks:
-            if item["text"] is None:
-                continue
-            match = next(
-                (
-                    block for block in text_blocks
-                    if block.text == item["text"]
-                    and watermark_font_matches(
-                        model,
-                        page,
-                        block.font_name,
-                        item["font"],
-                    )
-                ),
-                None,
-            )
-            if match is None:
-                failures.append(f"watermark-font:{page.page_number}")
-            else:
-                text_blocks.remove(match)
-        count += len(wanted.watermarks)
-    return count
-
-
 def _assert_redactions(
     model: PdfObjectModel,
     pages: list[PageInfo],
@@ -323,12 +323,6 @@ def _assert_redactions(
                 failures.append(f"redaction:{page.page_number}")
             count += 1
     return count
-
-
-def _has_watermark_resource(page: PageInfo) -> bool:
-    resources = page.resources
-    graphics = resources.get("/ExtGState") if isinstance(resources, PdfDict) else None
-    return isinstance(graphics, PdfDict) and graphics.get("/DSWMGS") is not None
 
 
 def _page_signature(page: PageInfo) -> tuple[Any, ...]:
@@ -364,6 +358,22 @@ def _selected_pages(primitive: dict[str, Any]) -> list[int] | None:
     if primitive_type == "page_labels":
         return [item["page"] for item in primitive["ranges"]]
     return None
+
+
+def _watermark_source_object_set(
+    commitments: object,
+    primitive_index: int,
+) -> frozenset[int] | None:
+    if not isinstance(commitments, dict):
+        return None
+    values = commitments.get(primitive_index)
+    if (
+        type(values) is not list
+        or any(type(value) is not int or value < 1 for value in values)
+        or values != sorted(set(values))
+    ):
+        return None
+    return frozenset(values)
 
 
 def _invalid_pages(primitive: str, page_count: int, values: Any) -> None:

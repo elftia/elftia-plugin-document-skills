@@ -47,8 +47,10 @@ def declare_mutation_plan(
     if primitive_type == "watermark":
         selected = [pages[number - 1] for number in primitive["pages"]]
         changed = {page.obj_num for page in selected}
-        changed.update(page.contents[0].obj_num for page in selected if page.contents)
-        added = range(maximum + 1, maximum + len(selected) + 4)
+        # Each page receives a dedicated content stream and may need its own
+        # cloned resource dictionary. An image can additionally allocate the
+        # image XObject plus one alpha mask; text can allocate one font.
+        added = range(maximum + 1, maximum + (2 * len(selected)) + 3)
         return _plan(primitive_type, changed, added=added)
     if primitive_type == "redact_text":
         page = pages[primitive["page"] - 1]

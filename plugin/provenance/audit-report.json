@@ -4,7 +4,7 @@
       "adopted_records": 0,
       "expression_detection": "not_claimed",
       "method": "exact-inventory-provenance-and-independent-review",
-      "module_records": 421,
+      "module_records": 436,
       "status": "pass"
     },
     "commands": {
@@ -12,11 +12,11 @@
       "status": "pass"
     },
     "execution_boundary": {
-      "classified_release_files": 531,
+      "classified_release_files": 546,
       "dependency_manifests": 4,
-      "executable_artifacts": 421,
+      "executable_artifacts": 436,
       "registration_manifests": 2,
-      "source_files": 414,
+      "source_files": 429,
       "status": "pass"
     },
     "fixtures": {
@@ -24,9 +24,9 @@
       "status": "pass"
     },
     "inventory": {
-      "classified_count": 531,
-      "file_count": 531,
-      "risky_count": 421,
+      "classified_count": 546,
+      "file_count": 546,
+      "risky_count": 436,
       "status": "pass"
     },
     "manifests": {
@@ -36,11 +36,11 @@
     "provenance": {
       "data_classification_count": 107,
       "exclusion_count": 0,
-      "mapping_sha256": "03359057d7502b9921d844ace98fa95c226fe3ced4b50746680b22041a490965",
+      "mapping_sha256": "4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021",
       "metadata_exclusion_count": 3,
-      "module_count": 421,
-      "record_count": 421,
-      "release_file_count": 531,
+      "module_count": 436,
+      "record_count": 436,
+      "release_file_count": 546,
       "review_attestations": 1,
       "status": "pass"
     },

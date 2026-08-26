@@ -83,11 +83,11 @@ def test_public_text_watermark_binds_requested_base14_font_without_collisions(
     untouched_fonts = _page_fonts(output_model, output_pages[2])
     assert set(untouched_fonts.entries) == {"/DSWMFont", "/DSWMFont1", "/Keep"}
     manifest = operation["preservation"]
-    for object_number in (1, 2, 5, 8, 9, 10, 11):
+    for object_number in (1, 2, 5, 6, 7, 8, 9, 10, 11):
         assert source_model.objects[object_number].sha256 == output_model.objects[object_number].sha256
         assert object_number in manifest["preserved_objects"]
-    assert set(operation["changed_objects"]) == {3, 4, 6, 7}
-    assert operation["added_objects"]
+    assert set(operation["changed_objects"]) == {3, 4}
+    assert operation["added_objects"] == [12, 13, 14, 15]
     assert operation["removed_objects"] == []
 
 
@@ -141,10 +141,51 @@ def test_public_text_watermark_reuses_a_matching_dedicated_font_resource(
 
     assert result["status"] == "success", result
     operation = result["diagnostics"]["operation_result"]
-    assert operation["added_objects"] == [12]
+    assert operation["added_objects"] == [12, 13, 14]
     model = parse_pdf(output)
     for page in walk_pages(model)[:2]:
         assert _assert_watermark_font(model, page, "REUSE", "Helvetica") == "/DSWMFont"
+
+
+def test_public_text_watermark_rejects_noncanonical_matching_source_font(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _inherited_resource_pdf(
+        tmp_path / "font-matrix-source.pdf",
+        conflict_font="Helvetica",
+        conflict_extra=b" /FontMatrix [0 0 0 0 0 0]",
+    )
+    output = tmp_path / "font-matrix-output.pdf"
+    request = _request(
+        tmp_path / "font-matrix.json",
+        source,
+        output,
+        [{
+            "type": "watermark",
+            "text": "VISIBLE",
+            "pages": [1, 2],
+            "font": "Helvetica",
+        }],
+    )
+
+    result = _public(project_root, request)
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    assert operation["added_objects"] == [12, 13, 14, 15]
+    model = parse_pdf(output)
+    for page in walk_pages(model)[:2]:
+        resource = _assert_watermark_font(model, page, "VISIBLE", "Helvetica")
+        assert resource not in {"/DSWMFont", "/DSWMFont1"}
+        font = model.get_object(_page_fonts(model, page).get(resource)).value
+        assert isinstance(font, PdfDict)
+        assert set(font.entries) == {
+            "/Type",
+            "/Subtype",
+            "/BaseFont",
+            "/Encoding",
+        }
 
 
 def test_public_unsupported_watermark_font_rolls_back_transaction(
@@ -339,6 +380,7 @@ def _inherited_resource_pdf(
     path: Path,
     *,
     conflict_font: str = "Symbol",
+    conflict_extra: bytes = b"",
 ) -> Path:
     conflict_encoding = (
         b" /Encoding /WinAnsiEncoding"
@@ -362,6 +404,7 @@ def _inherited_resource_pdf(
             b"<< /Type /Font /Subtype /Type1 /BaseFont /"
             + conflict_font.encode("ascii")
             + conflict_encoding
+            + conflict_extra
             + b" >>"
         ),
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",

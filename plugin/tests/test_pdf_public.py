@@ -1731,6 +1731,50 @@ def test_public_edit_applies_multiple_primitives_and_watermark_opacity(
     assert operation_result["info_dictionary"]["title"] == "Public PDF"
 
 
+def test_public_watermark_rounds_candidate_opacity_but_reports_request_value(
+    project_root: Path,
+    public_created: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "high-precision-opacity.pdf"
+    edit_request = _request(
+        tmp_path,
+        "high-precision-opacity.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pdf.edit",
+            "input": str(public_created),
+            "output": str(output),
+            "arguments": {
+                "primitives": [{
+                    "type": "watermark",
+                    "text": "PRECISE",
+                    "pages": [1],
+                    "opacity": 0.3333333,
+                }],
+            },
+        },
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(edit_request),
+        check=False,
+    )
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    assert operation["opacity"] == 0.3333333
+    assert "_watermark_stage_hashes" not in operation["preservation"]
+    output_bytes = output.read_bytes()
+    assert b"/ca 0.333333" in output_bytes
+    assert b"/CA 0.333333" in output_bytes
+    assert b"/ca 0.3333333" not in output_bytes
+    assert b"/CA 0.3333333" not in output_bytes
+
+
 def test_public_text_watermark_applies_requested_style_and_position(
     project_root: Path,
     public_created: Path,
@@ -1989,9 +2033,9 @@ def test_public_text_watermark_clones_referenced_page_resources(
     operation_result = result["diagnostics"]["operation_result"]
     preservation = operation_result["preservation"]
     assert 6 in preservation["preserved_objects"]
-    assert preservation["added_objects"] == [7, 8]
+    assert preservation["added_objects"] == [7, 8, 9]
     assert b"/BaseFont /Helvetica /Encoding /WinAnsiEncoding" in output.read_bytes()
-    assert b"/Resources 8 0 R" in output.read_bytes()
+    assert b"/Resources 9 0 R" in output.read_bytes()
 
     read_request = _request(
         tmp_path,

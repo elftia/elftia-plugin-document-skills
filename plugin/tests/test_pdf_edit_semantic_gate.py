@@ -2,9 +2,11 @@
 
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pytest
+from pypdf import PdfReader, PdfWriter
+from pypdf.generic import DictionaryObject, FloatObject, NameObject
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.formats.pdf.create import create_pdf
@@ -128,6 +130,175 @@ def test_service_runs_required_composite_semantic_assertion(
     assert operation["primitive_count"] == 2
     assert len(operation["preservation"]["primitive_plans"]) == 2
     assert operation["preservation"]["expected_output_hashes"]
+
+
+def test_multiple_watermarks_bind_distinct_opacity_resources(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    destination = tmp_path / "watermarked.pdf"
+    create_pdf(source, _document(page_count=1))
+
+    result = PdfService(project_root).execute(
+        "pdf.edit",
+        _request(
+            source,
+            destination,
+            [
+                {
+                    "type": "watermark",
+                    "text": "FIRST",
+                    "pages": [1],
+                    "opacity": 0.25,
+                },
+                {
+                    "type": "watermark",
+                    "text": "SECOND",
+                    "pages": [1],
+                    "opacity": 0.75,
+                },
+            ],
+        ),
+    )
+
+    assert result["status"] == "success", result
+    operations = result["diagnostics"]["operation_result"]["primitives"]
+    assert [item["graphics_state"] for item in operations] == [
+        "/DSWMGS",
+        "/DSWMGS1",
+    ]
+    model = parse_pdf(destination)
+    graphics = walk_pages(model)[0].resources.get("/ExtGState")
+    assert graphics.get("/DSWMGS").get("/ca") == 0.25
+    assert graphics.get("/DSWMGS1").get("/ca") == 0.75
+
+
+def test_watermark_does_not_borrow_or_overwrite_an_existing_graphics_state(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source.pdf"
+    destination = tmp_path / "watermarked.pdf"
+    create_pdf(source, _document(page_count=1))
+    reader = PdfReader(source)
+    writer = PdfWriter()
+    writer.clone_document_from_reader(reader)
+    resources = writer.pages[0]["/Resources"]
+    resources[NameObject("/ExtGState")] = DictionaryObject({
+        NameObject("/DSWMGS"): DictionaryObject({
+            NameObject("/Type"): NameObject("/ExtGState"),
+            NameObject("/ca"): FloatObject(0.9),
+            NameObject("/CA"): FloatObject(0.9),
+        }),
+    })
+    with source.open("wb") as handle:
+        writer.write(handle)
+
+    result = PdfService(project_root).execute(
+        "pdf.edit",
+        _request(
+            source,
+            destination,
+            [{
+                "type": "watermark",
+                "text": "DEDICATED",
+                "pages": [1],
+                "opacity": 0.25,
+            }],
+        ),
+    )
+
+    assert result["status"] == "success", result
+    operation = result["diagnostics"]["operation_result"]
+    assert operation["graphics_state"] == "/DSWMGS1"
+    graphics = walk_pages(parse_pdf(destination))[0].resources.get("/ExtGState")
+    assert graphics.get("/DSWMGS").get("/ca") == 0.9
+    assert graphics.get("/DSWMGS1").get("/ca") == 0.25
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        pytest.param(
+            lambda payload: payload.replace(
+                b"/ca 0.25 /CA 0.25",
+                b"/ca 0.75 /CA 0.25",
+                1,
+            ),
+            id="wrong-nonstroking-opacity",
+        ),
+        pytest.param(
+            lambda payload: payload.replace(
+                b"/ca 0.25 /CA 0.25",
+                b"/ca 0.25 /CA 0.75",
+                1,
+            ),
+            id="wrong-stroking-opacity",
+        ),
+        pytest.param(
+            lambda payload: payload.replace(b"/DSWMGS", b"/Borrow", 2),
+            id="borrowed-graphics-state",
+        ),
+        pytest.param(
+            lambda payload: payload.replace(b"/DSWMGS gs", b"/DSWMGS xx", 1),
+            id="missing-graphics-state-binding",
+        ),
+    ],
+)
+def test_watermark_graphics_state_tamper_does_not_promote(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tamper: Callable[[bytes], bytes],
+) -> None:
+    source = tmp_path / "source.pdf"
+    destination = tmp_path / "destination.pdf"
+    create_pdf(source, _document(page_count=1))
+    destination.write_bytes(b"preserve destination")
+    real_edit_pdf = service_module.edit_pdf
+
+    def tampered_edit(
+        input_path: Path,
+        output_path: Path,
+        arguments: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        operation, manifest = real_edit_pdf(input_path, output_path, arguments)
+        candidate = output_path.read_bytes()
+        tampered = tamper(candidate)
+        assert tampered != candidate
+        output_path.write_bytes(tampered)
+        output_hashes = parse_pdf(output_path).object_hashes()
+        manifest = _build_manifest(
+            parse_pdf(input_path).object_hashes(),
+            output_hashes,
+            changed=set(manifest["changed_objects"]),
+            added=set(manifest["added_objects"]),
+            removed=set(manifest["removed_objects"]),
+        )
+        operation["preservation"] = manifest
+        return operation, manifest
+
+    monkeypatch.setattr(service_module, "edit_pdf", tampered_edit)
+    result = PdfService(project_root).execute(
+        "pdf.edit",
+        _request(
+            source,
+            destination,
+            [{
+                "type": "watermark",
+                "text": "TAMPER",
+                "pages": [1],
+                "opacity": 0.25,
+            }],
+        ),
+    )
+
+    assert result["status"] == "failed", result
+    assert result["errors"][0]["details"]["failed_gates"] == [
+        "operation.mutation-semantics"
+    ]
+    assert destination.read_bytes() == b"preserve destination"
 
 
 def test_service_semantic_gate_rejects_a_hash_bound_wrong_rotation(

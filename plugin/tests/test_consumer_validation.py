@@ -830,7 +830,7 @@ Start-Sleep -Seconds 30
     )
 
     started = time.monotonic()
-    result = open_with_office("word", artifact, 0.25)
+    result = open_with_office("word", artifact, 2.0)
     elapsed = time.monotonic() - started
 
     assert result["outcome"] == "fail"

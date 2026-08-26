@@ -21,11 +21,23 @@ exact locked production graph:
 
 These packages run only behind the public supervisor and isolated worker. Passwords remain
 in the caller-protected request file and process memory; they are never copied to result files,
-command-line arguments, or provider diagnostics. Core PNG/JPEG creation parses and embeds
-its supported bounded image subset without Pillow. Pillow is used with bounded decode budgets
-for compatible soft-mask image extraction, balanced/aggressive Image XObject recompression,
-image-level quality evidence, and full-page render comparison.
-Alpha-bearing images are never rewritten by the compression path.
+command-line arguments, or provider diagnostics. Core PNG creation and orientation-1 JPEG
+creation do not invoke Pillow pixel-decoding or transform APIs for their supported bounded
+image subsets. For JPEG EXIF orientation values 2 through 8, Elftia owns local-file and magic
+validation, APP1/APP14 marker parsing, source hashing and TOCTOU checks, and the 16 MiB source,
+40 million pixel, and 160 MiB decoded-byte ceilings. Elftia also owns the closed orientation
+1-through-8 policy, decoder/frame-size agreement, Gray/RGB output policy, Flate PDF
+serialization, creation evidence, candidate reopen checks,
+and atomic promotion. Pillow receives only an already-local, marker-inspected, budget-preflighted
+orientation-2-through-8 JPEG; it performs the bounded pixel decode, `ImageOps.exif_transpose`,
+Gray/RGB conversion, and pixel extraction. Pillow does not discover inputs, access remote or
+system resources, write PDF objects, set budgets, publish evidence, or control promotion.
+
+Separately, Pillow is used with bounded decode budgets for compatible soft-mask image
+extraction, balanced/aggressive Image XObject recompression, decoded-image quality evidence,
+and full-page render comparison. Elftia retains the PDF preflight, limits, alpha fail-closed
+policy, object replacement, quality and byte-gain gates, semantic reopen checks, evidence, and
+atomic promotion. Alpha-bearing images are never rewritten by the compression path.
 
 The Unicode PDF font and shaping path uses this exact locked production graph:
 

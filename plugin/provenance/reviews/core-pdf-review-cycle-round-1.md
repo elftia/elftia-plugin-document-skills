@@ -12,20 +12,26 @@ identity_limitations: >-
   The nested reviewer `/root/pdf_independent_review/pdf_independent_review`
   executed round 1; its non-author parent `/root/pdf_independent_review`
   executed rounds 2 and 3. The fresh non-author reviewer
-  `/root/pdf_final_independent_review` executed rounds 4 through 6. Round 2
-  re-reviewed only the fixer delta against the six round-1 findings; rounds 3-6
-  reviewed the generated artifacts and final deltas described below. The review
-  process could not execute remote CI, a live host consumer, Poppler, Tesseract,
-  or qpdf, and does not claim OS-level resource-quota or current host-fleet
-  evidence.
-reviewed_mapping_sha256: 03359057d7502b9921d844ace98fa95c226fe3ced4b50746680b22041a490965
+  `/root/pdf_final_independent_review` executed rounds 4 through 6. A fresh
+  Codex non-author reviewer executed round 7 over the frozen uncommitted PDF,
+  test, notice, adoption-review, and runtime-allowlist delta against baseline
+  `120d60be42b3a29b85fc34af2bcd352f1ab40b75`. A fresh Codex non-author
+  reviewer executed round 8 over only the Windows consumer-timeout harness
+  delta and its prospective provenance identity. Round 2 re-reviewed only the
+  fixer delta against the six round-1 findings; rounds 3-7 reviewed the
+  generated artifacts and final deltas described below, and round 8 reviewed
+  only the harness delta described below. The review process
+  could not execute remote CI, a live host consumer, Poppler, Tesseract, qpdf,
+  or a native PDF viewer, and does not claim OS-level resource-quota or current
+  host-fleet evidence.
+reviewed_mapping_sha256: 4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021
 report_evidence: provenance/reviews/core-pdf-review-cycle-round-1.md
-baseline: cbdb7523f13e2290ba377c7c62e18df24f3a7afd
-review_round: 6
-review_mode: post-commit-whitespace-provenance-rebind
+baseline: 120d60be42b3a29b85fc34af2bcd352f1ab40b75
+review_round: 8
+review_mode: windows-consumer-timeout-harness-delta-attestation
 ---
 
-# PDF completion independent review - rounds 1-6
+# PDF completion independent review - rounds 1-8
 
 ## Attestation and verdict
 
@@ -41,17 +47,29 @@ executed round 4 over the final PDF delta closures, the regenerated allowlist/SB
 set, and delivery hygiene. After a full npm run surfaced four failures, the same fresh reviewer
 reopened the verdict and executed round 5 over only those fixes and the newly regenerated
 artifacts. Round 6 narrowly reviews the post-review removal of one terminal LF from
-`rewrite_fonts.py` and rebinds provenance to the resulting file identity. None of the delta
-reviews restarted or generalized the review over the full historical implementation diff. No
+`rewrite_fonts.py` and rebinds provenance to the resulting file identity. Round 7 reviews the
+frozen uncommitted JPEG/create-image and watermark semantic-closure delta against
+`120d60be42b3a29b85fc34af2bcd352f1ab40b75`, including a producer fix made after the reviewer
+reproduced an ordering failure. Round 8 narrowly reviews the single Windows consumer-harness
+timeout change from 0.25 to 2.0 seconds and the resulting prospective provenance identity. None
+of the delta reviews restarted or generalized the review over the full historical implementation
+diff. No
 reviewer authored the production fixes or generated artifacts. This canonical report and the
-round-6 provenance metadata are the only files written by the round-6 reviewer.
+round-6 provenance metadata were the only files written by the round-6 reviewer; this canonical
+report is the only file written by each of the round-7 and round-8 reviewers.
 
 **Verdict: clean; approval claimed.** All four round-1 Blockers and both round-1 Majors are
 closed by source inspection, independent public supervisor/worker reproductions, exact object
 and byte-preservation checks, and focused regression runs. No new Blocker or Major was found in
-the fixer delta, final PDF delta, or scoped generated-artifact deltas. The final mapping digest
-above is approved for this reviewed snapshot. Round 6 rebinds `plugin/provenance/modules.json`
-to one exact attestation whose report hash is derived from these canonical bytes.
+the fixer delta, final PDF delta, or scoped generated-artifact deltas. Round 7 initially found a
+Blocker in page-identity-replacement followed by watermarking; the producer fix is independently
+verified closed below, and no release-significant finding remains. The final mapping digest
+above is approved for this reviewed snapshot. Round 8 found that the failed full `npm test` run
+was startup-starved at the 0.25-second consumer-harness timeout rather than exposing a product
+cleanup failure; the unchanged cleanup contract passes the independent evidence below. That
+failed full run is not passing evidence, and a fresh full `npm test` run remains mandatory before
+delivery. The round-8 report edit remains outside the
+mapping hash because this canonical report is an explicit self-referential metadata exclusion.
 
 ## Review-cycle history and disposition
 
@@ -63,6 +81,8 @@ to one exact attestation whose report hash is derived from these canonical bytes
 | 4 | `/root/pdf_final_independent_review` | Fresh final-delta and generated-artifact review; closed B5/B9/B10, revalidated final walker bytes, and approved the current mapping. |
 | 5 | `/root/pdf_final_independent_review` | Reopened review after four full-suite failures; verified the three exact fixes, focused 19-test closure, and regenerated artifacts. |
 | 6 | `/root/pdf_final_independent_review` | Narrow review of one removed terminal LF; provenance report/modules/runtime/audit rebinding to the resulting exact mapping. |
+| 7 | Fresh Codex non-author reviewer | Frozen uncommitted JPEG/create-image and watermark closure review; reproduced and closed the ordering Blocker, reran focused/P0 gates, and approved the prospective mapping. |
+| 8 | Fresh Codex non-author reviewer | Narrow Windows consumer-timeout harness review; distinguished startup starvation from cleanup behavior, independently reran the unchanged contract, and approved the prospective mapping with a fresh full npm run still required. |
 
 | Round-1 finding | Severity | Round-1 observed failure | Round-2 disposition |
 | --- | --- | --- | --- |
@@ -466,7 +486,155 @@ One exploratory run of the entire `test_supply_chain.py` file plus the runtime g
 240-second command limit and was terminated without a failure result; no pass is claimed for that
 attempt. The two bounded focused runs above are the review evidence.
 
-## External limitations retained from round 1
+## Round 7 - frozen JPEG and watermark semantic-closure delta
+
+### Scope and verdict
+
+**CLEAN after one reproduced Blocker was fixed and re-reviewed.** The frozen worktree HEAD is
+`120d60be42b3a29b85fc34af2bcd352f1ab40b75`. Round 7 reviewed the uncommitted PDF production
+modules, their focused/public tests, the Pillow notice and adoption-review extension, and the
+runtime-source allowlist delta. Existing workspace-only `.pytest-*` and `tmp/` trees were not
+reviewed deliverables and were neither edited nor included in release/provenance checks. The
+reviewer made no production, test, generated-artifact, cleanup, commit, or staging change.
+
+### Initially reproduced ordering Blocker - closed
+
+The first independent public reproduction applied `page_sequence` with `pages: [2]` and then a
+text watermark to final page 1. It returned exit 2 with `DS_VALIDATION_FAILED`; the only failed
+gate was `operation.mutation-semantics`, with direct mismatch `watermark-evidence:1`. A
+pre-existing destination remained byte-identical and no staging residue remained. The cause was
+stale original-source object ownership: an identity-replacing stage renumbered the document, so
+a valid new watermark content object could collide numerically with the original object set.
+
+The closure is narrow and independently sourced. `edit_pipeline.py` parses the current input or
+previous authorized stage immediately before each watermark and snapshots its object-number set;
+the watermark writer cannot supply that baseline. `service.py` removes both private watermark
+commitment maps before public preservation validation/evidence. `edit_semantics.py` rejects a
+missing or malformed baseline and supplies the stage-derived set to expectation planning.
+`watermark_expectations.py` refreshes only object ownership while retaining independently
+request-derived content, resource, font, image, soft-mask, geometry, and baseline semantics.
+Role-specific generation, membership, canonical-payload, and trusted stage-hash checks remain in
+`watermark_report_semantics.py`.
+
+An independent OS-`TemporaryDirectory` public supervisor/worker harness then passed all six
+ordering families: page-sequence then text, page-sequence then RGBA image, split then text,
+page-insert then text, merge then text, and text watermark then page-sequence. Each final
+candidate was reparsed and scanned; the exact text or asset SHA-256 was present once, the RGBA
+soft mask was present, page counts matched, and neither `_watermark_stage_hashes` nor
+`_watermark_source_objects` appeared anywhere in public operation evidence. One initial harness
+invocation failed before product import because the standalone interpreter lacked the test
+suite's `src` path bootstrap; no product result is claimed for it. The corrected in-memory
+bootstrap produced the six passing results above.
+
+### JPEG, image-object, and watermark closure
+
+- Orientation-1 JPEG embedding is guarded by marker inspection plus a bounded Pillow decode
+  proof while preserving original DCT bytes. EXIF orientations 2 through 8 are decoded,
+  transposed, and emitted as bounded Flate Gray/RGB data. Adobe CMYK uses `/DeviceCMYK` with the
+  closed `/Decode [1 0 1 0 1 0 1 0]` policy. Source hashes, dimensions, color spaces, filters,
+  decode/decode-parameter fields, stream bytes, alt text, reference generations, and optional
+  soft masks are rebound from reopened candidates.
+- Watermarks now use one dedicated content object per target page and copy-on-write page
+  resources. Candidate scans require closed content, ExtGState, font, image, and soft-mask
+  dictionaries; exact request-derived operator bytes and bboxes; unique content ownership; and
+  per-primitive image/mask ownership. Existing shared content and untargeted source objects remain
+  preserved.
+- A separate valid-PDF probe with source content generation 2 and free xref gaps exercised an
+  RGBA watermark. The predeclared plan authorized objects 7 through 10, the writer added 7
+  through 9, the public operation succeeded, and the original generation/free entries remained
+  valid. This closes the reviewer's exploratory allocation concern without a finding.
+
+### Round-7 independent commands and results
+
+| Command or check | Result |
+| --- | --- |
+| Ephemeral public supervisor/worker ordering harness using OS `TemporaryDirectory` | PASS - 6/6 orderings; final candidate scans and private-key absence verified |
+| `uv run --frozen pytest -p no:cacheprovider tests/test_pdf_jpeg_creation.py tests/test_pdf_jpeg_direct_embedding.py tests/test_pdf_watermark_blockers.py tests/test_pdf_watermark_semantic_closure.py tests/test_pdf_watermark_ordering.py -q` | PASS - 78 tests |
+| `uv run --frozen pytest -p no:cacheprovider tests/test_pdf_create_promotion.py tests/test_pdf_edit_semantic_gate.py tests/test_pdf_image_alt_structure.py tests/test_pdf_watermark_fonts.py -q` | PASS - 78 tests |
+| `uv run --frozen pytest -p no:cacheprovider tests/test_pdf_contracts.py tests/test_pdf_operations.py tests/test_pdf_public.py -q` | PASS - 166 tests |
+| Strict UTF-8/no-BOM scan over all 32 changed/new deliverable source, test, notice, review, and allowlist files | PASS - no decode error, BOM, replacement character, or checked mojibake marker |
+| PDF production-module line gate | PASS - maximum 445 physical lines (`create.py`) and 396 effective nonblank/noncomment lines (`service.py`) |
+| `git diff --check` | PASS - no whitespace errors |
+| In-memory allowlist/SBOM/audit comparison | PASS - 284 Python / 9 Node allowlist paths; 24 unique SBOM components / 22 unique dependency records; all edges resolve |
+| `uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only` before and after this report edit | PASS - both returned `4e3a1719780b16f50cecb14629c0e4553d7628c29a6991d8fb829bdf5437c985` |
+
+The checked-in runtime allowlist is structurally identical to `runtime_source_allowlist(root)`.
+The checked-in SBOM is byte-identical to `canonical_json(build_sbom(root))`. `run_audits(root)`
+passes public skills, manifests, commands, inventory, execution boundary, fixtures, clean-room,
+and SBOM checks; its sole pre-attestation failure is provenance with
+`All-file provenance mapping does not match the release inventory`, which is the expected
+unbound state for this frozen delta. The report path is explicitly listed in
+`SELF_REFERENTIAL_METADATA_ALLOWLIST`, so changing only these report bytes leaves the prospective
+mapping unchanged.
+
+Round 7 is local Windows evidence only. It does not claim current-revision remote Windows,
+macOS, or Linux CI; native Poppler render, OCR, qpdf, or viewer evidence; live host-consumer
+fleet synchronization; OS-enforced CPU/memory/disk/process quotas; or a fresh full npm,
+build/dist, or reproducibility run.
+
+## Round 8 - Windows consumer-timeout harness delta
+
+### Scope, failed full run, and verdict
+
+**CLEAN for the narrow test-harness delta; no release-significant finding remains.** The only
+round-8 implementation delta is
+`tests/test_consumer_validation.py::test_real_consumer_timeout_kills_descendant_and_preserves_file`
+changing the `open_with_office("word", artifact, ...)` timeout from 0.25 to 2.0 seconds. The
+PowerShell parent and child still sleep for 30 seconds, and the test still requires a timeout,
+`descendants_cleaned is True`, creation of a real child PID, death of that descendant, an
+unchanged artifact SHA-256, and total elapsed time below 10 seconds. Round 8 made no production,
+test, generated-provenance, cleanup, commit, or staging change; this canonical report is its only
+write.
+
+The full `npm test` attempt on the round-7 snapshot completed with 1563 passed, 3 skipped, and
+one failed Windows consumer-harness test: the exact test above. It failed again in isolation at
+0.25 seconds, before the PowerShell body created the child/PID file. **That full run is failed and
+is not claimed as passing evidence.** Read-only timing exploration found that 0.25, 0.5, and
+0.75 seconds never reached PID creation, while 1.0 and 2.0 seconds did. The delta therefore gives
+the real descendant enough Windows startup time to exist before exercising the intended timeout
+and process-tree cleanup contract; it does not relax the 30-second workload or the under-10-second
+timeout bound.
+
+### Independent contract and source verification
+
+Source tracing confirms that `consumer_validation/office.py` launches an isolated PowerShell
+process, waits only for the supplied bounded timeout, and on timeout invokes the Windows tree
+terminator. That path uses `taskkill.exe /PID <pid> /T /F`, enumerates/waits/kills descendants,
+and reports `descendants_cleaned=True` only after successful cleanup. Timeout evidence still
+projects the timeout category, cleanup category, drain status, and bounded stream metadata.
+
+The exact unchanged test contract was independently run five times at 2.0 seconds and passed
+5/5. A separate direct OS-temporary harness observed a real descendant and returned:
+
+```text
+cleanup_category: taskkill-complete
+descendants_cleaned: True
+child_dead: True
+artifact_unchanged: True
+elapsed_seconds: 2.387
+```
+
+This closes the observed harness-startup failure while retaining direct evidence that the actual
+descendant is terminated and the source artifact is preserved.
+
+### Prospective provenance and mandatory delivery gate
+
+Independent in-memory regeneration and
+`uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only`
+both returned prospective mapping
+`4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021`. Runtime allowlist parity
+passes at 284 Python and 9 Node paths; SBOM parity passes at 24 components and 22 dependency
+records. The checked-in `modules.json` and audit report are still bound to round-7 mapping
+`4e3a1719780b16f50cecb14629c0e4553d7628c29a6991d8fb829bdf5437c985`. Immediately before this
+self-referential report edit, a fresh `run_audits(root)` failed only with
+`Module hash drift: tests/test_consumer_validation.py`. After the report edit, the round-7
+attestation necessarily also contains the old report SHA-256, so a fresh audit stops at
+`Review report hash does not match canonical bytes` until regeneration. This is the expected
+pre-rebind state, not a passing bound-audit receipt. The LEAD must regenerate and bind the
+round-8 provenance artifacts, then obtain a new passing full `npm test` result for that delivery
+snapshot. Focused round-8 evidence does not waive or substitute for that gate.
+
+## External limitations retained from rounds 1, 7, and 8
 
 - `pdftoppm`, `tesseract`, and `qpdf` remain unavailable locally. No local native render, OCR,
   or qpdf receipt is claimed; the optional visual mutation gate reported unavailable rather
@@ -490,12 +658,19 @@ verified.
 `approval_claimed: true`; `status: clean`. The six round-1 Blocker/Major findings remain
 non-author-confirmed closed, the round-2 fixer delta is clean, rounds 3-4 establish generated-
 artifact and final-delta consistency, and round 5 closes the four surfaced full-suite failures
-with focused evidence. The approved mapping identity for the current provisional snapshot is
-`03359057d7502b9921d844ace98fa95c226fe3ced4b50746680b22041a490965`.
+with focused evidence. Round 7 independently reproduced and closed the page-identity-replacement
+then watermark Blocker and found no remaining release-significant issue in the frozen delta.
+Round 8 independently verifies that the 2.0-second Windows harness timeout exercises the same
+bounded process-tree cleanup contract and finds no release-significant issue in that one-line
+test delta. The failed round-7-snapshot full run is not passing evidence; release still requires
+fresh regenerated provenance and a new passing full `npm test` run. Subject to that unwaived
+delivery gate, the approved mapping identity for the current provisional snapshot is
+`4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021`.
 This approval is issued by the composite native Codex non-author review process described above:
 the child reviewer owns the round-1 findings, its parent owns the round-2 closure and round-3
-generated-artifact checks, and `/root/pdf_final_independent_review` owns rounds 4-6. Historical
-digests `810403...`, `c0f210...`, `d2bba3...`, and `369627...` are not valid for binding. Round 6
-does not modify production source/tests, stage, commit, archive, or ship. The post-fix full
-npm-suite delivery gate remains satisfied by the round-5 receipt; round 6 separately proves the
-subsequent source delta is one terminal LF only.
+generated-artifact checks, `/root/pdf_final_independent_review` owns rounds 4-6, and the fresh
+Codex non-author reviewers own rounds 7 and 8. Historical digests `810403...`, `c0f210...`,
+`d2bba3...`, `369627...`, `03359057...`, and `4e3a17...` are not valid for the round-8 binding.
+Rounds 7 and 8 each modify only this canonical report and do not modify production source/tests,
+generated provenance, stage, commit, archive, or ship. Round 8 makes only the narrower local
+claims enumerated above and explicitly requires a new full npm-suite delivery receipt.

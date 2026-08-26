@@ -51,7 +51,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "77e7ec2df9c71aff89784ae06ed517620c1dd49e3b313d93add1dc8632ec2d43"
+      "sha256": "d640b7ebaf8f4d4d20765db68ebb92a3a039188559cd579b397f7a4c504e70d8"
     },
     {
       "artifact": "elftia-plugin.json",
@@ -325,7 +325,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "4e1bfe292c20727cad93a696ab5788f76a7a6ba0513b4c57d60b43c61e01e3f2"
+      "sha256": "8e271caee3b1c5b7a502a09423fc5dc4acea6c88b1466f131c92fbea4aae0058"
     },
     {
       "artifact": "provenance/reviews/playwright-core-1.62.1-adoption.md",
@@ -371,7 +371,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "5c5ca4dbe84cdf0ba2334135bd3f23b070f774d82050237349179a73164978ca"
+      "sha256": "60255e3b68fe6efd72221345b7251213e0b4aa7db5ac0b14a549618799664f1a"
     },
     {
       "artifact": "pyproject.toml",
@@ -3298,6 +3298,27 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/create_image_contracts.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "f6fe35142bc2c7e91c4a4d6e6f69fc266c94663497b9c4d9ecd1577967778eb4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/pdf/create_image_structure.py",
       "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
       "review_evidence": [
@@ -3325,7 +3346,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "7c540598d118e152e059cf98c595b9ea0df55e971affbe4a3bf637e0d8c2ac95",
+      "sha256": "4b817e26432cf728baed49577a1b8223b22c8f5a7f2518ca166276e82bc75411",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3619,7 +3640,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "78b34d7c6a1e7b29362ef106193d16baff59cc1cc7c2446733be4a5dc6a0e7e1",
+      "sha256": "da4f5940898a43ebbf8935157b53a1ac33a28ef9f9592d63082da04700a6b498",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3640,7 +3661,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "2371fe6219d831c017b40a103a023db8bc4ab3b77eb92201a20e6a3a29813588",
+      "sha256": "0201e1ab277709c9707432671108fe7d7e88c18c8457937e5a65d206d4107074",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3976,7 +3997,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "201847d3b0af15e94e654975922ca9fa7cf99584f148162962bd3d250d9a58d5",
+      "sha256": "3bb6ccb3cbcbc3b4d8550c868dd441c7320a71a7a851b98dc8f58c8a7ca632f9",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4201,6 +4222,27 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/jpeg_assets.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "7fc414a1caf00fd7957dd33a61fb61751cbaf623975f4bd95e5227d24e0d7a09",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/pdf/jpeg_structure.py",
       "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
       "review_evidence": [
@@ -4291,7 +4333,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "77605b20384b7502bb41d176e03f1b01a8be67da3835cc6b8c388f0bd1637006",
+      "sha256": "60cbb804836c82989167a87eca7ef1903d5e746d0b69ec04c649883667940b64",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5110,7 +5152,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "6bc5f8cc449b7076466e3b057e2065114614536571ed559cc7189800531cf24d",
+      "sha256": "ec3a5ea142cbf4ec360e389523ad2ed3f2d93077304312e50998bbff520715c3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5341,7 +5383,49 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "8131d9a59ab6f891d5413e02a9f93987a2cf43b69154b9cbc8daca25b483de6f",
+      "sha256": "fef17b3655b6157a1faa44cee2d4354732c139738e9537b8a532295c3dae27bb",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_expectations.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "b4afa3f495b2f14931f13fedfa330757c2d7bbfb8c53f0a9a3324056531455ef",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_expected_content.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "52687ad934c6ce3e0dcbafa69ab49876e92a760b92a3c1d887becab39d096280",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5362,7 +5446,28 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "8a379581fbb2f6b6375e191f8f688d0bab6100211f229ebb8959fbb3722ece0a",
+      "sha256": "3d3ebfdc401c119ab2d2523a7af25066911d11a6e848804e3cd29b8e9496a3cc",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_image_semantics.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "7dc7884f33f4cf3c2467c17311869838d98f330fc5aada17d764104830b78dd3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5398,13 +5503,118 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_objects.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "2f7a63bce6ba3ea1d1a065320e7a0bdecd26877920441a21acf8160a80c41bc4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_report_semantics.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "6faffa00790e9760e6587304f15aa2cf84558a3a1d10fa3bc55d0a8623cc8b8a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_resource_scan.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "662d0301888d07cafa7b8a89cb7cde80e9ec58c8b523a7ba1583a61a17207c89",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/pdf/watermark_resources.py",
       "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
       "review_evidence": [
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "f88485732e36175ef598aa0010ef7c3de145ef4c96e2f92d5babfb733e30c609",
+      "sha256": "bfc87e7d9d742be7fcb3e6a167c303037cae820c61d963793af6ae1253e5b2b6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_scan.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "209e497371016b0124b68c60c2e1736cd7e7d5acb4576ba9f29612ebd4cd3443",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/pdf/watermark_semantics.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "0f36bcc8a5959336397ff81561872ea30b5b2dbe9ee98aa454d6e07766b075f3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -7820,7 +8030,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "18e4a9135178a5d6abb511e76433af40e39310f3bbea35d2fc8ba307779dada3",
+      "sha256": "c9f443b04219038309c689f0aa529a43ed9fedae2b11370af66b22e846a03dcd",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8348,7 +8558,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "46e01d155785db8d512785dd12e37bcbde0d31b3a1fbb5ab13d10beba3d8ab21",
+      "sha256": "c74fd97e5e3fa0c7080d59db69bc690165c5e419e127af64d7a8d15f121fe1f4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8369,7 +8579,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "7a180d02e61ce0ec67bab2a5332338c1ee9ab44d05dca27e2d842334b5ee85f9",
+      "sha256": "ef18617e7c9c6ade786e32e14ac1532b32a4d7e61065af580d79b10a81aacbd9",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8474,7 +8684,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "2cf560e8a6cb4346fbba691230bacfb87b7f45dd87d371e301c3c6bb592ba51c",
+      "sha256": "896f133aae3bbc4d4b3093784d6de00435a7e00e75527e063ce9b129712066ea",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8559,6 +8769,48 @@
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
       "sha256": "c3b9659c7482e4d79c21d98fafa2d8a6f5309a4b13c74565395f6ab9908eeb2f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_pdf_jpeg_creation.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "2a0fd8a629685e6aa18fe2251b4467d690a3ebf36e783d5dea9fbea903a33df5",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_pdf_jpeg_direct_embedding.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "8303d85ebe3169cda39c0f4472b267907cfe67136313a65e2ce24a535aeb2e0b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -8768,7 +9020,7 @@
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "5ef9ba9026e202d56364e61b588e227e7cedcdca6ebb890996adcd7686f9d081",
+      "sha256": "7558c1fb3b13e28cb38f7e94aef9beed6dee56504c2977608ce42d5a2c4d5ccd",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9035,13 +9287,76 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_pdf_watermark_blockers.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "37b9bc9a2878970f7b3a3ba559125fe0e8d147b8d6ec2017ebcf93a0edc377ee",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
       "module": "tests/test_pdf_watermark_fonts.py",
       "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
       "review_evidence": [
         "provenance/reviews/core-pdf-review-cycle-round-1.md"
       ],
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
-      "sha256": "8e8af46c593c34815fea1e1083cb9664e294d3b03abb6b414786c40a5babef8a",
+      "sha256": "06f5fc8841b30b52a2b6ecec77fb561c77dffaa2fae86261a5695b322e059a00",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_pdf_watermark_ordering.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "ee8f3f0031c73d256737813c00339ec8b6208b737a10bc29b14707e1ecadf52f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pdf_contracts.py",
+        "tests/test_pdf_operations.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "PDF completion contracts, Core/provider implementations, atomic validation, truthful capability reporting, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_pdf_watermark_semantic_closure.py",
+      "requirement_source": "Elftia docs/research/document-skills/tasks/pdf-completion-task.md (2026-08-24)",
+      "review_evidence": [
+        "provenance/reviews/core-pdf-review-cycle-round-1.md"
+      ],
+      "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
+      "sha256": "9aab49fca40b38384035bfb403c1b13120ff005b8e359359dc34d5219ca4b582",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9863,8 +10178,8 @@
       "identity_limitations": "This self-asserted composite Codex identity cannot cryptographically prove the service principal or that one reviewer executed every round; it does not establish remote CI, live host-consumer, native Poppler/Tesseract/qpdf, OS resource-quota, or deployment-fleet evidence.",
       "report_evidence": "provenance/reviews/core-pdf-review-cycle-round-1.md",
       "report_name": "core-pdf-review-cycle-round-1.md",
-      "report_sha256": "2c1bddf3a4847713bdef911124337466ff507d669732cf2fb2f5069bedaf566d",
-      "reviewed_mapping_sha256": "03359057d7502b9921d844ace98fa95c226fe3ced4b50746680b22041a490965",
+      "report_sha256": "40f7a167348dcac29064e15b34baa8125a186f8f935d3133f8bbb33972813d50",
+      "reviewed_mapping_sha256": "4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021",
       "reviewer": "Codex native non-author review team/process: PDF completion 2026-08-25",
       "role": "reviewer",
       "runtime": "codex",

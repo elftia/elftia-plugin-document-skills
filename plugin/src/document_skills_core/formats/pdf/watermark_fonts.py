@@ -1,6 +1,7 @@
 """Closed Base-14 font planning for Core text watermarks."""
 
 from dataclasses import dataclass
+import hashlib
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -25,6 +26,7 @@ SUPPORTED_BASE14_WATERMARK_FONTS = (
 _RESOURCE_PREFIX = "DSWMFont"
 _MAX_RESOURCE_CANDIDATES = 10_000
 _MISSING = object()
+_CANONICAL_FONT_KEYS = ("/BaseFont", "/Encoding", "/Subtype", "/Type")
 
 
 @dataclass(frozen=True)
@@ -54,7 +56,10 @@ def plan_watermark_font(
         if any(entry is not _MISSING for entry in entries):
             continue
         object_number = _next_object_number(model, added_objects)
-        added_objects[object_number] = _font_object_payload(object_number, base_font)
+        added_objects[object_number] = watermark_font_object_payload(
+            object_number,
+            base_font,
+        )
         return WatermarkFontPlan(name, object_number)
     raise DocumentSkillsError(
         ErrorCode.ENHANCEMENT_REQUIRED,
@@ -105,13 +110,36 @@ def _reference_matches(
     reference: IndirectReference,
     base_font: str,
 ) -> bool:
-    value = model.get_object(reference).value
+    obj = model.objects.get(reference.obj_num)
+    if (
+        obj is None
+        or reference.gen_num != obj.gen_num
+        or obj.gen_num != 0
+        or not isinstance(obj.value, PdfDict)
+    ):
+        return False
+    value = obj.value
     return (
-        isinstance(value, PdfDict)
+        tuple(sorted(value.entries)) == _CANONICAL_FONT_KEYS
         and value.get("/Type") == "/Font"
         and value.get("/Subtype") == "/Type1"
         and value.get("/BaseFont") == f"/{base_font}"
         and value.get("/Encoding") == "/WinAnsiEncoding"
+        and obj.sha256 == watermark_font_object_sha256(obj.obj_num, base_font)
+    )
+
+
+def canonical_font_record_matches(record: Any, base_font: str) -> bool:
+    """Return whether a scanned record is the exact reusable Base-14 object."""
+    return (
+        record.object_generation == 0
+        and record.keys == _CANONICAL_FONT_KEYS
+        and record.type_name == "/Font"
+        and record.subtype == "/Type1"
+        and record.base_font == base_font
+        and record.encoding == "/WinAnsiEncoding"
+        and record.object_sha256
+        == watermark_font_object_sha256(record.object_number, base_font)
     )
 
 
@@ -123,7 +151,15 @@ def _next_object_number(
     return max(occupied) + 1
 
 
-def _font_object_payload(object_number: int, base_font: str) -> bytes:
+def watermark_font_object_sha256(object_number: int, base_font: str) -> str:
+    """Hash the canonical object payload for one allocated Base-14 font."""
+    return hashlib.sha256(
+        watermark_font_object_payload(object_number, base_font)
+    ).hexdigest()
+
+
+def watermark_font_object_payload(object_number: int, base_font: str) -> bytes:
+    """Build the canonical object payload for one allocated Base-14 font."""
     if base_font not in SUPPORTED_BASE14_WATERMARK_FONTS:
         raise ValueError("Unsupported Base-14 watermark font reached the writer.")
     return (
