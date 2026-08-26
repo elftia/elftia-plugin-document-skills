@@ -9,6 +9,7 @@ import warnings
 
 import pytest
 
+from feature_coverage import validate_feature_coverage
 from support import (
     DistXlsx,
     XLSX_OPERATIONS,
@@ -58,7 +59,6 @@ def test_dist_capabilities_are_the_exact_eleven_operation_contract(
 
 def test_dist_feature_truth_table_has_auditable_execution_nodeids(
     dist_xlsx: DistXlsx,
-    request: pytest.FixtureRequest,
 ) -> None:
     truth_table = json.loads(
         (
@@ -71,49 +71,14 @@ def test_dist_feature_truth_table_has_auditable_execution_nodeids(
     )
     coverage_path = Path(__file__).with_name("feature-nodeids.json")
     coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
-    available = {
-        f"{operation}/{feature}"
-        for operation, record in truth_table["operations"].items()
-        for feature in record.get("available", [])
-    }
-    provider_features = set(coverage["provider_feature_ids"])
-    assert provider_features <= available
-    assert set(coverage["core_operation_nodeids"]) == XLSX_OPERATIONS
-    assert set(coverage["provider_operation_nodeids"]) == {
-        "xlsx.convert",
-        "xlsx.recalculate",
-        "xlsx.render",
-        "xlsx.validate.schema",
-    }
-
-    resolved: dict[str, dict[str, object]] = {}
-    for feature_id in sorted(available):
-        operation = feature_id.rsplit("/", 1)[0]
-        if feature_id in provider_features:
-            profile = "provider-dist"
-            nodeids = coverage["provider_operation_nodeids"][operation]
-        else:
-            profile = "core-dist"
-            nodeids = coverage["core_operation_nodeids"][operation]
-        assert nodeids, feature_id
-        resolved[feature_id] = {"profile": profile, "nodeids": nodeids}
-    assert set(resolved) == available
-
-    collected = {
-        item.nodeid.replace("\\", "/")
-        for item in request.session.items
-        if item.nodeid.replace("\\", "/").startswith("e2e/xlsx_dist/")
-    }
-    assert set(coverage["core_dist_nodeids"]) == collected
-    for record in resolved.values():
-        allowed = set(coverage[f"{record['profile'].replace('-', '_')}_nodeids"])
-        assert set(record["nodeids"]) <= allowed
-
-    for nodeid in coverage["provider_dist_nodeids"]:
-        relative, function_name = nodeid.split("::", 1)
-        test_path = dist_xlsx.root.parent.parent / relative
-        assert test_path.is_file(), nodeid
-        assert f"def {function_name}(" in test_path.read_text(encoding="utf-8")
+    repository_root = Path(__file__).resolve().parents[2]
+    resolved = validate_feature_coverage(
+        truth_table,
+        coverage,
+        repository_root=repository_root,
+        dist_root=dist_xlsx.root,
+    )
+    assert len(resolved) == 152
 
 
 def test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validate(
@@ -458,6 +423,7 @@ def test_dist_canonical_json_xlsx_read_json_and_csv_typed_roundtrip(
         encoding="utf-8",
         newline="\n",
     )
+    canonical_hash = sha256(canonical)
     converted_xlsx = tmp_path / "typed-output.xlsx"
     to_xlsx = dist_xlsx.run(
         write_request(
@@ -476,6 +442,10 @@ def test_dist_canonical_json_xlsx_read_json_and_csv_typed_roundtrip(
         )
     )
     assert to_xlsx["status"] == "degraded"
+    assert sha256(canonical) == canonical_hash
+    assert to_xlsx["diagnostics"]["promotion"]["filesystem_state"].startswith(
+        "committed"
+    )
     assert _loss_codes(to_xlsx) == [
         "formulas-replaced-with-cached-values",
         "null-values-mapped-to-blank-cells",

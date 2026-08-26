@@ -283,6 +283,7 @@ def test_read_reports_static_formula_issues_without_claiming_engine_validation(
     assert result["status"] == "success"
     assert analysis["valid"] is False
     assert analysis["calculation_engine"] is False
+    assert analysis["cells"][0]["formula_type"] == "normal"
     assert analysis["issues"][0]["code"] == "formula-sheet-missing"
 
 
@@ -327,6 +328,9 @@ def test_external_formula_read_fails_closed_but_inspect_reports_inertly(
     assert read_result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
     assert provider.calls == 0
     assert inspect_result["status"] == "success"
+    assert inspect_result["diagnostics"]["operation_result"]["formula_analysis"][
+        "cells"
+    ][0]["formula_type"] == "normal"
     assert inspect_result["diagnostics"]["operation_result"]["formula_analysis"][
         "categories"
     ]["external_reference"] == 1

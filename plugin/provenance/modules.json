@@ -351,6 +351,16 @@
       "sha256": "2a6b765d9aecc543ac9e0be70776a9460dc7170985464a3ce1018bc61f9ad909"
     },
     {
+      "artifact": "provenance/reviews/document-skills-0.5.3-pptx-b2-merge-review.md",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "cc02af01b13094764c2d7f368b178592c1654e45d83a14298d0755aec1b5a13e"
+    },
+    {
       "artifact": "provenance/reviews/document-skills-0.5.3-unified-pptx-provenance-review.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -359,16 +369,6 @@
       ],
       "reviewer": "PENDING independent review",
       "sha256": "6f67292e50e13faf996f7ed8a004dae0db3c3f6350baeff698899569133a1ea6"
-    },
-    {
-      "artifact": "provenance/reviews/document-skills-0.5.3-xlsx-completion-merge-review.md",
-      "classification": "reviewed-data",
-      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
-      "review_evidence": [
-        "PROVENANCE.md"
-      ],
-      "reviewer": "PENDING independent review",
-      "sha256": "09a8cefd5d52ccd4413a8a2d5937498e3d99b0c0e63e600f2787041ff2f6ce65"
     },
     {
       "artifact": "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
@@ -2439,7 +2439,7 @@
       "reviewer": "PENDING independent review"
     },
     {
-      "artifact": "provenance/reviews/document-skills-0.5.3-pptx-b2-merge-review.md",
+      "artifact": "provenance/reviews/document-skills-0.5.3-xlsx-completion-merge-review.md",
       "classification": "self-referential-audit-metadata",
       "reason": "This audit metadata contains or reports the mapping digest, so raw self-hashing would be circular; exact scope and classification require independent review.",
       "review_evidence": [
@@ -12463,7 +12463,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6c1a3e5e6f28c0301ae8abad990b613c9b4971698cac14315c34bdb4df49ab78",
+      "sha256": "124505fe520267fa35e1457c6536827f7dbd55e31476c98ae354f34b5969272f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12982,7 +12982,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e50fd695d7a05b0948c4c4c6a98d11dfcc5189e2688beb0a1476f01353c8731a",
+      "sha256": "89f1241a07c7c000f57e2e63a6bb86fba0b05a04ff39e7fb621288db7ca912ff",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13089,7 +13089,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d45183ebcbd1925181e86add84a97f444b9005db473f2ce188d19a70c0ea3243",
+      "sha256": "66dff505b8ef28d80a6306e5a064ab6cf0c7495ac35d2f6249ffc52505e3bda0",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13329,7 +13329,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "19f75dca3f6e8a37c9c2a0a6dc69ac07d5107b00beb3d8ccb19e9f81284e4a0a",
+      "sha256": "c32afc45c68692d1c703f508eb27ece412259dbae4cf41961bb50b33235a3d52",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13405,7 +13405,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e8472d7b6b410d4a87d722e7bfed29ee461789b7ed1646b854ce7eb551d96a60",
+      "sha256": "9a5880d5cb092de377a87beb1fd69b7deebca622ea3037089912117be65833a3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13487,7 +13487,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "5a4cb903a1170b9354ba51448907787c4a98378bf48ab5f82352d58974d6108c",
+      "sha256": "c9ef188d2df1a5ea42817de4e8a548540ad0220f4e450b7f93dd0f741d7dc429",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13643,7 +13643,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "fdb9f0b9921bc3a3bd78c2642baea9fd69644b9b52c785d47a7762c4cedcf50f",
+      "sha256": "6694bf3ca980e39d68e4fdddcbe223453cc86ee5d750da9c1d7329cccea7f09b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13713,7 +13713,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4089f1ee059484c5d66d55271666c03773839ce12563b7e46902bf58c1f8e951",
+      "sha256": "22839a63fd350dd0cd299fae2332cd32a9802de8669e0d1b38dfc3013eb9d1f4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -14223,7 +14223,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "1d8db49349cb047674b0f38556753fa3a904961810e74e9d72c8ac91dcfcaa07",
+      "sha256": "ae324b8232b4ee58692db3db49a2d749b31d342e79b12b2ef654f93ee2ad992c",
       "source_class": "original",
       "third_party_files": []
     },

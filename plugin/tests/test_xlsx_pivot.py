@@ -178,6 +178,34 @@ def test_pivot_writes_complete_native_relationship_chain_and_reopens(
         "xl/pivotCache/pivotCacheRecords1.xml",
     }
     assert expected_parts.issubset(package.parts)
+    assert {
+        part: package.content_type_for(part)
+        for part in (
+            "xl/pivotTables/pivotTable1.xml",
+            "xl/pivotCache/pivotCacheDefinition1.xml",
+            "xl/pivotCache/pivotCacheRecords1.xml",
+        )
+    } == {
+        "xl/pivotTables/pivotTable1.xml": (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml."
+            "pivotTable+xml"
+        ),
+        "xl/pivotCache/pivotCacheDefinition1.xml": (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml."
+            "pivotCacheDefinition+xml"
+        ),
+        "xl/pivotCache/pivotCacheRecords1.xml": (
+            "application/vnd.openxmlformats-officedocument.spreadsheetml."
+            "pivotCacheRecords+xml"
+        ),
+    }
+    assert projected[0]["filters"] == [
+        {
+            "column": "Segment",
+            "field_index": 2,
+            "selected": {"kind": "string", "value": "Retail"},
+        }
+    ]
 
     reopened = load_workbook(output, data_only=False)
     sheet = reopened["Pivot"]
@@ -211,6 +239,47 @@ def test_pivot_writes_complete_native_relationship_chain_and_reopens(
         36,
     ]
     reopened.close()
+
+
+def test_inspect_reports_native_pivot_cache_and_relationship_inventory(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write_source(tmp_path / "inspect-source.xlsx")
+    output = tmp_path / "inspect-pivot.xlsx"
+    service = XlsxService(project_root)
+    created = service.execute(
+        "xlsx.pivot.create",
+        _request(source, output),
+    )
+    assert created["status"] == "success", created["errors"]
+
+    inspected = service.execute(
+        "xlsx.inspect.structure",
+        {
+            "operation": "xlsx.inspect.structure",
+            "input": str(output),
+            "arguments": {},
+        },
+    )
+
+    assert inspected["status"] == "success", inspected["errors"]
+    inventory = inspected["diagnostics"]["operation_result"]
+    assert inventory["mutation_authorized"] is False
+    assert inventory["pivot_tables"][0]["name"] == "SalesPivot"
+    assert inventory["pivot_caches"] == [
+        {
+            "part": "xl/pivotCache/pivotCacheDefinition1.xml",
+            "content_type": (
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.pivotCacheDefinition+xml"
+            ),
+        }
+    ]
+    relationship_types = {item["type"] for item in inventory["relationships"]}
+    assert any(value.endswith("/pivotTable") for value in relationship_types)
+    assert any(value.endswith("/pivotCacheDefinition") for value in relationship_types)
+    assert any(value.endswith("/pivotCacheRecords") for value in relationship_types)
 
 
 def test_pivot_supports_row_only_count_and_descending_order(
@@ -256,6 +325,60 @@ def test_pivot_supports_row_only_count_and_descending_order(
         3,
         6,
     ]
+    reopened.close()
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_east"),
+    [
+        ("sum", 30),
+        ("average", 10),
+        ("min", 5),
+        ("max", 15),
+        ("count", 3),
+    ],
+)
+def test_pivot_supports_every_single_value_aggregate(
+    project_root: Path,
+    tmp_path: Path,
+    function: str,
+    expected_east: int,
+) -> None:
+    from openpyxl import load_workbook
+
+    source = _write_source(tmp_path / f"{function}-source.xlsx")
+    output = tmp_path / f"{function}-pivot.xlsx"
+    result = XlsxService(project_root).execute(
+        "xlsx.pivot.create",
+        _request(
+            source,
+            output,
+            rows=[{"column": "Region", "sort": "asc"}],
+            columns=[],
+            filters=[],
+            values=[{"column": "Revenue", "function": function, "as": "Metric"}],
+            target={
+                "sheet": "Aggregate",
+                "start_cell": "B2",
+                "name": "AggregatePivot",
+                "style": "PivotStyleMedium9",
+            },
+        ),
+    )
+
+    assert result["status"] == "success", result["errors"]
+    projected = project_pivot_tables(OpcPackage.open(output))[0]
+    assert projected["values"] == [
+        {
+            "column": "Revenue",
+            "field_index": 3,
+            "function": function,
+            "as": "Metric",
+        }
+    ]
+    reopened = load_workbook(output, data_only=False)
+    assert reopened["Aggregate"]["C3"].value == expected_east
+    assert reopened["Aggregate"]._pivots[0].dataFields[0].subtotal == function
     reopened.close()
 
 

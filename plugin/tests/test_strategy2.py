@@ -360,6 +360,43 @@ def test_current_review_is_the_only_hashless_review_metadata(project_root):
     )
 
 
+def test_xlsx_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
+    project_root,
+    tmp_path,
+):
+    from tools.regenerate_provenance import regenerate
+
+    expected_review = (
+        "provenance/reviews/"
+        "document-skills-0.5.3-xlsx-completion-merge-review.md"
+    )
+    previous_pptx_review = (
+        "provenance/reviews/"
+        "document-skills-0.5.3-pptx-b2-merge-review.md"
+    )
+    assert CURRENT_REVIEW_ARTIFACT == expected_review
+
+    root = _release_copy(project_root, tmp_path)
+    manifest, mapping_before = regenerate(root)
+    metadata_paths = {
+        record["artifact"] for record in manifest["metadata_exclusions"]
+    }
+    assert metadata_paths == {
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        expected_review,
+    }
+    data_paths = {
+        record["artifact"] for record in manifest["data_classifications"]
+    }
+    assert previous_pptx_review in data_paths
+
+    report_path = root / expected_review
+    report_path.write_bytes(report_path.read_bytes() + b"\npost-review binding bytes\n")
+    _manifest_after, mapping_after = regenerate(root)
+    assert mapping_after == mapping_before
+
+
 @pytest.mark.parametrize(
     "review_path",
     [
