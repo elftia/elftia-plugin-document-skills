@@ -38,6 +38,7 @@ from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
 from document_skills_core.public_cli.protocol import PublicCommand
 from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
+from tests.support.xlsx_macro_fixture import create_package_fixture
 
 
 class _CallableDetector:
@@ -62,7 +63,12 @@ class _DotnetRunner:
         return None
 
     def run(self, subcommand: str, *, stdin_payload=None, **_kwargs) -> ProcessResult:
-        self.calls.append({"subcommand": subcommand, "payload": stdin_payload})
+        input_path = Path(stdin_payload["input_path"])
+        self.calls.append({
+            "subcommand": subcommand,
+            "payload": stdin_payload,
+            "input_sha256": hashlib.sha256(input_path.read_bytes()).hexdigest(),
+        })
         return ProcessResult(0, json.dumps(self.response), "", 5)
 
 
@@ -199,13 +205,21 @@ def test_dotnet_xlsx_schema_invalid_retains_bounded_error_report(
 ) -> None:
     runner = _DotnetRunner({
         "valid": False,
-        "errors": [{
-            "part": "WorkbookPart",
-            "path": "/x:workbook[1]",
-            "description": "Fixture schema error",
-            "error_type": "Schema",
-        }],
-        "truncated": False,
+        "errors": [
+            {
+                "part": "WorkbookPart",
+                "path": "/x:workbook[1]",
+                "description": "Fixture schema error",
+                "error_type": "Schema",
+            },
+            {
+                "part": "WorksheetPart",
+                "path": "/x:worksheet[1]/x:sheetData[1]",
+                "description": "é" * 200,
+                "error_type": "Schema",
+            },
+        ],
+        "truncated": True,
         "file_format": "Microsoft365",
     })
     definition, _provider = build_dotnet_provider(
@@ -220,14 +234,80 @@ def test_dotnet_xlsx_schema_invalid_retains_bounded_error_report(
         "schema_version": "1.0",
         "operation": "xlsx.validate.schema",
         "input": str(qa_xlsx),
-        "arguments": {},
+        "arguments": {"max_errors": 2},
     })
 
     assert result["status"] == "failed"
     assert result["errors"][0]["code"] == "DS_VALIDATION_FAILED"
-    assert result["diagnostics"]["operation_result"]["schema"]["error_count"] == 1
+    schema = result["diagnostics"]["operation_result"]["schema"]
+    assert schema["error_count"] == 2
+    assert schema["errors"][0] == {
+        "part": "WorkbookPart",
+        "path": "/x:workbook[1]",
+        "description": "Fixture schema error",
+        "error_type": "Schema",
+    }
+    assert schema["errors"][1]["part"] == "WorksheetPart"
+    assert schema["errors"][1]["path"] == "/x:worksheet[1]/x:sheetData[1]"
+    assert len(schema["errors"][1]["description"].encode("utf-8")) <= 256
+    assert schema["errors"][1]["error_type"] == "Schema"
+    assert schema["max_errors"] == 2
+    assert schema["truncated"] is True
+    assert schema["field_truncations"] == 1
     gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
     assert gates["schema.full"]["outcome"] == "fail"
+    assert gates["schema.full"]["evidence"]["error_count"] == 2
+    assert gates["schema.full"]["evidence"]["truncated"] is True
+    assert gates["schema.full"]["evidence"]["field_truncations"] == 1
+
+
+def test_dotnet_xlsx_schema_signed_xlsm_is_inert_read_only_and_source_preserving(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = create_package_fixture(tmp_path / "signed.xlsm", "xlsm", signed=True)
+    source_bytes = source.read_bytes()
+    source_hash = hashlib.sha256(source_bytes).hexdigest()
+    runner = _DotnetRunner({
+        "valid": True,
+        "errors": [],
+        "truncated": False,
+        "file_format": "Microsoft365",
+    })
+    definition, _provider = build_dotnet_provider(
+        project_root,
+        detector=_CallableDetector("/fake/dotnet"),
+        runner=runner,
+    )
+    registry = ProviderCatalog()
+    registry.register_provider(definition)
+
+    result = registry.execute({
+        "schema_version": "1.0",
+        "operation": "xlsx.validate.schema",
+        "input": str(source),
+        "arguments": {"max_errors": 25},
+    })
+
+    assert result["status"] == "success"
+    assert source.read_bytes() == source_bytes
+    assert result["artifacts"] == [
+        {
+            "role": "input",
+            "path": str(source.resolve()),
+            "sha256": source_hash,
+            "bytes": len(source_bytes),
+        }
+    ]
+    private_input = Path(runner.calls[0]["payload"]["input_path"])
+    assert private_input.suffix == ".xlsm"
+    assert private_input != source
+    assert runner.calls[0]["input_sha256"] == source_hash
+    gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
+    package_evidence = gates["xlsx.package-security"]["evidence"]
+    assert package_evidence["workbook_format"] == "xlsm"
+    assert package_evidence["security"]["categories"]["vba"]
+    assert gates["source.preservation"]["evidence"]["sha256"] == source_hash
 
 
 def test_libreoffice_xlsx_render_promotes_reopened_pdf_with_scoped_evidence(
@@ -569,6 +649,46 @@ def test_render_sampling_streams_only_selected_sheets_and_bounded_cells(
     assert not hasattr(index, "parts")
     assert not hasattr(index, "relationships")
     assert all(not isinstance(value, bytes) for value in vars(index).values())
+
+
+def test_render_sampling_inventories_print_setup_tables_and_charts(
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook
+    from openpyxl.chart import BarChart, Reference
+    from openpyxl.worksheet.table import Table
+    from document_skills_core.formats.xlsx import render_sampling
+
+    source = tmp_path / "render-inventory.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Report"
+    sheet.append(["Label", "Value"])
+    sheet.append(["One", 1])
+    sheet.append(["Two", 2])
+    sheet.add_table(Table(displayName="RenderInventory", ref="A1:B3"))
+    chart = BarChart()
+    chart.add_data(Reference(sheet, min_col=2, min_row=1, max_row=3), titles_from_data=True)
+    sheet.add_chart(chart, "D2")
+    sheet.print_area = "A1:H20"
+    sheet.print_title_rows = "1:1"
+    sheet.page_setup.orientation = "landscape"
+    sheet.oddHeader.center.text = "Render inventory"
+    workbook.save(source)
+    workbook.close()
+
+    evidence, _warnings = render_sampling.sample_render_source(
+        source,
+        {"max_cells_per_sheet": 50, "max_findings": 20, "max_sheets": 5},
+    )
+    sample = evidence["samples"][0]
+
+    assert sample["table_count"] == 1
+    assert sample["chart_count"] == 1
+    assert sample["print_area"] == "A1:H20"
+    assert sample["print_titles"] == {"rows": "1:1", "columns": None}
+    assert sample["page_setup"]["orientation"] == "landscape"
+    assert sample["header_footer_present"] is True
 
 
 def test_formula_preflight_streams_workbook_xml_without_opc_parts(

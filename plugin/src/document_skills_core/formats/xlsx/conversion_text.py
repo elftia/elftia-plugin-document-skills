@@ -259,9 +259,27 @@ def reopen_text_output(
             "cells": sum(len(row) for row in reopened),
         }
     reopened, evidence = read_canonical_json(path, mirrored)
-    if reopened != dataset:
+    expected_public = _canonical_dataset(dataset)
+    reopened_public = _canonical_dataset(reopened)
+    if reopened_public != expected_public:
         _failed("Canonical JSON output changed during strict reopen.")
     return evidence
+
+
+def _canonical_dataset(dataset: dict[str, Any]) -> dict[str, Any]:
+    """Project internal-only cell metadata out before public JSON comparison."""
+
+    return {
+        "sheets": [
+            {
+                "name": sheet["name"],
+                "rows": [
+                    [canonical_json_cell(cell) for cell in row] for row in sheet["rows"]
+                ],
+            }
+            for sheet in dataset["sheets"]
+        ]
+    }
 
 
 @contextmanager

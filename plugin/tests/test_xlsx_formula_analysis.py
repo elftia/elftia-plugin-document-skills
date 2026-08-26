@@ -269,6 +269,114 @@ def test_create_static_formula_failure_prevents_promotion(
     )
 
 
+def test_create_operation_reports_normal_formula_type_classification(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "classified-create.xlsx"
+    result = XlsxService(project_root).execute(
+        "xlsx.create",
+        {
+            "operation": "xlsx.create",
+            "output": str(output),
+            "arguments": {
+                "workbook": _workbook([("B2", "A2*2")]),
+                "recalculation": "skip",
+            },
+        },
+    )
+
+    assert result["status"] == "degraded", result["errors"]
+    analysis = result["diagnostics"]["operation_result"]["formula_analysis"]
+    assert analysis["valid"] is True
+    assert analysis["formula_cells"] == 1
+    assert analysis["categories"]["normal"] == 1
+    assert analysis["cells"][0]["ref"] == "Sheet1!B2"
+    assert analysis["cells"][0]["formula_type"] == "normal"
+    assert output.is_file()
+
+
+def test_edit_operation_reports_normal_formula_type_classification(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write(tmp_path / "classified-edit-source.xlsx", [])
+    output = tmp_path / "classified-edit.xlsx"
+    result = XlsxService(project_root).execute(
+        "xlsx.edit",
+        {
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {
+                        "type": "cell_formula",
+                        "sheet": "Sheet1",
+                        "ref": "B2",
+                        "value": "A2*3",
+                    }
+                ],
+                "expected_edits": 1,
+                "recalculation": "skip",
+            },
+        },
+    )
+
+    assert result["status"] == "degraded", result["errors"]
+    analysis = result["diagnostics"]["operation_result"]["formula_analysis"]
+    assert analysis["valid"] is True
+    assert analysis["formula_cells"] == 1
+    assert analysis["categories"]["normal"] == 1
+    assert analysis["cells"][0]["ref"] == "Sheet1!B2"
+    assert analysis["cells"][0]["formula_type"] == "normal"
+    assert output.is_file()
+
+
+def test_edit_operation_rejects_invalid_static_formula_without_promotion(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write(tmp_path / "invalid-edit-source.xlsx", [])
+    source_bytes = source.read_bytes()
+    output = tmp_path / "invalid-edit-destination.xlsx"
+    output.write_bytes(b"existing-invalid-edit-destination")
+    result = XlsxService(project_root).execute(
+        "xlsx.edit",
+        {
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {
+                        "type": "cell_formula",
+                        "sheet": "Sheet1",
+                        "ref": "B2",
+                        "value": "Missing!A1",
+                    }
+                ],
+                "expected_edits": 1,
+                "recalculation": "skip",
+            },
+        },
+    )
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_VALIDATION_FAILED"
+    formula_issue = result["errors"][0]["details"]["formula_issues"][0]
+    assert formula_issue["code"] == "formula-sheet-missing"
+    formula_gate = next(
+        gate
+        for gate in result["validation"]["gates"]
+        if gate["id"] == "operation.formula-static-analysis"
+    )
+    assert formula_gate["outcome"] == "fail"
+    assert formula_gate["evidence"]["issue_count"] == 1
+    assert source.read_bytes() == source_bytes
+    assert output.read_bytes() == b"existing-invalid-edit-destination"
+
+
 def test_read_reports_static_formula_issues_without_claiming_engine_validation(
     project_root: Path,
     tmp_path: Path,
@@ -283,6 +391,7 @@ def test_read_reports_static_formula_issues_without_claiming_engine_validation(
     assert result["status"] == "success"
     assert analysis["valid"] is False
     assert analysis["calculation_engine"] is False
+    assert analysis["cells"][0]["formula_type"] == "normal"
     assert analysis["issues"][0]["code"] == "formula-sheet-missing"
 
 
@@ -327,6 +436,9 @@ def test_external_formula_read_fails_closed_but_inspect_reports_inertly(
     assert read_result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
     assert provider.calls == 0
     assert inspect_result["status"] == "success"
+    assert inspect_result["diagnostics"]["operation_result"]["formula_analysis"][
+        "cells"
+    ][0]["formula_type"] == "normal"
     assert inspect_result["diagnostics"]["operation_result"]["formula_analysis"][
         "categories"
     ]["external_reference"] == 1

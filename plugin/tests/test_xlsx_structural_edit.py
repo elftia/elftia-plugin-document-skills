@@ -199,6 +199,56 @@ def test_column_insert_migrates_formulas_and_defined_names(
     assert reopened.defined_names["InputRow"].attr_text == "Data!$A$1:$D$1"
 
 
+def test_safe_nonempty_row_and_column_delete_reopen_shifted_values(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook, load_workbook
+
+    source = tmp_path / "safe-delete-source.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet.append(["A", "delete-column", "C"])
+    sheet.append(["delete-row-a", "delete-row-b", "delete-row-c"])
+    sheet.append(["keep-row-a", "delete-column-value", "keep-row-c"])
+    workbook.save(source)
+    workbook.close()
+    source_hash = hashlib.sha256(source.read_bytes()).hexdigest()
+    output = tmp_path / "safe-delete-output.xlsx"
+
+    result = _service(project_root).execute(
+        "xlsx.edit",
+        {
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {
+                "edits": [
+                    {"sheet": "Data", "type": "row_delete", "ref": "2", "count": 1},
+                    {
+                        "sheet": "Data",
+                        "type": "column_delete",
+                        "ref": "B",
+                        "count": 1,
+                    },
+                ],
+                "expected_edits": 2,
+            },
+        },
+    )
+
+    assert result["status"] == "success", result["errors"]
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == source_hash
+    reopened = load_workbook(output, data_only=False)
+    assert reopened["Data"]["A2"].value == "keep-row-a"
+    assert reopened["Data"]["B2"].value == "keep-row-c"
+    assert reopened["Data"].max_row == 2
+    assert reopened["Data"].max_column == 2
+    reopened.close()
+
+
 def test_structural_delete_that_would_create_ref_error_fails_without_promotion(
     project_root: Path,
     tmp_path: Path,

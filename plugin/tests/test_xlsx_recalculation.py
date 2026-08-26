@@ -300,6 +300,28 @@ def test_edit_auto_harvests_values_without_adopting_provider_package(
     assert _formula_record(output)["cached_value"] == "31"
 
 
+def test_edit_skip_never_calls_provider_and_preserves_formula_identity(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write_workbook(tmp_path / "skip-source.xlsx")
+    source_bytes = source.read_bytes()
+    provider = _provider(tmp_path, cached_value="31")
+    output = tmp_path / "skip-edited.xlsx"
+
+    result = XlsxService(project_root, libreoffice=provider).execute(
+        "xlsx.edit",
+        _edit_request(source, output, policy="skip"),
+    )
+
+    recalculation = result["diagnostics"]["operation_result"]["recalculation"]
+    assert result["status"] == "degraded"
+    assert provider.calls == 0
+    assert source.read_bytes() == source_bytes
+    assert _formula_record(output)["formula"] == "SUM(A1:A2)"
+    assert recalculation["outcome"] == "not_run"
+
+
 @pytest.mark.parametrize(
     ("policy", "expected_status", "promoted"),
     [("auto", "degraded", True), ("required", "unavailable", False)],
@@ -356,7 +378,66 @@ def test_explicit_recalculate_preserves_source_unknown_part_and_is_deterministic
     assert OpcPackage.open(first).parts[
         "opaque/provider-must-not-rewrite.bin"
     ] == b"opaque-payload"
+    assert _formula_record(first)["formula"] == "SUM(A1:A2)"
+    assert _formula_record(first)["cached_value"] == "30"
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_explicit_recalculate_rejects_static_formula_reference_before_provider(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write_workbook(tmp_path / "invalid-source.xlsx", formula="Missing!A1")
+    provider = _provider(tmp_path, cached_value="30")
+    output = tmp_path / "existing.xlsx"
+    output.write_bytes(b"existing-static-analysis-destination")
+
+    result = XlsxService(project_root, libreoffice=provider).execute(
+        "xlsx.recalculate",
+        _recalculate_request(source, output),
+    )
+
+    assert result["status"] == "failed"
+    assert provider.calls == 0
+    assert output.read_bytes() == b"existing-static-analysis-destination"
+
+
+def test_explicit_recalculate_rejects_provider_formula_identity_drift(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write_workbook(tmp_path / "source.xlsx")
+    provider = _provider(
+        tmp_path,
+        formula="SUM(A1:A2)+1",
+        cached_value="31",
+    )
+    output = tmp_path / "identity-drift.xlsx"
+
+    result = XlsxService(project_root, libreoffice=provider).execute(
+        "xlsx.recalculate",
+        _recalculate_request(source, output),
+    )
+
+    assert result["status"] == "failed"
+    assert not output.exists()
+
+
+def test_explicit_recalculate_rejects_provider_formula_error_token(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = _write_workbook(tmp_path / "source.xlsx")
+    provider = _provider(tmp_path, cached_value="#REF!", result_type="e")
+    output = tmp_path / "formula-error.xlsx"
+
+    result = XlsxService(project_root, libreoffice=provider).execute(
+        "xlsx.recalculate",
+        _recalculate_request(source, output),
+    )
+
+    assert result["status"] == "failed"
+    assert not output.exists()
 
 
 def test_explicit_recalculate_requires_provider_when_formulas_exist(

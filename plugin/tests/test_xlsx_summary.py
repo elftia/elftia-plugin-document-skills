@@ -177,6 +177,45 @@ def test_summary_groups_sorts_top_n_and_reopens_native_table(
     reopened.close()
 
 
+def test_summary_multi_key_sort_breaks_primary_ties(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    from openpyxl import Workbook, load_workbook
+
+    source = tmp_path / "multi-key-source.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Data"
+    sheet.append(["Region", "Category", "Revenue", "Units"])
+    for row in [
+        ("West", "A", 20, 4),
+        ("East", "A", 10, 2),
+        ("West", "B", 10, 1),
+        ("East", "B", 15, 3),
+        ("East", "A", 5, 1),
+        ("North", "C", 1, 1),
+    ]:
+        sheet.append(row)
+    workbook.save(source)
+    workbook.close()
+    output = tmp_path / "multi-key-summary.xlsx"
+
+    result = XlsxService(project_root).execute(
+        "xlsx.summary.aggregate",
+        _request(source, output, top_n=3),
+    )
+
+    assert result["status"] == "success", result["errors"]
+    reopened = load_workbook(output, data_only=False)
+    assert [reopened["Summary"].cell(row, 2).value for row in range(3, 6)] == [
+        "East",
+        "West",
+        "North",
+    ]
+    reopened.close()
+
+
 def test_summary_preserves_text_group_keys_and_can_coerce_numeric_text(
     project_root: Path,
     tmp_path: Path,

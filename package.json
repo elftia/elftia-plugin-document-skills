@@ -12,6 +12,7 @@
     "build": "node scripts/build-artifact.mjs",
     "release": "elftia-plugin release dist/document-skills --out release",
     "test": "node scripts/run-plugin-checks.mjs",
+    "test:xlsx:dist-e2e": "node scripts/run-xlsx-dist-e2e.mjs",
     "test:repro": "node --test scripts/__tests__/reproducibility.test.mjs",
     "validate:artifact": "node scripts/validate-artifact.mjs",
     "verify": "node scripts/verify.mjs && npm run verify:dist && npm run release",
