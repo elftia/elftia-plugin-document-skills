@@ -462,30 +462,43 @@ class ProcessRunner:
                 "Private process environment contains an unsupported entry.",
                 details={"entries": sorted(unsupported)},
             )
-        root = self._ensure_private_environment_root()
         for name in private_environment:
-            path = (root / _PRIVATE_ENVIRONMENT_PATHS[name]).resolve(strict=False)
-            if path.parent != root:
-                raise DocumentSkillsError(
-                    ErrorCode.PATH_UNSAFE,
-                    "Private process environment escaped its managed root.",
-                )
-            try:
-                path.mkdir(mode=0o700, parents=False, exist_ok=True)
-            except OSError as error:
-                raise DocumentSkillsError(
-                    ErrorCode.PATH_UNSAFE,
-                    "Private process environment could not be created safely.",
-                    details={"entry": name},
-                ) from error
-            if not path.is_dir() or path.is_symlink():
-                raise DocumentSkillsError(
-                    ErrorCode.PATH_UNSAFE,
-                    "Private process environment must be a real directory.",
-                    details={"entry": name},
-                )
+            path = self.private_environment_directory(name)
             environment[name] = str(path)
         return environment
+
+    def private_environment_directory(self, name: str) -> Path:
+        """Return one managed private environment directory for this runner."""
+
+        relative = _PRIVATE_ENVIRONMENT_PATHS.get(name)
+        if relative is None:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment contains an unsupported entry.",
+                details={"entries": [name]},
+            )
+        root = self._ensure_private_environment_root()
+        path = (root / relative).resolve(strict=False)
+        if path.parent != root:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment escaped its managed root.",
+            )
+        try:
+            path.mkdir(mode=0o700, parents=False, exist_ok=True)
+        except OSError as error:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment could not be created safely.",
+                details={"entry": name},
+            ) from error
+        if not path.is_dir() or path.is_symlink():
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "Private process environment must be a real directory.",
+                details={"entry": name},
+            )
+        return path
 
     def _ensure_private_environment_root(self) -> Path:
         with self._private_environment_lock:

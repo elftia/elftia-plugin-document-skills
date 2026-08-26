@@ -95,6 +95,28 @@ def test_real_dotnet_detection_does_not_mutate_user_path(
         assert user_path() == before
 
 
+def test_real_dotnet_detection_keeps_helper_source_clean(
+    project_root: Path,
+) -> None:
+    helper_root = (
+        project_root
+        / "src/document_skills_core/providers/dotnet/helper"
+    )
+    forbidden_generated_roots = [
+        helper_root / "bin",
+        helper_root / "obj",
+    ]
+    assert not [
+        path for path in forbidden_generated_roots if path.exists()
+    ], "test requires a clean helper source tree"
+
+    _require_dotnet_profile(project_root)
+
+    assert not [
+        path for path in forbidden_generated_roots if path.exists()
+    ]
+
+
 def test_real_dotnet_profile_runs_every_public_operation(
     project_root: Path,
     tmp_path: Path,
