@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.compare.semantic",
+  "input": "created.docx",
+  "arguments": {
+    "document_spec": {
+      "version": "1.0",
+      "style_profile": {
+        "id": "professional-generic",
+        "version": "1.0"
+      },
+      "nodes": [
+        {
+          "id": "document_title",
+          "type": "title",
+          "text": "Experiment results"
+        },
+        {
+          "id": "section_intro",
+          "type": "heading",
+          "level": 1,
+          "text": "Introduction"
+        },
+        {
+          "id": "paragraph_summary",
+          "type": "paragraph",
+          "text": "Source-neutral body text."
+        }
+      ]
+    }
+  }
+}

@@ -10,10 +10,12 @@ Module provenance: original Elftia-authored test suite.
 import hashlib
 from pathlib import Path
 from typing import Any
+import zlib
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.formats.pdf.byte_preflight import decode_stream
 from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.edit import edit_pdf
 from document_skills_core.formats.pdf.inspect import inspect_pdf
@@ -739,6 +741,10 @@ class TestSecurityFailClosed:
 # ---------------------------------------------------------------------------
 
 class TestValidation:
+    def test_decode_stream_accepts_parsed_pdf_name_prefix(self):
+        payload = b"LibreOffice Flate stream"
+        assert decode_stream(zlib.compress(payload), ["/FlateDecode"]) == payload
+
     def test_reopen_pdf_returns_canonical_result(self, created_pdf: Path):
         result = reopen_pdf(created_pdf)
         assert "version" in result

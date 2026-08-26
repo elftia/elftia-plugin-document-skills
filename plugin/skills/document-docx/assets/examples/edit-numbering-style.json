@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docx>",
+  "output": "<numbered.docx>",
+  "arguments": {
+    "edits": [
+      {
+        "type": "paragraph_style",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "style": "CustomBody"
+      },
+      {
+        "type": "paragraph_numbering_update",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "numbering": {"num_id": "1", "level": 1}
+      }
+    ]
+  }
+}

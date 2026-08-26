@@ -52,6 +52,9 @@ _PERSISTENT_ENVIRONMENT_GUARDS = {
     # direct probes and nested dotnet launches cannot mutate the user's PATH.
     "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
 }
+_FIXED_ENVIRONMENT = {
+    "DOCUMENT_SKILLS_PROVIDER_PROFILE": "core-only",
+}
 
 
 class _RuntimeCheckWatcher:
@@ -270,6 +273,7 @@ class ProcessRunner:
         output_limit: int = 1_048_576,
         runtime_check: Callable[[], None] | None = None,
         private_environment: tuple[str, ...] = (),
+        fixed_environment: dict[str, str] | None = None,
     ) -> ProcessResult:
         if script is not None:
             self._check_script(provider_id, script)
@@ -299,7 +303,10 @@ class ProcessRunner:
                 process = subprocess.Popen(
                     command,
                     cwd=isolated_cwd,
-                    env=self._process_environment(private_environment),
+                    env=self._process_environment(
+                        private_environment,
+                        fixed_environment,
+                    ),
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -429,8 +436,17 @@ class ProcessRunner:
     def _process_environment(
         self,
         private_environment: tuple[str, ...],
+        fixed_environment: dict[str, str] | None = None,
     ) -> dict[str, str]:
         environment = self._minimal_environment()
+        for name, value in (fixed_environment or {}).items():
+            if _FIXED_ENVIRONMENT.get(name) != value:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Process fixed environment contains an unsupported value.",
+                    details={"setting": name},
+                )
+            environment[name] = value
         if not private_environment:
             return environment
         requested = set(private_environment)

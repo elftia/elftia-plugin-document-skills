@@ -24,6 +24,7 @@ def read_or_convert_legacy(
     runner: LibreOfficeRunner,
     *,
     target_format: str | None = None,
+    max_output_bytes: int | None = None,
 ) -> bytes:
     """Convert a legacy ``.doc``/``.xls``/``.ppt`` to its modern equivalent.
 
@@ -39,6 +40,7 @@ def read_or_convert_legacy(
             runner,
             source_format=snapshot.actual_format,
             target_format=target_format,
+            max_output_bytes=max_output_bytes,
         )
 
 
@@ -48,6 +50,7 @@ def convert_legacy_snapshot(
     *,
     source_format: str,
     target_format: str | None = None,
+    max_output_bytes: int | None = None,
 ) -> bytes:
     """Convert one screened legacy compound-file snapshot."""
 
@@ -73,4 +76,8 @@ def convert_legacy_snapshot(
             output_dir,
             timeout_seconds=TIMEOUT_LEGACY,
         )
-        return read_provider_output(output, target_format)
+        return read_provider_output(
+            output,
+            target_format,
+            max_output_bytes=max_output_bytes,
+        )

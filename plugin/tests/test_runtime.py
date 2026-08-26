@@ -65,6 +65,34 @@ def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
     assert detectors.detect_node_provider().available is True
 
 
+def test_docx_core_only_profile_disables_optional_provider_probes(
+    project_root,
+    monkeypatch,
+):
+    monkeypatch.setenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", "core-only")
+    registry = build_default_registry(project_root)
+
+    for provider_id in ("libreoffice", "dotnet-openxml"):
+        state = registry.detect(registry.providers[provider_id])
+        assert state["available"] is False
+        assert state["path"] is None
+        assert state["reason"] == (
+            f"{provider_id} is disabled by "
+            "DOCUMENT_SKILLS_PROVIDER_PROFILE=core-only"
+        )
+        assert registry.find_callable(provider_id) is False
+
+    capabilities = build_capabilities(project_root, "docx", registry)
+    provider_states = {item["id"]: item for item in capabilities["providers"]}
+    assert provider_states["libreoffice"]["available"] is False
+    assert provider_states["dotnet-openxml"]["available"] is False
+    assert capabilities["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+
+
 def test_optional_descriptors_never_create_callable_operations(project_root):
     registry = build_default_registry(project_root)
     assert {
@@ -237,7 +265,17 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(
     ]
     assert libreoffice["required"] is False
     quota_supported = hard_quota_capability().supported
-    if known_launchers and quota_supported:
+    provider_core_only = (
+        core_only_env.get("DOCUMENT_SKILLS_PROVIDER_PROFILE") == "core-only"
+    )
+    if provider_core_only:
+        assert libreoffice["available"] is False
+        assert libreoffice["path"] is None
+        assert libreoffice["reason"] == (
+            "libreoffice is disabled by "
+            "DOCUMENT_SKILLS_PROVIDER_PROFILE=core-only"
+        )
+    elif known_launchers and quota_supported:
         assert libreoffice["available"] is True, libreoffice
         assert libreoffice["reason"] is None
         assert libreoffice["version"]

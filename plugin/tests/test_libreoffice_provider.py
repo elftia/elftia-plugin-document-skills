@@ -394,6 +394,7 @@ class TestDetector:
     def test_default_registry_reports_hard_quota_unavailable_before_probe(
         self, project_root, monkeypatch
     ):
+        monkeypatch.delenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", raising=False)
         standard_launchers = [
             Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
             Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),

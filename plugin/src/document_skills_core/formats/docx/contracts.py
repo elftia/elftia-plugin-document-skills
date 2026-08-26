@@ -1,26 +1,68 @@
-"""Strict bounded argument contracts for the five Core DOCX operations."""
+"""Registry and path policy for public DOCX operation contracts."""
 
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.io.paths import same_path
 
-from .constants import MAX_ARGUMENT_TEXT, MAX_RULES, MAX_VARIABLES
+from .contract_utils import (
+    _exact_keys,
+    _integer,
+    _invalid,
+    _optional_path,
+    _optional_text,
+    _text,
+)
+from .public_mutation_contract import (
+    _parse_edit,
+    _parse_merge,
+    _parse_replace,
+    _parse_template,
+)
+from .read_contract import _parse_accessibility, _parse_inspect, _parse_read
+from .render_contract import (
+    _parse_convert_legacy,
+    _parse_convert_pdf,
+    _parse_layout_repair,
+    _parse_render,
+    _parse_semantic_compare,
+    _parse_visual_compare,
+)
+from .review_contract import (
+    _parse_comments_add,
+    _parse_comments_read,
+    _parse_comments_resolve,
+    _parse_revisions_apply,
+    _parse_revisions_read,
+    _parse_schema_validation,
+)
 
 DOCX_OPERATIONS = frozenset(
     {
         "docx.read",
+        "docx.inspect.accessibility",
         "docx.inspect.structure",
+        "docx.merge",
         "docx.create",
+        "docx.edit",
         "docx.edit.replace-text",
         "docx.template.apply",
+        "docx.revisions.read",
+        "docx.revisions.apply",
+        "docx.comments.read",
+        "docx.comments.add",
+        "docx.comments.resolve",
+        "docx.compare.semantic",
+        "docx.compare.visual",
+        "docx.validate.schema",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.render",
+        "docx.layout.repair",
     }
 )
-_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$")
-
 
 @dataclass(frozen=True)
 class ParsedDocxRequest:
@@ -34,7 +76,7 @@ class ParsedDocxRequest:
 def parse_docx_request(request: dict[str, Any]) -> ParsedDocxRequest:
     operation = request.get("operation")
     if operation not in DOCX_OPERATIONS:
-        _invalid("The operation is not a Core DOCX operation.", field="operation")
+        _invalid("The operation is not a public DOCX operation.", field="operation")
     arguments = request.get("arguments", {})
     if type(arguments) is not dict:
         _invalid("DOCX arguments must be an object.", field="arguments")
@@ -43,7 +85,16 @@ def parse_docx_request(request: dict[str, Any]) -> ParsedDocxRequest:
     options = request.get("options", {})
     fidelity = options.get("fidelity", "core") if type(options) is dict else "core"
     in_place = options.get("in_place", False) if type(options) is dict else False
-    if operation in {"docx.read", "docx.inspect.structure"}:
+    if operation in {
+        "docx.read",
+        "docx.inspect.accessibility",
+        "docx.inspect.structure",
+        "docx.revisions.read",
+        "docx.comments.read",
+        "docx.validate.schema",
+        "docx.compare.semantic",
+        "docx.compare.visual",
+    }:
         if input_path is None:
             _invalid("This DOCX operation requires an input path.", field="input")
         if output_path is not None:
@@ -55,11 +106,52 @@ def parse_docx_request(request: dict[str, Any]) -> ParsedDocxRequest:
             _invalid("DOCX creation does not accept input.", field="input")
     elif input_path is None or output_path is None:
         _invalid("DOCX mutation requires distinct input and output paths.")
-    if input_path is not None and input_path.suffix.casefold() != ".docx":
-        _invalid("DOCX input path must use the .docx extension.", field="input")
-    if output_path is not None and output_path.suffix.casefold() != ".docx":
-        _invalid("DOCX output path must use the .docx extension.", field="output")
-    if operation in {"docx.edit.replace-text", "docx.template.apply"}:
+    keep_vba = operation == "docx.edit" and arguments.get("keep_vba") is True
+    legacy_format = arguments.get("format") if operation == "docx.convert.legacy" else None
+    if operation == "docx.convert.legacy":
+        input_extensions = {".doc"}
+    elif operation == "docx.template.apply":
+        input_extensions = {".docx", ".dotx"}
+    elif operation == "docx.inspect.structure":
+        input_extensions = {".docx", ".docm"}
+    elif keep_vba:
+        input_extensions = {".docm"}
+    else:
+        input_extensions = {".docx"}
+    if (
+        input_path is not None
+        and input_path.suffix.casefold() not in input_extensions
+    ):
+        expected = " or ".join(sorted(input_extensions))
+        _invalid(f"DOCX input path must use the {expected} extension.", field="input")
+    expected_output_extension = (
+        ".pdf"
+        if operation in {"docx.convert.pdf", "docx.render"} or legacy_format == "pdf"
+        else ".docm"
+        if keep_vba
+        else ".docx"
+    )
+    if (
+        output_path is not None
+        and output_path.suffix.casefold() != expected_output_extension
+    ):
+        _invalid(
+            f"DOCX output path must use the {expected_output_extension} extension.",
+            field="output",
+        )
+    if operation in {
+        "docx.edit.replace-text",
+        "docx.edit",
+        "docx.merge",
+        "docx.template.apply",
+        "docx.revisions.apply",
+        "docx.comments.add",
+        "docx.comments.resolve",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.render",
+        "docx.layout.repair",
+    }:
         assert input_path is not None and output_path is not None
         if in_place or same_path(input_path, output_path):
             raise DocumentSkillsError(
@@ -76,155 +168,23 @@ def parse_docx_request(request: dict[str, Any]) -> ParsedDocxRequest:
     else:
         parsed = {
             "docx.read": _parse_read,
+            "docx.inspect.accessibility": _parse_accessibility,
             "docx.inspect.structure": _parse_inspect,
+            "docx.edit": _parse_edit,
+            "docx.merge": _parse_merge,
             "docx.edit.replace-text": _parse_replace,
             "docx.template.apply": _parse_template,
+            "docx.revisions.read": _parse_revisions_read,
+            "docx.revisions.apply": _parse_revisions_apply,
+            "docx.comments.read": _parse_comments_read,
+            "docx.comments.add": _parse_comments_add,
+            "docx.comments.resolve": _parse_comments_resolve,
+            "docx.compare.semantic": _parse_semantic_compare,
+            "docx.compare.visual": _parse_visual_compare,
+            "docx.validate.schema": _parse_schema_validation,
+            "docx.convert.legacy": _parse_convert_legacy,
+            "docx.convert.pdf": _parse_convert_pdf,
+            "docx.render": _parse_render,
+            "docx.layout.repair": _parse_layout_repair,
         }[operation](arguments)
     return ParsedDocxRequest(operation, input_path, output_path, parsed, fidelity)
-
-
-def _parse_read(value: dict[str, Any]) -> dict[str, Any]:
-    allowed = {
-        "include_headers_footers",
-        "max_paragraphs",
-        "max_table_rows",
-        "max_tables",
-        "max_text_chars",
-    }
-    _exact_keys(value, allowed)
-    return {
-        "include_headers_footers": _boolean(
-            value.get("include_headers_footers", True), "include_headers_footers"
-        ),
-        "max_paragraphs": _integer(value.get("max_paragraphs", 5_000), 1, 10_000),
-        "max_tables": _integer(value.get("max_tables", 500), 0, 1_000),
-        "max_table_rows": _integer(value.get("max_table_rows", 5_000), 0, 10_000),
-        "max_text_chars": _integer(
-            value.get("max_text_chars", 250_000), 1, 1_000_000
-        ),
-    }
-
-
-def _parse_inspect(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"include_hashes", "max_parts", "max_relationships"})
-    return {
-        "include_hashes": _boolean(value.get("include_hashes", True), "include_hashes"),
-        "max_parts": _integer(value.get("max_parts", 2_000), 1, 5_000),
-        "max_relationships": _integer(
-            value.get("max_relationships", 5_000), 1, 10_000
-        ),
-    }
-
-
-def _parse_replace(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"case_sensitive", "replacements"})
-    rules = value.get("replacements")
-    if type(rules) is not list or not rules or len(rules) > MAX_RULES:
-        _invalid("replacements must be a non-empty bounded array.", field="replacements")
-    parsed = []
-    for index, rule in enumerate(rules):
-        if type(rule) is not dict:
-            _invalid("Each replacement must be an object.", field=f"replacements.{index}")
-        _exact_keys(rule, {"expected_matches", "replace", "search"})
-        search = _text(rule.get("search"), f"replacements.{index}.search", allow_empty=False)
-        replace = _text(rule.get("replace"), f"replacements.{index}.replace")
-        expected = rule.get("expected_matches")
-        if expected is not None:
-            expected = _integer(expected, 0, 1_000_000)
-        parsed.append(
-            {"search": search, "replace": replace, "expected_matches": expected}
-        )
-    return {
-        "case_sensitive": _boolean(value.get("case_sensitive", True), "case_sensitive"),
-        "replacements": parsed,
-    }
-
-
-def _parse_template(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"missing_policy", "variables"})
-    variables = value.get("variables")
-    if type(variables) is not dict or len(variables) > MAX_VARIABLES:
-        _invalid("variables must be a bounded object.", field="variables")
-    flattened: dict[str, str] = {}
-    _flatten_variables(variables, "", flattened, depth=0)
-    if len(
-        str(sorted(flattened.items())).encode("utf-8", errors="strict")
-    ) > 512 * 1024:
-        _invalid("Template variables exceed the aggregate byte limit.")
-    missing_policy = value.get("missing_policy", "error")
-    if missing_policy != "error":
-        _invalid("Only the fail-closed missing_policy 'error' is supported.")
-    return {"variables": flattened, "missing_policy": missing_policy}
-
-
-def _flatten_variables(
-    value: dict[str, Any],
-    prefix: str,
-    target: dict[str, str],
-    *,
-    depth: int,
-) -> None:
-    if depth > 8:
-        _invalid("Template variables exceed the nesting limit.")
-    for raw_name, item in value.items():
-        if type(raw_name) is not str:
-            _invalid("Template variable names must be strings.")
-        name = f"{prefix}.{raw_name}" if prefix else raw_name
-        if not _IDENTIFIER.fullmatch(name):
-            _invalid("Template variable names must be bounded ASCII identifiers.", field=name)
-        if type(item) is dict:
-            _flatten_variables(item, name, target, depth=depth + 1)
-        elif item is None or type(item) in {str, int, float, bool}:
-            rendered = "" if item is None else str(item).lower() if type(item) is bool else str(item)
-            target[name] = _text(rendered, name)
-        else:
-            _invalid("Template values must be scalar.", field=name)
-        if len(target) > MAX_VARIABLES:
-            _invalid("Template variables exceed the item limit.")
-
-
-def _exact_keys(value: dict[str, Any], allowed: set[str]) -> None:
-    unknown = sorted(set(value) - allowed)
-    if unknown:
-        _invalid("Unknown DOCX operation argument.", unknown=unknown)
-
-
-def _optional_path(value: Any, field: str) -> Path | None:
-    if value is None:
-        return None
-    return Path(_text(value, field, allow_empty=False)).expanduser().resolve(strict=False)
-
-
-def _integer(value: Any, minimum: int, maximum: int) -> int:
-    if type(value) is not int or not minimum <= value <= maximum:
-        _invalid(f"Integer must be between {minimum} and {maximum}.")
-    return value
-
-
-def _boolean(value: Any, field: str) -> bool:
-    if type(value) is not bool:
-        _invalid("Value must be boolean.", field=field)
-    return value
-
-
-def _optional_text(value: Any, field: str) -> str | None:
-    if value is None:
-        return None
-    return _text(value, field)
-
-
-def _text(value: Any, field: str, allow_empty: bool = True) -> str:
-    if type(value) is not str or (not allow_empty and not value):
-        _invalid("Value must be a string.", field=field)
-    if len(value.encode("utf-8", errors="strict")) > MAX_ARGUMENT_TEXT:
-        _invalid("Text exceeds the byte limit.", field=field)
-    return value
-
-
-def _invalid(message: str, **details: Any) -> None:
-    raise DocumentSkillsError(
-        ErrorCode.REQUEST_INVALID,
-        message,
-        status="invalid_request",
-        details=details,
-    )

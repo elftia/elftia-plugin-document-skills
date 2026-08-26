@@ -98,6 +98,41 @@ def visual_thresholds() -> dict[str, object]:
     }
 
 
+def decode_png(payload: bytes) -> tuple[int, int, bytes]:
+    """Decode one bounded PNG for other format-level visual validators."""
+
+    return _decode_png(payload)
+
+
+def encode_rgba_png(width: int, height: int, rgba: bytes) -> bytes:
+    """Encode one bounded, non-interlaced RGBA8 PNG deterministically."""
+
+    if (
+        width <= 0
+        or height <= 0
+        or width * height > _MAX_PIXELS
+        or len(rgba) != width * height * 4
+    ):
+        raise ValueError("RGBA image dimensions or payload are invalid.")
+    rows = b"".join(
+        b"\x00" + rgba[row * width * 4 : (row + 1) * width * 4]
+        for row in range(height)
+    )
+
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(payload))
+            + kind
+            + payload
+            + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+        )
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+    return _SIGNATURE + chunk(b"IHDR", header) + chunk(
+        b"IDAT", zlib.compress(rows, level=9)
+    ) + chunk(b"IEND", b"")
+
+
 def _region_differences(
     width: int,
     height: int,

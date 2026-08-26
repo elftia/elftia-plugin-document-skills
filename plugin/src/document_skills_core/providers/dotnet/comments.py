@@ -1,4 +1,4 @@
-"""Comment read and add through the .NET helper.
+"""Comment read, add, reply, and resolution through the .NET helper.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
@@ -24,12 +24,14 @@ def read_comments(
     filter_id: str | None = None,
     filter_author: str | None = None,
     filter_range: str | None = None,
+    max_comments: int = 10_000,
 ) -> list[dict[str, Any]]:
     """Read comments filtered by optional id, author, or range."""
     with OperationTempRoot() as private_root:
         staged = private_root / "input.docx"
         staged.write_bytes(Path(input_docx).read_bytes())
         payload: dict[str, Any] = {"input_path": str(staged)}
+        payload["max_comments"] = max_comments
         if filter_id is not None:
             payload["filter_id"] = filter_id
         if filter_author is not None:
@@ -53,10 +55,10 @@ def read_comments(
             "dotnet helper returned non-object comments JSON.",
         )
     comments = data.get("comments", [])
-    if not isinstance(comments, list):
+    if type(comments) is not list or len(comments) > max_comments:
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
-            "dotnet helper comments field is not a list.",
+            "dotnet helper comments field is not a bounded list.",
         )
     return comments
 
@@ -100,6 +102,54 @@ def add_comment(
             )
         Path(output_docx).write_bytes(staged_output.read_bytes())
     return str(data["comment_id"])
+
+
+def resolve_comment(
+    input_docx: Path,
+    output_docx: Path,
+    comment_id: str,
+    resolved: bool,
+    runner: DotnetOpenXmlRunner,
+) -> dict[str, Any]:
+    """Set one root comment thread's resolved state in a private candidate."""
+
+    with OperationTempRoot() as private_root:
+        staged_input = private_root / "input.docx"
+        staged_input.write_bytes(Path(input_docx).read_bytes())
+        staged_output = private_root / "output.docx"
+        result = runner.run(
+            "--comments-resolve",
+            stdin_payload={
+                "input_path": str(staged_input),
+                "output_path": str(staged_output),
+                "comment_id": comment_id,
+                "resolved": resolved,
+            },
+        )
+        if result.returncode != 0:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "dotnet helper --comments-resolve exited non-zero.",
+                details={"returncode": result.returncode},
+            )
+        if not staged_output.is_file():
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "dotnet helper produced no resolved comment output file.",
+            )
+        data = result.json()
+        if (
+            type(data) is not dict
+            or data.get("comment_id") != comment_id
+            or data.get("resolved") is not resolved
+            or set(data) != {"comment_id", "resolved"}
+        ):
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_FAILED,
+                "dotnet helper returned an invalid comment resolution result.",
+            )
+        Path(output_docx).write_bytes(staged_output.read_bytes())
+    return {"comment_id": comment_id, "resolved": resolved}
 
 
 def _validate_comment_payload(payload: dict[str, Any]) -> None:

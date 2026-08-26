@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.apply",
+  "input": "<template.dotx>",
+  "output": "<rendered.docx>",
+  "arguments": {
+    "missing_policy": "error",
+    "variables": {
+      "customer": {"name": "Ada"},
+      "region": "APAC"
+    }
+  }
+}

@@ -22,6 +22,47 @@ from document_skills_core.providers.libreoffice import build_libreoffice_provide
 from document_skills_core.providers.html_browser.provider import build_html_browser_provider
 
 _XLSX_CORE_ONLY_ENV = "DOCUMENT_SKILLS_XLSX_CORE_ONLY"
+_PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
+_CORE_ONLY_PROFILE = "core-only"
+
+
+class _DisabledOptionalDetector:
+    """Return explicit unavailable evidence without probing the host machine."""
+
+    def __init__(self, provider_id: str) -> None:
+        self._provider_id = provider_id
+
+    def detect(self) -> DetectionEvidence:
+        return DetectionEvidence(
+            available=False,
+            reason=(
+                f"{self._provider_id} is disabled by "
+                f"{_PROVIDER_PROFILE_ENV}={_CORE_ONLY_PROFILE}"
+            ),
+        )
+
+
+def _provider_core_only_enabled() -> bool:
+    value = os.environ.get(_PROVIDER_PROFILE_ENV)
+    if value is None:
+        return False
+    if value == _CORE_ONLY_PROFILE:
+        return True
+    raise DocumentSkillsError(
+        ErrorCode.REQUEST_INVALID,
+        f"{_PROVIDER_PROFILE_ENV} must be unset or '{_CORE_ONLY_PROFILE}'.",
+        status="invalid_request",
+        details={
+            "setting": _PROVIDER_PROFILE_ENV,
+            "allowed_values": [_CORE_ONLY_PROFILE],
+        },
+    )
+
+
+def _optional_detector(provider_id: str) -> _DisabledOptionalDetector | None:
+    if _provider_core_only_enabled():
+        return _DisabledOptionalDetector(provider_id)
+    return None
 
 
 def _xlsx_core_only_enabled() -> bool:
@@ -54,12 +95,30 @@ def _build_composite_execute(docx_service, xlsx_service, pptx_service, pdf_servi
     return execute
 
 
+def _build_optional_execute(docx_service, provider_execute):
+    """Route public DOCX operations through the format service."""
+
+    def execute(operation: str, request: dict) -> dict:
+        if operation.startswith("docx."):
+            return docx_service(operation, request)
+        return provider_execute(operation, request)
+
+    return execute
+
+
 def build_default_registry(project_root: Path) -> ProviderCatalog:
     xlsx_core_only = _xlsx_core_only_enabled()
+    provider_core_only = _provider_core_only_enabled()
     detectors = RuntimeDetectors(project_root)
     registry = ProviderCatalog()
-    libreoffice_def, libreoffice_provider = build_libreoffice_provider(project_root)
-    dotnet_def, dotnet_provider = build_dotnet_provider(project_root)
+    libreoffice_def, libreoffice_provider = build_libreoffice_provider(
+        project_root,
+        detector=_optional_detector("libreoffice"),
+    )
+    dotnet_def, dotnet_provider = build_dotnet_provider(
+        project_root,
+        detector=_optional_detector("dotnet-openxml"),
+    )
     html_browser_provider = build_html_browser_provider(
         project_root,
         libreoffice=libreoffice_provider,
@@ -68,9 +127,33 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
     docx_service = build_docx_service(
         project_root, libreoffice=libreoffice_provider, dotnet=dotnet_provider,
     )
+    if libreoffice_def.execute is None or dotnet_def.execute is None:
+        raise RuntimeError("Optional provider definitions must be executable.")
+    libreoffice_def.execute = _build_optional_execute(
+        docx_service,
+        libreoffice_def.execute,
+    )
+    libreoffice_def.capabilities = [*libreoffice_def.capabilities,
+        Capability("docx.convert.legacy", "enhanced", validation_strength=3),
+        Capability("docx.convert.pdf", "enhanced", validation_strength=3),
+        Capability("docx.render", "enhanced", validation_strength=3),
+        Capability("docx.layout.repair", "enhanced", validation_strength=3),
+        Capability("docx.compare.visual", "enhanced", validation_strength=3),
+    ]
+    dotnet_def.execute = _build_optional_execute(docx_service, dotnet_def.execute)
+    dotnet_def.capabilities = [*dotnet_def.capabilities,
+        Capability("docx.revisions.read", "enhanced", validation_strength=2),
+        Capability("docx.revisions.apply", "enhanced", validation_strength=2),
+        Capability("docx.comments.read", "enhanced", validation_strength=2),
+        Capability("docx.comments.add", "enhanced", validation_strength=2),
+        Capability("docx.comments.resolve", "enhanced", validation_strength=2),
+        Capability("docx.validate.schema", "enhanced", validation_strength=3),
+    ]
     xlsx_service = build_xlsx_service(
         project_root,
-        libreoffice=None if xlsx_core_only else libreoffice_provider,
+        libreoffice=(
+            None if xlsx_core_only or provider_core_only else libreoffice_provider
+        ),
     )
     pptx_service = build_pptx_service(
         project_root,
@@ -87,9 +170,17 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
             execute=composite_execute,
             capabilities=[
                 Capability("docx.read", "core", validation_strength=2),
+                Capability(
+                    "docx.inspect.accessibility",
+                    "core",
+                    validation_strength=2,
+                ),
                 Capability("docx.inspect.structure", "core", validation_strength=2),
+                Capability("docx.compare.semantic", "core", validation_strength=2),
                 Capability("docx.create", "core", validation_strength=2),
+                Capability("docx.edit", "core", validation_strength=2),
                 Capability("docx.edit.replace-text", "core", validation_strength=2),
+                Capability("docx.merge", "core", validation_strength=2),
                 Capability("xlsx.read", "core", validation_strength=2),
                 Capability("xlsx.inspect.structure", "core", validation_strength=2),
                 Capability("xlsx.create", "core", validation_strength=2),

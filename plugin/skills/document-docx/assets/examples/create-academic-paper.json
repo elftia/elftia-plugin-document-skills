@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.create",
+  "output": "academic-paper.docx",
+  "arguments": {
+    "document_spec": {
+      "version": "1.0",
+      "domain_profile": {
+        "id": "academic-paper",
+        "version": "1.0",
+        "locale": "en-US",
+        "citation_style": "author-year"
+      },
+      "style_profile": {
+        "id": "professional-generic",
+        "version": "1.0"
+      },
+      "metadata": {
+        "title": "Agent-authored academic paper"
+      },
+      "header": "Elftia Research",
+      "footer": "Draft for review",
+      "resources": {
+        "architecture_diagram": {
+          "type": "image",
+          "path": "architecture.png"
+        }
+      },
+      "nodes": [
+        {
+          "id": "paper_title",
+          "type": "title",
+          "text": "Agent-authored academic paper"
+        },
+        {
+          "id": "paper_authors",
+          "type": "authors",
+          "items": ["Ada Lovelace"]
+        },
+        {
+          "id": "paper_affiliations",
+          "type": "affiliations",
+          "items": ["Elftia Research"]
+        },
+        {
+          "id": "paper_abstract",
+          "type": "abstract",
+          "text": "A source-neutral document plan drives reusable Word styling and validation."
+        },
+        {
+          "id": "paper_keywords",
+          "type": "keywords",
+          "items": ["DOCX", "agents", "document profiles"]
+        },
+        {
+          "id": "section_introduction",
+          "type": "heading",
+          "level": 1,
+          "text": "Introduction"
+        },
+        {
+          "id": "paragraph_introduction",
+          "type": "paragraph",
+          "text": "The template system is reusable; an academic paper is one domain application."
+        },
+        {
+          "id": "figure_architecture",
+          "type": "figure",
+          "resource": "architecture_diagram",
+          "alt_text": "Document authoring architecture",
+          "width_inches": 5.5
+        },
+        {
+          "id": "figure_architecture_caption",
+          "type": "figure_caption",
+          "target": "figure_architecture",
+          "text": "Document authoring architecture"
+        },
+        {
+          "id": "reference_architecture",
+          "type": "reference",
+          "target": "figure_architecture",
+          "text": "Figure 1"
+        },
+        {
+          "id": "table_evidence",
+          "type": "table",
+          "rows": [
+            ["Gate", "Status"],
+            ["Semantic readback", "Required"],
+            ["Layout inspection", "Required after render"]
+          ]
+        },
+        {
+          "id": "table_evidence_caption",
+          "type": "table_caption",
+          "target": "table_evidence",
+          "text": "Validation evidence"
+        },
+        {
+          "id": "equation_energy",
+          "type": "equation",
+          "linear": "E = mc²"
+        },
+        {
+          "id": "equation_energy_caption",
+          "type": "equation_caption",
+          "target": "equation_energy",
+          "text": "Mass-energy equivalence"
+        },
+        {
+          "id": "citation_notes",
+          "type": "citation",
+          "keys": ["lovelace1843"]
+        },
+        {
+          "id": "references",
+          "type": "bibliography"
+        },
+        {
+          "id": "reference_lovelace",
+          "type": "bibliography_entry",
+          "key": "lovelace1843",
+          "authors": ["Ada Lovelace"],
+          "year": 1843,
+          "title": "Notes",
+          "container": "Scientific Memoirs"
+        }
+      ]
+    }
+  }
+}

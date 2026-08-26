@@ -205,17 +205,52 @@ def _resolve_request_artifact_paths(
     resolved_arguments = dict(arguments)
     report = arguments.get("report")
     if type(report) is dict:
+        resolved_report = dict(report)
         image = report.get("image")
         if type(image) is dict:
-            image_path = image.get("path")
-            if type(image_path) is str and not _is_nonlocal_path(image_path):
-                resolved_arguments["report"] = {
-                    **report,
-                    "image": {
-                        **image,
-                        "path": str(_resolve_user_path(image_path, invocation_base)),
-                    },
+            resolved_report["image"] = _resolve_local_image(image, invocation_base)
+        blocks = report.get("blocks")
+        if type(blocks) is list:
+            resolved_report["blocks"] = [
+                _resolve_local_image(block, invocation_base)
+                if type(block) is dict and block.get("type") == "image"
+                else block
+                for block in blocks
+            ]
+        resolved_arguments["report"] = resolved_report
+    edits = arguments.get("edits")
+    if type(edits) is list:
+        resolved_edits = []
+        for edit in edits:
+            if type(edit) is not dict or type(edit.get("image")) is not dict:
+                resolved_edits.append(edit)
+                continue
+            resolved_edits.append(
+                {
+                    **edit,
+                    "image": _resolve_local_image(edit["image"], invocation_base),
                 }
+            )
+        resolved_arguments["edits"] = resolved_edits
+    style_overlay = arguments.get("style_overlay")
+    if type(style_overlay) is dict and type(style_overlay.get("source")) is str:
+        resolved_arguments["style_overlay"] = {
+            **style_overlay,
+            "source": str(
+                _resolve_user_path(style_overlay["source"], invocation_base)
+            ),
+        }
+    sources = arguments.get("sources")
+    if type(sources) is list:
+        resolved_arguments["sources"] = [
+            {
+                **source,
+                "path": str(_resolve_user_path(source["path"], invocation_base)),
+            }
+            if type(source) is dict and type(source.get("path")) is str
+            else source
+            for source in sources
+        ]
     descriptor = arguments.get("descriptor")
     if type(descriptor) is dict:
         resolved_descriptor = dict(descriptor)
@@ -243,6 +278,19 @@ def _resolve_request_artifact_paths(
         ]
     resolved["arguments"] = resolved_arguments
     return resolved
+
+
+def _resolve_local_image(
+    image: dict[str, Any],
+    invocation_base: Path,
+) -> dict[str, Any]:
+    image_path = image.get("path")
+    if type(image_path) is not str or _is_nonlocal_path(image_path):
+        return image
+    return {
+        **image,
+        "path": str(_resolve_user_path(image_path, invocation_base)),
+    }
 
 
 def _resolve_template_page_paths(page: Any, invocation_base: Path) -> Any:

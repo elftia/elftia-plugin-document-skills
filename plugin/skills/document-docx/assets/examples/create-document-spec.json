@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.create",
+  "output": "created.docx",
+  "arguments": {
+    "document_spec": {
+      "version": "1.0",
+      "metadata": {
+        "title": "Experiment results"
+      },
+      "resources": {
+        "result_plot": {
+          "type": "image",
+          "path": "result-plot.png"
+        }
+      },
+      "nodes": [
+        {
+          "id": "document_title",
+          "type": "title",
+          "text": "Experiment results"
+        },
+        {
+          "id": "section_intro",
+          "type": "heading",
+          "level": 1,
+          "text": "Introduction"
+        },
+        {
+          "id": "paragraph_summary",
+          "type": "paragraph",
+          "text": "Source-neutral body text."
+        },
+        {
+          "id": "figure_result",
+          "type": "figure",
+          "resource": "result_plot",
+          "alt_text": "Result plot",
+          "width_inches": 4
+        },
+        {
+          "id": "table_result",
+          "type": "table",
+          "rows": [
+            ["Metric", "Value"],
+            ["Accuracy", "98%"]
+          ]
+        }
+      ]
+    }
+  }
+}
