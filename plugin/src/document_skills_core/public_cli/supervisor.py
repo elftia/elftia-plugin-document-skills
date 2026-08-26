@@ -60,12 +60,12 @@ _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS = 150.0
 _PROVIDER_OPERATION_TIMEOUTS = {
     "pptx.template.inspect": _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS,
     "xlsx.convert": 45.0,
-    "xlsx.recalculate": 45.0,
+    "xlsx.recalculate": 90.0,
     "xlsx.render": 45.0,
     "xlsx.validate.schema": 45.0,
 }
 _RECALCULATION_POLICY_OPERATIONS = {"xlsx.create", "xlsx.edit"}
-_REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 45.0
+_REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 90.0
 _LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
 _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
 _LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"

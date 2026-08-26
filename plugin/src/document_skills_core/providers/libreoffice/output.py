@@ -21,6 +21,8 @@ from ...formats.xlsx.constants import MAX_XLSX_BYTES
 MAX_IMAGE_BYTES = 128 * 1024 * 1024
 OUTPUT_LIMITS = {
     "docx": MAX_DOCX_BYTES,
+    # Recalculation uses ODS only as a private, bounded intermediate artifact.
+    "ods": MAX_XLSX_BYTES,
     "pdf": MAX_PDF_BYTES,
     "png": MAX_IMAGE_BYTES,
     "pptx": MAX_PPTX_BYTES,
