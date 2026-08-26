@@ -1,184 +1,199 @@
-# CLEAN — Document Skills 0.5.3 XLSX Completion Final Review
+# CLEAN — Document Skills 0.5.3 XLSX Dist E2E Final Warm Re-review
 
-Date: 2026-08-26 — incremental re-review of `3423c56`
+Date: 2026-08-26
 
 ## Verdict
 
 Status: `clean`
 
-Approval claimed: `true`, limited to the exact `all-release-artifacts`
-mapping identified below.
+Approval claimed: `true`.
 
 Canonical findings: **0 Blocker, 0 Major, 0 Minor**.
 
-The two Major findings from the preceding review remain remediated. The
-subsequent test-only provenance correction in `3423c56` was independently
-reviewed against the previously approved and bound `5809792` baseline and
-introduced no new finding. The current all-release-artifacts mapping contains
-**541 release files**: **423** risky module records, **115** exact-hash data
-classifications, **0** executable exclusions, exactly **3** self-referential
-metadata exclusions, and **0** review attestations. Its independently
-regenerated SHA-256 is:
-
-`0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
-
-This clean approval binds only to those exact reviewed bytes and mapping. Any
-release-artifact change requires a new mapping and independent review.
+The exact candidate and unbound provenance mapping identified below are
+independently approved. The previous provenance self-reference blocker, the
+operation-wide feature-aliasing Major, and the final create/edit formula
+operation-evidence Major are all closed.
 
 ## Reviewer identity
 
-- Reviewer: `Codex collaboration subagent /root/ship_xlsx_completion/xlsx_final_review`
-- Identity: `codex-reviewer/document-skills-0.5.3-xlsx-completion-final/fresh-non-author-2026-08-26`
+- Reviewer: `Codex collaboration subagent /root/review_xlsx_dist_e2e`
+- Identity: `codex-reviewer/document-skills-0.5.3-xlsx-dist-e2e/final-warm-non-author-2026-08-26`
 - Runtime: `codex`
 - Role: `reviewer`
-- Scope: `all-release-artifacts`
+- Scope: exact XLSX dist-E2E candidate, feature evidence, and unbound
+  release-artifact provenance mapping
 - Identity assurance: `self-asserted`
-- Identity limitations: This self-asserted reviewer cannot cryptographically
-  prove the backing model, service principal, or human operator; it does not
-  replace maintainer approval and does not establish remote CI, pull-request,
-  merge, live LibreOffice, live .NET/OpenXML, or unobserved operating-system
-  behavior.
+- Identity limitations: This reviewer cannot cryptographically prove the
+  backing model, service principal, or human operator. This local review does
+  not establish remote CI, a pull-request state, a merge, live LibreOffice,
+  live .NET/OpenXML, Microsoft Excel, or behavior outside the commands
+  explicitly recorded below.
 - Report id: `document-skills-0.5.3-xlsx-completion-merge-review`
 
-No previous attestation, historical clean verdict, checked-in audit report, or
-pre-generated mapping digest was treated as approval evidence. This reviewer
-did not author the implementation, tests, planning artifacts, provenance
-generator, or manifest under review.
+The reviewer did not author the candidate implementation, fixer tests,
+feature mapping, provenance generator, or audit metadata. No prior verdict or
+supplied digest was accepted as approval evidence.
 
 ## Reviewed target
 
-- Review branch: `review/xlsx-completion-final-20260826`
-- Base: `origin/main@6525b0ad79db705aa111c012b1c2ebd81d18afe1`
-- Incremental review baseline:
-  `58097929bbff63cc9999f869b8ab4211312f77f6`
-- Baseline tree: `58b8da327f1665f928b948808ce341760a9327d8`
-- Implementation commit: `3423c561f8fa9b8e910d1ca94beccf885dc7997f`
-- Implementation tree: `c6d75d5f6e64aadb59ac5a667470880ecce2cda1`
-- Reviewer integration commit: `10ab0608fae674ea43f5624f6ec7012634a8be6d`
-- Mapping SHA-256:
-  `0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
-- Runtime source allowlist SHA-256:
-  `7d56bad75091de424e25b5f7de62074bce3fad1391975ad71d41d6d3921de722`
-- CycloneDX SBOM SHA-256:
-  `8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`
+- Review worktree branch: `review/xlsx-dist-e2e-final`
+- Full review base: `origin/main@1b9af10f87d835e3d30cfc093578346cb5e8c675`
+- Warm-review base: `c19b6f8064415fb1dc659c8fd4e5356dbb1c1891`
+- Candidate commit: `e5234b7e545af97b2d47214c4dc123242dae344c`
+- Candidate tree: `5dfa7e91621068a80c83a0e9fc441d601b9382dc`
+- Candidate parent: `ec39f2ea3c9b2a4f854a32e4f0d77ed2ef4a9668`
+- Independently regenerated unbound provenance mapping SHA-256:
+  `c343ff6885aa5e9b72c0a3485fb47724189bfe6af1490b03513fbd17afd44d27`
+- Feature-evidence file SHA-256:
+  `764f198b91049855e6fdb1053212c6921cfe9243e69c849dc6c50ce410865fdb`
+- Full diff scope: 18 paths, 3,468 insertions and 1,202 deletions
+- Warm fixer delta: 4 paths, 114 insertions and 5 deletions
 
-The implementation tree was independently matched after conflict resolution:
-both the source implementation and reviewer branch resolve to
-`c6d75d5f6e64aadb59ac5a667470880ecce2cda1` before this excluded review report
-is updated. The only integration conflict was the expected bound-versus-
-unbound `modules.json`; the reviewer selected the exact unbound bytes from
-`3423c56`.
+The working tree contained no changed path other than this required review
+report during the review.
 
-## Incremental review — canonical PPTX provenance owner
+## Scope check
 
-`5809792..3423c56` changes one test source plus its unbound generated
-provenance and audit metadata. `tests/test_strategy3.py` now imports the
-canonical `pptx_module_profile` from `tools.html_pptx_provenance` and derives
-the expected requirement from tuple element 2. This removes its duplicate
-reconstruction from separate HTML/Core helpers and makes the test use the same
-combined requirement chosen by production provenance generation.
+Scope Check: **PASS**
 
-The canonical combinations were inspected for all eight PPTX-owned paths in
-the shared XLSX test surface. They include HTML-only ownership, combined
-HTML/Core ownership, and the special shared provenance requirement for
-`tools/regenerate_provenance.py`. The focused tests verify those canonical
-requirements compose with Core, completion, and advanced XLSX ownership in
-the generated records.
+Intent: exercise a freshly built XLSX distribution end to end and make every
+one of the 152 advertised features auditable through a real execution nodeid
+and a feature-specific assertion.
 
-The checked-in unbound `modules.json` is JSON-semantically equal to a fresh
-in-process regeneration. Its only source hash delta from the previous unbound
-tree is `tests/test_strategy3.py`, whose recorded and actual SHA-256 both equal
-`cc2c01a91755500fec6137e6444dfafad1290b50126d003cb46d46592fec477f`.
-The checked-in audit report is intentionally unbound and contains exactly the
-expected missing-independent-attestation error.
+Delivered:
 
-## Remediation review
+- a fresh 573-file release build and five dist E2Es through the built public
+  artifact;
+- exact evidence for all 152 truth-table features across 93 non-real-provider
+  mapped nodeids plus one real-provider nodeid;
+- real pytest collection, behavior/availability roles, provider requirements,
+  assertion AST anchors, high-risk dist-operation coverage, and bounded test
+  reuse;
+- operation-level create/edit formula analysis and fail-closed validation
+  evidence; and
+- stable self-referential review metadata that does not make the mapping
+  circular.
 
-### Major 1 — template sheet deletion preservation
+No requirement gap remains in the reviewed scope.
 
-Resolved. `compare_preservation()` now computes preserved package parts as:
+## Closure of prior findings
 
-`input_names - set(changed) - set(removed)`
+### Provenance self-reference blocker — closed
 
-Declared removals therefore no longer appear simultaneously in the preserved
-set. A provider-free end-to-end `.xltx` regression now instantiates a
-two-sheet template with `sheet_delete`, proves the operation succeeds, proves
-the source template SHA-256 is unchanged, and proves the output contains only
-the retained target sheet.
+`plugin/tools/provenance_records.py` names this XLSX report as the exact
+`CURRENT_REVIEW_ARTIFACT`. Fresh metadata contains exactly 435 module records,
+135 data classifications, three metadata exclusions, and zero review
+attestations. The only exclusions are `provenance/audit-report.json`,
+`provenance/modules.json`, and this report; the previous PPTX review is
+ordinary hash-pinned data again.
 
-### Major 2 — stale CycloneDX SBOM
+The Strategy-2 regression copies the release, changes this report's bytes, and
+proves that the regenerated mapping remains stable.
 
-Resolved. The checked-in CycloneDX SBOM now matches the exact dependency locks
-and records lock revision:
+### Operation-wide feature-aliasing Major — closed
 
-`7e15d508fed944f7e55e4d6993825030ae6006620cdc04b45ca7a4661ed3d52d`
+The schema-2.0 mapping explicitly binds every truth-table feature to one or
+more evidence records. The gate validates the exact feature set, evidence tier
+and role, provider availability evidence, assertion anchors inside the target
+test function, high-risk dist coverage, bounded reuse, and real pytest
+collection of every exact nodeid.
 
-The canonical generated SBOM matches the checked-in bytes at SHA-256
-`8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`.
-The provenance module metadata and checked-in audit report were regenerated
-for the remediated bytes.
+The mapping contains 152 features, 200 evidence records, and 93 unique
+non-real-provider nodeids. No behavior nodeid is reused by more than ten
+features. The previously identified false links for sheet rename, advanced
+charts, special-formula failure, and bounded schema errors now point to tests
+that execute and assert the named behavior.
+
+### Create/edit formula operation-evidence Major — closed
+
+The warm fixer adds three direct service-operation tests and binds the exact
+features to them:
+
+- `xlsx.create/formula_type_classification` executes `xlsx.create` and asserts
+  the returned normal category, cell reference, and `formula_type`.
+- `xlsx.edit/formula_type_classification` executes a `cell_formula` edit and
+  asserts the edit result's returned classification.
+- `xlsx.edit/static_formula_syntax_and_reference_validation` submits an
+  invalid sheet reference through `xlsx.edit`, asserts the specific formula
+  issue and failed validation gate, and proves both source and the existing
+  destination are preserved.
+
+The final follow-up also replaces the unrelated inspect worksheet-count anchor
+with a real dist assertion:
+`inspection["formula_analysis"]["categories"]["normal"] == 4`. The separate
+focused inspect classification evidence remains in place.
+
+## Findings
+
+No canonical finding remains.
+
+Standards count: 0 Blocker, 0 Major, 0 Minor.
+
+Spec and coverage count: 0 Blocker, 0 Major, 0 Minor.
+
+## Coverage summary
+
+```text
+CODE PATH COVERAGE
+==================
+[+] fresh 573-file dist and public runner
+    +-- [*** TESTED] capabilities contract in XLSX core-only mode
+    +-- [*** TESTED] feature-evidence collection gate
+    +-- [*** TESTED] rich create/read/inspect/edit/validate workflow
+    +-- [*** TESTED] template/summary/pivot/follow-up edit workflow
+    `-- [*** TESTED] typed JSON/XLSX/read/JSON/CSV workflow
+
+[+] all 152 advertised feature claims
+    +-- [*** TESTED] exact truth-table set, roles, tiers, paths, assertions
+    +-- [*** TESTED] 89 non-real-provider release nodeids -> 99 cases
+    +-- [*** TESTED] 4 mapped root dist nodeids
+    `-- [*** COLLECTED] one real .NET/OpenXML provider nodeid
+
+[+] prior formula evidence gap
+    +-- [*** TESTED] create operation classification
+    +-- [*** TESTED] edit operation classification
+    +-- [*** TESTED] invalid edit fails closed and preserves both inputs
+    `-- [*** TESTED] dist inspect returns four normal classifications
+```
 
 ## Independent verification evidence
 
-- Focused incremental cases, passed to `pytest.main` after pinning the local
-  `tests/` namespace:
-  `pytest -q tests/test_strategy3.py::test_xlsx_provenance_composes_provider_and_existing_shared_owners tests/test_strategy3.py::test_xlsx_provenance_profiles_are_exact_and_cover_the_current_inventory tests/test_strategy3.py::test_shared_xlsx_provenance_composes_requirements_and_direct_evidence`
-  — **3 passed**. Pinning avoided an unrelated user-site package named `tests`
-  shadowing repository fixtures.
-- `python -m tools.regenerate_provenance --project-root . --print-mapping-only`
-  and a separate in-process regeneration both produced
-  `0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`.
-- Strict UTF-8 decoding passed without BOM, U+FFFD, or mojibake markers for all
-  three increment files. Both JSON files parsed, the Python source parsed with
-  `ast.parse`, and `git diff --check 5809792..3423c56` passed.
-- Focused remediation command:
-  `pytest -q tests/test_xlsx_macro_template.py::test_xltx_template_instantiation_can_delete_a_plain_sheet tests/test_supply_chain.py::test_sbom_is_deterministic_and_matches_locks`
-  — **2 passed**.
-- The current checked-in unbound manifest exactly matched fresh regeneration.
-- Mapping inventory: 423 modules, 115 data classifications, 0 executable
-  exclusions, 3 metadata exclusions, and 0 review attestations.
-- The regenerated runtime source allowlist matches the checked-in canonical
-  bytes at SHA-256
-  `7d56bad75091de424e25b5f7de62074bce3fad1391975ad71d41d6d3921de722`.
-- The regenerated CycloneDX SBOM matches the checked-in canonical bytes at
-  SHA-256
-  `8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b`.
-- The prior full local audit produced exactly one expected error:
-  `provenance: Independent review attestation is missing`. Its locked `acorn`
-  dependency was supplied temporarily for AST audit and removed afterward.
-  All other audit checks passed. For the current increment, the unbound audit
-  JSON was parsed and independently checked to contain exactly the same sole
-  missing-attestation error; this report is that missing attestation.
-- The earlier focused PATH-containment checks remained green:
-  `TestRunnerContainment::test_private_dotnet_environment_is_project_scoped_and_cleanable`
-  and
-  `TestRunnerContainment::test_env_sanitized_by_process_runner` — **2 passed**.
-  The remediation delta did not touch the process or dotnet runner.
-
-## PATH-containment incident check
-
-The reviewed implementation unconditionally sets
-`DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0` for managed subprocesses. The dotnet
-provider supplies private `DOTNET_CLI_HOME`, NuGet, temporary, and
-application-data roots through the shared contained runner. No reviewed
-production launch path permits dotnet to append a per-run tools directory to
-the persistent user PATH.
-
-No real dotnet command was run during this review.
+- Candidate HEAD, tree, parent, bases, and delta matched the dispatched values.
+- The complete formula-analysis file passed under core-only isolation:
+  **23 passed in 1.25s**.
+- `npm run test:xlsx:dist-e2e` built a fresh 573-file reviewer artifact and ran
+  the complete core-only dist suite: **5 passed in 74.01s**. The reviewer-local
+  artifact inventory SHA-256 was
+  `6e05831ce6a76c897be8705dbd0fabc719f87e800ea724c63eebc1d9bb139ae6`.
+- All **89** non-real-provider mapped release nodeids were executed, expanding
+  to **99 passed in 52.81s**.
+- After the final follow-up, the affected feature-mapping gate and rich dist
+  workflow passed again: **2 passed in 12.38s**.
+- The Strategy-2 report/mapping stability regression passed independently.
+- Independent provenance regeneration before this report rewrite returned
+  `c343ff6885aa5e9b72c0a3485fb47724189bfe6af1490b03513fbd17afd44d27`.
+- Ruff, Python AST parsing, JSON parsing, strict UTF-8/no-BOM checks, recorded
+  module-hash verification, and `git diff --check` passed for the warm delta.
+- Every local process was explicitly given
+  `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0` and
+  `DOCUMENT_SKILLS_XLSX_CORE_ONLY=1`.
+- The user-level PATH started at 697 characters, 18 entries, zero private
+  dotnet entries, and SHA-256
+  `7e8f32ba3d944443bb9b3681810e355e11c99c40abd920e04012679051d6c2d3`.
 
 ## Evidence boundary
 
-This was a local review of exact repository bytes. Per explicit direction,
-remote CI was not queried, awaited, or investigated and is not part of this
-verdict. The repository-wide verification suite, provider/full pytest suites,
-`npm run verify`, `verify:repro`, a live LibreOffice process, and a real dotnet
-process were not run during this incremental re-review.
+No remote CI status was queried, awaited, investigated, or used. No real
+dotnet/OpenXML provider, LibreOffice, or Microsoft Excel process was run. The
+capabilities test ran only with `DOCUMENT_SKILLS_XLSX_CORE_ONLY=1`. The single
+real-provider nodeid was collected by the mapping gate but not executed. No
+repository-wide provider suite was run.
 
 ## Attestation
 
-I attest that the Codex reviewer identified above independently reviewed the
-incrementally updated implementation tree and its exact all-release-artifacts
-mapping and found **0 Blocker, 0 Major, 0 Minor** issues within scope. I approve binding
-this report as the clean independent review attestation for mapping SHA-256
-`0f6c27a7fa950aa02b5ddf854a392c3ea8bf8cbec4c2a0123a69bc39ccf48b6b`
-and no other mapping.
+I independently approve the exact candidate commit/tree and unbound
+provenance mapping identified above. Based on the reviewed delta, the retained
+full-candidate baseline, and the local evidence recorded here, this candidate
+is **CLEAN with 0 Blocker / 0 Major / 0 Minor** within the stated evidence
+boundary.
