@@ -21,6 +21,7 @@ from .object_xml import (
 )
 from .package import OpcPackage
 from .slide_render import write_single_slide_candidate
+from .template_content_analysis import inspect_template_content
 from .template_descriptor import (
     TemplateDescriptor,
     load_template_descriptor,
@@ -106,9 +107,11 @@ def inspect_template(
         requested=arguments["contact_sheet"],
     )
     security = package.security
+    content_lint = inspect_template_content(package, descriptor=descriptor)
     result = {
         "catalog": catalog,
         "contact_sheet": visual,
+        "content_lint": content_lint,
         "dangerous_content": {
             "categories": {
                 key: len(value)

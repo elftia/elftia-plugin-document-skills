@@ -8,13 +8,16 @@ from tools.html_pptx_provenance import (
     CORE_PPTX_REQUIREMENT,
     HTML_PPTX_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
-    SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT,
+    PPTX_TEMPLATE_B4_REQUIREMENT,
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT,
     core_pptx_module_profile,
     html_pptx_data_profile,
     html_pptx_module_profile,
     pptx_module_profile,
     template_b2_data_profile,
     template_b2_module_profile,
+    template_b4_data_profile,
+    template_b4_module_profile,
 )
 from tools.regenerate_provenance import (
     pptx_openxml_module_profile,
@@ -29,6 +32,12 @@ _HTML_XLSX_REQUIREMENT = (
 )
 _HTML_TEMPLATE_B2_REQUIREMENT = (
     "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b2"
+)
+_HTML_TEMPLATE_B2_B4_REQUIREMENT = (
+    _HTML_TEMPLATE_B2_REQUIREMENT + " + pptx-ecosystem-phase-bc-b4"
+)
+_TEMPLATE_B2_B4_REQUIREMENT = (
+    "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b4"
 )
 _FOUNDATION_REQUIREMENT = "Rasen document-skills-foundation strategy-attempt-3"
 _OPENXML_REQUIREMENT = "document-skills-openxml-dotnet-enhancement"
@@ -111,7 +120,7 @@ def test_core_pptx_profiles_cover_repair_and_shared_public_evidence():
 
     generator = pptx_module_profile("tools/regenerate_provenance.py")
     assert generator is not None
-    assert generator[2] == SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT
+    assert generator[2] == SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT
 
 
 def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
@@ -121,9 +130,12 @@ def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
         "src/document_skills_core/formats/pptx/template_materialize.py"
     )
     assert profile is not None
-    assert profile[2] == PPTX_TEMPLATE_B2_REQUIREMENT
+    assert profile[2] == _TEMPLATE_B2_B4_REQUIREMENT
     assert template_b2_data_profile(
         "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.pptx"
+    ) is not None
+    assert template_b4_data_profile(
+        "tests/fixtures/pptx/ecosystem_bc/templates/cjk-capacity.pptx"
     ) is not None
     assert template_b2_module_profile(
         "src/document_skills_core/formats/pptx/scene_emitter.py"
@@ -143,12 +155,36 @@ def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
     }
     for path in legacy_template_modules:
         assert template_b2_module_profile(path) is None
+        assert template_b4_module_profile(path) is None
         assert pptx_module_profile(path) is None
 
     manifest, _digest = regenerate(project_root)
     records = {record["module"]: record for record in manifest["modules"]}
     for path in legacy_template_modules:
         assert records[path]["requirement_source"] == _FOUNDATION_REQUIREMENT
+
+
+def test_template_b4_profiles_are_exact_and_bounded():
+    for path in (
+        "src/document_skills_core/formats/pptx/template_content_analysis.py",
+        "src/document_skills_core/formats/pptx/template_content_fonts.py",
+        "src/document_skills_core/formats/pptx/template_content_metrics.py",
+        "tests/test_pptx_template_b4.py",
+        "tests/test_pptx_template_b4_fonts.py",
+        "tests/test_pptx_template_b4_hardening.py",
+    ):
+        profile = pptx_module_profile(path)
+        assert profile is not None
+        assert profile[2] == PPTX_TEMPLATE_B4_REQUIREMENT
+        assert template_b4_module_profile(path) is not None
+        assert "tests/test_pptx_template_b4.py" in profile[1]
+
+    assert template_b4_module_profile(
+        "src/document_skills_core/formats/pptx/scene_emitter.py"
+    ) is None
+    assert template_b4_data_profile(
+        "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.pptx"
+    ) is None
 
 
 def test_html_readme_uses_the_complete_xlsx_profile(project_root):
@@ -215,10 +251,12 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             continue
         relevant_data.append(record["artifact"])
         template_profile = template_b2_data_profile(record["artifact"])
+        template_b4_profile = template_b4_data_profile(record["artifact"])
         xlsx_profile = xlsx_data_profile(record["artifact"])
         expected_profile = _combined_profile(
             html_profile,
             template_profile,
+            template_b4_profile,
             xlsx_profile,
         )
         assert expected_profile is not None
@@ -228,6 +266,8 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
                 if record["artifact"] == "README.md"
                 else _HTML_NUGET_XLSX_REQUIREMENT
             )
+        elif template_profile and template_b4_profile:
+            expected_requirement = _HTML_TEMPLATE_B2_B4_REQUIREMENT
         elif template_profile:
             expected_requirement = _HTML_TEMPLATE_B2_REQUIREMENT
         else:

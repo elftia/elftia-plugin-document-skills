@@ -353,7 +353,7 @@
       "license": "GPL-3.0",
       "origin": "generated",
       "path": "pptx/ecosystem_bc/templates/cjk-capacity.pptx",
-      "purpose": "CJK capacity, placeholder, ellipsis, and speaker-notes leak fixture.",
+      "purpose": "CJK capacity, type-scale, placeholder, ellipsis, and speaker-notes leak fixture.",
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
@@ -361,7 +361,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-content-lint",
-      "sha256": "a82ca70dfed9563f88d90485560faa97f6fcf7f68fdb8f7161d579e98fca59b1"
+      "sha256": "5f067ce0e070794d3fab3b73d4ae9e70d48184117da53e8d512dda4289c58d33"
     },
     {
       "authorship": "original-elftia",
@@ -377,7 +377,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "9d2cb87204ba95f040d366fb13de585beb2f4dcfaa7a5cc876ad85dceddf3415"
+      "sha256": "eb0a283e6079d66619e74a1ced58881664087653a19a4936c1df91a7675820a3"
     },
     {
       "authorship": "original-elftia",
