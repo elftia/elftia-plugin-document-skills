@@ -3,6 +3,7 @@
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from pathlib import Path
 import sys
 
 # Runtime line prefix validated in ``dotnet --list-runtimes`` output.
@@ -72,6 +73,31 @@ DOTNET_PRIVATE_ENVIRONMENT: tuple[str, ...] = (
         else ()
     ),
 )
+
+
+def helper_build_properties(private_home: Path) -> tuple[str, ...]:
+    """Return concrete MSBuild paths beneath one runner-owned private home."""
+
+    build_root = (private_home / "openxml-helper-build").resolve(strict=False)
+    normalized = build_root.as_posix().rstrip("/")
+    return (
+        f"/p:BaseOutputPath={normalized}/bin/",
+        f"/p:BaseIntermediateOutputPath={normalized}/obj/",
+        f"/p:MSBuildProjectExtensionsPath={normalized}/obj/",
+    )
+
+
+def helper_assembly_path(private_home: Path) -> Path:
+    """Return the helper DLL emitted by the private Debug/net8.0 build."""
+
+    return (
+        private_home
+        / "openxml-helper-build"
+        / "bin"
+        / "Debug"
+        / "net8.0"
+        / "OpenXmlHelper.dll"
+    ).resolve(strict=False)
 
 
 def platform_known_paths() -> list[str]:

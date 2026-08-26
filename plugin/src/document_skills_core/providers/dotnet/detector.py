@@ -30,6 +30,8 @@ from .constants import (
     TIMEOUT_NO_RESTORE_BUILD,
     TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
+    helper_assembly_path,
+    helper_build_properties,
     platform_known_paths,
 )
 
@@ -80,6 +82,12 @@ class DotnetOpenXmlDetector:
         else:
             self._policy = policy or ProcessPolicy(self.project_root)
             self._runner = ProcessRunner(self._policy)
+        (
+            self._helper_build_properties,
+            self._helper_assembly,
+        ) = _private_helper_build_layout(
+            self._runner
+        )
 
     def detect(self) -> DetectionEvidence:
         candidate = self._find_candidate()
@@ -163,7 +171,10 @@ class DotnetOpenXmlDetector:
                 reason=f"dotnet detected at {candidate} but could not be resolved for assembly probe",
                 path=candidate,
             )
-        restore_argv = _build_locked_restore_argv(self._helper_project)
+        restore_argv = _build_locked_restore_argv(
+            self._helper_project,
+            self._helper_build_properties,
+        )
         try:
             restored = self._runner.run(
                 "dotnet-openxml",
@@ -193,7 +204,10 @@ class DotnetOpenXmlDetector:
                 ),
                 path=candidate,
             )
-        build_argv = _build_no_restore_build_argv(self._helper_project)
+        build_argv = _build_no_restore_build_argv(
+            self._helper_project,
+            self._helper_build_properties,
+        )
         try:
             built = self._runner.run(
                 "dotnet-openxml",
@@ -223,15 +237,22 @@ class DotnetOpenXmlDetector:
                 ),
                 path=candidate,
             )
-        argv = [
-            "run",
-            "--no-restore",
-            "--no-build",
-            "--project",
-            str(self._helper_dir),
-            "--",
-            "--probe-json",
-        ]
+        argv = (
+            ["exec", str(self._helper_assembly), "--probe-json"]
+            if (
+                self._helper_assembly is not None
+                and isinstance(self._runner, ProcessRunner)
+            )
+            else [
+                "run",
+                "--no-restore",
+                "--no-build",
+                "--project",
+                str(self._helper_dir),
+                "--",
+                "--probe-json",
+            ]
+        )
         try:
             result = self._runner.run(
                 "dotnet-openxml",
@@ -315,12 +336,41 @@ def _classify_error(error: DocumentSkillsError) -> str:
     return error.code.value.lower().replace("ds_", "")
 
 
-def _build_locked_restore_argv(helper_project: Path) -> list[str]:
+def _build_locked_restore_argv(
+    helper_project: Path,
+    build_properties: tuple[str, ...] = (),
+) -> list[str]:
     """Build the only dependency-materialization command the detector permits."""
-    return ["restore", str(helper_project), *LOCKED_RESTORE_FLAGS]
+    return [
+        "restore",
+        str(helper_project),
+        *LOCKED_RESTORE_FLAGS,
+        *build_properties,
+    ]
 
 
-def _build_no_restore_build_argv(helper_project: Path) -> list[str]:
+def _build_no_restore_build_argv(
+    helper_project: Path,
+    build_properties: tuple[str, ...] = (),
+) -> list[str]:
     """Build only the graph materialized by the preceding locked restore."""
 
-    return ["build", str(helper_project), "--no-restore", "--nologo"]
+    return [
+        "build",
+        str(helper_project),
+        "--no-restore",
+        "--nologo",
+        *build_properties,
+    ]
+
+
+def _private_helper_build_layout(
+    runner: _ProbeRunner,
+) -> tuple[tuple[str, ...], Path | None]:
+    if not isinstance(runner, ProcessRunner):
+        return (), None
+    private_home = runner.private_environment_directory("DOTNET_CLI_HOME")
+    return (
+        helper_build_properties(private_home),
+        helper_assembly_path(private_home),
+    )
