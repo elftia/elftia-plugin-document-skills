@@ -131,6 +131,7 @@ def test_dist_rich_workbook_survives_public_create_read_inspect_edit_and_validat
     inspection = dist_xlsx.run(inspect_request)["diagnostics"]["operation_result"]
     assert inspection["mutation_authorized"] is False
     assert inspection["worksheet_count"] == 2
+    assert inspection["formula_analysis"]["categories"]["normal"] == 4
     assert len(inspection["charts"]) == 1
     assert sha256(source) == source_hash
 
