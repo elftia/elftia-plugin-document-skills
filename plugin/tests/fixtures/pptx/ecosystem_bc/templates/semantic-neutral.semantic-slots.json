@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "1.0.0",
+  "slots": [
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-1-title",
+      "sourceObjectId": "object_de57799d5b368ad08745176e3ebee0f6",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-2-title",
+      "sourceObjectId": "object_872b8c58de573a448b9a8877cf8da8e0",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-3-title",
+      "sourceObjectId": "object_2471753f1beed9c2536ec9da35f3904c",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-4-title",
+      "sourceObjectId": "object_758b4d2c64208e622a16afe95b836be2",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-5-title",
+      "sourceObjectId": "object_b1312124a933932fd829b70a2296ca56",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-6-title",
+      "sourceObjectId": "object_95b06765945b1ed601d28c865f1ba6c7",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "image-ref",
+      "licenseBoundary": "user-content",
+      "role": "image",
+      "slotId": "page-1-image",
+      "sourceObjectId": "object_8c120a29789db7cd2b61bea0515bc478",
+      "styleBinding": {
+        "layoutToken": "layout.image"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "table-data",
+      "licenseBoundary": "user-content",
+      "role": "table",
+      "slotId": "page-2-table",
+      "sourceObjectId": "object_0a06e4cdfa3f9d4e2579b8eeb0185bdd",
+      "styleBinding": {
+        "layoutToken": "layout.table"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "chart-data",
+      "licenseBoundary": "user-content",
+      "role": "chart",
+      "slotId": "page-3-chart",
+      "sourceObjectId": "object_908adc8f24415f6344a07af77fea8c17",
+      "styleBinding": {
+        "layoutToken": "layout.chart"
+      }
+    }
+  ],
+  "templateId": "semantic-neutral"
+}

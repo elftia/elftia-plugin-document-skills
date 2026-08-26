@@ -1,11 +1,12 @@
 """PPTX dispatch and shared transactional mutation."""
 
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.models import make_error_result
+from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.paths import (
     assert_distinct_paths,
     assert_source_preserved,
@@ -13,17 +14,16 @@ from document_skills_core.core.io.paths import (
     file_record,
     merge_source_preservation_failure,
 )
-from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
 from .contracts import ParsedPptxRequest, parse_deck, parse_pptx_request
 from .create import create_pptx
 from .edit_service import execute_pptx_edit
+from .html_capture import HtmlDeckCapture
 from .inspect import inspect_pptx
 from .markdown import parse_markdown_deck
 from .outline import outline_validation, write_outline
 from .read import read_pptx
-from .html_capture import HtmlDeckCapture
 from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
 from .scene_normalizer import normalize_scene
@@ -33,6 +33,7 @@ from .template_sanitize import (
     sanitize_template,
     validate_sanitized_template,
 )
+from .template_service import create_from_template, inspect_template_request
 from .transaction import promote_candidate, write_candidate_result
 from .validation import validate_created, validate_mutation, validate_scene_created
 from .visual_validation import validate_scene_visuals, with_visual_gate
@@ -86,6 +87,10 @@ class PptxService:
             return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
+        if operation == "pptx.template.inspect":
+            return self._inspect_template(parsed)
+        if operation == "pptx.create.from-template":
+            return self._create_from_template(parsed)
         if operation == "pptx.template.sanitize":
             return self._sanitize_template(parsed)
         return execute_pptx_edit(parsed, self.schemas, self.dotnet)
@@ -428,6 +433,20 @@ class PptxService:
         except Exception as error:
             merge_source_preservation_failure(error, source.path, source.sha256)
             raise
+
+    def _inspect_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        return inspect_template_request(
+            request,
+            schemas=self.schemas,
+            libreoffice=self.libreoffice,
+        )
+
+    def _create_from_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        return create_from_template(
+            request,
+            schemas=self.schemas,
+            dotnet=self.dotnet,
+        )
 
 
 def build_pptx_service(

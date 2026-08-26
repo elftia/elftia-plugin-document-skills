@@ -9,8 +9,10 @@ from typing import Any
 from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
+    PPTX_TEMPLATE_B2_REQUIREMENT,
     html_pptx_data_profile,
     pptx_module_profile,
+    template_b2_data_profile,
 )
 from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
 from .release_inventory import release_artifacts
@@ -737,14 +739,16 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
 
 def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     html_profile = html_pptx_data_profile(artifact.path)
+    template_b2_profile = template_b2_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
+    selected_profiles = [
+        profile
+        for profile in (html_profile, template_b2_profile, xlsx_profile)
+        if profile is not None
+    ]
     modifications = (
-        f"{html_profile[0]} {xlsx_profile[0]}"
-        if html_profile and xlsx_profile
-        else html_profile[0]
-        if html_profile
-        else xlsx_profile[0]
-        if xlsx_profile
+        " ".join(profile[0] for profile in selected_profiles)
+        if selected_profiles
         else None
     )
     record = {
@@ -763,21 +767,22 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         "review_evidence": ["PROVENANCE.md"],
     }
     if modifications:
-        requirement = (
-            _xlsx_data_requirement(
-                artifact.path,
+        base_requirement = (
+            _compose_requirements(
                 HTML_PPTX_REQUIREMENT if html_profile else None,
+                PPTX_TEMPLATE_B2_REQUIREMENT if template_b2_profile else None,
             )
+            if html_profile or template_b2_profile
+            else None
+        )
+        requirement = (
+            _xlsx_data_requirement(artifact.path, base_requirement)
             if xlsx_profile
-            else HTML_PPTX_REQUIREMENT
+            else base_requirement
         )
-        tests = (
-            _merged_values(html_profile[1], xlsx_profile[1])
-            if html_profile and xlsx_profile
-            else html_profile[1]
-            if html_profile
-            else xlsx_profile[1]
-        )
+        tests: list[str] = []
+        for profile in selected_profiles:
+            tests = _merged_values(tests, profile[1])
         record.update({
             "requirement_source": requirement,
             "modifications": modifications,
@@ -949,6 +954,7 @@ def _xlsx_data_requirement(path: str, base_requirement: str | None) -> str:
         )
     if path == "provenance/runtime-source-allowlist.json":
         return _compose_requirements(
+            base_requirement,
             XLSX_REQUIREMENT,
             XLSX_COMPLETION_REQUIREMENT,
             XLSX_ADVANCED_REQUIREMENT,

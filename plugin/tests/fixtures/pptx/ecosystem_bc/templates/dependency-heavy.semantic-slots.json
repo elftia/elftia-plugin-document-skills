@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "1.0.0",
+  "slots": [
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-1-title",
+      "sourceObjectId": "object_a6f78f676e03f06c530fdd491b720e63",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-2-title",
+      "sourceObjectId": "object_1b4e9684bc7cd3bf135cf77076f29e99",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-3-title",
+      "sourceObjectId": "object_86dbf28944dacd9681672e56b500c1f4",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "required",
+        "max": 1,
+        "min": 1
+      },
+      "constraints": {},
+      "dataType": "text",
+      "licenseBoundary": "user-content",
+      "role": "title",
+      "slotId": "page-4-title",
+      "sourceObjectId": "object_844d07b9e22737cdac7b292f7af98f3d",
+      "styleBinding": {
+        "layoutToken": "layout.title"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "image-ref",
+      "licenseBoundary": "user-content",
+      "role": "image",
+      "slotId": "page-1-image",
+      "sourceObjectId": "object_d988b236e97e11174ca0562a6f495c73",
+      "styleBinding": {
+        "layoutToken": "layout.image"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "table-data",
+      "licenseBoundary": "user-content",
+      "role": "table",
+      "slotId": "page-2-table",
+      "sourceObjectId": "object_a3881a94b86f533915dfd3ad8e41d477",
+      "styleBinding": {
+        "layoutToken": "layout.table"
+      }
+    },
+    {
+      "capacity": {
+        "cjkRecommendedCharacters": 36,
+        "latinRecommendedCharacters": 72,
+        "maxLines": 6,
+        "minFontSizePt": 12,
+        "overflowPolicy": "reject"
+      },
+      "cardinality": {
+        "kind": "optional",
+        "max": 1,
+        "min": 0
+      },
+      "constraints": {},
+      "dataType": "chart-data",
+      "licenseBoundary": "user-content",
+      "role": "chart",
+      "slotId": "page-3-chart",
+      "sourceObjectId": "object_e564e897434d30614f58dac1346112e2",
+      "styleBinding": {
+        "layoutToken": "layout.chart"
+      }
+    }
+  ],
+  "templateId": "dependency-heavy"
+}

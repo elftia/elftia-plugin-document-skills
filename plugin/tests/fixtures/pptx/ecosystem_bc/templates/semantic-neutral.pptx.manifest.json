@@ -1,0 +1,29 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "design-studio",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.template.inspect,pptx.create.from-template",
+  "fixture_id": "B-TPL-01",
+  "format": "pptx",
+  "invariants": [
+    "stable slide and object ids remain A-Contract conformant",
+    "semantic slots expose only stable addresses and precondition hashes",
+    "unselected private dependencies are physically purged"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/semantic-neutral.pptx",
+  "purpose": "Six-page semantic template with native text, image, table, chart, and notes.",
+  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 4000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-semantic-template",
+  "sha256": "sha256:ed1c0229b18bfe1508a7cc4fa0e4667004794597e0946e5f0ad59e213b67d0d9",
+  "sizeBytes": 29399
+}

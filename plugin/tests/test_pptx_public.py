@@ -132,6 +132,9 @@ def test_public_capabilities_list_pptx_operations(project_root: Path) -> None:
         "pptx.outline.create",
         "pptx.create",
         "pptx.create.from-markdown",
+        "pptx.create.from-template",
+        "pptx.template.inspect",
+        "pptx.template.sanitize",
         "pptx.edit",
     )
     for operation in core:

@@ -4,12 +4,19 @@ from pathlib import Path
 
 HTML_PPTX_REQUIREMENT = "Rasen html-to-editable-pptx"
 CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
+PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 COMBINED_PPTX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx"
+)
+COMBINED_PPTX_TEMPLATE_B2_REQUIREMENT = (
+    COMBINED_PPTX_REQUIREMENT + " + pptx-ecosystem-phase-bc-b2"
 )
 SHARED_PROVENANCE_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx + "
     "document-skills-consumer-gates-and-truthful-contracts"
+)
+SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT = (
+    SHARED_PROVENANCE_REQUIREMENT + " + pptx-ecosystem-phase-bc-b2"
 )
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
@@ -28,6 +35,46 @@ _SHARED_MODULES = {
     "tools/regenerate_provenance.py",
     "tools/supply_chain.py",
 }
+_PPTX_TEMPLATE_B2_MODULES = {
+    "src/document_skills_core/cli.py",
+    "src/document_skills_core/core/contracts/errors.py",
+    "src/document_skills_core/formats/pptx/template_binding.py",
+    "src/document_skills_core/formats/pptx/template_content_lint.py",
+    "src/document_skills_core/formats/pptx/template_contracts.py",
+    "src/document_skills_core/formats/pptx/template_descriptor.py",
+    "src/document_skills_core/formats/pptx/template_inspect.py",
+    "src/document_skills_core/formats/pptx/template_materialize.py",
+    "src/document_skills_core/formats/pptx/template_purge.py",
+    "src/document_skills_core/formats/pptx/template_service.py",
+    "src/document_skills_core/formats/pptx/contracts.py",
+    "src/document_skills_core/formats/pptx/package.py",
+    "src/document_skills_core/formats/pptx/results.py",
+    "src/document_skills_core/formats/pptx/service.py",
+    "src/document_skills_core/formats/pptx/slide_graph.py",
+    "src/document_skills_core/providers/defaults.py",
+    "src/document_skills_core/public_cli/supervisor.py",
+    "tests/fixtures/pptx/ecosystem_bc/generate.py",
+    "tests/support/pptx_template_fixture.py",
+    "tests/test_pptx_contracts.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_pptx_public.py",
+    "tests/test_pptx_template_b2.py",
+    "tests/test_html_pptx_public.py",
+    "tests/test_runtime.py",
+    "tools/html_pptx_provenance.py",
+    "tools/provenance_records.py",
+    "tools/regenerate_provenance.py",
+}
+_PPTX_TEMPLATE_B2_TESTS = [
+    "tests/test_pptx_template_b2.py",
+    "tests/test_pptx_template_b2_hardening.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_html_pptx_public.py",
+    "tests/test_pptx_contracts.py",
+    "tests/test_pptx_public.py",
+    "tests/test_runtime.py",
+    "tests/test_supply_chain.py",
+]
 
 
 def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
@@ -90,21 +137,51 @@ def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
 def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
     html_profile = html_pptx_module_profile(path)
     core_profile = core_pptx_module_profile(path)
-    if html_profile is None and core_profile is None:
+    template_profile = template_b2_module_profile(path)
+    if html_profile is None and core_profile is None and template_profile is None:
         return None
-    profiles = [profile for profile in (html_profile, core_profile) if profile]
+    profiles = [
+        profile for profile in (html_profile, core_profile, template_profile) if profile
+    ]
     modifications = " ".join(profile[0] for profile in profiles)
     tests = list(dict.fromkeys(test for profile in profiles for test in profile[1]))
-    requirement = (
-        COMBINED_PPTX_REQUIREMENT
-        if len(profiles) == 2
-        else HTML_PPTX_REQUIREMENT
-        if html_profile
-        else CORE_PPTX_REQUIREMENT
-    )
+    requirements = [
+        requirement
+        for profile, requirement in (
+            (html_profile, HTML_PPTX_REQUIREMENT),
+            (core_profile, CORE_PPTX_REQUIREMENT),
+            (template_profile, PPTX_TEMPLATE_B2_REQUIREMENT),
+        )
+        if profile is not None
+    ]
     if path == "tools/regenerate_provenance.py":
-        requirement = SHARED_PROVENANCE_REQUIREMENT
+        requirements = [
+            SHARED_PROVENANCE_REQUIREMENT,
+            *(
+                [PPTX_TEMPLATE_B2_REQUIREMENT]
+                if template_profile is not None
+                else []
+            ),
+        ]
+    requirement = "Rasen " + " + ".join(
+        dict.fromkeys(item.removeprefix("Rasen ") for item in requirements)
+    )
     return modifications, tests, requirement
+
+
+def template_b2_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if (
+        path in _PPTX_TEMPLATE_B2_MODULES
+        or path == "src/document_skills_core/formats/pptx/contact_sheet.py"
+        or path.startswith("tests/test_pptx_template_b2")
+    ):
+        return (
+            "Descriptor-bound structural and semantic template inspection, optional "
+            "contact-sheet evidence, stable-slot materialization, content lint, and "
+            "physical purge with truthful public and supply-chain evidence.",
+            _PPTX_TEMPLATE_B2_TESTS,
+        )
+    return None
 
 
 def html_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
@@ -199,5 +276,23 @@ def html_pptx_data_profile(path: str) -> tuple[str, list[str]] | None:
         return (
             "Capability-probed consumer guidance for bounded HTML-to-editable-PPTX conversion and truthful fidelity diagnostics.",
             ["tests/test_html_pptx_public.py", "tests/test_supply_chain.py"],
+        )
+    return None
+
+
+def template_b2_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if (
+        path.startswith("tests/fixtures/pptx/ecosystem_bc/")
+        or path in {
+            "provenance/runtime-source-allowlist.json",
+            "skills/document-pptx/SKILL.md",
+            "skills/document-pptx/references/template-inspect-and-fill.md",
+            "tests/fixtures/manifest.json",
+        }
+    ):
+        return (
+            "Elftia-authored semantic-template guidance, deterministic fixtures, "
+            "hash-bound metadata, and exact runtime-source policy for PPTX B2.",
+            _PPTX_TEMPLATE_B2_TESTS,
         )
     return None

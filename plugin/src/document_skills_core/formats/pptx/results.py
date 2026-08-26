@@ -137,3 +137,54 @@ def mutation_validation(
         ) else "fail",
         "gates": gates,
     }
+
+
+def template_inspection_validation(
+    operation_result: dict[str, Any],
+) -> dict[str, Any]:
+    contact = operation_result["contact_sheet"]
+    visual_outcome = {
+        "passed": "pass",
+        "failed": "fail",
+        "not_run": "unavailable",
+        "unavailable": "unavailable",
+    }[contact["status"]]
+    gates = [
+        gate_record(
+            "pptx.package-security",
+            "pass",
+            evidence={"policy": "inert-inventory"},
+        ),
+        gate_record(
+            "operation.template-inspection",
+            "pass",
+            evidence={
+                "descriptor": operation_result["descriptor"]["status"],
+                "slides": operation_result["slide_count"],
+            },
+        ),
+        gate_record(
+            "visual.render",
+            visual_outcome,
+            required=False,
+            validator="libreoffice",
+            version=contact.get("version"),
+            evidence={key: value for key, value in contact.items() if key != "version"},
+            warnings=(
+                []
+                if visual_outcome == "pass" or contact["status"] == "not_run"
+                else ["Optional template contact sheet was not established."]
+            ),
+        ),
+        gate_record(
+            "schema.full",
+            "unavailable",
+            required=False,
+            evidence={"reason": ".NET/OpenXML full schema validation was not run."},
+        ),
+    ]
+    return {
+        "schema_version": "1.0",
+        "status": "pass",
+        "gates": gates,
+    }

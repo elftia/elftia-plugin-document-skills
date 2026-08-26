@@ -1,0 +1,29 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "design-studio",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.template.inspect,pptx.create.from-template",
+  "fixture_id": "B-TPL-02",
+  "format": "pptx",
+  "invariants": [
+    "stable slide and object ids remain A-Contract conformant",
+    "semantic slots expose only stable addresses and precondition hashes",
+    "unselected private dependencies are physically purged"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/dependency-heavy.pptx",
+  "purpose": "Semantic template whose slides own distinct notes, media, and chart dependencies.",
+  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 4000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-semantic-template",
+  "sha256": "sha256:35e709b9f965c58e494f68b87bb9e04277f0aa96588bb492b1a0b6b23739aeb3",
+  "sizeBytes": 23039
+}
