@@ -224,6 +224,34 @@ def _make_runner_with_responses(responses: dict[str, ProcessResult]) -> FakeRunn
 # ---------------------------------------------------------------------------
 
 class TestConstants:
+    def test_locked_restore_uses_only_the_official_nuget_v3_source(
+        self,
+        project_root,
+    ):
+        from xml.etree import ElementTree
+
+        helper = (
+            project_root
+            / "src/document_skills_core/providers/dotnet/helper"
+        )
+        package_sources = ElementTree.parse(
+            helper / "NuGet.Config"
+        ).getroot().find("packageSources")
+
+        assert package_sources is not None
+        entries = list(package_sources)
+        assert [entry.tag for entry in entries] == ["clear", "add"]
+        assert entries[1].attrib == {
+            "key": "nuget.org",
+            "value": "https://api.nuget.org/v3/index.json",
+            "protocolVersion": "3",
+        }
+
+        lock = json.loads((helper / "packages.lock.json").read_text("utf-8"))
+        openxml = lock["dependencies"]["net8.0"]["DocumentFormat.OpenXml"]
+        assert openxml["requested"] == "[3.0.0, 3.0.0]"
+        assert openxml["resolved"] == "3.0.0"
+
     def test_accepted_subcommands_contains_probe(self):
         assert "--probe-json" in ACCEPTED_SUBCOMMANDS
 

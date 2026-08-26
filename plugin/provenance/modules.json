@@ -11983,7 +11983,7 @@
         "provenance/reviews/document-skills-0.5.3-xlsx-completion-merge-review.md"
       ],
       "reviewer": "Codex collaboration subagent /root/review_xlsx_dist_e2e",
-      "sha256": "5256a7e3e07d2c5c94f7a1e6c45f39aab011c659c5e2d53e452dea525ce04575",
+      "sha256": "ab384f1412f4ffb7d79c1e403019c23885b717374c5832a2f05777bea887fbd4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -14364,7 +14364,7 @@
         "provenance/reviews/document-skills-0.5.3-xlsx-completion-merge-review.md"
       ],
       "reviewer": "Codex collaboration subagent /root/review_xlsx_dist_e2e",
-      "sha256": "ac1953151a15b838614439a04194f0a5802b8e8291b3cd5824cc4d2c4f4bc8fa",
+      "sha256": "c36c6ebe4eb2b085a612e3b832da1717f2da016c3fe2f7333e82761ed03cd891",
       "source_class": "original",
       "third_party_files": []
     },
@@ -17745,13 +17745,13 @@
     {
       "approval_claimed": true,
       "id": "document-skills-0.5.3-xlsx-completion-merge-review",
-      "identity": "codex-reviewer/document-skills-0.5.3-xlsx-dist-e2e/post-main53f-fresh-non-author-2026-08-26",
+      "identity": "codex-reviewer/document-skills-0.5.3-xlsx-fresh-restore/canonical-review-2026-08-26",
       "identity_assurance": "self-asserted",
-      "identity_limitations": "This reviewer cannot cryptographically prove the backing model, service principal, or human operator. This local review does not establish remote CI, a pull-request state, a merge, live LibreOffice, live .NET/OpenXML, Microsoft Excel, or behavior outside the commands explicitly recorded below.",
+      "identity_limitations": "This reviewer cannot cryptographically prove the backing model, service principal, or human operator. This local review does not establish remote CI, a pull-request state, a merge, a live NuGet download, live .NET/OpenXML execution, LibreOffice, Microsoft Excel, or behavior outside the commands explicitly recorded below.",
       "report_evidence": "provenance/reviews/document-skills-0.5.3-xlsx-completion-merge-review.md",
       "report_name": "document-skills-0.5.3-xlsx-completion-merge-review.md",
-      "report_sha256": "0e22c60a6a7db0ab02e182cfdcf6086774b4163155aefbdd11745fd7390be52d",
-      "reviewed_mapping_sha256": "95850acd7a9bbae117ef9cd54310513fd019f9ebc0ffbd046bc9a2622d07d9c4",
+      "report_sha256": "8a383003784224860afba5c65b7c7d69be857545aa7f8fc3a8080074709e6260",
+      "reviewed_mapping_sha256": "0e1389be0583cd197dd5bc9997822e89b2de176cfbf7c781383ab0f2ad8b1814",
       "reviewer": "Codex collaboration subagent /root/review_xlsx_dist_e2e",
       "role": "reviewer",
       "runtime": "codex",
