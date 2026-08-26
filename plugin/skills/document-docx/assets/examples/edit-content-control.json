@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docx>",
+  "output": "<control-updated.docx>",
+  "arguments": {
+    "edits": [
+      {
+        "type": "content_control_text_update",
+        "selector": {
+          "story": "body",
+          "control_index": 0,
+          "expected_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+          "expected_text": "Old value"
+        },
+        "text": "New value"
+      }
+    ]
+  }
+}

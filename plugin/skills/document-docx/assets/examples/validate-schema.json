@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.validate.schema",
+  "input": "<input.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {"max_errors": 100}
+}

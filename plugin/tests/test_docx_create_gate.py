@@ -6,16 +6,17 @@ never had to police before. Each test here doctors a package that `create_docx`
 produced and asserts the gate refuses to promote it.
 """
 
+from hashlib import sha256
 from pathlib import Path
 import struct
-from xml.etree.ElementTree import Element, SubElement
+from xml.etree.ElementTree import Element, SubElement, fromstring
 import zlib
 
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.formats.docx.constants import CONTENT_TYPES_NS, CT_HEADER, qn
-from document_skills_core.formats.docx.create import create_docx
+from document_skills_core.formats.docx.create import _styles_for_report, create_docx
 from document_skills_core.formats.docx.package import OpcPackage
 from document_skills_core.formats.docx.validation import _assert_created
 from document_skills_core.formats.docx.xml_utils import xml_bytes
@@ -77,8 +78,25 @@ def _built(
     path = tmp_path / name
     creation = create_docx(path, report)
     images = creation["images"]
-    _assert_created(path, report, images)  # the untouched package must pass
+    _assert_created(
+        path,
+        report,
+        images,
+        _expected_styles(report),
+    )  # the untouched package must pass
     return path, images
+
+
+def _expected_styles(report: dict[str, object]) -> dict[str, object]:
+    payload = _styles_for_report(report)
+    styles = fromstring(payload)
+    return {
+        "sha256": sha256(payload).hexdigest(),
+        "style_ids": sorted(
+            node.attrib[qn("w", "styleId")]
+            for node in styles.findall(qn("w", "style"))
+        ),
+    }
 
 
 def _rewrite(
@@ -103,7 +121,7 @@ def _failures(
     images: list[dict[str, object]],
 ) -> list[str]:
     with pytest.raises(DocumentSkillsError) as captured:
-        _assert_created(path, report, images)
+        _assert_created(path, report, images, _expected_styles(report))
     assert captured.value.code == ErrorCode.VALIDATION_FAILED
     details = captured.value.details or {}
     return list(details.get("missing_or_mismatched", []))
@@ -289,10 +307,10 @@ def test_gate_does_not_re_read_the_source_after_creation(tmp_path: Path) -> None
 
     # Same format, different bytes, still a valid image: the untouched package
     # must still pass.
-    _assert_created(path, report, images)
+    _assert_created(path, report, images, _expected_styles(report))
 
     source.unlink()
-    _assert_created(path, report, images)
+    _assert_created(path, report, images, _expected_styles(report))
 
 
 def test_creation_result_keeps_the_single_image_member(tmp_path: Path) -> None:

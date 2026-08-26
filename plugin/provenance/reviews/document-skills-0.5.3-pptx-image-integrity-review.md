@@ -12,7 +12,7 @@ mapping identified below.
 Canonical findings: **0 Blocker, 0 Major, 0 Minor**.
 
 Reviewed mapping SHA-256:
-`5689c54bb34eab7ddcc9a5f7d78a173e06960381b9672aeca640bbdee9644be7`
+`39941d4067d9695f28efa4448318f460a55de542472de80970a10a27851464bb`
 
 ## Reviewer identity
 
@@ -33,10 +33,11 @@ Reviewed mapping SHA-256:
 ## Reviewed target
 
 - Branch: `fix/pptx-image-ref-integrity`
-- Base: `origin/main@1b9af10f87d835e3d30cfc093578346cb5e8c675`
+- Base: `origin/main@d200969f86080f934c8073a718517be724b9ce47`
 - Review scope: the complete working-tree release inventory relative to the
   base, including the post-B2 image-integrity implementation, tests,
-  documentation, provenance pointer, and this self-referential report.
+  documentation, the merged DOCX release inventory from the trusted base,
+  provenance pointer, and this self-referential report.
 
 ## Review scope and result
 

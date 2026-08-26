@@ -5,6 +5,7 @@ import posixpath
 from pathlib import PurePosixPath
 import re
 from typing import Any
+from xml.etree.ElementTree import Element, SubElement
 
 from defusedxml.ElementTree import fromstring
 
@@ -12,6 +13,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.portable_paths import PORTABLE_PATH_POLICY
 
 from .constants import NS, qn
+from .xml_utils import xml_bytes
 
 _DRIVE = re.compile(r"^[A-Za-z]:")
 
@@ -129,6 +131,23 @@ def relationship_map(
         for item in relationships
         if item.source_part == source_part
     }
+
+
+def relationship_xml_bytes(root: Element) -> bytes:
+    """Serialize a relationship part with its namespace as the default.
+
+    Some consumers, including LibreOffice, reject the equivalent explicit
+    ``rels:`` prefix form. Rebuild the small closed relationship vocabulary
+    instead of applying a textual XML rewrite.
+    """
+    if root.tag != qn("rels", "Relationships"):
+        _unsafe("Invalid relationship root.")
+    normalized = Element("Relationships", {"xmlns": NS["rels"]})
+    for node in root:
+        if node.tag != qn("rels", "Relationship"):
+            _unsafe("Invalid relationship child.")
+        SubElement(normalized, "Relationship", dict(node.attrib))
+    return xml_bytes(normalized)
 
 
 def _unsafe(message: str, **details: Any) -> None:

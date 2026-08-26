@@ -23,6 +23,8 @@ _NUGET_LOCK_NAME = "packages.lock.json"
 
 def build_sbom(project_root: Path) -> dict[str, Any]:
     root = project_root.resolve()
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    project_version = project["project"]["version"]
     for relative in release_inventory(root):
         try:
             PORTABLE_PATH_POLICY.require_release_safe(relative)
@@ -97,7 +99,7 @@ def build_sbom(project_root: Path) -> dict[str, Any]:
             "component": {
                 "type": "application",
                 "name": "document-skills",
-                "version": "0.1.0",
+                "version": project_version,
                 "bom-ref": "application:document-skills",
             },
             "properties": [{"name": "elftia:lock-sha256", "value": revision}],

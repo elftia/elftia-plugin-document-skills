@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.inspect.accessibility",
+  "input": "report.docx",
+  "arguments": {
+    "max_issues": 100
+  }
+}

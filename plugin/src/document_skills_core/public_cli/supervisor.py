@@ -1,6 +1,7 @@
 """One-shot public command supervisor and sole stdout/cancellation owner."""
 
 import json
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -26,6 +27,27 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
+_DOCX_LIBREOFFICE_OPERATIONS = frozenset(
+    {
+        "docx.compare.visual",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.layout.repair",
+        "docx.render",
+    }
+)
+_DOCX_LIBREOFFICE_WORKER_TIMEOUT_SECONDS = 90.0
+_DOCX_DOTNET_OPERATIONS = frozenset(
+    {
+        "docx.comments.add",
+        "docx.comments.read",
+        "docx.comments.resolve",
+        "docx.revisions.apply",
+        "docx.revisions.read",
+        "docx.validate.schema",
+    }
+)
+_DOCX_DOTNET_WORKER_TIMEOUT_SECONDS = 90.0
 _PPTX_MUTATION_OPERATIONS = {
     "pptx.create",
     "pptx.create.from-markdown",
@@ -53,6 +75,8 @@ _PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
 _SCHEMA_OPERATION = "pptx.validate.schema"
 _SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
 _WORKER_TIMEOUT_SECONDS = 15.0
+_PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
+_CORE_ONLY_PROFILE = "core-only"
 
 
 class PublicCommandSupervisor:
@@ -180,6 +204,11 @@ class PublicCommandSupervisor:
         runner = ProcessRunner(policy)
         executable = policy.allow_executable("public-command-worker", sys.executable)
         worker = policy.allow_script("public-command-worker", self.worker_script)
+        fixed_environment = (
+            {_PROVIDER_PROFILE_ENV: _CORE_ONLY_PROFILE}
+            if os.environ.get(_PROVIDER_PROFILE_ENV) == _CORE_ONLY_PROFILE
+            else None
+        )
         return runner.run(
             "public-command-worker",
             executable,
@@ -196,6 +225,7 @@ class PublicCommandSupervisor:
             cwd=cwd,
             timeout_seconds=timeout_seconds,
             output_limit=self.output_limit,
+            fixed_environment=fixed_environment,
         )
 
     def _command_limits(
@@ -218,6 +248,25 @@ class PublicCommandSupervisor:
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOCX_LIBREOFFICE_OPERATIONS
+            ):
+                return (
+                    max(
+                        self.timeout_seconds,
+                        _DOCX_LIBREOFFICE_WORKER_TIMEOUT_SECONDS,
+                    ),
+                    MAX_WORKER_BYTES,
+                )
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOCX_DOTNET_OPERATIONS
+            ):
+                return (
+                    max(self.timeout_seconds, _DOCX_DOTNET_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
             if type(value) is dict and value.get("operation") in _PPTX_MUTATION_OPERATIONS:
                 return (
                     max(self.timeout_seconds, _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS),

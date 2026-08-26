@@ -67,7 +67,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "14d916c2c3556fbbfd3371478f028d1e96f61752e8e35b2ebbe71f9f2e164cff"
+      "sha256": "b5d52e65069fd0b9325debab0aa52b616c014c02199a80f344ff673278c2773e"
     },
     {
       "artifact": "THIRD_PARTY_NOTICES.md",
@@ -126,7 +126,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "4f0fca80b81f572cd1c3fbb1c71bdb1988c94ad9190c640e192ae3dfc15b261d"
+      "sha256": "272fc7af79984475369e9e76878390cb305279452fef1fbf7b394d4cf8e204c2"
     },
     {
       "artifact": "package.json",
@@ -142,7 +142,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "47dd6e4c04bfbb6bb9e13464dbcaccea49a729dcb36e9a30f6cf42707dee6fec"
+      "sha256": "1cdeb1067d4becbcd1fff8967279f0ea583073d630a19e5f98b8fd62a161ac04"
     },
     {
       "artifact": "provenance/adoption-review-template.md",
@@ -238,7 +238,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "d537e4b922d29ad2564d928261a32e8b3e78f183d2e5922de27fea7da2d4bd1d"
+      "sha256": "e28695f698530cbb2570d776258faab520552e50dac970e237c5f39bab2d8fb3"
     },
     {
       "artifact": "provenance/reviews/agent-core-builtin-integration-handoff.md",
@@ -341,6 +341,26 @@
       "sha256": "8d6861076dfa6d27758382f9b4d0b52fbe7f67d6554fa3fb60f9c76f7f32934f"
     },
     {
+      "artifact": "provenance/reviews/document-skills-0.5.3-docx-completion-post-pptx-merge-review.md",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "fb3ed96b760a3ae9db2a3f9e8c1840194fb2262e139ed49f81ac8456e0ba3408"
+    },
+    {
+      "artifact": "provenance/reviews/document-skills-0.5.3-docx-completion-review.md",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4bf011dd266c56a0083b7544faf39f5789285f9bd3910d708149206ee2596568"
+    },
+    {
       "artifact": "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -441,6 +461,16 @@
       "sha256": "2ae19b1c4a1b5797b1da78fc82d0b3803db190f60bce0068d00470a73a591c78"
     },
     {
+      "artifact": "provenance/reviews/mammoth-1.12.1-evaluation.md",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "52a987ba552b499f0742001989eecac86531913d42f9ab646c4ec680c8bf6eef"
+    },
+    {
       "artifact": "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -521,7 +551,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "6c7fe6cadca8879ab262eb915617d9e867d8e24bdf072de42b78a0b03ff6d768"
+      "sha256": "5a31ec7a8f4203555dacaed00d421c69be28129ed4a5f7a20360112655008eaf"
     },
     {
       "artifact": "pyproject.toml",
@@ -531,7 +561,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "5224cf93951ddc8a87a77e6c79c9e71d493cc0c4efb332d2208a88d2e13fab49"
+      "sha256": "0951699395dda6664e453765cdd9d1556169f67eb836532f5112f0756d48731c"
     },
     {
       "artifact": "sbom.cdx.json",
@@ -564,7 +594,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "8f6709173225b4fe7a5dfc04ba50bae730fbf7e9bb4bcd54902775efc264072b"
+      "sha256": "bca9da6a21d022c2bcd367e3249e54928646304a2800828b401ef0635aad7394"
     },
     {
       "artifact": "schemas/capability-report.schema.json",
@@ -584,7 +614,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "95c72ae882ac4a2fa00919251d29a1af228bf8848cc5e96cc390b7814a3fcb3f"
+      "sha256": "11e00ae12001d98ec90035951800a658711a21824cd2daf2ab65877e6c73755e"
     },
     {
       "artifact": "schemas/operation-request.schema.json",
@@ -624,7 +654,107 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "d12be78a64892083ac7967efb12e93ae1af3a304aa13e097aefcc789a78b70c6"
+      "sha256": "3869c586e818c2e78d22c3d7558535d6771045456ba93da0401af9ee6dd3c2d8"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/comments-add.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e4a22c86e48bc2f4fb61fe670667b3b9b06f122e997ca81c1ff802ecc058dddb"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/comments-read.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "57bb36d55e39e341bcac4ffa071fc8cd5403c4e5e676e9b4cda8a47a61c74b54"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/comments-reply.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4616e58f59c7fd8039dc3101e3ee1b1e1f089f846e90e8cbb7a03042d510c5f0"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/comments-resolve.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b8b1b059d05332e1f14d8f93cb09d05364775080780ceee961528d91a8c18ab7"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/compare-semantic.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b54d6db56e3f38099338a91f038d0d567c5fb5598fcd7b01d488ff528f706f85"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/compare-visual.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "d15b4956a38bbbe46a2697d7c8892ae70a5a07ce80db05e4f5ff2d19d55ee8b5"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/convert-legacy.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "dcc20ae97a7be04a87a06fcece48bf0920a89028563834e909d713dca4c6ed4c"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/convert-pdf.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "450871598c9f3f5dfce70732b1bf38c31c4a833e46a80b0013e34026258f3403"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/create-academic-paper.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "89ec39766f6daadfe2a2c90d48734d52eddb20e433858f1a3d58fac224575b26"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/create-document-spec.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a77518bedc8202ba0476e9634b6de8cf918b78afd8353b9e17d2c7e7262ee701"
     },
     {
       "artifact": "skills/document-docx/assets/examples/create.json",
@@ -637,6 +767,76 @@
       "sha256": "eafa409fdd88b2144635f9867ea836b359804751da33a1badbefb8b0750ac2ef"
     },
     {
+      "artifact": "skills/document-docx/assets/examples/edit-content-control.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "678de6c15cfa24226e58968a08f0cb8b9bdcef892cca2b6fa16da58680d1f884"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/edit-docm-keep-vba.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "ce273168a46c87e92a0f11b075cd86dbc8d23fa41e43dd5a54f0eaafd5dd968e"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/edit-fields-toc.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "c11cb4abdca16872e01c57f30422e1bd726dd96c714746b6a90dc43d84d177a8"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/edit-notes.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "849020dc55b2019db5852b12e1eb68b670ceb0168e3d83afc9462d19a87c0150"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/edit-numbering-style.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a8899e33a05db18f27c46c74be0b1f73f695bb0e1d19d95f10a1c98f764aca07"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/edit.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "3d5db5483ac2c1dff40f6cd64ed00a579506aee1a0bbca8e6feb61d5163917ca"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/inspect-accessibility.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "9e4630d15c94685b1c2bd39a0a3eab2416bba7dc2eeaf6b467e9c46bc540452a"
+    },
+    {
       "artifact": "skills/document-docx/assets/examples/inspect.json",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -645,6 +845,26 @@
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
       "sha256": "61b076b9dce6c9b2259dd5cf18eb3fa231c4015a00b4279f0b8029549b0af8c9"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/layout-repair.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "ea1283a5e3ac06cb48f40a4c3dcad216db074f4ece0cc49f962f58eddca7b61e"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/merge.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b67a4ba8b6f76ca33ac0c919c0b970514a84b0fcbcad7842e0b9a7bdfde0047a"
     },
     {
       "artifact": "skills/document-docx/assets/examples/read.json",
@@ -657,6 +877,16 @@
       "sha256": "f8ceb9a695ff9f14c9f67b5299f16f1c8653112509abbe7c067dddeecc75526a"
     },
     {
+      "artifact": "skills/document-docx/assets/examples/render.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "95ae145c5d857d8989ef5a66dde83d4ef4491be0d64737c774dd99f28ca36cfe"
+    },
+    {
       "artifact": "skills/document-docx/assets/examples/replace.json",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -665,6 +895,56 @@
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
       "sha256": "e30755729677c0a4162a2667d0a22014963c656f6340fabc91f437b20ad25179"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/revisions-apply.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e34afff2ca9e1c4ddb6b648074c9f01d9593222f0614d491e66068c74f0fd277"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/revisions-read.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "471678508bf54509c6f9fd00fbb72ff66ed5bceb709a360887c6f63ad81fccf3"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/template-dotx.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "03cfd4071ed2b870de3111808c11230f2ca5dbe91dfecaac586da207da5482f2"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/template-regions.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "cd91781ec576258aaf3cf6f58b97a463047991f0d5ea3134db075cd029233c74"
+    },
+    {
+      "artifact": "skills/document-docx/assets/examples/template-style-overlay.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "ac11b3a8c64c4522609050c28aabeca42f1897c58e269a1f9c7da38e6645193f"
     },
     {
       "artifact": "skills/document-docx/assets/examples/template.json",
@@ -677,6 +957,16 @@
       "sha256": "39e820a13214b2c3660b2ed38949de25da2d8cf50d5e0c21f7a28a720e50d0c4"
     },
     {
+      "artifact": "skills/document-docx/assets/examples/validate-schema.json",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "1fd65e53eaafa8c1edfa9d6261fab3a36b6ffc5f630e2c5ff08f32fb4d885e18"
+    },
+    {
       "artifact": "skills/document-docx/references/requests.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -684,7 +974,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "496b411de79655466abca9766927d4edb5fb7bce52f9e95483b77e2b38e80414"
+      "sha256": "203e17dad7e85cc42eabaf7b6a38bfbc39ebfdbd71c57c0fcdb435fe22298095"
     },
     {
       "artifact": "skills/document-docx/references/results.md",
@@ -694,7 +984,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "2c220061a123ab9a8c906dd9b5b6462f964fc7c20a766094ebb435a13bdfb56e"
+      "sha256": "1a63e80f69211f6f2a42004111237c593cc3586bf03b93bf8c682cadaa9462e4"
     },
     {
       "artifact": "skills/document-docx/references/safety-and-validation.md",
@@ -704,7 +994,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "e62077b91508868ebd1f95bedd3b6d413679d71aebc3d9ac5088ed042b559ec4"
+      "sha256": "d4010cbee883996a754a05afa619824820eea218161bf74c6e1ce2cf45f3c6f5"
     },
     {
       "artifact": "skills/document-pdf/SKILL.md",
@@ -1507,7 +1797,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "b65940f5114fc917d45ad72bc1c8b63189b30017f22464863f6edaece3bc5eaa"
+      "sha256": "80886dcb9ea1ac13f7bd4ef19c3beb93cc8774f8afd63a5193b61df0f279f79b"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-absolute.docx",
@@ -1517,7 +1807,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "d35b78bca43b6ecbdce6234f9b3aa057ffc36d1b76c04bdbb512e1f3757f1d4e"
+      "sha256": "af72625eb47607bfb2bc0182ea23daba6f0e75161c77e409d2cca9f4af552d4b"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-active.docx",
@@ -1527,7 +1817,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "f289842ae8c3ad10ac5c15301ae1e70d5aaa8707c9194226ded4ce46fcd1b2b9"
+      "sha256": "6011eedd2703b717ae3894344878544d79a8840d88d1fb8e90c40ba439a3f4e5"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-alias.docx",
@@ -1537,7 +1827,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "886f9fef7840d28e24a9dac88687566eb03af4b4eecde5b3f395c5e5dd078536"
+      "sha256": "184f09a35a32508c66b84a58913674a4f5c15ff520a3c45852d75c63db3d4cc5"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-crc.docx",
@@ -1547,7 +1837,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "ecac4f5a7a4deffdee241567cea7b38265f2bc6d5d84629a82a742f66e3891b7"
+      "sha256": "c86c1ba1a42570830f734f5c08023162cf5b4bc4f94b94643e0409c753bc9fb4"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-duplicate.docx",
@@ -1557,7 +1847,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "01e3f06aebfad63dc82069098f6baf822bbebbe7caabb7243ba826b20a3fb562"
+      "sha256": "167f726393ee1287e7506d7ec14a884268afb2f0f194e43437ffe0abcb086bee"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-entity.docx",
@@ -1567,7 +1857,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "562c435a273809dea99a9c52865afc3506e2a1106b874a2c57387de4bf3be474"
+      "sha256": "4c5d020a542a6c6e0e5295b0c01c793733a6e5e2606908b26f76e60600c695df"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-expansion.docx",
@@ -1577,7 +1867,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "2550d164acaeb7352439ba49ca6fe6eeaefb0b595e963a045017b276b9ee06d3"
+      "sha256": "b2705ed4e8e5b27f532ec831aecd14d2cd6afb96af261c38b36071e3fea37006"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-path.docx",
@@ -1587,7 +1877,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "c87319a2b88da2d6e73d235f483c59bb8abf8578fc74615b0bffe11788600fa6"
+      "sha256": "091bec50e32e45692f6233b78e320ccad7b5594690d9e93aa1b6109d28623587"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-symlink.docx",
@@ -1597,7 +1887,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "b578379db62904dfcf0dc8cabc7e66a548f163ac5bc7edabea2cc255a8eeeab8"
+      "sha256": "91f40d1a074a004e35dc37ead574b964ac7dd94518468c3130e21f21d6eea7f0"
     },
     {
       "artifact": "tests/fixtures/docx-malicious-xml-limit.docx",
@@ -1607,7 +1897,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "216cd131a616619fc2b4a54e440f57443adc015ce3ffe81817ba9ccc2d1bde6c"
+      "sha256": "7e17bd8e213fee5bf86ad104e20677a60c5d43bc14ce0af3a119cc56316e1f6a"
     },
     {
       "artifact": "tests/fixtures/docx-preservation.docx",
@@ -1617,7 +1907,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "defd456edd8122238c6d0b8a990d025bf9140594d38ac8246088daf91a25f9c5"
+      "sha256": "a52d2d7f2878cb4f7a784af0f6cd3f9c95935bcb7b8f7a280a9bed5cd37e6e2c"
     },
     {
       "artifact": "tests/fixtures/docx-preservation.expected.json",
@@ -1627,7 +1917,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "0e784d9eed07de710f0f29762842ea13f7b98572fce44a084ab824052c581ad5"
+      "sha256": "0421e00d2664e65af66d288ca7244a3e81536f8ecc12a27c441f4e0aed3b23a1"
     },
     {
       "artifact": "tests/fixtures/docx-public-bounded-word16-accepted.docx",
@@ -1637,7 +1927,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "3f41412fa24ea0561bf655e85448d5facad36d9d1f4bda302078836507eb62f5"
+      "sha256": "14e931a5ff6ec9200464705e90aa34b5d7ec428e45b52dc054cd89d3eeb13a7b"
     },
     {
       "artifact": "tests/fixtures/docx-revision-comments.docx",
@@ -1647,7 +1937,17 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "e2dc6d7c491d5bdc6a2140eaf9f2a3620dfb050a9858712e2a96c8d3fd001eca"
+      "sha256": "5794c01c723f9cdf68a47ccd9cfc056f4d3e49ea39f2683f4f728f5e445f324f"
+    },
+    {
+      "artifact": "tests/fixtures/docx-revisions-nested.docx",
+      "classification": "fixture-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "23acaefcda0b4e4960f4617ca042303542962f922cac2026c1c74123a5f394ba"
     },
     {
       "artifact": "tests/fixtures/docx-rich-word16-rejected.docx",
@@ -1667,7 +1967,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+      "sha256": "9b345775c8b1a4ed9e0f40a7be850a000a20f6ac63a0b46cc88bd4ff8defd803"
     },
     {
       "artifact": "tests/fixtures/docx-rich.expected.json",
@@ -1677,7 +1977,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "0a17b51a53a9f842af6a716c789393a9cca7aff3673df7d19b4c4eff1713c096"
+      "sha256": "88e017c5bd8248ecd8c900ae0ff5d4370b035a4e3973635082120310290c4e34"
     },
     {
       "artifact": "tests/fixtures/foundation-probe.json",
@@ -1821,7 +2121,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "d2ea75e435c5d8369b04a1f0093b575700236132acb31c04b033ddb84971ae25"
+      "sha256": "6571ab807da66e2bdeb1a2ff39a8cb437a787868b716c284c9d8d5353a313dc6"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/README.md",
@@ -2425,7 +2725,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "2fb0824d139f50b584fd3c110a32b13d98fcef0de572b13240a30d359631914a"
+      "sha256": "f6623a70c3c9097d92f184f6bcf0605f6dbaa78cc7e08d2fc6d2f81dbf155a02"
     }
   ],
   "executable_exclusions": [],
@@ -3043,7 +3343,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "23278b8a8b82c1b3af6131d80e82f683d8ff5bf5f2148ba87a449dee7d8bc0cf",
+      "sha256": "d50755a4f9f00b9606761546ccb24058c22fd9c57f760c9fd3246c72f5c3b481",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3068,7 +3368,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "5e671de2e3125e4c5ae9e2d16ea030f4519f1a449ab4a18a07e340638b7733b7",
+      "sha256": "346034366e30c8bf8e9f50bc95891cedb44d545ef8cb973f8d5b31ec3265ad86",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3836,7 +4136,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "413971ac272d5d8a8fc9f4a53dc71f4b96c25bf663c8a0afff2e24b949e2d535",
+      "sha256": "35c34e6792c12037b04c5aa4a764714b216c20f6ccd334397b04adae113d8972",
       "source_class": "original",
       "third_party_files": []
     },
@@ -3990,7 +4290,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "13ee847c50577ed3f51b6256d0538cd109418b488764ed61e3f02426b51198d7",
+      "sha256": "17e0321a9e4b3b84daccdf973397d75738253c8fcaeb7b780c938d5d0e171efa",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4046,13 +4346,118 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/accessibility.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "0ae9d2eeae1a8af7230e19dd10d181f291aab531bfd3f4e48d34bcc984ed0090",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/comment_operation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a1ee14ea21420da4e761d57f11ed10b73d04bfc0154486f1df4f3943ced7936a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/comments.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "877208ccf1ef645d547ab7df8bd507968e84aaa2ffa68758414fec20584403e9",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/docx/constants.py",
       "requirement_source": "Rasen document-skills-core-docx",
       "review_evidence": [
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "ca78d8b2532116b653901a21220832f404fe48778427131d2df3908bccd9e5fe",
+      "sha256": "b865f99867daf4ab91e7f16a31ba450570cc32c3a63007c8c018b701782445a1",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/content_control_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "70ffa21a557fc99a6d0a524635dcb3cc0dd825e11abab29c5163ffe0d6f24d30",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/content_control_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "1f5ea91ef05931601ed750bc9e36fc28687b3caa4900cf940dd16290138ca777",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4073,7 +4478,28 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "28b865f4b251215093e0d8ed3e0c6e3f7d68f3a64c99c682968a3b00aca3c7eb",
+      "sha256": "e2dc1707fff2fafd0df68cfb9b71e8c5b7d28bf64bf300a5317fddcd8f9270e7",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/contract_utils.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a086ff21763cc77b8055101e56e2bd45ec27580c233f75f1eda5c6a75d9c5c10",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4094,7 +4520,28 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "da49acf160e852f783e2b6e8b12e1ae655a8c19eb71f3a6a61e901cfd350525d",
+      "sha256": "d15656c59e4707dcabab87108746136c7ac45e0181f8b6c54654325ad44d674a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/conversion.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "9fce25c036d8834a21fa2964fc60d81b72b6f0d7e1b9551357940a81ccd08ed3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4115,7 +4562,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "19fec6cd3c8ca91b8453f01da26b7d0f145819252419a8db67127886f5110c41",
+      "sha256": "8c680834b83570861a20d0b65092737f737d6db102c9cf356fae8b6be5eab8e6",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4136,7 +4583,280 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "da2223870c2daa903ffc0459a565c90a2bd89ca8553595faec54ca615448d24c",
+      "sha256": "3631afb8da3124e19fd69d377c3d29eb6a415e49a77f716a2d1347e49e9c719d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/create_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "1584c22f08dab44228264672e703969e1c860f17fff1fdf35cdf02310714a1c6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/document_manifest.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "22cc3e017b4ad53d122dd4a59bf942264bee7350fb4c3d06df435ffa9100ec55",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/document_spec.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "bd7ef9a4eaa672301ec6240e873a480a5ee2ce392b8025f886a2c916cbe2c684",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/domain_profiles.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "c1db7c6ecc0b02e70a4e26870747fae3d6ebdda95b1318c3af98c6e058b27ffd",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/drawing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "6f91927ecdce613d91bfd2b6aec8232123afd323f4641471b62241130df70fd4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/edit_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "09361501bcda5c72c24a083ee0068bac6162d0f15b967be7d7c4a8c46af8808d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/edit_planning.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "f624375cbae0212a9deb20e1d814929797c571bee49657861b882e93d13a73c2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b7631e07461d4ce46c88362f208d896df05b762eddca6ddf5271b4f217f1635f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/equations.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "7bbf5c1591d28392deb2122ca1c9172415bc39bb90101cdd3643f0dcd08e2b6f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/field_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "22bf4297a8c971df77c4f07575dba302c7ace0f740d7a5fdda848a8afcedd6aa",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/field_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "cf9e800250f552c79d388f2338658cdab68304c6fbc7f348a2c6f47a5bdaa2fd",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/formatting.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "39d4bde2516dd54185521423f869e95628cbc3bb3974cb801b8ddb67cd0ab971",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/formatting_inspection.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "66b244d297c85e07e4f870a332b71425c69478f9806496a49f875f47c8b060b1",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4172,6 +4892,90 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/image_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "c0c07a6d726547ee444707ab7cf73b44b302194692e185c7643120168d46225b",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/image_edit_apply.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "58221a2aa5395c373d7fab0e3c4ef9a7be54c21e3ea11fbbb46c70ba1b8a8646",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/image_edit_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "82cbb6158ac1f0047f4dc31afcba1c6653f8bd026b03bcebfd873c1988211e6e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/image_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "2c29e91806b83f01098035603ad5a5fba420371c8115645b5817f103d25c021f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/docx/inspect.py",
       "requirement_source": "Rasen document-skills-core-docx",
       "review_evidence": [
@@ -4179,6 +4983,153 @@
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
       "sha256": "4642005fc8a55b1d96b43dcb7894011abc213ef3f5dc3ba4f0c6bd478d24cb43",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/layout_inspection.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "7956fddf565793b07c818413cf62404ef4125e81dcc5754695e4e673af16d9e1",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/layout_repair.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "bf27ad988c1aeccd2bc091ea03fe9f1da4640a67d70efac7caad64700df8e3f2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/legacy_conversion.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "afec9f3fe58df30f1a6fe1a5a3f3732cfe208a7284631b41b7cc76069e1e78d7",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/link_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e1f5720d9d91587db389fd6e0f579b54623cf149bd83457d8f585c14b607d858",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/link_edit_apply.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "f4c8bfd0481b72d07219a64247d6e30d0ec7e5c907e01ed478a566ec1fcaae8b",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/link_edit_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "9cf67906953a0a6b8f6a36a343696f6cad8078fbfd4bf9b7cba489fd30cf8f43",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/link_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a0ee27d11809318adbe68949f06f6a1a537ca6b2bc2e669f6f80e9c4021c64fb",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4214,13 +5165,433 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_bookmarks.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "10e989ac246ea0a70f25660076cb369a0c4d530319acefaf5c33e0be1512d89d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_comments.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "2cfe58c09958e4d4b48b1ee79cb1c607e14d9fd42743510539c9c591849b7154",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_content_controls.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "f378ee9db2207e493bacceaafb2054fc52a798501a5da8b221afbf40ef1c99a3",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "ea92ba2014066b8d919ac82c1b9a56bbd44ba681b90c0b5f38b87aa613dc3074",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_fields.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e42541eb46c2d601c76ff46597cbfb6b6e427ccb5bc31016da319fe2976b96d3",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_graph.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "26e00155c3baa369d564efa189aeeee2cafb8477c0dfb8073249cb8d111d68d8",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_move_graph.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "13a16d2ff0f0c4dbe1284040e319690f86671dddb1da2a06b947b643b53a7f9e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_notes.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "d71843e3581c6807beeab7cf3ed7f133231d074e1e142da491ef616548524d40",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_numbering.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "3e6ea799521dfc34489d56e4da5fedd07e4c96bd112dc4a2295ddf64e66084ff",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_operation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b43d108c56217c82c85d0f71c60cc2545c6699c5c640577d257cd24fff67af13",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_parts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b350081b3c42ad8b43bca3c8533a516edde2d7313c033db95f7db034728f2e6e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_revision_graph.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "992c6205b81c72e9dafc80618178851b57339412bdd10c6b37a42b68eb9b9238",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_revision_types.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "aa1ee9e8f672a3dcca03ae292429d53d788c7e925b0731b2ffa2c5ce192cd769",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_revisions.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "99da0cf895974593025b22e3d8616c340a39c02223482258a297025fa36a2909",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_styles.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "12cdfd4cf6013128e12425294a0d62f8d1a540d6a5935f35dbde6375444c7dbd",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/merge_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "c2859f1ade458170e76c4433e6ac543370500e5e99734923f0b770d560464dee",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/note_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "76abde348351aa8baacafcc5768498fb9c3980b3cf21be86030ba000510b45c1",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/note_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "184e9b72edb9b4bd9be425a656fdcc67cc17eb33e5f095914f35abba311448a4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/numbering_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "2e6b6e2a3e6e7bd85469f9f5bacc99eb644621504dda7cc94e3b606f2683e4a5",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/docx/package.py",
       "requirement_source": "Rasen document-skills-core-docx",
       "review_evidence": [
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "731980675f15ce39c72b3993f0d47fc5f446373c974bbe6557686d05aa1b9f9d",
+      "sha256": "37d6e30843a49e3c3c6465229461fbc7ac9a056863f00072150004e559d4c969",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/preservation_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "6d57ca31fd3c6dacf9eab6ea63c0bbbdaf1c038e9d852a2bc1e376056e3e2915",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4241,7 +5612,28 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "3f0002f5e9dea8f0eeedc668c3f172ff35d1f748b6cac625d5ebca6a52118793",
+      "sha256": "23b010507d160cb31948cbf6e42531a073a67276854ded6e427ba740ec378900",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/public_mutation_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e8deb33a9b9e454c727de25170df9f585036749e2d6c7134dde1ae1966b52aba",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4262,7 +5654,49 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "448d7e8ef6af0a7a85902f8945c5ae3ddc0cadae415d11c0e789c929759a2ce7",
+      "sha256": "ecc22763667a178c694b3f712f107a75430681185f9921754a6f19816d023a96",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/read_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e566d9fb4f414b143da14d39bf0c6b6509106408480c858767ccf86d704332d3",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/references.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "7589c708a9b7e4af2df907800640fb1382a885540861ae2bc6443bcdf416d976",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4283,7 +5717,49 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "2dabfa2af1e4c28faf82ecb80b77e53a586a605a40bbade31acaf00875919a1a",
+      "sha256": "48ce28f879959e2f55416f7db34ced5fbc5d5eda81d433dd44bc35370fce8ec3",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/render_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "3db797e08884072860fc9e4c38b2563f11c2bd4968e5ad87033c0cb7a3533538",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/rendering.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "beb0b7417c228aae3f5692729533aaf1a1e637ecd7ad23826b40ffc90fe5b9b1",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4325,7 +5801,259 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "f556dfca7869f9cc1aa50f2208860b93c591681af92d2f3172a12e9bb252121b",
+      "sha256": "d630f063019eaf9de3fc20540fe54d0fba6f7ce2f244c301c840efdf4043352f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/review_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "086f62786b91c36fb3ee0a1a4dfb6ee3e5313e6036e873be7fba2f9cc69dd0f7",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/revision_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e662281cc42c9fd786e653ebd1fdd158c5a871cad171b48a21f6a78216e66cdb",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/revision_operation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "d1473e7aa780ff52bfd5979b1f2ae22e2745cfcd733e42a773c3e578188e2fa0",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/revisions.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a9b789070ee3c41351ccf6996902a76639e6aad7da7010c29c358c8c6589f0a0",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/run_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "5d56f7b387555f2ac1baa480f6b82c1833bef572158285c2484b5e729cfe7c56",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/schema_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "14a3bdbacd9624d905abea5eda1b0f63a29ad0cb480b26b60a7cb6ac68e746e8",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/section_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "3117c3d9bf85b11abcb14d0f2ab098d59d987fc3f180017b3f5a459dd9d7352c",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/section_edit_apply.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "8fd045bb316fdd7ba7edc524f4553377e9005f76e5a1d01a5676c4e91257b1d0",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/section_edit_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "764eee12a2fbd1dc72d487b27ed41474972602ff58bd4f4171d3c7bcf608d00a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/section_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "85d9c63735365cf7f0aae136432abb5d626238e7d9d5a483148fc64e585bb2a8",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/semantic_compare.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a570580cdeae3a7dbe452bf13a992f8402a99c95cc89a05ca4395e8aee4a460c",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/semantic_nodes.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "d9836d656cc77d4414f58a6a3a13c17a56c3e052e809f4e53288612fe04e8ae7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4346,7 +6074,238 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "a9b1290957ce77bfcc9d22b7cf6aa79b0911a8550f3ec4534f76854451ff50f8",
+      "sha256": "65fcf62197af0e26025201a37f18764358c82edd3bd0c9b243e2fde96e61fb26",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/story.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "784c97fa1603e2b0ebcfd9bb70a43040c8fd1b6fc83390463d76f28a0f811f51",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/structural_diff.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "a0bca1a991116015ba5fc477150b3cfa9fdbe8720a20567c31cfcf1ea5346ac3",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/style_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "f2bc31b271098e8ede0f8fc6e37b48eece1be6e32f8fd57352b0a67b43ce769d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/style_overlay.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "77ac0fdeaf27245f78f1ed1a0acd2c0be42e274d6b9403f7b7452dfa36eb3a03",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/style_profiles.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "491dcc47aa00155db65dca4efaae28b88cde6bd81a74dfdab827700276238a0f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e07809f7ceab6e5410158aaad1964d7b3e4784e575a77061c31e948426bf410e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4a5cf1881c4d21b1b2138bb5e12ada1216eecfd7e7f7b8856cc64c865091b861",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table_edit_apply.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "ecc5cff87e8428fa53e99e69d412c34cc1208864d8b2554e32e99af7235f19b5",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table_edit_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e59e0e9f571a9e4b9d33ff63805c19e9e911ed7e6497f5d1ae3ba13f75077ab2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table_editing.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "7ba766a946970f3814c84ea2bdb84a2b65ba4bf806c132cb184fa59a9034ee61",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/table_model.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4e8abb9eabb5632625d8e9874b7c5de0c893666285583edc9dee9ecdc1dfc26c",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4367,7 +6326,112 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "fae848c570b9ded7bdca229148bc28ce0129ddc571836fcf0c1cf0e6264e9a5c",
+      "sha256": "bcf55c917f95e0514d4d8b3e5c0506e31028117fdabb32dcc90212f5ccf66cd4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/template_base.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "63e7053b45d76970e98cec0bc0e03855fd6919ff4bd477fdb10dc10694e1a9af",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/template_operation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "7bc0896d8ea6151402c8c05059d14efc22e397a6fe037f26945bc497cde16cc6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/template_region_contract.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "1b9896a7ee6a96029830abca7a0b4ced23ef766df716a9549e6e2495b0117dcf",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/template_regions.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "90445943f976cdba89d5fbe700d9da47fc24cdc48d4b1ef53177fb57872c5790",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/template_validation.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "9047b03cf48abedf804d4116c4e325185a09a1931fe78b39e705a63ccf07d86a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4388,7 +6452,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "78177aee2fa53746997940b761baeb749ed347d422032ffc595c5d442c2c8dbe",
+      "sha256": "552de3b452e10c05a05128ef3c25cc13c25a778f13b2886009d6a4ffca470b30",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4409,7 +6473,28 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "659a9cf53f44d827f447824ee5decade764fd38149df84ae4e6573990915cbc0",
+      "sha256": "d6d6c891c2b321d94396aa0fb727be7289621516933d9fef1824f316d6e544ba",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/visual_compare.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "dc37d62478c3ad2484475e249256797267a171a762bc0013822080cd5e3f079a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -4430,7 +6515,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "d1a03eb09cfb04f878d6b132f90cf71918621a4c040fae01f14a3aa6d8347286",
+      "sha256": "53f8c4ec16abc2c088c34f0a9896f35592e32530b6212dca2a156974c24418eb",
       "source_class": "original",
       "third_party_files": []
     },
@@ -5745,7 +7830,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "b339248703de3a885eea09f4c1da3b7995721c195fc130c95a6cef8637f72e25",
+      "sha256": "97f69012efcbb44a0d0e36879936085ad795017b4de80bc2f58c4cf870c6553e",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9577,7 +11662,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "3beb6d28bf36296e0d12b174a09d87db67dcee9a593c80f69604eb2b7842fb97",
+      "sha256": "46e413c69c708ef18b724301f77bd877665c43cf04757ccfeb1c64817f138246",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9617,7 +11702,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "7c541ea78c0cd5dc42accc65c51df75c0c71a72eea98375b9b33710ba05ba091",
+      "sha256": "a7e67784e81d80866a2d96ef0551dff5d62cdc719ba2c544ad282e97f8e6c4d5",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9695,6 +11780,86 @@
     },
     {
       "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/providers/dotnet/helper/CommentsGraph.cs",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b7f322a1f5bfcca43ee9e90cd4e296662d90919d7e256a8fa92cdb237ca13c4e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/providers/dotnet/helper/CommentsInfrastructure.cs",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "98ccba5296c59f249e0d1e41d7da94d6dd5b9bd761999fdfbf20d3d9ada8dc47",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/providers/dotnet/helper/CommentsOperations.cs",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "63c4f1b0e3c8736a72697e5e54de2c7f57bc9f5a9301661a48b9210ee88ea074",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "module": "src/document_skills_core/providers/dotnet/helper/NuGet.Config",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "5256a7e3e07d2c5c94f7a1e6c45f39aab011c659c5e2d53e452dea525ce04575",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -9761,7 +11926,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "476ce177b5535724a35cabacd782518fab55aa440b89a55e80b7781c2f6a9f68",
+      "sha256": "0711659e44892eecf02fb01e627dd2d5df9eefafe6a629b0a1825284a9bb19a2",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9817,7 +11982,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "e64298c93d3edcc79523d99e149ef4ffdff20fa41e3fea8b9d70a6bf31a807fb",
+      "sha256": "721d06a891ff725aa809932c7e83786ac537f9528eb1906fc885acb0b2e0906f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9889,7 +12054,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "2cf132a40a033c4c2ade5d33b0deccb86c6e5f1e9179bd4edb9e9d026c23113b",
+      "sha256": "203867c219f0c4aed437f8ecdb0c3a0bafc0e8ffd65f89d04c8c1feb69645cc3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -9925,7 +12090,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "22eea6599ab459dacadac68045655006299efb2e3b191fa9a57e7391424dbb1f",
+      "sha256": "404291b47707f73bb1c2bd087a268f78cde3c1eb3b807ebdba42c94202a7fdce",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10103,7 +12268,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "9000b162bb489a9c302cf0c7d126d976b1f9563bd9f815e7624730c4dce7eb41",
+      "sha256": "9e2f32f0c029e0f6ec568e1a49422caabfa2564d6e902e2dac5a8342cf1a6e97",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10211,7 +12376,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "6afca647a9811e5235f8814ed0373d18134e9fbd8e271e89c02e04810b67501f",
+      "sha256": "451248891b4f84dc69bfbff1b04e2a9218516530442b024d043c2f7fcfe8e8ea",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10247,7 +12412,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "061445f164d035c26db5ed953484e3cb95d1b8c5c3d9aea8bf939b5ab60e03df",
+      "sha256": "5880364bcd50c4b4b161f76d6a9d16df84fc31411218b2f8136d9437d29a485b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10427,7 +12592,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "42bb13a8c6b68a94a8b6c5cd6f0a3c23f1d837323c038cd664fde63653fa68b7",
+      "sha256": "3544eccfad853d76e59353d019a00960d7f9868947214c71381c7597c6282b07",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10527,7 +12692,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "0cb2622d0b6d71687eae69810171af29e86630a71e66bb950fcf2fbcba14f256",
+      "sha256": "3681a681c74f51f4a2ef983a804aa6d8b380271081386e2c87385e68333f99bc",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10674,7 +12839,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "4c34bf27fcef0908003ca0e1d6f3a852b40b2a343069e6348f6bca2f34d8693d",
+      "sha256": "6805d8419d8722ea56218b0c06d12e5a5f807caba39519c4e3aa447fb55f4124",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10693,7 +12858,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "b221760c14843ac33500c3d3dbb40c12c3b72be84bc770597dc50d15f9bb8947",
+      "sha256": "e71ab178b1420a39ca2d9c0200e90e55ca89e67b4b54be557aef9c0175d71275",
       "source_class": "original",
       "third_party_files": []
     },
@@ -10863,6 +13028,48 @@
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
       "sha256": "aa5f27e3ed0062bdd2d2524e1893345173adcf8a12027457119f49ba6b3fd1ec",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/support/docx_contracts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "61fb104058aa5a059af0ef00a647e5cbec260f9d004cab2eb0e2e18c95b1a8c4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/support/docx_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4f1cd6f86ed48642379b216091989489dd50b635aa62c8e93977b9e46b809074",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11186,13 +13393,244 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_academic_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e6f807dbdc0b36f7ddfc1118a7f5a322846d07867e4adcc0258e2d88a1422c93",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_accessibility_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b31fc8027dcbf8842a40058cb837fa237e1226a02354d36571e92ddaabc45983",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_capabilities_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "bae7ee263f130cdb186c9b4089371ddf757707d4209357996f746ed691197726",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_capability_parity.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "20552a08a88ee1293d4e84aef17e5e6f7e9dc654b5b8ece00c675bb166e0230a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_comment_schema_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "151063316d25decfc627524452a0af765c77eebcd61faa22faaa8094cd97b0a4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_comparison_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b76ae3b61a0450c7d4e10ca06a84c8b0a3699e2a7eb1acce07a8e8daa8072ecf",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_complex_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "0f207a8596c81c262f58722510faf2449a175fa5fbb3ac525e9f0904d6e7dc3e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
       "module": "tests/test_docx_contracts.py",
       "requirement_source": "Rasen document-skills-core-docx",
       "review_evidence": [
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "ba2cea2443690794f2c4c34e63b7946bfc451dc7b0a280967fcf40521af51dac",
+      "sha256": "a97ec43d9f868e16819aa15708efe5e6f28e69c23ccb1c0f222ce55b5475a42f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_conversion_contracts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "8926b69de1b17912511fc35f6894bb1bd19ad69de0598b05dc2ce56ee6834ace",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_conversion_formatting_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "79538f97b8f8bd16fe7a57c819a816f313f6771d309e9d628387f7fbf468c27b",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_core_boundary_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "8eaf950fdf5188fd042ce4bec46a1fe6467b17557448a95c9ee110a4093d5aa6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_create_contracts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "9e965174fb44c01d258856efd8df0eb23b7c6092b540154b43f1695ce4b53211",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11213,7 +13651,70 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "80947a6b68cbbf116b4c3cd6ced846f4dbfc81a31a341ce46460cefac144d928",
+      "sha256": "7a3a847a416f2aa0797034945ad188b5b2ec81be103153c49c0a5e4ac4a5f75e",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_docm_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "16701a4d1e544b0d954cf675d1e3f2b7301966efa7107dcb479d2bc3a3b26c20",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_document_spec_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "815465f1872a0eee80840867d0de8ebbe67c4aabc0664ae8f86d6eeaf50cf772",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_dotnet_real.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "fa17c9997c7d8003b5030be7e2b6f89462b490b950e7089891b2e90e6cb16555",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11232,7 +13733,238 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "914623f0e69dfbbcc209cca74570633af056d289526305a59e74799b254bf028",
+      "sha256": "049ce96632ca4e7c1df2819a9f72bf13fac8df19efe563f071d39f038fa52811",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_image_edit_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b199a9eef7f2475b4966666a7ce4ba89aa1db038b23a7f20efdb45c4db709964",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_legacy_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "477021f7e72aff5b0f60631362e964a076f45b06f326ae9b4cecf7daafe61247",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_link_edit_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "27cb9c3a33e2659e36043af4298466da2e26ffc98a87ee11bf7d85668949517a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_comments_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "c6672f0662b871ec124f4c8dbb9727ab15a4567873f55dec766b03e5ef981755",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_completion_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "87d90340ad09c7ae373817e5c8074320f1984846319eca88b20becedfe9fabfb",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_content_controls_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "246b2cc6f1aeea470f1065fe122911a21859a0596ccde8d52780d6b347c938c4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_fields_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "b85cbc7b1c8610836c534783cbc83d85d39dc08d3a8a9366c7b83b3006d2241c",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_notes_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e8d49f371dd43f685ac5622ce5c2cc5a8a4a84d36ca592c3fddae6832385382d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "6562e65b013532a4d067bc7a6ed9ae469d7e0a2608a0888be67fa26d71ed2699",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_merge_revisions_inline_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "afb85d1b1d0d7619e5df5564805fb33f5aed3de717f155d3cd7d88bfe2f6c2cf",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_mutation_contracts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "2f6a44f919dbb5fc6d8e63dbc46e7fd9039b7ffb83efa94a04751c703502a1c7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11274,7 +14006,196 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "40c5405942d738f50a33925154355ba17ab9e4af338139469fa1af373faf110b",
+      "sha256": "1f57620526dfddfdd05b0bb82b326650bc896050e0c2c78f1dde064438520bbf",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_references_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "4912feb3c3207f45477ece22793fcfc6b4447192f153a8e70a449efbcbfdf12a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_render_compare_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "e5b10cdd415fed40986355c266f1db1b024ee49abfc71d00bbec2d9bfe912557",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_review_contracts.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "421284680c6c3947adb503bc7a374cc504e46ed6413ca6ce2aefca4410553b8f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_revision_apply_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "0d013b9c7279fe11fb3d9f55ba4eed79e14d6b40297a95729c6eea9a6c6750f0",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_revision_completion_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "6ef71245b3247880961aeeb5001fe1f174d6680dd935810f29b9adde016ec533",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_revisions_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "95a8eb67adaa12362ff0ab2a2c0a06b90ad1ab35de36bb25816985d6e9977580",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_section_edit_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "3e77a894d030aa0c30f533b33fde6944beae65895309ad63b8efe30d2190a788",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_table_edit_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "68c5bb3e5c1f29c2ce4a7eda77abee33f094b75fa49c30d17a51bf56de22fbfc",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_template_merge_public.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "96a26f654e5d71479b428cbaeb24e38ed638281b39e7e68f7a454135b155816e",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11310,7 +14231,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "7721cfc7adca80554eac78e034194dd990967603cc0ec0923840a282c81a8cd8",
+      "sha256": "ac1953151a15b838614439a04194f0a5802b8e8291b3cd5824cc4d2c4f4bc8fa",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11690,7 +14611,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "9cdca6bad741773c6aff0c088ebc75bd2534fa84f769ac22706f9136be9ad0df",
+      "sha256": "4cf44f233b10aeb0b197724df2f85af66f6b84a66c6ba96ba1a9c0be935c0803",
       "source_class": "original",
       "third_party_files": []
     },
@@ -11730,7 +14651,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "8975a5b72455390a38bd9a09fda21db0c0d8601a6d00d0f377bc08d45b9c6728",
+      "sha256": "27231543bcfeaeafada26b266a40ba80177c89eadb5f321838ed806beb570cf2",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12345,7 +15266,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "dae86f31f5e629cee8c46d14dbedd887c7611bf48a54f9fc667e6822dc060bbe",
+      "sha256": "ef16268ba73567229ed9fad7b76ae6ef8ce175e5648b9754e098d218880c0d4d",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12473,7 +15394,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "6c1a3e5e6f28c0301ae8abad990b613c9b4971698cac14315c34bdb4df49ab78",
+      "sha256": "74c3ce94eb3b00edf724b4d31c2dbc707e927fa6c3c4eec5e872942b8a2c7326",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12581,7 +15502,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "067f84cd43219869467415a63ea46a43e2eea887c6a2a7ecddb065ed19f675df",
+      "sha256": "e8f10ba263d7016a8f56f08e87060172f69622e46e17210f6e7a05cc77327f4e",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12637,7 +15558,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "69583903231f9aee45922407ae8239331149f9fc9b9f166cf22a87472e4d521f",
+      "sha256": "3a7372a724af9891c1c6d7cda8100297cc9ff36113744e64cafafd89a4e6bcd9",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13465,7 +16386,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "e177098e14e806dd284f917dac627cdc6f790c190ce2b9e6c19cd54b83e4810a",
+      "sha256": "e3891c5ce53fa2e6c244ec88c8301cff728281a37ca45c576a17299c0f9bf8a1",
       "source_class": "original",
       "third_party_files": []
     },
@@ -14052,6 +16973,69 @@
     },
     {
       "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tools/ci_docx_core_evidence.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "f273132bdcca81783156bfe83617070217d1183b50cc7fb7c34d9b32507addc6",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tools/ci_docx_optional_evidence.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "af477adf79e2266a243b96d16d22f3cba302efbfe9b6898c1b8ce012c12ca9f2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tools/ci_docx_optional_requests.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
+      ],
+      "reviewer": "Codex /root PPTX image-integrity final reviewer",
+      "sha256": "5bebe4afacd23195d4172420ec84bfe542fecf399613bd6b49e2fdcef7801e8c",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_supply_chain.py"
@@ -14287,7 +17271,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "dac33b228cd88325479b6b1ad00c083db2ebf74b29d257291d3ddda7fb133420",
+      "sha256": "588808f04824259253705d57578b149d811ceeed1a500b96c5725fae45c52081",
       "source_class": "original",
       "third_party_files": []
     },
@@ -14537,7 +17521,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md"
       ],
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
-      "sha256": "4344d15f31ad01f03b5bc1f599bb9d00b7b64891003039fa9bd52d414982f603",
+      "sha256": "4caae9312bcf1109be1e20dce919c5dbfc0501165fc79143d675290fff05620e",
       "source_class": "original",
       "third_party_files": []
     }
@@ -14551,8 +17535,8 @@
       "identity_limitations": "This self-asserted identity cannot cryptographically prove the backing model, service principal, or human operator. It does not replace maintainer approval and does not establish remote CI, pull-request merge, live Microsoft PowerPoint, live LibreOffice, live .NET/OpenXML, or unobserved operating-system behavior.",
       "report_evidence": "provenance/reviews/document-skills-0.5.3-pptx-image-integrity-review.md",
       "report_name": "document-skills-0.5.3-pptx-image-integrity-review.md",
-      "report_sha256": "649b62b80226942a75f5e3efe94607cc774b455897ae8322507da9af32c42894",
-      "reviewed_mapping_sha256": "5689c54bb34eab7ddcc9a5f7d78a173e06960381b9672aeca640bbdee9644be7",
+      "report_sha256": "9b4ca8ff0c35e6638728dc2dc1ceca3d85a67cf7bb13d3825a7bfcb7315906a0",
+      "reviewed_mapping_sha256": "39941d4067d9695f28efa4448318f460a55de542472de80970a10a27851464bb",
       "reviewer": "Codex /root PPTX image-integrity final reviewer",
       "role": "reviewer",
       "runtime": "codex",

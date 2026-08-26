@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.compare.visual",
+  "input": "actual.docx",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {
+    "reference": "reference.pdf",
+    "expected_reference_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "render_profile": "libreoffice-96dpi-v1",
+    "page_pairs": [
+      {"actual": 1, "reference": 1},
+      {"actual": 2, "reference": 2}
+    ],
+    "max_pages": 2,
+    "max_total_bytes": 67108864,
+    "max_png_total_bytes": 8388608
+  }
+}

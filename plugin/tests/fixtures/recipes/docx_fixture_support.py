@@ -4,8 +4,15 @@ from pathlib import Path
 from xml.etree.ElementTree import Element, SubElement
 import zipfile
 
-from document_skills_core.formats.docx.constants import REL_HYPERLINK, qn
+from document_skills_core.formats.docx.constants import (
+    CONTENT_TYPES_NS,
+    CT_COMMENTS,
+    REL_COMMENTS,
+    REL_HYPERLINK,
+    qn,
+)
 from document_skills_core.formats.docx.package import OpcPackage
+from document_skills_core.formats.docx.relationships import relationship_xml_bytes
 from document_skills_core.formats.docx.xml_utils import set_text, xml_bytes
 
 PNG_1X1 = (
@@ -132,7 +139,7 @@ def enrich_rich(path: Path) -> None:
         temporary,
         changed_parts={
             "word/document.xml": xml_bytes(document),
-            "word/_rels/document.xml.rels": xml_bytes(relationships),
+            "word/_rels/document.xml.rels": relationship_xml_bytes(relationships),
             "word/header1.xml": xml_bytes(header),
             "word/footer1.xml": xml_bytes(footer),
         },
@@ -153,9 +160,25 @@ def revision_fixture(source: Path, destination: Path) -> None:
     body = document.find(qn("w", "body"))
     assert body is not None
     paragraph = Element(qn("w", "p"))
-    inserted = SubElement(paragraph, qn("w", "ins"))
+    inserted = SubElement(
+        paragraph,
+        qn("w", "ins"),
+        {
+            qn("w", "id"): "1",
+            qn("w", "author"): "Alice",
+            qn("w", "date"): "2026-01-01T00:00:00Z",
+        },
+    )
     _run(inserted, "revision-only {protected.revision}")
-    deleted = SubElement(paragraph, qn("w", "del"))
+    deleted = SubElement(
+        paragraph,
+        qn("w", "del"),
+        {
+            qn("w", "id"): "2",
+            qn("w", "author"): "Bob",
+            qn("w", "date"): "2026-01-02T00:00:00Z",
+        },
+    )
     deleted_run = SubElement(deleted, qn("w", "r"))
     SubElement(deleted_run, qn("w", "delText")).text = (
         "deleted-only {protected.deleted}"
@@ -168,13 +191,125 @@ def revision_fixture(source: Path, destination: Path) -> None:
     _run(field, "field-only {protected.field}")
     body.insert(max(len(body) - 1, 0), paragraph)
 
+    anchor = next(body.iter(qn("w", "p")))
+    range_start = Element(qn("w", "commentRangeStart"), {qn("w", "id"): "0"})
+    first_content = next(
+        (child for child in anchor if child.tag != qn("w", "pPr")),
+        None,
+    )
+    if first_content is None:
+        anchor.append(range_start)
+    else:
+        anchor.insert(list(anchor).index(first_content), range_start)
+    anchor.append(Element(qn("w", "commentRangeEnd"), {qn("w", "id"): "0"}))
+    reference_run = SubElement(anchor, qn("w", "r"))
+    SubElement(reference_run, qn("w", "commentReference"), {qn("w", "id"): "0"})
+
     comments = Element(qn("w", "comments"))
-    comment = SubElement(comments, qn("w", "comment"), {qn("w", "id"): "0"})
+    comment = SubElement(
+        comments,
+        qn("w", "comment"),
+        {
+            qn("w", "id"): "0",
+            qn("w", "author"): "Reviewer",
+            qn("w", "date"): "2026-08-24T00:00:00Z",
+        },
+    )
     comment.append(_paragraph("comment-only {protected.comment}"))
+
+    relationships = package.xml("word/_rels/document.xml.rels")
+    SubElement(
+        relationships,
+        qn("rels", "Relationship"),
+        {
+            "Id": "rIdComments",
+            "Type": REL_COMMENTS,
+            "Target": "comments.xml",
+        },
+    )
+    content_types = package.xml("[Content_Types].xml")
+    SubElement(
+        content_types,
+        f"{{{CONTENT_TYPES_NS}}}Override",
+        {"PartName": "/word/comments.xml", "ContentType": CT_COMMENTS},
+    )
+    package.write_copy(
+        destination,
+        changed_parts={
+            "[Content_Types].xml": xml_bytes(content_types),
+            "word/_rels/document.xml.rels": relationship_xml_bytes(relationships),
+            "word/document.xml": xml_bytes(document),
+        },
+        added_parts={"word/comments.xml": xml_bytes(comments)},
+    )
+
+
+def nested_revision_fixture(source: Path, destination: Path) -> None:
+    """Add tracked insertion/deletion inside a nested table."""
+
+    package = OpcPackage.open(source)
+    document = package.xml("word/document.xml")
+    body = document.find(qn("w", "body"))
+    assert body is not None
+    outer_table = next(body.iter(qn("w", "tbl")))
+    first_cell = next(outer_table.iter(qn("w", "tc")))
+    nested_table = Element(qn("w", "tbl"))
+    nested_properties = SubElement(nested_table, qn("w", "tblPr"))
+    SubElement(nested_properties, qn("w", "tblStyle"), {qn("w", "val"): "TableGrid"})
+    nested_grid = SubElement(nested_table, qn("w", "tblGrid"))
+    SubElement(nested_grid, qn("w", "gridCol"), {qn("w", "w"): "2400"})
+    nested_row = SubElement(nested_table, qn("w", "tr"))
+    nested_cell = SubElement(nested_row, qn("w", "tc"))
+    nested_paragraph = SubElement(nested_cell, qn("w", "p"))
+    nested_inserted = SubElement(
+        nested_paragraph,
+        qn("w", "ins"),
+        {
+            qn("w", "id"): "3",
+            qn("w", "author"): "Carol",
+            qn("w", "date"): "2026-02-01T00:00:00Z",
+        },
+    )
+    _run(nested_inserted, "nested-table insertion")
+    nested_deleted = SubElement(
+        nested_paragraph,
+        qn("w", "del"),
+        {
+            qn("w", "id"): "4",
+            qn("w", "author"): "Alice",
+            qn("w", "date"): "2026-02-02T00:00:00Z",
+        },
+    )
+    nested_deleted_run = SubElement(nested_deleted, qn("w", "r"))
+    SubElement(nested_deleted_run, qn("w", "delText")).text = (
+        "nested-table deletion"
+    )
+    first_paragraph = next(first_cell.iter(qn("w", "p")))
+    first_cell.insert(list(first_cell).index(first_paragraph), nested_table)
     package.write_copy(
         destination,
         changed_parts={"word/document.xml": xml_bytes(document)},
-        added_parts={"word/comments.xml": xml_bytes(comments)},
+    )
+
+
+def legacy_prefixed_relationship_fixture(source: Path, destination: Path) -> None:
+    """Preserve the exact legacy relationship form rejected by Word 16."""
+
+    package = OpcPackage.open(source)
+    document = package.xml("word/document.xml")
+    for table in document.iter(qn("w", "tbl")):
+        grid = table.find(qn("w", "tblGrid"))
+        if grid is not None:
+            table.remove(grid)
+    package.write_copy(
+        destination,
+        changed_parts={
+            "_rels/.rels": xml_bytes(package.xml("_rels/.rels")),
+            "word/document.xml": xml_bytes(document),
+            "word/_rels/document.xml.rels": xml_bytes(
+                package.xml("word/_rels/document.xml.rels")
+            ),
+        },
     )
 
 

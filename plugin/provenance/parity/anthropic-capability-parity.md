@@ -36,6 +36,22 @@ The implementation sources are:
 | Read images                          | `PRESENT`     | `formats/docx/projection.py::project_images`                             |
 | Read metadata (uniform block)        | `PRESENT`     | GAP-CROSS-1 closure: `core/io/core_properties.py`, `formats/docx/read.py`|
 | Create (heading/paragraph/table/image) | `PRESENT`   | `formats/docx/create.py`                                                 |
+| Source-neutral semantic document spec | `PRESENT`   | Stable ids plus native projection in `document_spec.py`, `read.py`       |
+| Reusable style/domain profiles         | `PRESENT`   | `style_profiles.py`, `domain_profiles.py`; academic is an application    |
+| Captions/references/equations/citations | `PRESENT`  | Closed semantic subsets in `references.py`, `equations.py`               |
+| Typed structural and formatting edit | `PRESENT`     | `formats/docx/editing.py` and bounded primitive-specific modules         |
+| Accessibility inspection             | `PRESENT`     | `formats/docx/accessibility.py`, bounded inert semantic issue report     |
+| Image insertion/replacement in edit  | `PRESENT`     | `formats/docx/image_editing.py`, immutable selectors + reopen validation |
+| Section and header/footer story edit | `PRESENT`     | `formats/docx/section_editing.py`, isolated story allocation             |
+| Bookmarks and internal hyperlinks    | `PRESENT`     | `formats/docx/link_editing.py`, immutable paragraph/link selectors       |
+| Safe fields and TOC dirty markers    | `PRESENT`     | `formats/docx/field_editing.py`, closed non-DDE instruction vocabulary   |
+| Footnotes/endnotes edit              | `PRESENT`     | `formats/docx/note_editing.py`, deterministic note ids + relationships   |
+| Simple content-control edit          | `PRESENT`     | `formats/docx/content_control_editing.py`, unlocked inert text controls  |
+| Styles/numbering/theme inspection    | `PRESENT`     | `formats/docx/formatting_inspection.py`, `numbering_editing.py`          |
+| Direct-formatting normalization report | `PRESENT`  | bounded contamination inventory; no automatic semantic normalization     |
+| Declarative template regions/style overlay | `PRESENT` | `template_regions.py`, `style_overlay.py`; no expressions or raw XML    |
+| Bounded high-fidelity graph merge    | `PRESENT`     | `formats/docx/merge_operation.py` and graph-specific remappers           |
+| .dotx/.docm/legacy .doc handling     | `PRESENT`     | inert template/VBA boundaries + explicit LibreOffice legacy conversion  |
 | Edit replace-text (run-aware)        | `PRESENT`     | `formats/docx/replace.py`, `formats/docx/transaction.py`                 |
 | Edit template apply (core-node)      | `PRESENT`     | `formats/docx/template.py` (core-node provider)                          |
 | Inspect structure (parts/rels/features) | `PRESENT`  | `formats/docx/inspect.py`                                                |
@@ -47,9 +63,15 @@ The implementation sources are:
 | Revisions accept/reject              | `PRESENT`     | `providers/dotnet/` enhancement (revisions mutate)                       |
 | Comments inventory                   | `PRESENT`     | `providers/dotnet/` enhancement (comments read)                          |
 | Comments add                         | `PRESENT`     | `providers/dotnet/` enhancement (comments add)                           |
+| Comments threads/replies/resolution  | `PRESENT`     | `providers/dotnet/` bounded one-level thread graph + root resolution      |
+| LibreOffice render/page generation   | `PRESENT`     | `formats/docx/rendering.py`, `providers/libreoffice/`                     |
+| Deterministic layout inspection/repair | `PRESENT`   | `layout_inspection.py`, `layout_repair.py`; bounded width repair          |
+| Stable-ID semantic comparison        | `PRESENT`     | `semantic_compare.py`; spec/output and hash-bound before/after            |
 | Full redline integrity scorecard     | `GAP`         | `CR-DOCX-001`: inventory + accept/reject shipped; full scorecard is a separate feature. |
-| Image insertion in edit              | `GAP`         | DOCX edit is text-centric today; image-insert edit is a separate feature.|
-| Visual render QA                     | `GAP`         | LibreOffice render exists per-document; per-slide visual QA pipeline is out of scope. |
+| Threaded-comment extension merge     | `GAP`         | Public thread collaboration ships; merge rejects extension graphs closed. |
+| Complex revision graph merge         | `GAP`         | Inline insert/delete and paired moves ship; nested/property/table graphs remain closed. |
+| RTF/ODT public contracts             | `GAP`         | No bounded independent contract or validation evidence has been accepted. |
+| Reference visual comparison QA       | `PRESENT`     | `visual_compare.py`; fixed 96-DPI pairing and bounded raster evidence     |
 
 ## XLSX capability matrix
 

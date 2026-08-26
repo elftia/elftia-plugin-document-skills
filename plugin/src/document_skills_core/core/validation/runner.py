@@ -105,6 +105,7 @@ def validate_artifact(
     visual_available: bool = False,
     schema_available: bool = False,
     allow_dangerous_inventory: bool = False,
+    dangerous_policy: DangerousContentPolicy | str | None = None,
 ) -> dict[str, Any]:
     artifact = Path(path).resolve()
     extension = artifact.suffix.lower()
@@ -113,15 +114,18 @@ def validate_artifact(
     runner.run_gate("artifact.exists-size", lambda: _existence(artifact))
     runner.run_gate("artifact.magic-extension", lambda: _magic(artifact, format_id))
     if extension in _OOXML_REQUIRED:
+        content_policy = (
+            DangerousContentPolicy(dangerous_policy)
+            if dangerous_policy is not None
+            else DangerousContentPolicy.PRESERVE_DISABLED
+            if allow_dangerous_inventory
+            else DangerousContentPolicy.REJECT
+        )
         runner.run_gate(
             "ooxml.archive-xml",
             lambda: inspect_ooxml(
                 artifact,
-                dangerous_policy=(
-                    DangerousContentPolicy.PRESERVE_DISABLED
-                    if allow_dangerous_inventory
-                    else DangerousContentPolicy.REJECT
-                ),
+                dangerous_policy=content_policy,
             ),
         )
         runner.run_gate("ooxml.content-types", lambda: _content_types(artifact))

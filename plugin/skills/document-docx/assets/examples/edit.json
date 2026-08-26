@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docx>",
+  "output": "<edited.docx>",
+  "arguments": {
+    "edits": [
+      {
+        "type": "paragraph_style",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "style": "Heading2"
+      },
+      {
+        "type": "run_style",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "match": {"text": "Total", "expected_matches": 1},
+        "style": {"bold": true, "color": "1A2B3C"}
+      },
+      {
+        "type": "image_insert",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "position": "after",
+        "image": {
+          "path": "<chart.png>",
+          "alt_text": "Quarterly chart",
+          "width_inches": 4,
+          "crop": {"left": 5, "top": 0, "right": 5, "bottom": 0}
+        }
+      },
+      {
+        "type": "table_insert",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "position": "before",
+        "table": {
+          "style": "TableGrid",
+          "rows": [["Key", "Value"], ["Total", "42"]]
+        }
+      },
+      {
+        "type": "bookmark_insert",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "name": "SummaryTotal",
+        "range": "paragraph"
+      },
+      {
+        "type": "hyperlink_insert",
+        "target": {
+          "story": "body",
+          "paragraph_index": 2,
+          "expected_text": "Total"
+        },
+        "bookmark_name": "SummaryTotal",
+        "placement": "append",
+        "text": "Jump to total"
+      }
+    ]
+  }
+}

@@ -15,6 +15,8 @@ from .runner import LibreOfficeRunner
 def convert_to_pdf(
     input_document: Path,
     runner: LibreOfficeRunner,
+    *,
+    max_output_bytes: int | None = None,
 ) -> bytes:
     """Convert DOCX/XLSX/PPTX to PDF via headless soffice.
 
@@ -25,12 +27,18 @@ def convert_to_pdf(
         input_document,
         operation="libreoffice.convert-pdf",
     ) as snapshot:
-        return convert_snapshot_to_pdf(snapshot.path, runner)
+        return convert_snapshot_to_pdf(
+            snapshot.path,
+            runner,
+            max_output_bytes=max_output_bytes,
+        )
 
 
 def convert_snapshot_to_pdf(
     input_snapshot: Path,
     runner: LibreOfficeRunner,
+    *,
+    max_output_bytes: int | None = None,
 ) -> bytes:
     """Convert an already screened private snapshot without copying it again."""
 
@@ -43,4 +51,8 @@ def convert_snapshot_to_pdf(
             output_dir,
             timeout_seconds=TIMEOUT_CONVERT,
         )
-        return read_provider_output(output, "pdf")
+        return read_provider_output(
+            output,
+            "pdf",
+            max_output_bytes=max_output_bytes,
+        )

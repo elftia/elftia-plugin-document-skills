@@ -710,6 +710,7 @@ class TestProductionRegistryIntegration:
         fake_docx,
         monkeypatch,
     ):
+        monkeypatch.delenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", raising=False)
         real_run = ProcessRunner.run
 
         def dotnet_cli_boundary(

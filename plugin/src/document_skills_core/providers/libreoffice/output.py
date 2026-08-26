@@ -40,10 +40,23 @@ def output_limit(target_format: str) -> int:
         ) from error
 
 
-def read_provider_output(path: Path, target_format: str) -> bytes:
+def read_provider_output(
+    path: Path,
+    target_format: str,
+    *,
+    max_output_bytes: int | None = None,
+) -> bytes:
     """Reject non-regular or oversized output before reading its bytes."""
 
     limit = output_limit(target_format)
+    if max_output_bytes is not None:
+        if type(max_output_bytes) is not int or max_output_bytes < 1:
+            raise DocumentSkillsError(
+                ErrorCode.REQUEST_INVALID,
+                "LibreOffice output byte ceiling must be a positive integer.",
+                status="invalid_request",
+            )
+        limit = min(limit, max_output_bytes)
     try:
         with path.open("rb") as handle:
             metadata = path.lstat()

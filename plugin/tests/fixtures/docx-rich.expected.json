@@ -57,10 +57,10 @@
           "sha256": "ec0f6c310518308c4dde9d335d9dc2cc2897b0ee8b9b80e751b78da80966ca94"
         },
         {
-          "bytes": 605,
+          "bytes": 575,
           "content_type": "application/vnd.openxmlformats-package.relationships+xml",
           "name": "_rels/.rels",
-          "sha256": "29abe756449e9e80dd4f0ffafb9ffc108fda3bcae6cd2020a34e3ed67ec63a87"
+          "sha256": "9b1b088c33a162a356683afd06968d2853c4c7eb00886d3eb66afcba74b0287c"
         },
         {
           "bytes": 275,
@@ -75,10 +75,10 @@
           "sha256": "c7e2a4d3bb82844dae0a334c63805c23732414232fb98f2ac14e0b7e16a215b7"
         },
         {
-          "bytes": 1012,
+          "bytes": 967,
           "content_type": "application/vnd.openxmlformats-package.relationships+xml",
           "name": "word/_rels/document.xml.rels",
-          "sha256": "d68d53787b897f60fe827b318d722273af3c60e857cd39c7bba36704a489f42a"
+          "sha256": "6bd1e88c8a9565ef4c469d6e268e32d785c954bdebc6136a3f36ae0c565d42fa"
         },
         {
           "bytes": 52,
@@ -87,10 +87,10 @@
           "sha256": "e599ef1c33c6f35b92e25351bd819ac66e19de647bedcb8f6fb2ae3faf36a5b7"
         },
         {
-          "bytes": 2750,
+          "bytes": 2799,
           "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
           "name": "word/document.xml",
-          "sha256": "25408688dd3a7a920bbe947233acb21e1f6712a314463fb0d354803af0b98898"
+          "sha256": "75bc06b92559618419b5ac45436a84cfd15d42f351a9196b0358f26617d909a2"
         },
         {
           "bytes": 280,
@@ -232,15 +232,18 @@
             "kind": "header",
             "reference_type": "default",
             "relationship_id": "rIdHeader1",
+            "story_sha256": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727",
             "target_part": "word/header1.xml"
           },
           {
             "kind": "footer",
             "reference_type": "default",
             "relationship_id": "rIdFooter1",
+            "story_sha256": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da",
             "target_part": "word/footer1.xml"
           }
         ],
+        "selector_sha256": "265784261eb36a8fdcd7a36b80af482de7f48003e29c28c35867683e011f6a55",
         "type": "nextPage"
       },
       {
@@ -264,15 +267,18 @@
             "kind": "header",
             "reference_type": "default",
             "relationship_id": "rIdHeader1",
+            "story_sha256": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727",
             "target_part": "word/header1.xml"
           },
           {
             "kind": "footer",
             "reference_type": "default",
             "relationship_id": "rIdFooter1",
+            "story_sha256": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da",
             "target_part": "word/footer1.xml"
           }
         ],
+        "selector_sha256": "9014e44d68b304354a6e10080e07275796714649b971a82a51cca2a263539446",
         "type": "continuous"
       }
     ],
@@ -303,6 +309,205 @@
   },
   "read": {
     "document": {
+      "content_controls": [],
+      "document_spec_version": null,
+      "domain_profile": null,
+      "equations": [],
+      "fields": [],
+      "formatting": {
+        "direct_formatting": {
+          "paragraph_count": 0,
+          "paragraphs": [],
+          "run_count": 11,
+          "runs": [
+            {
+              "paragraph_index": 1,
+              "part": "word/document.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 0,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 1,
+              "part": "word/document.xml",
+              "properties": [
+                "i"
+              ],
+              "run_index": 1,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 1,
+              "part": "word/document.xml",
+              "properties": [
+                "i"
+              ],
+              "run_index": 3,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 2,
+              "part": "word/document.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 0,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 3,
+              "part": "word/document.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 0,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 5,
+              "part": "word/document.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 0,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 5,
+              "part": "word/document.xml",
+              "properties": [
+                "i"
+              ],
+              "run_index": 1,
+              "story": "body"
+            },
+            {
+              "paragraph_index": 0,
+              "part": "word/footer1.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 1,
+              "story": "footer"
+            },
+            {
+              "paragraph_index": 0,
+              "part": "word/footer1.xml",
+              "properties": [
+                "i"
+              ],
+              "run_index": 2,
+              "story": "footer"
+            },
+            {
+              "paragraph_index": 0,
+              "part": "word/header1.xml",
+              "properties": [
+                "b"
+              ],
+              "run_index": 1,
+              "story": "header"
+            },
+            {
+              "paragraph_index": 0,
+              "part": "word/header1.xml",
+              "properties": [
+                "i"
+              ],
+              "run_index": 2,
+              "story": "header"
+            }
+          ],
+          "truncated": false
+        },
+        "normalization_report": {
+          "automatic_changes_applied": false,
+          "recommendation": "Review direct formatting against named styles before normalization.",
+          "status": "review_required"
+        },
+        "numbering": {
+          "abstract_definitions": [
+            {
+              "id": "1",
+              "levels": [
+                0
+              ]
+            }
+          ],
+          "instances": [
+            {
+              "abstract_num_id": "1",
+              "num_id": "1"
+            }
+          ]
+        },
+        "numbering_truncated": false,
+        "style_profile": null,
+        "styles": [
+          {
+            "based_on": null,
+            "custom": false,
+            "default": false,
+            "id": "Normal",
+            "linked": null,
+            "name": "Normal",
+            "next": null,
+            "paragraph_format": {},
+            "run_format": {
+              "font_size_pt": 11.0
+            },
+            "type": "paragraph"
+          },
+          {
+            "based_on": null,
+            "custom": false,
+            "default": false,
+            "id": "Heading1",
+            "linked": null,
+            "name": "heading 1",
+            "next": null,
+            "paragraph_format": {},
+            "run_format": {
+              "bold": true,
+              "font_size_pt": 16.0
+            },
+            "type": "paragraph"
+          },
+          {
+            "based_on": null,
+            "custom": false,
+            "default": false,
+            "id": "Heading2",
+            "linked": null,
+            "name": "heading 2",
+            "next": null,
+            "paragraph_format": {},
+            "run_format": {
+              "bold": true,
+              "font_size_pt": 14.0
+            },
+            "type": "paragraph"
+          },
+          {
+            "based_on": null,
+            "custom": false,
+            "default": false,
+            "id": "TableGrid",
+            "linked": null,
+            "name": "Table Grid",
+            "next": null,
+            "paragraph_format": {},
+            "run_format": {
+              "font_size_pt": 11.0
+            },
+            "type": "table"
+          }
+        ],
+        "styles_truncated": false,
+        "theme": null
+      },
       "images": [
         {
           "alt_text": "Elftia pixel",
@@ -316,6 +521,12 @@
           "target_part": "word/media/image1.png"
         }
       ],
+      "notes": [],
+      "references": {
+        "bindings": [],
+        "status": "pass",
+        "targets": []
+      },
       "sections": [
         {
           "index": 0,
@@ -338,15 +549,18 @@
               "kind": "header",
               "reference_type": "default",
               "relationship_id": "rIdHeader1",
+              "story_sha256": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727",
               "target_part": "word/header1.xml"
             },
             {
               "kind": "footer",
               "reference_type": "default",
               "relationship_id": "rIdFooter1",
+              "story_sha256": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da",
               "target_part": "word/footer1.xml"
             }
           ],
+          "selector_sha256": "265784261eb36a8fdcd7a36b80af482de7f48003e29c28c35867683e011f6a55",
           "type": "nextPage"
         },
         {
@@ -370,15 +584,18 @@
               "kind": "header",
               "reference_type": "default",
               "relationship_id": "rIdHeader1",
+              "story_sha256": "ac063f3c05ddc829c15e8f25c22c0494e5b93ba981c41eb2e3c6241dfcf2d727",
               "target_part": "word/header1.xml"
             },
             {
               "kind": "footer",
               "reference_type": "default",
               "relationship_id": "rIdFooter1",
+              "story_sha256": "1f6c6e1569f9922a48487d7bf952fb0cc872a3d618430bfac8fc6fe8cd4515da",
               "target_part": "word/footer1.xml"
             }
           ],
+          "selector_sha256": "9014e44d68b304354a6e10080e07275796714649b971a82a51cca2a263539446",
           "type": "continuous"
         }
       ],
@@ -705,6 +922,7 @@
                   "index": 1
                 }
               ],
+              "selector_sha256": "6bcc2f852c00573d19831b577d34e430cf0334c1f5ab846e1c6eb3e3225580e0",
               "style": "TableGrid"
             }
           ]
@@ -793,9 +1011,13 @@
           "part": "word/header1.xml",
           "tables": []
         }
-      ]
+      ],
+      "style_profile": null
     },
     "limits": {
+      "max_content_controls": 1000,
+      "max_fields": 1000,
+      "max_notes": 2000,
       "max_paragraphs": 5000,
       "max_table_rows": 5000,
       "max_tables": 500,

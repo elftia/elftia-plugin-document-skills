@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.comments.read",
+  "input": "<input.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {"max_comments": 1000}
+}
