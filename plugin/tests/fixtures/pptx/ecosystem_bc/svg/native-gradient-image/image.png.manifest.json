@@ -1,0 +1,25 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-02",
+  "format": "png",
+  "invariants": [
+    "bytes remain deterministic",
+    "SVG resolution never escapes the adjacent fixture directory"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/native-gradient-image/image.png",
+  "purpose": "Local bounded PNG used by the B-SVG-02 gradient/image fixture.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 4096
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-image",
+  "sha256": "sha256:b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d",
+  "sizeBytes": 68
+}

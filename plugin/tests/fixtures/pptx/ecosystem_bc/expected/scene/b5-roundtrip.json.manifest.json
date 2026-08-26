@@ -1,0 +1,27 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "design-studio"
+  ],
+  "expected_operation": "pptx.scene.export,pptx.create.from-svg",
+  "fixture_id": "B-SVG-04",
+  "format": "json",
+  "invariants": [
+    "stable ids match the pinned A-Contract owner package",
+    "all source mappings and native object types remain deterministic",
+    "visual providers remain explicit instead of inferred from structure"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "expected/scene/b5-roundtrip.json",
+  "purpose": "Stable semantic and native-object oracle for the B5 scene round-trip.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 256000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-oracle",
+  "sha256": "sha256:99c9f5cc4f69449aaba1ed32f2ee50a51b9e2bc47c78e5295dc3a0eb2276c1a1",
+  "sizeBytes": 1975
+}

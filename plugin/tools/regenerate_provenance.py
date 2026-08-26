@@ -11,10 +11,12 @@ from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
     PPTX_TEMPLATE_B4_REQUIREMENT,
+    PPTX_SVG_B5_REQUIREMENT,
     html_pptx_data_profile,
     pptx_module_profile,
     template_b2_data_profile,
     template_b4_data_profile,
+    svg_b5_data_profile,
 )
 from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
 from .release_inventory import release_artifacts
@@ -743,6 +745,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     html_profile = html_pptx_data_profile(artifact.path)
     template_b2_profile = template_b2_data_profile(artifact.path)
     template_b4_profile = template_b4_data_profile(artifact.path)
+    svg_b5_profile = svg_b5_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
     selected_profiles = [
         profile
@@ -750,6 +753,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             html_profile,
             template_b2_profile,
             template_b4_profile,
+            svg_b5_profile,
             xlsx_profile,
         )
         if profile is not None
@@ -780,8 +784,14 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 HTML_PPTX_REQUIREMENT if html_profile else None,
                 PPTX_TEMPLATE_B2_REQUIREMENT if template_b2_profile else None,
                 PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
+                PPTX_SVG_B5_REQUIREMENT if svg_b5_profile else None,
             )
-            if html_profile or template_b2_profile or template_b4_profile
+            if (
+                html_profile
+                or template_b2_profile
+                or template_b4_profile
+                or svg_b5_profile
+            )
             else None
         )
         requirement = (

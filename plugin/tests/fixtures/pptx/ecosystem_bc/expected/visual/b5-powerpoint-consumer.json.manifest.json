@@ -1,0 +1,29 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint"
+  ],
+  "expected_operation": "pptx.scene.export,pptx.create.from-svg",
+  "fixture_id": "B-SVG-04",
+  "format": "json",
+  "invariants": [
+    "PowerPoint opens both source and round-trip decks read-only",
+    "group, text, table, chart, and picture remain native objects",
+    "PowerPoint PNG exports stay within the checked visual thresholds",
+    "unavailable LibreOffice execution remains explicitly not_run",
+    "temporary render and round-trip bytes are excluded from release bytes"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored observation recorded from Microsoft PowerPoint 16.0 on Windows.",
+  "path": "expected/visual/b5-powerpoint-consumer.json",
+  "purpose": "Auditable Microsoft PowerPoint native-object and visual round-trip evidence for B-SVG-04.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 32768
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-consumer-evidence",
+  "sha256": "sha256:34b30797f68468bcc33f0b452dc99fd9f5e991ab3709626cd147c14282ef01f1",
+  "sizeBytes": 4238
+}

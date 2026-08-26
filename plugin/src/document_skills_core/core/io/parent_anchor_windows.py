@@ -85,6 +85,7 @@ def open_windows_relative_file(
         name,
         access=access,
         disposition=2 if create else 1,
+        directory=False,
     )
     flags = (os.O_WRONLY if writable else os.O_RDONLY) | os.O_BINARY
     runtime = ctypes.CDLL("ucrtbase.dll")
@@ -105,10 +106,24 @@ def open_windows_relative_file(
         raise
 
 
+def create_windows_relative_directory(parent_handle: int, name: str) -> int:
+    """Create one child directory without following a reparse-point leaf."""
+
+    return _nt_create_relative(
+        parent_handle,
+        name,
+        access=0x00010000 | 0x00000080 | 0x00100000,
+        disposition=2,
+        directory=True,
+    )
+
+
 def windows_rename_relative(
     parent_handle: int,
     source_name: str,
     destination_name: str,
+    *,
+    source_is_directory: bool = False,
 ) -> None:
     from ctypes import wintypes
 
@@ -117,6 +132,7 @@ def windows_rename_relative(
         source_name,
         access=0x00010000 | 0x00000080 | 0x00100000,
         disposition=1,
+        directory=source_is_directory,
     )
 
     class FileRenameInformation(ctypes.Structure):
@@ -175,6 +191,7 @@ def _nt_create_relative(
     *,
     access: int,
     disposition: int,
+    directory: bool,
 ) -> int:
     from ctypes import wintypes
 
@@ -243,7 +260,7 @@ def _nt_create_relative(
         0x80,
         0x1 | 0x2 | 0x4,
         disposition,
-        0x20 | 0x40 | 0x00200000,
+        0x20 | (0x1 if directory else 0x40) | 0x00200000,
         None,
         0,
     )

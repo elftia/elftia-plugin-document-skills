@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-03",
+  "format": "svg",
+  "invariants": [
+    "unsafe or unsupported content never executes or dereferences",
+    "rejection publishes no PPTX output",
+    "element fallback never becomes a whole-slide raster"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/unsupported/path-bomb.svg",
+  "purpose": "Closed-profile rejection fixture for path-bomb.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 128000
+  },
+  "schemaVersion": 1,
+  "security_classification": "adversarial-svg-resource-limit",
+  "sha256": "sha256:d22fb5dc35f7ea65d5d94129145dc6a8bb0f60ab15989b376c479e01c7391a0f",
+  "sizeBytes": 28941
+}

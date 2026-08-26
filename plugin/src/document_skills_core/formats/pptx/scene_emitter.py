@@ -6,7 +6,9 @@ import re
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
+from .chart import build_chart_part, prepare_chart
 from .constants import NS
+from .object_xml import build_chart_frame, build_table
 from .scaffold import (
     _build_app_props,
     _build_core_props,
@@ -18,6 +20,8 @@ from .scaffold import (
     _build_theme,
 )
 from .package import write_deterministic_zip
+from .scene_custom_geometry import append_gradient_fill, append_shape_geometry
+from .scene_group_emitter import emit_scene_objects
 from .scene_normalizer import NormalizedScene
 
 EMU_PER_PIXEL = 6_350
@@ -46,8 +50,23 @@ def emit_scene_pptx(
         asset_id: f"image{index}.{_asset_extension(scene.assets[asset_id])}"
         for index, asset_id in enumerate(sorted(referenced), 1)
     }
+    charts: dict[tuple[int, str], dict[str, Any]] = {}
+    chart_index = 0
+    for slide_index, slide in enumerate(scene.slides, 1):
+        for item in slide:
+            if item["kind"] == "chart":
+                chart_index += 1
+                charts[(slide_index, item["source_id"])] = prepare_chart(
+                    item["chart"],
+                    chart_index,
+                )
     parts: dict[str, bytes] = {
-        "[Content_Types].xml": _content_types(len(scene.slides), scene, referenced),
+        "[Content_Types].xml": _content_types(
+            len(scene.slides),
+            scene,
+            referenced,
+            chart_index,
+        ),
         "_rels/.rels": _build_root_rels(),
         "ppt/presentation.xml": _presentation(len(scene.slides)),
         "ppt/_rels/presentation.xml.rels": _presentation_rels(len(scene.slides)),
@@ -62,9 +81,20 @@ def emit_scene_pptx(
     manifest_items: list[dict[str, Any]] = []
     for slide_index, slide in enumerate(scene.slides, 1):
         root_fill = scene.slide_fills[slide_index - 1] if scene.slide_fills else "transparent"
-        slide_xml, slide_manifest, relationships = _slide(slide, slide_index, media, root_fill)
+        slide_xml, slide_manifest, relationships = _slide(
+            slide,
+            slide_index,
+            media,
+            root_fill,
+            charts,
+        )
         parts[f"ppt/slides/slide{slide_index}.xml"] = slide_xml
-        parts[f"ppt/slides/_rels/slide{slide_index}.xml.rels"] = _slide_rels(relationships, media)
+        parts[f"ppt/slides/_rels/slide{slide_index}.xml.rels"] = _slide_rels(
+            relationships,
+            media,
+            charts,
+            slide_index,
+        )
         manifest_items.extend(slide_manifest)
     for asset_id, filename in media.items():
         asset = scene.assets[asset_id]
@@ -72,12 +102,15 @@ def emit_scene_pptx(
         if hashlib.sha256(bytes_value).hexdigest() != asset_id:
             raise ValueError("private asset hash changed before emission")
         parts[f"ppt/media/{filename}"] = bytes_value
+    for chart in charts.values():
+        parts[chart["part"]] = build_chart_part(chart)
     write_deterministic_zip(destination, parts)
     return {
         "slide_size": {"cx": SLIDE_CX, "cy": SLIDE_CY},
         "slides": len(scene.slides),
         "objects": len(manifest_items),
         "media": len(media),
+        "charts": len(charts),
         "items": manifest_items,
         "media_hashes": sorted(media),
     }
@@ -88,7 +121,8 @@ def _slide(
     slide_index: int,
     media: dict[str, str],
     root_fill: str,
-) -> tuple[bytes, list[dict[str, Any]], list[str]]:
+    charts: dict[tuple[int, str], dict[str, Any]],
+) -> tuple[bytes, list[dict[str, Any]], list[dict[str, str]]]:
     root = Element(f"{{{_P}}}sld")
     common = SubElement(root, f"{{{_P}}}cSld")
     _slide_background(common, root_fill)
@@ -106,33 +140,55 @@ def _slide(
         ("chExt", {"cx": str(SLIDE_CX), "cy": str(SLIDE_CY)}),
     ):
         SubElement(transform, f"{{{_A}}}{tag}", attributes)
-    manifest: list[dict[str, Any]] = []
-    relationships: list[str] = []
-    for order, item in enumerate(items):
-        shape_id = order + 2
+    def emit_leaf(
+        parent: Element,
+        item: dict[str, Any],
+        shape_id: int,
+        relationship_id: str | None,
+    ) -> None:
         is_picture = item["outcome"] == "rasterized" or item["kind"] == "image"
-        if is_picture:
-            relationship_id = f"rIdImage{len(relationships) + 1}"
-            _picture(tree, item, shape_id, relationship_id)
-            relationships.append(item["asset_id"])
+        if item["kind"] == "table":
+            table = item["table"]
+            parent.append(build_table(shape_id, {
+                "frame": {
+                    "cx": _emu(item["width"]),
+                    "cy": _emu(item["height"]),
+                    "x": _emu(item["x"]),
+                    "y": _emu(item["y"]),
+                },
+                "name": item["source_id"][:80],
+                "rows": table["rows"],
+            }))
+        elif item["kind"] == "chart":
+            assert relationship_id is not None
+            chart = charts[(slide_index, item["source_id"])]
+            parent.append(build_chart_frame(shape_id, {
+                "frame": {
+                    "cx": _emu(item["width"]),
+                    "cy": _emu(item["height"]),
+                    "x": _emu(item["x"]),
+                    "y": _emu(item["y"]),
+                },
+                "name": item["source_id"][:80],
+            }, relationship_id))
+        elif is_picture:
+            assert relationship_id is not None
+            _picture(parent, item, shape_id, relationship_id)
         else:
-            _shape(tree, item, shape_id)
-        manifest.append({
-            "slide": slide_index,
-            "source_id": item["source_id"],
-            "shape_id": shape_id,
-            "z_order": order,
-            "kind": "image" if is_picture else item["kind"],
-            "outcome": item["outcome"],
-            "asset_sha256": item["asset_id"],
-            "text_sha256": hashlib.sha256(item["text"].encode("utf-8")).hexdigest(),
-            "geometry": {
-                "x": _emu(item["x"]),
-                "y": _emu(item["y"]),
-                "cx": _emu(item["width"]),
-                "cy": _emu(item["height"]),
-            },
-        })
+            _shape(parent, item, shape_id)
+
+    manifest, relationships = emit_scene_objects(
+        tree,
+        items,
+        slide_index=slide_index,
+        emit_leaf=emit_leaf,
+        geometry=lambda item: {
+            "x": _emu(item["x"]),
+            "y": _emu(item["y"]),
+            "cx": _emu(item["width"]),
+            "cy": _emu(item["height"]),
+        },
+    )
     SubElement(SubElement(root, f"{{{_P}}}clrMapOvr"), f"{{{_A}}}masterClrMapping")
     return _xml(root), manifest, relationships
 
@@ -155,14 +211,8 @@ def _shape(tree: Element, item: dict[str, Any], shape_id: int) -> None:
     SubElement(non_visual, f"{{{_P}}}nvPr")
     properties = SubElement(shape, f"{{{_P}}}spPr")
     _transform(properties, item)
-    preset = {"rounded-rectangle": "roundRect", "ellipse": "ellipse", "line": "line"}.get(item["kind"], "rect")
-    geometry = SubElement(properties, f"{{{_A}}}prstGeom", {"prst": preset})
-    adjustments = SubElement(geometry, f"{{{_A}}}avLst")
-    if item["kind"] == "rounded-rectangle":
-        short_side = min(item["width"], item["height"])
-        adjustment = max(0, min(50_000, int(round(item["radius"] / short_side * 100_000))))
-        SubElement(adjustments, f"{{{_A}}}gd", {"name": "adj", "fmla": f"val {adjustment}"})
-    _fill(properties, item["fill"], item["opacity"])
+    append_shape_geometry(properties, item, _emu)
+    _fill(properties, item["fill"], item["opacity"], item.get("gradient"))
     _line(properties, item)
     if item["text"]:
         _text_body(shape, item)
@@ -275,7 +325,15 @@ def _transform(parent: Element, item: dict[str, Any]) -> None:
     SubElement(transform, f"{{{_A}}}ext", {"cx": str(_emu(item["width"])), "cy": str(_emu(item["height"]))})
 
 
-def _fill(parent: Element, value: Any, opacity: float) -> None:
+def _fill(
+    parent: Element,
+    value: Any,
+    opacity: float,
+    gradient: dict[str, Any] | None = None,
+) -> None:
+    if gradient is not None:
+        append_gradient_fill(parent, gradient, opacity)
+        return
     color, alpha = _color(value)
     if color is None or opacity <= 0:
         SubElement(parent, f"{{{_A}}}noFill")
@@ -301,7 +359,12 @@ def _line(parent: Element, item: dict[str, Any]) -> None:
             SubElement(rgb, f"{{{_A}}}alpha", {"val": str(effective)})
 
 
-def _content_types(slide_count: int, scene: NormalizedScene, referenced: set[str]) -> bytes:
+def _content_types(
+    slide_count: int,
+    scene: NormalizedScene,
+    referenced: set[str],
+    chart_count: int,
+) -> bytes:
     root = Element(f"{{{_CT}}}Types")
     defaults = {"rels": "application/vnd.openxmlformats-package.relationships+xml", "xml": "application/xml"}
     for asset_id in referenced:
@@ -319,6 +382,8 @@ def _content_types(slide_count: int, scene: NormalizedScene, referenced: set[str
     }
     for index in range(1, slide_count + 1):
         overrides[f"/ppt/slides/slide{index}.xml"] = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
+    for index in range(1, chart_count + 1):
+        overrides[f"/ppt/charts/chart{index}.xml"] = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
     for name, content_type in overrides.items():
         SubElement(root, f"{{{_CT}}}Override", {"PartName": name, "ContentType": content_type})
     return _xml(root)
@@ -344,11 +409,27 @@ def _presentation_rels(slide_count: int) -> bytes:
     return _xml(root)
 
 
-def _slide_rels(relationships: list[str], media: dict[str, str]) -> bytes:
+def _slide_rels(
+    relationships: list[dict[str, str]],
+    media: dict[str, str],
+    charts: dict[tuple[int, str], dict[str, Any]],
+    slide_index: int,
+) -> bytes:
     root = Element(f"{{{_RELS}}}Relationships")
     SubElement(root, f"{{{_RELS}}}Relationship", {"Id": "rIdLayout", "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout", "Target": "../slideLayouts/slideLayout1.xml"})
-    for index, asset_id in enumerate(relationships, 1):
-        SubElement(root, f"{{{_RELS}}}Relationship", {"Id": f"rIdImage{index}", "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image", "Target": f"../media/{media[asset_id]}"})
+    for relationship in relationships:
+        if relationship["kind"] == "image":
+            target = f"../media/{media[relationship['asset_id']]}"
+            kind = "image"
+        else:
+            chart = charts[(slide_index, relationship["source_id"])]
+            target = f"../charts/{Path(chart['part']).name}"
+            kind = "chart"
+        SubElement(root, f"{{{_RELS}}}Relationship", {
+            "Id": relationship["id"],
+            "Type": f"http://schemas.openxmlformats.org/officeDocument/2006/relationships/{kind}",
+            "Target": target,
+        })
     return _xml(root)
 
 

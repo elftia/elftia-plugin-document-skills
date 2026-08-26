@@ -17,6 +17,7 @@ _EXPECTED_PART_TYPES = (
     ("ppt/slideMasters/slideMaster", "presentationml.slideMaster+xml", False),
     ("ppt/slideLayouts/slideLayout", "presentationml.slideLayout+xml", False),
     ("ppt/slides/slide", "presentationml.slide+xml", False),
+    ("ppt/charts/chart", "drawingml.chart+xml", False),
     ("ppt/theme/theme", "officedocument.theme+xml", False),
 )
 _RELATIONSHIP_TYPE_SUFFIXES = {
@@ -27,6 +28,7 @@ _RELATIONSHIP_TYPE_SUFFIXES = {
     "slideLayout": "presentationml.slideLayout+xml",
     "slideMaster": "presentationml.slideMaster+xml",
     "theme": "officedocument.theme+xml",
+    "chart": "drawingml.chart+xml",
 }
 _ALLOWED_RELATIONSHIP_TERMINALS = set(_RELATIONSHIP_TYPE_SUFFIXES) | {"image"}
 

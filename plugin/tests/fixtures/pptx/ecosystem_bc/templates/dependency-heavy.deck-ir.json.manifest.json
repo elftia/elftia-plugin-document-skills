@@ -15,7 +15,7 @@
   "origin": "Elftia-authored synthetic A-Contract metadata.",
   "path": "templates/dependency-heavy.deck-ir.json",
   "purpose": "A-Contract deck_ir for dependency-heavy.pptx.",
-  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
   "redistributable": true,
   "resource_limits": {
     "maxBytes": 256000

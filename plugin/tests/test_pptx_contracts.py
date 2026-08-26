@@ -25,7 +25,9 @@ def test_pptx_operations_preserve_existing_surface_and_add_validators():
             "pptx.create.from-markdown",
             "pptx.edit",
             "pptx.create.from-html",
+            "pptx.create.from-svg",
             "pptx.create.from-template",
+            "pptx.scene.export",
             "pptx.template.sanitize",
             "pptx.template.inspect",
         }

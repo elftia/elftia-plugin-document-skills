@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-02",
+  "format": "svg",
+  "invariants": [
+    "gradient remains native DrawingML",
+    "local image is hash-bound and embedded once",
+    "z-order, opacity, and source mapping survive reopen"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/native-gradient-image/gradient-image.svg",
+  "purpose": "Approved gradient plus local bounded transparent PNG fixture.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 64000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-svg",
+  "sha256": "sha256:d0f7b962e7fa660330ac2b2e1b9a5244eb9a0dfeef1dd95fd4f5216fa980aac9",
+  "sizeBytes": 519
+}

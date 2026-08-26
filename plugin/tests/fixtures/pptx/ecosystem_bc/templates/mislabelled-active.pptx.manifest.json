@@ -16,7 +16,7 @@
   "origin": "Elftia-authored synthetic OOXML fixture.",
   "path": "templates/mislabelled-active.pptx",
   "purpose": "Synthetic active-content and package-signature markers in a .pptx.",
-  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
   "redistributable": true,
   "resource_limits": {
     "maxBytes": 2000000

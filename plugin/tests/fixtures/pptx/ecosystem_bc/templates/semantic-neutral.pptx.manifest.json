@@ -17,7 +17,7 @@
   "origin": "Elftia-authored synthetic OOXML fixture.",
   "path": "templates/semantic-neutral.pptx",
   "purpose": "Six-page semantic template with native text, image, table, chart, and notes.",
-  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
   "redistributable": true,
   "resource_limits": {
     "maxBytes": 4000000

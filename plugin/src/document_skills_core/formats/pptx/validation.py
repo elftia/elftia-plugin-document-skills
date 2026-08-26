@@ -288,6 +288,7 @@ def _assert_scene_created(
                 "asset_sha256": item.get("asset_id"),
                 "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 "geometry": geometry,
+                "parent_source_id": item.get("parent_source_id"),
             })
     if len(mapped) != len(scene.slides):
         failures.append("slide-count")
@@ -316,30 +317,55 @@ def _assert_scene_created(
             item for item in expected_manifest_items
             if item["slide"] == slide_number
         ]
+        expected_leaf_scene_items = [
+            item for item in expected_scene_items if item.get("kind") != "group"
+        ]
+        expected_leaf_items = [
+            item for item in expected if item.get("kind") != "group"
+        ]
         actual = slide.get("shapes", [])
         actual_ids = [int(shape.get("id", 0)) for shape in actual]
-        if actual_ids != [item["shape_id"] for item in expected]:
+        if actual_ids != [item["shape_id"] for item in expected_leaf_items]:
             failures.append(f"slide-{slide_number}-ids-z-order")
         actual_names = [shape.get("name") for shape in actual]
-        if actual_names != [str(item["source_id"])[:80] for item in expected]:
+        if actual_names != [str(item["source_id"])[:80] for item in expected_leaf_items]:
             failures.append(f"slide-{slide_number}-source-ids")
         evidence = _slide_shape_evidence(package, slide.get("part"))
         if len(evidence) != len(expected):
             failures.append(f"slide-{slide_number}-object-count")
+        evidence_by_id = {item.get("id"): item for item in evidence}
+        for manifest_item in expected:
+            shape_id = manifest_item["shape_id"]
+            shape_evidence = evidence_by_id.get(str(shape_id))
+            expected_kind = "group" if manifest_item["kind"] == "group" else (
+                "picture" if manifest_item["kind"] == "image" else "shape"
+            )
+            if manifest_item["kind"] in {"chart", "table"}:
+                expected_kind = "graphic-frame"
+            if shape_evidence is None or shape_evidence.get("kind") != expected_kind:
+                failures.append(f"slide-{slide_number}-xml-kind-{shape_id}")
         relationships = {
             relationship.relationship_id: relationship
             for relationship in package.relationships
             if relationship.source_part == slide.get("part")
         }
         for shape, expected_item, manifest_item, shape_evidence in zip(
-            actual, expected_scene_items, expected, evidence
+            actual,
+            expected_leaf_scene_items,
+            expected_leaf_items,
+            [evidence_by_id.get(str(item["shape_id"]), {}) for item in expected_leaf_items],
         ):
             shape_id = manifest_item["shape_id"]
             expected_picture = (
                 expected_item.get("outcome") == "rasterized"
                 or expected_item.get("kind") == "image"
             )
-            if shape.get("type") != ("picture" if expected_picture else "shape"):
+            expected_type = (
+                "graphicFrame"
+                if expected_item.get("kind") in {"chart", "table"}
+                else "picture" if expected_picture else "shape"
+            )
+            if shape.get("type") != expected_type:
                 failures.append(f"slide-{slide_number}-kind-{shape_id}")
             if shape_evidence.get("id") != str(shape_id):
                 failures.append(f"slide-{slide_number}-xml-id-{shape_id}")
@@ -375,6 +401,18 @@ def _assert_scene_created(
                     failures.append(f"slide-{slide_number}-media-{shape_id}")
             elif embed_id is not None:
                 failures.append(f"slide-{slide_number}-unexpected-media-{shape_id}")
+            if expected_item.get("kind") == "table" and shape.get("table") is None:
+                failures.append(f"slide-{slide_number}-table-{shape_id}")
+            if expected_item.get("kind") == "chart":
+                chart_id = shape_evidence.get("chart_relationship_id")
+                relationship = relationships.get(chart_id)
+                if (
+                    shape.get("chart_ref") is None
+                    or relationship is None
+                    or not relationship.relationship_type.endswith("/chart")
+                    or relationship.resolved_target not in package.chart_parts()
+                ):
+                    failures.append(f"slide-{slide_number}-chart-{shape_id}")
     media_hashes = sorted(
         hashlib.sha256(package.parts[name]).hexdigest()
         for name in package.media_parts()
@@ -408,21 +446,52 @@ def _slide_shape_evidence(
     if tree is None:
         return []
     result: list[dict[str, Any]] = []
-    for element in tree:
-        if element.tag not in {f"{{{NS['p']}}}sp", f"{{{NS['p']}}}pic"}:
-            continue
+
+    def visit(element: Any) -> None:
+        kind = {
+            f"{{{NS['p']}}}graphicFrame": "graphic-frame",
+            f"{{{NS['p']}}}grpSp": "group",
+            f"{{{NS['p']}}}pic": "picture",
+            f"{{{NS['p']}}}sp": "shape",
+        }.get(element.tag)
+        if kind is None:
+            return
         non_visual = element.find(f".//{{{NS['p']}}}cNvPr")
-        properties = element.find(f"{{{NS['p']}}}spPr")
-        transform = properties.find(f"{{{NS['a']}}}xfrm") if properties is not None else None
+        properties = element.find(
+            f"{{{NS['p']}}}grpSpPr"
+            if kind == "group"
+            else f"{{{NS['p']}}}xfrm"
+            if kind == "graphic-frame"
+            else f"{{{NS['p']}}}spPr"
+        )
+        transform = (
+            properties
+            if kind == "graphic-frame"
+            else properties.find(f"{{{NS['a']}}}xfrm") if properties is not None else None
+        )
         offset = transform.find(f"{{{NS['a']}}}off") if transform is not None else None
         extent = transform.find(f"{{{NS['a']}}}ext") if transform is not None else None
         blip = element.find(f"{{{NS['p']}}}blipFill/{{{NS['a']}}}blip")
+        chart = next(
+            (node for node in element.iter() if node.tag.endswith("}chart")),
+            None,
+        )
         result.append({
             "id": non_visual.get("id", "") if non_visual is not None else "",
+            "kind": kind,
             "offset": dict(offset.attrib) if offset is not None else {},
             "extent": dict(extent.attrib) if extent is not None else {},
             "embed": blip.get(f"{{{NS['r']}}}embed") if blip is not None else None,
+            "chart_relationship_id": (
+                chart.get(f"{{{NS['r']}}}id") if chart is not None else None
+            ),
         })
+        if kind == "group":
+            for child in element:
+                visit(child)
+
+    for element in tree:
+        visit(element)
     return result
 
 

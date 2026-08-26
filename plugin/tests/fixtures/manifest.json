@@ -325,6 +325,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -341,11 +343,481 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "3290f679e3063c31f9317e3343f299547c936aec0bc6f1473d340ce12100570d"
+      "sha256": "c8f41b3857280e19b501c6e849dcf3953d010b04cf18bd7b9863395495e0f4d2"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/scene/b5-roundtrip.json",
+      "purpose": "Stable semantic and native-object oracle for the B5 scene round-trip.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-oracle",
+      "sha256": "99c9f5cc4f69449aaba1ed32f2ee50a51b9e2bc47c78e5295dc3a0eb2276c1a1"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/scene/b5-roundtrip.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-04.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "2355b98ad215f70e7e8b341cf9c9c5e8a5e0d7b046cf6a7b7dad6eef2f172657"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/visual/b5-powerpoint-consumer.json",
+      "purpose": "Auditable Microsoft PowerPoint native-object and visual round-trip evidence for B-SVG-04.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-consumer-evidence",
+      "sha256": "34b30797f68468bcc33f0b452dc99fd9f5e991ab3709626cd147c14282ef01f1"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/expected/visual/b5-powerpoint-consumer.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-04.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "0cc0793f94e5f27c0d0e6031bfc6a90cf9d385bcf9bd2ebd839204fd96a4983d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-basic/native-basic.svg",
+      "purpose": "Closed-profile native path, primitive, group, text, and transform fixture.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-svg",
+      "sha256": "4ae09823800b8a11f4052542ff8cdbb5fef5ead1befb3a30b64fb64a9ce56f07"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-basic/native-basic.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-01.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "45d419f795dabce9fa29d1b56c15ba791076276cc7c3df20a412a03673c3df5d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-gradient-image/gradient-image.svg",
+      "purpose": "Approved gradient plus local bounded transparent PNG fixture.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-svg",
+      "sha256": "d0f7b962e7fa660330ac2b2e1b9a5244eb9a0dfeef1dd95fd4f5216fa980aac9"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-gradient-image/gradient-image.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-02.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "b49f79cfe135315fd039dfd02c945848e8af79d2bce47d23ca365bd097836130"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "png",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-gradient-image/image.png",
+      "purpose": "Local bounded PNG used by the B-SVG-02 gradient/image fixture.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-image",
+      "sha256": "b2dfd95a864fb51b0663d8ad76e21015920a987f49363ca7b043e830edb3220d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/native-gradient-image/image.png.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-02.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "b902156282b78e13c51df491147fabc03ed0d8118c4ce9176b40149c51427035"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pptx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/roundtrip-source.pptx",
+      "purpose": "Native text, shape, table, chart, image, and group scene round-trip source.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-pptx",
+      "sha256": "44deff5f1e7f028089de2ec3b0a9bef11a54ccdbfc11df1458490754dac56d04"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/roundtrip-source.pptx.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-04.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "ea207631403cac0f4c9c61d7ff3d6abe7f903acbc47de233d383946965e98934"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/animation.svg",
+      "purpose": "Closed-profile rejection fixture for animation.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-animation",
+      "sha256": "32cf1a6e16b78e1ba2df32838fc7958bc52e696c6b2a761a98538e64c45bfcba"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/animation.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "4901249f2a6ac5e09b184526e3822e71f7620e5a01ad89c0518e4b3ef1d8e423"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/event-handler.svg",
+      "purpose": "Closed-profile rejection fixture for event-handler.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-event",
+      "sha256": "11197eb9f8823abc1a6bfdb546a70c409283724b1008918ae5a3d20abd5449ec"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/event-handler.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "97fe9bf45286284e1956869ae885dfc19b6627a8f024a6ea31267433e7edea25"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/external-image.svg",
+      "purpose": "Closed-profile rejection fixture for external-image.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-external-reference",
+      "sha256": "9f0b8c66746bed533d2833149f54659f10c00fe0b3443ba8b221c6aea998dc7a"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/external-image.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "4f32dde820f3038fa8cd0993673817756854bf7c3595b3374f08e65be7446655"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/filter.svg",
+      "purpose": "Closed-profile rejection fixture for filter.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "unsupported-svg-filter",
+      "sha256": "9462d2d0325e1f1e36c002e00d3f425bfcddcce43d144644d8176314314eb908"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/filter.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "841ae30fd7ce7c357b9b4c8c134282a1062f171142efe9dd8e25e91f1d8a7e95"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/foreign-object.svg",
+      "purpose": "Closed-profile rejection fixture for foreign-object.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-foreign-object",
+      "sha256": "4dfd4878eda76a2a6be0997d9e8db0628c23b4e703f87a6f40eab17466bd8d1d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/foreign-object.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "dc596246650ccc070b2bdf5cb04014ee2eb58f7ff666ec6837015a68b7426588"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/path-bomb.svg",
+      "purpose": "Closed-profile rejection fixture for path-bomb.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-resource-limit",
+      "sha256": "d22fb5dc35f7ea65d5d94129145dc6a8bb0f60ab15989b376c479e01c7391a0f"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/path-bomb.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "795ed6809478759a82b81ab3f071e4be0e5aa7d7f2225c3213bd92dc96f499ce"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "svg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/script.svg",
+      "purpose": "Closed-profile rejection fixture for script.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "adversarial-svg-script",
+      "sha256": "d898f74a9ccb1f7a1ff8fe1a4fb0d4564713b7f44fbff19b058b39a2a3642f29"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/svg/unsupported/script.svg.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-SVG-03.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "f539dc5a9d47636aca2e6b7d737bebdc2ed913cf9c202c77fa424afc4521602d"
     },
     {
       "authorship": "original-elftia",
@@ -357,6 +829,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -373,11 +847,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "eb0a283e6079d66619e74a1ced58881664087653a19a4936c1df91a7675820a3"
+      "sha256": "130e5af7d08f95416237a946c849399891c5dbcdd725c258070d0b2ec876241d"
     },
     {
       "authorship": "original-elftia",
@@ -389,6 +865,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -405,11 +883,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "ac2fc8d15ba9c8a9526847df417c165e27e06a2c1c759ff105e332f648883cd4"
+      "sha256": "ea7b4366aeef49c751def5a6e5a18be864974a53a1b6485592a04bd4a6888865"
     },
     {
       "authorship": "original-elftia",
@@ -421,6 +901,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -437,11 +919,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "fd829a13802130ee402aeda18898e50332dfb611217c3579601198bf9e471894"
+      "sha256": "d409bc229fc7af367861aaf2d45dcaa662e18d908f950ea146578005f5b327d4"
     },
     {
       "authorship": "original-elftia",
@@ -453,6 +937,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -469,11 +955,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "096ca6378dcc995be6f7a5bb38b458d6bb74fd793dd2ff4a03712f266f5135cf"
+      "sha256": "6b34ccf8383e3f6373b33d5a01fcd8c148208622487a7721efdeb19c94e0f17e"
     },
     {
       "authorship": "original-elftia",
@@ -485,6 +973,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -501,11 +991,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "6b1089859e7ea027df128f21172a1beec171b071d4d63e8a4ff9ba66f96bcc6a"
+      "sha256": "6f4929dc93779a49361f547bf5922758c7c8acba06ffd629e4fbf9f6d25aa6a4"
     },
     {
       "authorship": "original-elftia",
@@ -517,6 +1009,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -533,11 +1027,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "672aee7982076d8afbbf9f77975b210903f17d9593a57226a09f3a67dbc8a54e"
+      "sha256": "df8e480e59658386760bc8722303b28f99effb49c79ed9146b7c5aab562ef7c3"
     },
     {
       "authorship": "original-elftia",
@@ -549,6 +1045,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -565,11 +1063,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "22bb1cebf09e8b58c28abaa8c77c003e30e1a2a0b5f4cc4eb2132e3236d67fad"
+      "sha256": "4a1f6ee4c2d8d070521abb69caa3c10872cf7cb9e7cc1e8b05f85c328e886683"
     },
     {
       "authorship": "original-elftia",
@@ -581,6 +1081,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -597,11 +1099,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "36582091f6bf95c8a88ea275f33921ab3b9296d777273554827f101d79dd06de"
+      "sha256": "8d38a958c3a2c7c6c1eae6ffcd19db1bc8218516f8b9afa4d1932c254786bada"
     },
     {
       "authorship": "original-elftia",
@@ -613,6 +1117,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -629,11 +1135,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "c7f050eae8ce616390f23248a796721f537c460a8145b48d97ef37466c3b6398"
+      "sha256": "184cdd8333d9c2ac958d91a959e0449bc9ef58c26f81eceab2a1bbc7fa372837"
     },
     {
       "authorship": "original-elftia",
@@ -645,6 +1153,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -661,11 +1171,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "fc6847b46e6d71fd6adc480e24f15ac2cfb5c31d8097a27caab561d3b7553788"
+      "sha256": "6e06f04c5f60e74c70a902a4529dd43b5deb39ea47dfee72a6907a96f30cc16e"
     },
     {
       "authorship": "original-elftia",
@@ -677,6 +1189,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -693,11 +1207,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "c33dc4fa3ac0fd4f6f63cf27267a5e3bbe925775d99304669ea328966c567b72"
+      "sha256": "9e216513908d9a6f03befda2d3349187c69fdecac85e0335f3b201c6bfc66735"
     },
     {
       "authorship": "original-elftia",
@@ -709,6 +1225,8 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
@@ -725,11 +1243,13 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_consumer_evidence.py",
+        "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "501dae6a8adc99a396b446b2bb1aa27c3b59fbd26d03423c767dbd0a50ad3bb7"
+      "sha256": "4e3444e10a37fbb47d2698e179945dbefb137f1366924662d9fa81c58301cf37"
     },
     {
       "authorship": "original-elftia",
