@@ -1,8 +1,9 @@
-"""XLSX formula recalculation via headless convert-to-xlsx (no macro).
+"""XLSX formula recalculation via a headless private ODS round trip (no macro).
 
-LibreOffice recalculates formulas on load by default. This module stages
-the input XLSX, invokes ``soffice --convert-to xlsx``, and reads the
-recomputed cached values from the converted file via the existing reader.
+LibreOffice preserves stale cached values during XLSX-to-XLSX conversion.
+This module therefore stages the input XLSX, converts it through a bounded
+private ODS artifact, and reads the recomputed cached values from the final
+XLSX via the existing reader. The ODS artifact is never published.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
@@ -40,7 +41,7 @@ def recalculate_xlsx(
     *,
     timeout_seconds: float,
 ) -> dict[str, Any]:
-    """Recalculate XLSX formulas via headless convert-to-xlsx.
+    """Recalculate XLSX formulas via a private XLSX-to-ODS-to-XLSX round trip.
 
     Returns a dict mapping ``sheet!cell`` references to their recalculated
     cached value strings. NO macro is executed.
@@ -58,7 +59,7 @@ def recalculate_xlsx_artifact(
     *,
     timeout_seconds: float,
 ) -> RecalculatedXlsx:
-    """Return the isolated converted artifact plus its formula/value projection."""
+    """Return the isolated recalculated artifact plus its formula/value projection."""
 
     with private_libreoffice_input(
         input_xlsx,
@@ -80,10 +81,18 @@ def recalculate_xlsx_snapshot_artifact(
     """Recalculate an already screened private XLSX snapshot without restaging."""
 
     with OperationTempRoot() as private_root:
+        intermediate_dir = private_root / "intermediate"
+        intermediate_dir.mkdir()
+        intermediate = runner.convert(
+            input_snapshot,
+            "ods",
+            intermediate_dir,
+            timeout_seconds=timeout_seconds,
+        )
         output_dir = private_root / "output"
         output_dir.mkdir()
         converted = runner.convert(
-            input_snapshot,
+            intermediate,
             "xlsx",
             output_dir,
             timeout_seconds=timeout_seconds,
