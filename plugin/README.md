@@ -153,9 +153,13 @@ allowlist may use a reviewed hashless classification.
 
 Each documented command starts a private, one-shot Python worker. The supervisor owns argument
 classification, cancellation, final schema validation, and the only stdout write. Provider
-stdout/stderr are bounded and discarded as protocol data; a nonce-bound atomic result file is
-the only worker channel. HTML capture additionally binds its private scene/assets to the command
-nonce and hard byte/time ceilings. Provider exceptions, `SystemExit`, provider-created interrupts, hangs,
-output overflow, `os._exit`, and worker crashes become schema-valid failures or unavailable
-reports. This is reliability and protocol containment, not OS privilege isolation; the worker
-still runs with the invoking user's filesystem permissions.
+stdout/stderr are bounded and discarded as protocol data. The supervisor sends one bounded ASCII
+command envelope through worker stdin and accepts one bounded, canonical ASCII terminal frame at
+the end of worker stdout; the public protocol creates no command or result files. The worker runs
+from an empty, identity-bound private workspace, which is lifecycle state rather than a result
+channel. HTML capture is separate: its provider-internal browser handoff binds private scene and
+asset files to its own command nonce and hard byte/time ceilings. Provider exceptions,
+`SystemExit`, provider-created interrupts, hangs, output overflow, `os._exit`, and worker crashes
+become schema-valid failures or unavailable reports. This is reliability and protocol
+containment, not OS privilege isolation; the worker still runs with the invoking user's filesystem
+permissions.

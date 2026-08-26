@@ -984,3 +984,71 @@ No remote Windows/macOS/Linux CI, native Poppler/Tesseract/qpdf, Acrobat/Chrome
 PDFium/Preview/Poppler viewer, OS-native provider quota/sandbox, upstream PR, or live Host fleet
 receipt is claimed. External integration, final full-suite, build, dist, reproducibility, release
 ZIP, Producer commit, and Host consumer gates remain mandatory and unwaived.
+
+## Round 13 — public worker protocol documentation truth delta
+
+### Scope and role separation
+
+Round 13 is a fresh non-author review of exactly two author-owned files changed after the
+Round-12 release rebind: `README.md` and `tests/test_structure.py`. The reviewer authored neither
+delta and made no change to implementation, tests, dist, release, locks, manifests, SBOM, runtime
+allowlist, or other release inputs. This round checks only that the public containment
+documentation now matches the already-reviewed worker protocol and that its regression test is
+strong enough to prevent the specific stale file-channel claim from returning. It does not
+re-review or expand the historical implementation findings from rounds 1–12.
+
+### Documentation and implementation evidence
+
+- `README.md` now describes the actual public boundary: one bounded ASCII command envelope is
+  sent through worker stdin; the supervisor accepts one bounded, canonical ASCII terminal frame
+  at the end of worker stdout; and the public protocol creates no command or result files. The
+  former claim that a nonce-bound atomic result file was the only worker channel is absent.
+- The implementation independently proves those statements. `ProcessRunner` serializes the
+  command envelope with JSON escaping and writes it to stdin; the static worker reads at most
+  `MAX_COMMAND_BYTES + 1`, decodes strict ASCII, and rejects empty or oversized input. The
+  supervisor parses only the final `DOCUMENT_SKILLS_WORKER_FRAME_V1` frame, requires strict ASCII,
+  the byte ceiling, canonical serialization, and no trailing data, and remains the sole public
+  stdout owner. The private workspace is launch/lifecycle state, not a result channel.
+- The README keeps the HTML capture boundary separate and truthful. That provider-internal path
+  still creates private scene/assets, binds its scene status to its own command nonce, and applies
+  independent time and byte ceilings. The public worker documentation does not erase or conflate
+  that distinct private-file protocol.
+- The new structure test scopes itself to the `Public protocol containment` section, asserts all
+  three positive stdin/stdout/fileless statements plus the identity-bound workspace statement,
+  rejects the exact obsolete result-file sentence, and separately requires the HTML nonce-bound
+  scene/assets wording. It therefore cannot pass merely because the stale sentence was deleted.
+
+### Independent verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Exact `git diff -- README.md tests/test_structure.py` and implementation read-through | PASS — only the reviewed documentation and regression-test delta; statements match `public_cli/protocol.py`, `public_cli/supervisor.py`, `worker/main.py`, `worker/private_workspace.py`, `core/process/runner.py`, and PPTX HTML capture code |
+| Strict UTF-8/no-BOM/U+FFFD plus focused `git diff --check` | PASS for both author files |
+| README stale-sentence and HTML-boundary scan | PASS — zero obsolete sentence occurrences in README; one intentional negative-test literal; one explicit `HTML capture is separate` boundary |
+| `PYTHONDONTWRITEBYTECODE=1 uv run --frozen pytest tests/test_structure.py::test_readme_documents_fileless_bounded_public_worker_protocol tests/test_pdf_public_worker_failures.py tests/test_private_workspace_identity.py -p no:cacheprovider` | PASS — 32 passed, 3 POSIX-only skips on Windows in 43.22s |
+| Two consecutive `uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only` runs before this metadata-only report edit | PASS — both returned `74545f37a839595ede7086f80bdaecc8ed8388f31e930e23e3e375204680bdb4` |
+| Pre-rebind read-only `uv run --frozen python -m tools.audit --project-root .` | Expected FAIL — the first reported stale record was `Module hash drift: tests/test_structure.py`; this is the exact author delta requiring the mechanical rebind below, not an implementation failure |
+
+### Round-13 approval and remaining gates
+
+`approval_claimed: true`; `status: clean`. No Blocker, Major, or accepted-known Minor was found in
+the README/test delta. Round 13 supersedes the Round-12 prospective mapping because both reviewed
+files are release inputs. The exact approved prospective mapping is:
+
+`74545f37a839595ede7086f80bdaecc8ed8388f31e930e23e3e375204680bdb4`.
+
+Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-13-0.5.5-2026-08-26`.
+
+This approval authorizes only the official two-stage provenance regeneration and reuse-review
+rebind for that exact mapping, with the single composite attestation updated from rounds 1–12 to
+rounds 1–13 and bound to this canonical report. It does not independently re-review historical
+source, reopen earlier accepted limitations, or approve any later non-metadata release-byte
+change.
+
+No remote Windows/macOS/Linux CI, native Poppler/Tesseract/qpdf, Acrobat/Chrome
+PDFium/Preview/Poppler viewer, OS-native provider quota/sandbox, upstream PR, dist/build/release,
+new Producer commit, or live Host fleet/consumer receipt is claimed. The checked-in dist remains
+outside this round and must be rebuilt from the approved source only after the provenance rebind.
+All external, full-suite, build, dist, reproducibility, release ZIP, Producer commit, and Host
+consumer gates remain mandatory and unwaived.

@@ -25,6 +25,23 @@ def test_agent_commands_are_frozen_uv_only(project_root):
     assert audit_commands(project_root)["command_count"] == 21
 
 
+def test_readme_documents_fileless_bounded_public_worker_protocol(project_root):
+    readme = (project_root / "README.md").read_text(encoding="utf-8")
+    _before, marker, remainder = readme.partition("## Public protocol containment")
+    assert marker
+    section = " ".join(remainder.partition("\n## ")[0].split())
+
+    assert "bounded ASCII command envelope through worker stdin" in section
+    assert "bounded, canonical ASCII terminal frame" in section
+    assert "public protocol creates no command or result files" in section
+    assert "identity-bound private workspace" in section
+    assert "nonce-bound atomic result file is the only worker channel" not in readme
+    assert (
+        "HTML capture is separate: its provider-internal browser handoff binds private "
+        "scene and asset files to its own command nonce"
+    ) in section
+
+
 def test_source_and_staged_release_inventory(project_root):
     inventory = release_inventory(project_root)
     assert audit_inventory(project_root, inventory)["file_count"] == len(inventory)
