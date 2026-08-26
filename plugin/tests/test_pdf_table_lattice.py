@@ -27,7 +27,7 @@ def _public(project_root: Path, request: Path) -> dict[str, Any]:
         shell=False,
         timeout=60,
     )
-    assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+    assert process.returncode == 0, process.stdout.decode("utf-8", errors="replace")
     assert process.stderr == b""
     payload = json.loads(process.stdout.decode("utf-8", errors="strict"))
     assert type(payload) is dict

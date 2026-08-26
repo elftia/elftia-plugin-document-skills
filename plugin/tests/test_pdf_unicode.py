@@ -181,7 +181,7 @@ def _public(project_root: Path, *arguments: str, check: bool = True) -> dict[str
         timeout=60,
     )
     if check:
-        assert completed.returncode == 0, completed.stderr.decode("utf-8", errors="replace")
+        assert completed.returncode == 0, completed.stdout.decode("utf-8", errors="replace")
     assert completed.stderr == b""
     return json.loads(completed.stdout.decode("utf-8", errors="strict"))
 

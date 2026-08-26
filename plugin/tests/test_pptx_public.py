@@ -34,7 +34,7 @@ def _public(
         timeout=30,
     )
     if check:
-        assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+        assert process.returncode == 0, process.stdout.decode("utf-8", errors="replace")
     assert process.stderr == b""
     text = process.stdout.decode("utf-8", errors="strict")
     decoder = json.JSONDecoder()

@@ -430,7 +430,8 @@ def _public(
         timeout=60,
     )
     if check:
-        assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+        diagnostic = process.stdout.decode("utf-8", errors="replace")
+        assert process.returncode == 0, diagnostic or "public stdout was empty"
         assert process.stderr == b""
     text = process.stdout.decode("utf-8", errors="strict")
     payload, end = json.JSONDecoder().raw_decode(text)

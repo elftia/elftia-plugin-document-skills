@@ -249,6 +249,7 @@ def _copy_audit_project(project_root: Path, destination: Path) -> Path:
             ignore=shutil.ignore_patterns(
                 ".venv",
                 "node_modules",
+                ".document-skills-tmp",
                 ".pytest_cache",
                 "__pycache__",
                 "*.pyc",

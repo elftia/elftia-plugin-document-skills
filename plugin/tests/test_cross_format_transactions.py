@@ -14,6 +14,7 @@ from typing import Any
 
 import pytest
 
+import document_skills_core.core.io.bound_child_directory as bound_child_module
 import document_skills_core.core.io.parent_anchor as parent_anchor_module
 import document_skills_core.core.io.paths as paths_module
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -127,7 +128,9 @@ def test_destination_race_is_detected_without_overwriting_concurrent_bytes(
     output = tmp_path / f"output.{format_id}"
     output.write_bytes(b"initial")
     request = _request(format_id, output)
-    result = _write(module, SchemaCatalog(project_root), request, candidate, _report(candidate))
+    result = _write(
+        module, SchemaCatalog(project_root), request, candidate, _report(candidate)
+    )
     snapshot = destination_snapshot(output)
     real_promote = module.atomic_promote
 
@@ -577,7 +580,9 @@ def test_residue_substitution_inside_hash_window_is_marked_unstable(
         return real_hash(handle)
 
     monkeypatch.setattr(paths_module, "_residue_entry", enter_real_observation)
-    monkeypatch.setattr(paths_module, "_sha256_open_file", substitute_during_handle_hash)
+    monkeypatch.setattr(
+        paths_module, "_sha256_open_file", substitute_during_handle_hash
+    )
     outcome = atomic_promote(candidate, output, expected_destination=snapshot)
 
     details = outcome.promotion_details()
@@ -830,7 +835,9 @@ def test_posix_parent_move_during_stage_identity_handoff_reports_exact_stage(
     assert event == {"moved": True}
     assert captured.value.details["destination_parent_changed"] is True
     assert captured.value.details["parent_phase"] == "stage_created"
-    assert sorted(path.relative_to(parent).as_posix() for path in parent.rglob("*")) == [
+    assert sorted(
+        path.relative_to(parent).as_posix() for path in parent.rglob("*")
+    ) == [
         "guard",
         "guard/sentinel.bin",
     ]
@@ -875,7 +882,9 @@ def test_destination_parent_swap_during_install_is_blocked_or_reported_from_anch
         real_assert(path, expected, parent=parent)
         event.update(_attempt_parent_swap(path.parent, displaced))
 
-    monkeypatch.setattr(paths_module, "_assert_destination_unchanged", swap_after_compare)
+    monkeypatch.setattr(
+        paths_module, "_assert_destination_unchanged", swap_after_compare
+    )
     outcome = None
     failure = None
     try:
@@ -896,9 +905,7 @@ def test_destination_parent_swap_during_install_is_blocked_or_reported_from_anch
         assert event == {"moved": True}
         assert failure.details["destination_parent_changed"] is True
         assert not output.exists()
-        reported = {
-            Path(path) for path in failure.details["transaction_residue_paths"]
-        }
+        reported = {Path(path) for path in failure.details["transaction_residue_paths"]}
         assert reported == set(_transaction_residue(displaced))
         assert all(path.parent == displaced for path in reported)
 
@@ -931,9 +938,7 @@ def test_parent_swap_inside_raw_anchored_rename_reports_displaced_residue(
         try:
             parent.rename(displaced)
         except PermissionError as error:  # pragma: no cover - platform policy
-            pytest.skip(
-                f"open destination parent cannot move: {type(error).__name__}"
-            )
+            pytest.skip(f"open destination parent cannot move: {type(error).__name__}")
         parent.mkdir()
         guard = parent / "replacement-guard"
         guard.mkdir()
@@ -1019,7 +1024,8 @@ def test_destination_parent_swap_during_rollback_is_blocked_or_displaced_truthfu
         assert event == {"blocked": True}
         assert output.read_bytes() == b"initial"
         assert {
-            path.read_bytes() for path in _assert_exact_residue_inventory(
+            path.read_bytes()
+            for path in _assert_exact_residue_inventory(
                 captured.value,
                 parent,
             )
@@ -1087,9 +1093,7 @@ def test_destination_parent_swap_during_committed_residue_observation_is_safe(
         assert event == {"moved": True}
         assert failure.details["destination_parent_changed"] is True
         assert not output.exists()
-        reported = {
-            Path(path) for path in failure.details["transaction_residue_paths"]
-        }
+        reported = {Path(path) for path in failure.details["transaction_residue_paths"]}
         displaced_output = displaced / "output.bin"
         expected = set(_transaction_residue(displaced)) | {displaced_output}
         assert reported == expected
@@ -1126,6 +1130,101 @@ def test_symlinked_destination_parent_is_rejected_before_staging(
     assert captured.value.code == ErrorCode.PATH_UNSAFE
     assert captured.value.details["destination_parent_safety_failure"] is True
     assert _transaction_residue(physical) == []
+
+
+def test_bound_child_directory_removal_is_empty_only(tmp_path: Path) -> None:
+    project, _unused = parent_anchor_module.DestinationParentAnchor.capture(
+        tmp_path / "project" / "unused"
+    )
+    base = project.create_bound_directory("private", exist_ok=True)
+    empty = base.create_bound_directory("empty", exist_ok=False)
+    empty_path = empty.current_path()
+    removed = base.remove_empty_child(empty)
+    assert removed is (os.name == "nt")
+    assert empty_path.exists() is (os.name != "nt")
+    if empty_path.exists():
+        empty_path.rmdir()
+
+    nonempty = base.create_bound_directory("nonempty", exist_ok=False)
+    nonempty_path = nonempty.current_path()
+    sentinel = nonempty_path / "sentinel.bin"
+    sentinel.write_bytes(b"owned")
+    try:
+        assert base.remove_empty_child(nonempty) is False
+        assert sentinel.read_bytes() == b"owned"
+    finally:
+        sentinel.unlink()
+        nonempty_path.rmdir()
+        base.close()
+        project.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires Windows directory handles")
+@pytest.mark.parametrize("winerror", [5, 32])
+def test_bound_empty_child_retries_windows_lock_errors(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    winerror: int,
+) -> None:
+    project, _unused = parent_anchor_module.DestinationParentAnchor.capture(
+        tmp_path / "project" / "unused"
+    )
+    base = project.create_bound_directory("private", exist_ok=True)
+    child = base.create_bound_directory("invocation", exist_ok=False)
+    real_open = bound_child_module.open_windows_relative_directory_for_delete
+    attempts = 0
+    sleeps: list[float] = []
+
+    def flaky_open(*args: object, **kwargs: object) -> int:
+        nonlocal attempts
+        attempts += 1
+        if attempts <= 3:
+            error = PermissionError("locked fixture directory")
+            error.winerror = winerror
+            raise error
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(
+        bound_child_module,
+        "open_windows_relative_directory_for_delete",
+        flaky_open,
+    )
+    monkeypatch.setattr(bound_child_module.time, "sleep", sleeps.append)
+    try:
+        assert base.remove_empty_child(child, (0.05, 0.1, 0.2)) is True
+        assert attempts == 4
+        assert sleeps == [0.05, 0.1, 0.2]
+    finally:
+        child.close()
+        base.close()
+        project.close()
+
+
+@pytest.mark.skipif(
+    not (sys.platform.startswith("linux") or sys.platform == "darwin"),
+    reason="POSIX permits renaming an open directory",
+)
+def test_bound_child_identity_swap_never_deletes_replacement(tmp_path: Path) -> None:
+    project, _unused = parent_anchor_module.DestinationParentAnchor.capture(
+        tmp_path / "project" / "unused"
+    )
+    base = project.create_bound_directory("private", exist_ok=True)
+    child = base.create_bound_directory("invocation", exist_ok=False)
+    original = child.original_path
+    displaced = original.with_name("displaced")
+    original.rename(displaced)
+    original.mkdir()
+    sentinel = original / "replacement.bin"
+    sentinel.write_bytes(b"replacement")
+    try:
+        assert base.remove_empty_child(child) is False
+        assert sentinel.read_bytes() == b"replacement"
+    finally:
+        sentinel.unlink()
+        original.rmdir()
+        displaced.rmdir()
+        base.close()
+        project.close()
 
 
 def _transaction(format_id: str) -> Any:
@@ -1191,9 +1290,7 @@ def _sha256(path: Path) -> str:
 
 def _transaction_residue(root: Path) -> list[Path]:
     return sorted(
-        path
-        for path in root.iterdir()
-        if path.name.startswith(".document-skills-")
+        path for path in root.iterdir() if path.name.startswith(".document-skills-")
     )
 
 

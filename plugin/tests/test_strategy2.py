@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import shutil
 import subprocess
 
@@ -39,6 +40,7 @@ from tests.support.provenance_review_fixture import bind_test_review
         "os-exit",
         "crash",
         "invalid-result",
+        "trailing-noise",
         "hostile",
         "huge-string",
         "huge-int",
@@ -46,9 +48,7 @@ from tests.support.provenance_review_fixture import bind_test_review
         "unicode",
     ],
 )
-def test_public_supervisor_is_one_json_protocol(
-    project_root, command, mode
-):
+def test_public_supervisor_is_one_json_protocol(project_root, command, mode):
     uv = shutil.which("uv")
     assert uv is not None
     completed = subprocess.run(
@@ -93,6 +93,60 @@ def test_public_supervisor_is_one_json_protocol(
                 assert details["exception_class"] == "DocumentSkillsError"
 
 
+def test_public_supervisor_rejects_redirected_private_base_before_spawn(
+    project_root: Path,
+    tmp_path: Path,
+):
+    uv = shutil.which("uv")
+    assert uv is not None
+    sandbox = tmp_path / "project"
+    shutil.copytree(project_root / "src", sandbox / "src")
+    shutil.copytree(project_root / "schemas", sandbox / "schemas")
+    support = sandbox / "tests" / "support"
+    support.mkdir(parents=True)
+    shutil.copy2(
+        project_root / "tests" / "support" / "command_worker_fixture.py",
+        support / "command_worker_fixture.py",
+    )
+    redirected = sandbox / "redirected-private-base"
+    redirected.mkdir()
+    try:
+        (sandbox / ".document-skills-tmp").symlink_to(
+            redirected,
+            target_is_directory=True,
+        )
+    except OSError as error:
+        pytest.skip(f"directory symlink unavailable: {type(error).__name__}")
+
+    completed = subprocess.run(
+        [
+            uv,
+            "run",
+            "--project",
+            str(project_root),
+            "--frozen",
+            "python",
+            str(project_root / "tests" / "support" / "public_supervisor_fixture.py"),
+            "text-noise",
+            "run",
+            str(sandbox),
+        ],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=False,
+        shell=False,
+        timeout=15,
+    )
+
+    assert completed.returncode == 2, completed.stdout.decode("utf-8", errors="replace")
+    assert completed.stdout.count(b"\n") == 1
+    assert completed.stderr == b""
+    assert list(redirected.iterdir()) == []
+    payload = json.loads(completed.stdout)
+    SchemaCatalog(sandbox).validate("operation-result", payload)
+
+
 def test_default_provider_identity_and_detection_only_capabilities(project_root):
     registry = build_default_registry(project_root)
     doctor = subprocess.run(
@@ -103,13 +157,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
             str(project_root),
             "--frozen",
             "python",
-            str(
-                project_root
-                / "skills"
-                / "document-docx"
-                / "scripts"
-                / "run.py"
-            ),
+            str(project_root / "skills" / "document-docx" / "scripts" / "run.py"),
             "doctor",
             "--json",
         ],
@@ -119,15 +167,15 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         check=True,
         timeout=30,
     )
-    doctor_state = {
-        item["id"]: item for item in json.loads(doctor.stdout)["providers"]
-    }
+    doctor_state = {item["id"]: item for item in json.loads(doctor.stdout)["providers"]}
     capability = build_capabilities(project_root, "docx", registry)
     capability_state = {item["id"]: item for item in capability["providers"]}
     assert "core-node-protocol" not in doctor.stdout
     assert doctor_state["core-node"]["available"] is True
     assert capability_state["core-node"]["available"] is True
-    assert doctor_state["core-node"]["version"] == capability_state["core-node"]["version"]
+    assert (
+        doctor_state["core-node"]["version"] == capability_state["core-node"]["version"]
+    )
     operations = {item["operation"]: item for item in capability["operations"]}
     assert set(operations) == {
         "docx.create",
@@ -164,15 +212,22 @@ def test_catalog_requires_callable_and_available_detector(project_root):
 
     available = DetectionEvidence(True, version="1")
     unavailable = DetectionEvidence(False, reason="absent")
-    assert build_capabilities(
-        project_root, "docx", catalog(available, lambda _op, _req: {})
-    )["operations"][0]["available"] is True
-    assert build_capabilities(
-        project_root, "docx", catalog(unavailable, lambda _op, _req: {})
-    )["operations"][0]["available"] is False
-    assert build_capabilities(
-        project_root, "docx", catalog(available, None)
-    )["operations"] == []
+    assert (
+        build_capabilities(
+            project_root, "docx", catalog(available, lambda _op, _req: {})
+        )["operations"][0]["available"]
+        is True
+    )
+    assert (
+        build_capabilities(
+            project_root, "docx", catalog(unavailable, lambda _op, _req: {})
+        )["operations"][0]["available"]
+        is False
+    )
+    assert (
+        build_capabilities(project_root, "docx", catalog(available, None))["operations"]
+        == []
+    )
 
 
 @pytest.mark.parametrize(

@@ -643,12 +643,12 @@
       "license": "GPL-3.0",
       "origin": "generated",
       "path": "pdf-worker-failures/public_runner.py",
-      "purpose": "Public PDF supervisor harness for isolated worker failure regressions",
+      "purpose": "Public PDF supervisor harness for bounded pipe failures and identity-bound empty-workspace cleanup",
       "recipe": "tests/fixtures/pdf-worker-failures/public_runner.py",
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "security-negative",
-      "sha256": "cf1c2bce3e335edd5f5e5379c73c12d438acf73f56ca415e9b70cce91f267202"
+      "sha256": "2eb76665e88bfc240dab1e50828bd0e1e22da6d7a1fc90157dc236d5dd04663e"
     },
     {
       "authorship": "original-elftia",
@@ -656,12 +656,12 @@
       "license": "GPL-3.0",
       "origin": "generated",
       "path": "pdf-worker-failures/worker.py",
-      "purpose": "Static PDF private-worker provider crash, timeout, and invalid-result fixture",
+      "purpose": "Static PDF private-worker crash, timeout, malformed/noisy pipe, binding, and serialization failure fixture",
       "recipe": "tests/fixtures/pdf-worker-failures/worker.py",
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "security-negative",
-      "sha256": "63d0f5b72bce107a09a72b93259c8ffc8c2b9f82e652d2fdb457af063e382f10"
+      "sha256": "5bd6b4d66a162e6f924d2609f7aac27cdd6d821d854fe78be15c23004cb96379"
     }
   ],
   "schema_version": "1.0"

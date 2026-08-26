@@ -33,6 +33,7 @@
     "src/document_skills_core/core/contracts/serialization.py",
     "src/document_skills_core/core/io/__init__.py",
     "src/document_skills_core/core/io/archive.py",
+    "src/document_skills_core/core/io/bound_child_directory.py",
     "src/document_skills_core/core/io/core_properties.py",
     "src/document_skills_core/core/io/ooxml_security.py",
     "src/document_skills_core/core/io/parent_anchor.py",
@@ -294,6 +295,7 @@
     "src/document_skills_core/public_cli/supervisor.py",
     "src/document_skills_core/worker/__init__.py",
     "src/document_skills_core/worker/invoke.py",
-    "src/document_skills_core/worker/main.py"
+    "src/document_skills_core/worker/main.py",
+    "src/document_skills_core/worker/private_workspace.py"
   ]
 }

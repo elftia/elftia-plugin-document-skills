@@ -195,7 +195,8 @@ def _run_public(
         shell=False,
         timeout=60,
     )
-    assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+    diagnostic = process.stdout.decode("utf-8", errors="replace")
+    assert process.returncode == 0, diagnostic or "public stdout was empty"
     assert process.stderr == b""
     result = json.loads(process.stdout.decode("utf-8", errors="strict"))
     assert isinstance(result, dict)

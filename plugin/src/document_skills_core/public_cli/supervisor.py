@@ -8,21 +8,26 @@ from typing import Any, Callable
 
 from document_skills_core import __version__
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.core.contracts.models import empty_validation, make_error_result
+from document_skills_core.core.contracts.models import (
+    empty_validation,
+    make_error_result,
+)
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.contracts.serialization import render_json_bytes
 from document_skills_core.core.process import ProcessPolicy, ProcessRunner
+from document_skills_core.worker.private_workspace import PrivateWorkspace
 
 from .protocol import (
+    MAX_COMMAND_BYTES,
     MAX_WORKER_BYTES,
     PublicCommand,
     command_envelope,
     parse_public_command,
-    read_bounded_json,
-    validate_worker_envelope,
+    parse_worker_terminal_frame,
+    worker_failure_category,
+    worker_schema,
 )
 
-_INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
@@ -35,19 +40,13 @@ class PublicCommandSupervisor:
         self,
         project_root: Path,
         *,
-        worker_script: Path | None = None,
         timeout_seconds: float = 8.0,
         output_limit: int = 65_536,
         nonce_factory: Callable[[], str] | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         self.worker_script = (
-            worker_script
-            or self.project_root
-            / "src"
-            / "document_skills_core"
-            / "worker"
-            / "main.py"
+            self.project_root / "src" / "document_skills_core" / "worker" / "main.py"
         ).resolve()
         self.timeout_seconds = timeout_seconds
         self.output_limit = output_limit
@@ -59,57 +58,68 @@ class PublicCommandSupervisor:
         argv: list[str] | None,
     ) -> tuple[dict[str, Any], bool]:
         command = parse_public_command(argv)
-        invocation_base = Path.cwd().resolve(strict=True)
-        if not invocation_base.is_dir():
-            raise ValueError("public invocation base is not a directory")
-        invocation_id = self.nonce_factory()
-        if (
-            type(invocation_id) is not str
-            or not invocation_id
-            or len(invocation_id.encode("ascii", errors="strict")) > 128
-        ):
-            raise ValueError("private invocation nonce is invalid")
-        root = self.project_root / _INVOCATION_ROOT / f"invocation-{invocation_id}"
-        root.mkdir(mode=0o700, parents=True)
+        workspace: PrivateWorkspace | None = None
         try:
-            timeout_seconds, result_limit = self._command_limits(command, invocation_base)
-            command_path = root / "command.json"
-            result_path = root / "result.json"
+            invocation_base = Path.cwd().resolve(strict=True)
+            if not invocation_base.is_dir():
+                raise ValueError("public invocation base is not a directory")
+            invocation_id = self.nonce_factory()
+            if (
+                type(invocation_id) is not str
+                or not invocation_id
+                or len(invocation_id.encode("ascii", errors="strict")) > 128
+                or not all(
+                    character.isalnum() or character in "-_"
+                    for character in invocation_id
+                )
+            ):
+                raise ValueError("private invocation nonce is invalid")
+            workspace = PrivateWorkspace.create(self.project_root, invocation_id)
+            timeout_seconds, result_limit = self._command_limits(
+                command, invocation_base
+            )
+            envelope = command_envelope(
+                invocation_id,
+                command,
+                format_id,
+                invocation_base,
+            )
             encoded = json.dumps(
-                command_envelope(
-                    invocation_id,
-                    command,
-                    format_id,
-                    invocation_base,
-                ),
+                envelope,
                 ensure_ascii=True,
                 separators=(",", ":"),
                 sort_keys=True,
             ).encode("ascii")
-            command_path.write_bytes(encoded)
+            if len(encoded) > MAX_COMMAND_BYTES:
+                raise ValueError("private command exceeds its byte ceiling")
             process = self._launch(
-                command_path,
-                result_path,
-                invocation_id,
-                root,
+                envelope,
+                workspace,
                 timeout_seconds,
+                result_limit,
             )
             if process.returncode != 0:
                 raise DocumentSkillsError(
                     ErrorCode.PROVIDER_FAILED,
                     "The isolated command worker failed safely.",
-                    details={"phase": "worker", "reason_category": "worker_exit"},
+                    details={
+                        "phase": "worker",
+                        "reason_category": "worker_exit",
+                    },
                 )
-            envelope = validate_worker_envelope(
-                read_bounded_json(result_path, result_limit),
+            envelope = parse_worker_terminal_frame(
+                process.stdout,
+                result_limit,
                 invocation_id,
                 command.name,
             )
             if envelope["outcome"] != "ok":
-                return self._safe_failure(command, format_id, envelope["failure"]), False
+                return self._safe_failure(
+                    command, format_id, envelope["failure"]
+                ), False
             payload = envelope["payload"]
             SchemaCatalog(self.project_root).validate(
-                self._schema_for(command.name), payload
+                worker_schema(command.name), payload
             )
             return payload, True
         except KeyboardInterrupt:
@@ -127,50 +137,52 @@ class PublicCommandSupervisor:
                 False,
             )
         except BaseException as error:
+            details = {}
+            if (
+                isinstance(error, DocumentSkillsError)
+                and error.details.get("reason_category") == "worker_exit"
+            ):
+                details = error.details
             return (
                 self._safe_failure(
                     command,
                     format_id,
                     {
-                        "category": self._reason_category(error),
-                        "phase": "supervisor",
-                        "provider": None,
+                        "category": worker_failure_category(error),
+                        "phase": details.get("phase") or "supervisor",
+                        "provider": details.get("provider"),
                         "exception_class": type(error).__name__[:64],
                     },
                 ),
                 False,
             )
         finally:
-            self._remove_private_root(root)
+            if workspace is not None:
+                workspace.close()
 
     def _launch(
         self,
-        command_path: Path,
-        result_path: Path,
-        invocation_id: str,
-        cwd: Path,
+        envelope: dict[str, Any],
+        workspace: PrivateWorkspace,
         timeout_seconds: float,
+        result_limit: int,
     ) -> Any:
         policy = ProcessPolicy(self.project_root)
         runner = ProcessRunner(policy)
         executable = policy.allow_executable("public-command-worker", sys.executable)
         worker = policy.allow_script("public-command-worker", self.worker_script)
-        return runner.run(
+        cwd, descriptor, identity, bootstrap_args = workspace.launch_parameters()
+        return runner.run_public_command_worker(
             "public-command-worker",
             executable,
-            [
-                str(worker),
-                "--command-file",
-                str(command_path),
-                "--result-file",
-                str(result_path),
-                "--invocation-id",
-                invocation_id,
-            ],
+            [str(worker), *bootstrap_args],
             script=worker,
-            cwd=cwd,
+            stdin_json=envelope,
+            workspace_cwd=cwd,
+            posix_workspace_fd=descriptor,
+            posix_workspace_identity=identity,
             timeout_seconds=timeout_seconds,
-            output_limit=self.output_limit,
+            output_limit=result_limit + self.output_limit,
         )
 
     def _command_limits(
@@ -179,7 +191,9 @@ class PublicCommandSupervisor:
         invocation_base: Path,
     ) -> tuple[float, int]:
         if command.name in {"doctor", "capabilities"} and self.timeout_seconds >= 8.0:
-            return max(self.timeout_seconds, _PROVIDER_PROBE_TIMEOUT_SECONDS), MAX_WORKER_BYTES
+            return max(
+                self.timeout_seconds, _PROVIDER_PROBE_TIMEOUT_SECONDS
+            ), MAX_WORKER_BYTES
         if command.name != "run":
             return self.timeout_seconds, MAX_WORKER_BYTES
         try:
@@ -192,9 +206,15 @@ class PublicCommandSupervisor:
                 return self.timeout_seconds, MAX_WORKER_BYTES
             value = json.loads(request_path.read_text(encoding="utf-8"))
             if type(value) is dict and value.get("operation") == _HTML_OPERATION:
-                return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
-            if type(value) is dict and str(value.get("operation", "")).startswith("pdf."):
-                return max(self.timeout_seconds, _PDF_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
+                return max(
+                    self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS
+                ), _HTML_WORKER_RESULT_BYTES
+            if type(value) is dict and str(value.get("operation", "")).startswith(
+                "pdf."
+            ):
+                return max(
+                    self.timeout_seconds, _PDF_WORKER_TIMEOUT_SECONDS
+                ), MAX_WORKER_BYTES
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES
@@ -260,35 +280,6 @@ class PublicCommandSupervisor:
                 },
             ),
         )
-
-    @staticmethod
-    def _reason_category(error: BaseException) -> str:
-        if isinstance(error, DocumentSkillsError):
-            if error.details.get("reason_category") == "cancelled":
-                return "cancelled"
-            if error.code == ErrorCode.PROCESS_TIMEOUT:
-                return "timeout"
-            text = str(error).casefold()
-            if "byte ceiling" in text or "output exceeded" in text:
-                return "overflow"
-        return "invalid_worker_result"
-
-    @staticmethod
-    def _schema_for(command: str) -> str:
-        return {
-            "doctor": "doctor-report",
-            "capabilities": "capability-report",
-            "run": "operation-result",
-            "validate": "validation-report",
-        }[command]
-
-    def _remove_private_root(self, root: Path) -> None:
-        import shutil
-
-        resolved = root.resolve(strict=False)
-        expected_parent = (self.project_root / _INVOCATION_ROOT).resolve()
-        if resolved.parent == expected_parent and resolved.name.startswith("invocation-"):
-            shutil.rmtree(resolved, ignore_errors=True)
 
 
 def main(format_id: str, project_root: Path, argv: list[str] | None = None) -> int:

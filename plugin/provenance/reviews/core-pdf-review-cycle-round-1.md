@@ -674,3 +674,313 @@ Codex non-author reviewers own rounds 7 and 8. Historical digests `810403...`, `
 Rounds 7 and 8 each modify only this canonical report and do not modify production source/tests,
 generated provenance, stage, commit, archive, or ship. Round 8 makes only the narrower local
 claims enumerated above and explicitly requires a new full npm-suite delivery receipt.
+
+## Round 9 — monotonic `0.5.5` release-version and generated-artifact delta
+
+A fresh native non-author reviewer `/root/pdf_seeder_version_audit` independently reviewed only
+the release-version and generated provenance/SBOM delta layered on producer commit
+`efcbe0c527dda3b5a657c7ee3916f46cc163184f`. The reviewer did not author the version change,
+production implementation, generated artifacts, or canonical report.
+
+### Why the version bump is required
+
+Host source inspection confirms that `ManagedRuntimeRootSeeder` skips a present managed tree when
+the bundled version is not strictly greater. Its shared gate is exactly
+`compareVersions(bundled, present) > 0`. Therefore bundled `0.5.4` against installed `0.5.4`
+returns `skipped-up-to-date`, while `0.5.5` against installed `0.5.4` enters the publish path.
+The focused host Seeder suite independently passed all 34 tests.
+
+### Release-version consistency
+
+The producer release identities are consistently `0.5.5` in root `package.json`, both root
+`package-lock.json` release-version positions, `plugin/elftia-plugin.json`,
+`plugin/.claude-plugin/plugin.json`, and the CycloneDX application component. The internal
+Python/Node runtime package family remains independently versioned at `0.1.0`;
+`plugin/pyproject.toml`, plugin `package.json`, and both plugin lockfile positions are unchanged.
+
+The tracked delta contains exactly the two root release-version files, the two plugin manifests,
+the pending provenance mapping, and the SBOM. `git diff --check` passes. Every modified file
+strictly decodes as UTF-8, has no UTF-8 BOM, and contains no replacement character.
+
+### Generated-artifact consistency
+
+Independent generator comparison found `plugin/sbom.cdx.json` byte-identical to fresh
+`build_sbom` output: 10,913 bytes, SHA-256
+`477eb8d13f7ec594a4e31d595b07e917e6d05e0b4e585043e25a53e033c5a4f8`,
+24 components, and 22 dependency records.
+
+Pending `plugin/provenance/modules.json` is byte-identical to fresh regeneration:
+436 module records, 107 data classifications, three exact metadata exclusions, zero executable
+exclusions, zero adopted sources, and zero review attestations. All 546 release paths are
+classified. No release path was added or removed by the version delta; only
+`.claude-plugin/plugin.json`, `elftia-plugin.json`, and `sbom.cdx.json` changed classified data
+hashes. Every pending record names `PENDING independent review`.
+
+Both in-memory regeneration and
+
+`uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only`
+
+returned prospective mapping
+`2eeb82304358c92999a74521e601629bc69b2c80621c645274202896f0bfab22`.
+
+A live machine audit passed clean-room, commands, execution-boundary, fixtures, inventory,
+manifests, public-skills, and SBOM checks. Its sole failure was the expected pre-binding error
+`Independent review attestation is missing`; inventory was 546 files with 436 risky records.
+The checked-in prior audit receipt is not claimed as current evidence and must be regenerated
+after this Round-9 attestation is bound.
+
+Three focused manifest/SBOM consistency tests passed. The pre-existing `dist/document-skills`
+still represents the old `0.5.4` build and is explicitly not approved as `0.5.5` delivery
+evidence. A fresh build, dist validation, full `npm run verify`, release archive, reproducibility
+check, and host fleet synchronization remain mandatory after binding.
+
+### Round-9 verdict
+
+**Clean for the scoped release-version and generated-artifact delta; approval claimed for
+prospective mapping
+`2eeb82304358c92999a74521e601629bc69b2c80621c645274202896f0bfab22`.**
+
+Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-0.5.5-2026-08-26`;
+`status: clean`.
+
+This review does not independently re-review the historical PDF implementation covered by
+rounds 1–8 and does not claim remote CI, native Poppler/Tesseract/qpdf, native-viewer,
+OS resource-quota, final dist/archive reproducibility, or live host-fleet evidence.
+
+## Round 10 — bounded pipe worker boundary and identity-bound private workspace
+
+### Scope and role separation
+
+Round 10 reviews the public supervisor/worker failure boundary added after Round 9. The original
+file protocol wrote `command.json`, `result.tmp`, and `result.json` under a random invocation
+directory. Bounded replace/cleanup retries could not make that design safe under permanent
+Windows locks without adding an unauthenticated marker queue, recursive cleanup, and a detached
+reaper. Three bounded strategy attempts therefore replaced the design rather than extending it.
+
+The authors and verifiers were distinct native Codex subagents:
+
+- `/root/pdf_pipe_protocol_fixer` authored the bounded stdin/stdout pipe strategy;
+- `/root/pdf_posix_identity_fixer` authored the POSIX held-fd and module-boundary correction;
+- `/root/pdf_static_worker_fixer` authored the closed static-worker capability and cancellation
+  ownership correction;
+- `/root/pdf_worker_retry_review` independently reviewed strategy attempts 1 and 2; and
+- fresh non-author `/root/pdf_attempt3_fresh_review` independently reviewed attempt 3 and issued
+  the final `CLEAN` verdict.
+
+No fixer self-certified its own delta. The canonical review-cycle history is
+`tmp/pdf-worker-retry-review/evidence/review-report.md` (SHA-256
+`8e24dbdfb67f1ca9a2d4d38a63f55256b0c495626692f2cfe9756f0681b12369`). The final fixer report is
+`tmp/pdf-worker-retry-review/evidence/fix-strategy-3-report.md` (SHA-256
+`ee6fcb7feafe22765f435560c025bf87e89219b427eb47559d7d4d1c7572bb6e`). Those worktree-local
+reports are review evidence, not release inventory inputs.
+
+### Final protocol and containment boundary
+
+The public command is encoded once and sent through bounded stdin. The one-shot worker flushes
+provider streams and emits one canonical ASCII terminal frame on private stdout. The supervisor
+searches only for the final frame, rejects a missing, malformed, non-canonical, unbound,
+oversized, or trailing-data frame, validates its schema, and remains the sole public stdout and
+cancellation owner. Provider stdout/stderr noise is bounded by `ProcessRunner` and never appears
+in public stdout, stderr, or result details. There are no command/result files, cleanup markers,
+sibling scans, recursive deletes, background reapers, detached `Popen` objects, dynamic `-c`,
+shell dispatch, or secret argv/environment fields.
+
+`.document-skills-tmp` and each random invocation child are created through no-follow,
+identity-bound directory anchors. Windows holds base/root handles without delete sharing and
+deletes the same identity through a handle-bound disposition with fixed WinError 5/32 retries.
+POSIX launches only the exact canonical `public-command-worker` script through a dedicated
+closed process capability: generic `ProcessRunner.run()` cannot inherit fds, while the worker
+inherits exactly one held directory fd, verifies type/device/inode, `fchdir`s, verifies `.` and
+current project containment, closes its child fd, and only then reads or dispatches the command.
+The final reviewer independently rejected `-c`, `-m`, misplaced/extra/duplicate bootstrap args,
+other provider ids, and other allowlisted scripts.
+
+POSIX has no portable object-bound `rmdir`; a separate identity check followed by name-based
+deletion can remove a substituted directory. Production therefore makes the conservative choice
+to leave its own empty random invocation directory rather than perform a raceable delete. On
+Windows, a permanent external directory lock that exceeds the fixed retry budget may likewise
+leave only the current empty random directory. Neither case retains command bytes, result bytes,
+provider output, credentials, or recursively discovered content. This is an honest empty-residue
+boundary, not a claim of unconditional final deletion.
+
+The final source review closed original S1 and S5–S10 plus A1–A4 and B1–B2. One accepted-known
+Minor remains: if static project-root resolution itself fails before the inherited-fd `finally`,
+dispatch is prevented and one-shot process exit closes the fd, but an imported direct call does
+not explicitly close it first. It is not an authorization, containment, data-residue, or provider
+execution bypass. No Blocker or Major remains in the Round-10 source/test delta.
+
+### Independent and LEAD verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Final independent `test_private_workspace_identity.py` | PASS — 17 passed, 3 POSIX-only skips on Windows |
+| Final independent pipe/redirect + complete PDF public worker-failure selection | PASS — 55 passed |
+| Final independent four-format public, frozen no-dev/offline, and exact fixture selection | PASS — 6 passed |
+| Final independent `PYTHONWARNINGS=default` noise/hang/transient/permanent selection | PASS — 5 passed; public stderr stayed empty |
+| Final independent execution-boundary audit | PASS — 9/9 affected runtime files |
+| Final independent Ruff check/format, strict UTF-8/no-BOM/U+FFFD, line buckets, fixture hashes/cache scan, and `git diff --check` | PASS |
+| LEAD exact task-book P0 command on the frozen source/test snapshot | PASS — 166 passed |
+| LEAD combined identity/transaction/pipe/failure/no-dev gate before provenance rebind | 187 passed, 5 skipped; sole failure was the expected stale runtime-source allowlist S4 gate |
+
+The three POSIX process/rename integration tests exist but were skipped on this Windows host; no
+Linux/macOS execution receipt is invented. The exact P0 command was:
+
+`uv run --project plugin --frozen pytest plugin/tests/test_pdf_contracts.py plugin/tests/test_pdf_operations.py plugin/tests/test_pdf_public.py -p no:cacheprovider`
+
+### Explicit scope decisions
+
+- Embedded files remain inert inventory only. Add/remove mutation is explicitly deferred to a
+  separate safety slice covering attachment size/type policy, names-tree and `/AF` relationships,
+  action isolation, atomic mutation, preservation, and adversarial fixtures. No public add/remove
+  primitive is registered or claimed in this release.
+- PDF/A conversion and compliance validation are evaluated and deferred. A future slice must
+  select conformance levels, color-profile/XMP policy, an authoritative validator such as
+  veraPDF, provider licensing/distribution, and reproducible fixtures before advertising support.
+- PDF/UA conversion and compliance validation are evaluated and deferred. Current image alt
+  metadata does not establish tagged logical structure, reading order, semantic roles, or
+  accessibility conformance; a future slice requires a dedicated tagged-PDF model and external
+  validation authority.
+- Digital signatures remain inert inventory/validation only; creation still requires a separate
+  key custody and trust model. Linearization, portfolio, 3D/multimedia, JavaScript authoring, and
+  PDF-to-DOCX remain outside this session exactly as specified.
+
+### External and delivery limitations
+
+Local `pdftoppm`/Poppler and Tesseract remain unavailable, so `pdf.render` and `pdf.ocr` truthfully
+report unavailable. No current remote Windows/macOS/Linux CI, native Poppler/Tesseract/qpdf,
+Acrobat/Chrome PDFium/Preview/Poppler viewer, OS-native provider quota/sandbox, upstream PR, or
+live Host fleet receipt is claimed. Core/pypdf operations are not used to fabricate those missing
+provider/viewer results. Final full-suite, bound audit, build, dist, reproducibility, release ZIP,
+Producer commit, and Host consumer receipts remain separate mandatory LEAD delivery gates.
+
+### Round-10 approval
+
+`approval_claimed: true`; `status: clean`. The composite review now covers rounds 1–10. Round 10
+supersedes the provisional Round-9 binding for the public worker/anchor delta. Subject to the
+explicit unwaived delivery gates above, the approved prospective mapping for the frozen
+source/test snapshot is
+`d30ea94b167475c1367754d5baf3c9443b2e3067ef3ddb4cf3aa52d3710b67b7`.
+
+## Round 11 — generated runtime-source allowlist and final mapping re-review
+
+### Scope and role separation
+
+Round 11 is a fresh non-author review of the generated delta created when the Round-10 source
+snapshot was materialized into `provenance/runtime-source-allowlist.json`. This reviewer authored
+none of the source, tests, runtime allowlist generator, or first-pass generated provenance. The
+review is deliberately limited to proving that the generated allowlist delta is exact, that it
+refers only to source already covered by Round 10, and that the resulting all-file mapping is
+stable. No implementation, test, allowlist, modules, audit, SBOM, manifest, release, or Host file
+was modified by this review.
+
+### Generated-delta evidence
+
+- Relative to `HEAD`, the Python runtime-source allowlist has exactly two additions, zero
+  removals, and no Node-list change:
+  `src/document_skills_core/core/io/bound_child_directory.py` and
+  `src/document_skills_core/worker/private_workspace.py`.
+- Both files are part of the identity-bound workspace implementation reviewed and accepted in
+  Round 10. Their current SHA-256 values exactly match their first-pass `modules.json` records:
+  `bound_child_directory.py` =
+  `7367371585fe33f76c8b8dd66915075db2e6f0f0733878d08bf6d09516b7175f` and
+  `private_workspace.py` =
+  `adb63599848ea527f10bdd239bee8bf8ef6a53a25d524e778d4b2ebcda7ee2a7`.
+- The materialized runtime allowlist SHA-256 is
+  `55a9c4e4ea9585d2de78f67c596b2de9e3b7382603e24c0ae04a7dbae3f73b35`.
+  The first-pass modules record still names the pre-materialization hash
+  `60255e3b68fe6efd72221345b7251213e0b4aa7db5ac0b14a549618799664f1a`.
+- Two consecutive read-only
+  `uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only`
+  executions returned the same mapping:
+  `5c5a3b80d975699891b9725218d0b7bd6c662d15e7e572e99d9e8cb67d785768`.
+- The live machine audit passes execution-boundary, clean-room, commands, fixtures, inventory,
+  manifests, public skills, and SBOM. Its sole failure is the expected first-pass stale data
+  record: `Classified data hash drift: provenance/runtime-source-allowlist.json`. The current
+  generated manifest otherwise has 439 module records, 107 data records, three metadata
+  exclusions, and exactly one review attestation.
+
+The mapping approved in Round 10,
+`d30ea94b167475c1367754d5baf3c9443b2e3067ef3ddb4cf3aa52d3710b67b7`, was correctly computed
+before the runtime-source allowlist was written. Because that allowlist is itself a classified
+release-inventory input, materializing its two reviewed entries changed its bytes and therefore
+changed the all-file mapping. Round 11 explicitly supersedes the provisional `d30ea94b...`
+approval; approval is not inferred or copied across the mapping change.
+
+### Round-11 approval and remaining gates
+
+`approval_claimed: true`; `status: clean`. No Blocker or Major was found in the generated delta.
+The accepted-known Minor and platform limitations recorded in Round 10 remain unchanged. The
+exact approved prospective mapping for the frozen release-input snapshot is:
+
+`5c5a3b80d975699891b9725218d0b7bd6c662d15e7e572e99d9e8cb67d785768`.
+
+This approval authorizes only the mechanical second-pass provenance rebind to that exact mapping:
+update the existing single composite review attestation (do not add another), bind it to the
+current hash of this canonical report, regenerate `modules.json` against the already-materialized
+allowlist, and rerun the live audit before writing the final audit receipt. Any change to source,
+tests, fixtures, manifests, SBOM, runtime allowlist, or other non-metadata release bytes after this
+review invalidates the approved mapping and requires a new review.
+
+No remote Windows/macOS/Linux CI, native Poppler/Tesseract/qpdf, Acrobat/Chrome
+PDFium/Preview/Poppler viewer, OS-native provider quota/sandbox, upstream PR, or live Host fleet
+receipt is claimed. Final full-suite, build, dist, reproducibility, release ZIP, Producer commit,
+and Host consumer gates remain mandatory and unwaived.
+
+## Round 12 — volatile runtime-root test-copy isolation re-review
+
+### Scope and role separation
+
+Round 12 is a fresh non-author review of the generated/test-isolation delta made after Round 11.
+The reviewer authored none of the source, tests, allowlists, audit implementation, generated
+provenance, or earlier review rounds. The reviewed delta is exactly one added
+`shutil.ignore_patterns` entry in `plugin/tests/test_supply_chain.py`:
+`.document-skills-tmp`. No module, allowlist, audit source, production source, or other test was
+modified by this review; this Round-12 block is its sole persistent write.
+
+### Isolation and release-boundary evidence
+
+- The one-line ignore is minimal and changes only `_copy_audit_project`, the test helper that
+  creates isolated audit fixtures with `shutil.copytree`. It prevents those fixture copies from
+  entering the volatile `.document-skills-tmp` tree and therefore from copying private runtime
+  session data whose files may disappear while a copy is in progress.
+- The helper contains no delete, move, rename, or source mutation. A synthetic external-temporary
+  gate copied an ordinary file, omitted a `.document-skills-tmp/session` sentinel subtree,
+  confirmed the original sentinel bytes were unchanged, and confined cleanup to that temporary
+  directory. No source or user data was deleted.
+- The test-only ignore does not suppress the authoritative release inventory or its audit path.
+  Production `plugin/tools/release_inventory.py` independently names
+  `.document-skills-tmp` in `_LOCAL_GENERATED_ROOTS`, and `_is_worktree_only` excludes that exact
+  first path component. `release_inventory()` and `release_artifacts()` do not call the test-copy
+  helper, so release classification remains governed by the production inventory policy.
+
+### Independent verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Exact `git diff -- plugin/tests/test_supply_chain.py` | PASS — one added ignore entry and no other hunk |
+| Two consecutive `uv run --frozen python -m tools.regenerate_provenance --project-root . --print-mapping-only` runs | PASS — both returned `9e9938864e7495387a1fadbdd2fb23b357d6aeb4c4d828dd887e2638adc7f349` |
+| External-temporary `_copy_audit_project` sentinel gate with `PYTHONDONTWRITEBYTECODE=1` | PASS — runtime root omitted, ordinary file copied, source sentinel unchanged, scoped cleanup complete |
+| Four representative helper-calling supply-chain tests with `PYTHONDONTWRITEBYTECODE=1` and `-p no:cacheprovider` | PASS — 4 passed in 44.22s |
+
+An initial aggregate selection of all 11 helper-calling test functions exceeded its 120-second
+harness bound without a result; no pass or failure is claimed for that interrupted aggregate.
+It is not substituted for the still-mandatory final full-suite gate.
+
+### Round-12 approval and remaining gates
+
+`approval_claimed: true`; `status: clean`. No Blocker or Major was found in this generated/test
+isolation delta. Round 12 supersedes the Round-11 prospective mapping because the test file is a
+release input. The exact approved prospective mapping is:
+
+`9e9938864e7495387a1fadbdd2fb23b357d6aeb4c4d828dd887e2638adc7f349`.
+
+This approval is limited to the reviewed one-line test-helper delta and the existing frozen
+release-input snapshot. Any later change to source, tests, fixtures, manifests, SBOM, runtime
+allowlist, audit policy, or other non-metadata release bytes invalidates this mapping and requires
+a new review.
+
+No remote Windows/macOS/Linux CI, native Poppler/Tesseract/qpdf, Acrobat/Chrome
+PDFium/Preview/Poppler viewer, OS-native provider quota/sandbox, upstream PR, or live Host fleet
+receipt is claimed. External integration, final full-suite, build, dist, reproducibility, release
+ZIP, Producer commit, and Host consumer gates remain mandatory and unwaived.
