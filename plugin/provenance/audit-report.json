@@ -12,7 +12,7 @@
       "status": "pass"
     },
     "execution_boundary": {
-      "classified_release_files": 573,
+      "classified_release_files": 574,
       "dependency_manifests": 6,
       "executable_artifacts": 435,
       "registration_manifests": 2,
@@ -24,8 +24,8 @@
       "status": "pass"
     },
     "inventory": {
-      "classified_count": 573,
-      "file_count": 573,
+      "classified_count": 574,
+      "file_count": 574,
       "risky_count": 435,
       "status": "pass"
     },
@@ -34,13 +34,13 @@
       "status": "pass"
     },
     "provenance": {
-      "data_classification_count": 135,
+      "data_classification_count": 136,
       "exclusion_count": 0,
-      "mapping_sha256": "3cbdace427acaaafbd73c789a7e4f306af469ed96668905b0b56dd1ee78b8241",
+      "mapping_sha256": "5689c54bb34eab7ddcc9a5f7d78a173e06960381b9672aeca640bbdee9644be7",
       "metadata_exclusion_count": 3,
       "module_count": 435,
       "record_count": 435,
-      "release_file_count": 573,
+      "release_file_count": 574,
       "review_attestations": 1,
       "status": "pass"
     },

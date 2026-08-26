@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import os
 from pathlib import Path
+import stat
 from typing import Any
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -146,7 +148,21 @@ def _read_json_ref(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     path = reference["path"]
     try:
-        stat = path.stat()
+        with path.open("rb") as handle:
+            source_stat = os.fstat(handle.fileno())
+            if (
+                not stat.S_ISREG(source_stat.st_mode)
+                or source_stat.st_size > _MAX_CONTRACT_BYTES
+            ):
+                raise DocumentSkillsError(
+                    ErrorCode.RESOURCE_LIMIT,
+                    "A referenced presentation contract file is not a bounded regular file.",
+                    status="invalid_request",
+                    details={"bytes": source_stat.st_size, "contract": label},
+                )
+            data = handle.read(_MAX_CONTRACT_BYTES + 1)
+    except DocumentSkillsError:
+        raise
     except OSError as error:
         raise DocumentSkillsError(
             ErrorCode.INPUT_NOT_FOUND,
@@ -154,14 +170,13 @@ def _read_json_ref(
             status="invalid_request",
             details={"contract": label, "path": str(path)},
         ) from error
-    if not path.is_file() or stat.st_size > _MAX_CONTRACT_BYTES:
+    if len(data) > _MAX_CONTRACT_BYTES:
         raise DocumentSkillsError(
             ErrorCode.RESOURCE_LIMIT,
             "A referenced presentation contract file is not a bounded regular file.",
             status="invalid_request",
-            details={"bytes": stat.st_size, "contract": label},
+            details={"bytes": len(data), "contract": label},
         )
-    data = path.read_bytes()
     actual = hashlib.sha256(data).hexdigest()
     if actual != reference["sha256"]:
         _stale(
