@@ -1,0 +1,18 @@
+{
+  "assetRef": {
+    "assetId": "dependency-heavy",
+    "catalogId": "synthetic",
+    "sha256": "sha256:35e709b9f965c58e494f68b87bb9e04277f0aa96588bb492b1a0b6b23739aeb3",
+    "version": "1.0.0"
+  },
+  "deckIrSchemaVersion": "1.0.0",
+  "licenseStatus": "not_evaluated",
+  "provenanceRef": {
+    "assetId": "dependency-heavy",
+    "catalogId": "synthetic"
+  },
+  "schemaVersion": "1.0.0",
+  "semanticSlotSchemaVersion": "1.0.0",
+  "templateId": "dependency-heavy",
+  "version": "1.0.0"
+}

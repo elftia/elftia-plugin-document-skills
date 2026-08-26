@@ -239,6 +239,7 @@ def copy_slide(
         target_position,
         len(map_slides(target)) + 1,
     )
+    occupied_before_copy = set(target.parts)
     mapping: dict[str, str] = {
         source_part: _allocate_part_name(source_part, set(target.parts))
     }
@@ -258,7 +259,7 @@ def copy_slide(
     additions = {
         destination: source.content_type_for(source_name) or ""
         for source_name, destination in mapping.items()
-        if destination not in target.source.parts and not destination.endswith(".rels")
+        if destination not in occupied_before_copy and not destination.endswith(".rels")
     }
     _rewrite_content_types(target, removed=set(), additions=additions)
     return SlideCopyResult(

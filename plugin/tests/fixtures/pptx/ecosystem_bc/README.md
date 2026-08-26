@@ -17,10 +17,10 @@ schemas:
 uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --check
 ~~~
 
-The same generator owns the synthetic B-TPL-04 through B-TPL-06 sanitizer
-fixtures under `templates/`: external/OLE removal, active/signature rejection,
-and orphan/dangling/duplicate relationship rejection. No third-party template,
-preview, logo, photo, or evaluation artifact is present.
+The same generator owns B-TPL-01 through B-TPL-06 under `templates/`:
+semantic inspect/fill, dependency purge, CJK/content lint, external/OLE removal,
+active/signature rejection, and orphan/dangling/duplicate relationship rejection.
+No third-party template, preview, logo, photo, or evaluation artifact is present.
 
 Use --write only when an intentionally upgraded owner-package pin has already
 been reviewed in the operation-name/contract ADR.
