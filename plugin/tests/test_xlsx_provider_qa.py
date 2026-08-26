@@ -452,6 +452,10 @@ def test_public_worker_distinguishes_auto_and_required_recalculation_time(
             "operation": "xlsx.create",
             "arguments": {"recalculation": "required"},
         },
+        "required-edit": {
+            "operation": "xlsx.edit",
+            "arguments": {"recalculation": "required"},
+        },
         "explicit": {"operation": "xlsx.recalculate", "arguments": {}},
         "legacy": {"operation": "xlsx.convert", "arguments": {}},
     }
@@ -466,8 +470,9 @@ def test_public_worker_distinguishes_auto_and_required_recalculation_time(
 
     assert observed == {
         "auto": (8.0, 2_097_152),
-        "required": (45.0, 2_097_152),
-        "explicit": (45.0, 2_097_152),
+        "required": (90.0, 2_097_152),
+        "required-edit": (90.0, 2_097_152),
+        "explicit": (90.0, 2_097_152),
         "legacy": (45.0, 2_097_152),
     }
 

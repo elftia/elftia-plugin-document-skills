@@ -34,7 +34,13 @@ from document_skills_core.core.process import (
     ProcessRunner,
 )
 from document_skills_core.formats.pdf.constants import MAX_PDF_BYTES
-from document_skills_core.formats.xlsx.constants import FORMULA_STATE_RECALCULATED
+from document_skills_core.formats.pdf.validation import reopen_pdf
+from document_skills_core.formats.xlsx.constants import (
+    FORMULA_STATE_RECALCULATED,
+    MAX_XLSX_BYTES,
+)
+from document_skills_core.formats.xlsx.mapping import map_workbook
+from document_skills_core.formats.xlsx.package import OpcPackage
 from document_skills_core.formats.xlsx.service import XlsxService
 from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
@@ -52,7 +58,10 @@ from document_skills_core.providers.libreoffice.quota import (
     capture_directory_identity,
     validate_final_quota_tree,
 )
-from document_skills_core.providers.libreoffice.recalc import recalculate_xlsx
+from document_skills_core.providers.libreoffice.recalc import (
+    recalculate_xlsx,
+    recalculate_xlsx_artifact,
+)
 from document_skills_core.providers.libreoffice.runner import (
     LibreOfficeRunner,
     _build_argv,
@@ -184,6 +193,76 @@ class _TestHardQuotaBackend:
     def open(self, *, byte_limit, entry_limit=4096):
         with OperationTempRoot() as root:
             yield _TestHardQuotaSession(root, byte_limit, entry_limit)
+
+
+class _RecordingTestHardQuotaBackend(_TestHardQuotaBackend):
+    """Test-only backend that records both required quota activations and cleanup."""
+
+    def __init__(self):
+        self.byte_limits: list[int] = []
+        self.roots: list[Path] = []
+
+    @contextmanager
+    def open(self, *, byte_limit, entry_limit=4096):
+        self.byte_limits.append(byte_limit)
+        with super().open(
+            byte_limit=byte_limit,
+            entry_limit=entry_limit,
+        ) as session:
+            self.roots.append(session.root)
+            yield session
+
+
+def _standard_windows_soffice() -> Path | None:
+    return next(
+        (
+            candidate
+            for candidate in (
+                Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
+                Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
+            )
+            if candidate.is_file()
+        ),
+        None,
+    )
+
+
+def _create_live_xls_fixture(
+    project_root: Path,
+    executable: Path,
+    source_xlsx: Path,
+    destination: Path,
+) -> None:
+    """Use real LibreOffice only to prepare a benign private-profile XLS fixture."""
+
+    with OperationTempRoot() as fixture_root:
+        profile_dir = fixture_root / "profile"
+        output_dir = fixture_root / "output"
+        profile_dir.mkdir()
+        output_dir.mkdir()
+        policy = ProcessPolicy(project_root)
+        allowed = policy.allow_executable("libreoffice-live-fixture", executable)
+        result = ProcessRunner(policy).run(
+            "libreoffice-live-fixture",
+            allowed,
+            _build_argv(
+                profile_dir,
+                "--convert-to",
+                "xls:MS Excel 97",
+                "--outdir",
+                str(output_dir),
+                str(source_xlsx.resolve(strict=True)),
+            ),
+            cwd=project_root,
+            timeout_seconds=30.0,
+            output_limit=1_048_576,
+        )
+        assert result.returncode == 0, result.stderr
+        generated = output_dir / f"{source_xlsx.stem}.xls"
+        payload = generated.read_bytes()
+        assert payload.startswith(bytes.fromhex("D0CF11E0A1B11AE1"))
+    assert not fixture_root.exists()
+    destination.write_bytes(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -395,14 +474,7 @@ class TestDetector:
         self, project_root, monkeypatch
     ):
         monkeypatch.delenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", raising=False)
-        standard_launchers = [
-            Path(r"C:\Program Files\LibreOffice\program\soffice.com"),
-            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.com"),
-        ]
-        installed = next(
-            (candidate for candidate in standard_launchers if candidate.is_file()),
-            None,
-        )
+        installed = _standard_windows_soffice()
         if installed is None:
             pytest.skip("LibreOffice is not installed in a standard Windows location")
         monkeypatch.setattr(shutil_module(), "which", lambda _name: None)
@@ -415,6 +487,270 @@ class TestDetector:
         assert state["path"] is None
         assert "hard quota" in state["reason"].lower()
         assert registry.find_callable(ProviderId.LIBREOFFICE) is False
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows standard-install LibreOffice recalculation integration",
+    )
+    def test_real_libreoffice_recalculation_mechanism_updates_stale_xlsx_cache(
+        self,
+        project_root,
+        tmp_path,
+    ):
+        from document_skills_core.formats.xlsx.create import create_xlsx
+
+        installed = _standard_windows_soffice()
+        if installed is None:
+            pytest.skip("LibreOffice is not installed in a standard Windows location")
+        source = tmp_path / "stale-cache.xlsx"
+        create_xlsx(
+            source,
+            {
+                "metadata": {},
+                "sheets": [
+                    {
+                        "name": "Inputs",
+                        "rows": [
+                            {
+                                "cells": [
+                                    {"ref": "A1", "value": "2", "type": "n"},
+                                    {"ref": "A2", "value": "3", "type": "n"},
+                                    {
+                                        "ref": "A3",
+                                        "formula": "SUM(A1:A2)",
+                                        "cached_value": "999",
+                                        "type": "n",
+                                    },
+                                    {
+                                        "ref": "A4",
+                                        "formula": "A3*4",
+                                        "cached_value": "888",
+                                        "type": "n",
+                                    },
+                                ]
+                            }
+                        ],
+                        "number_formats": [],
+                    },
+                    {
+                        "name": "Summary",
+                        "rows": [
+                            {
+                                "cells": [
+                                    {
+                                        "ref": "A1",
+                                        "formula": "Inputs!A4+1",
+                                        "cached_value": "777",
+                                        "type": "n",
+                                    }
+                                ]
+                            }
+                        ],
+                        "number_formats": [],
+                    },
+                ],
+                "defined_names": [],
+                "tables": [],
+            },
+        )
+        source_before = source.read_bytes()
+        quota_backend = _RecordingTestHardQuotaBackend()
+        runner = LibreOfficeRunner(
+            project_root,
+            executable=installed,
+            runner=ProcessRunner(ProcessPolicy(project_root)),
+            quota_backend=quota_backend,
+        )
+
+        recalculated = recalculate_xlsx_artifact(
+            source,
+            runner,
+            timeout_seconds=30.0,
+        )
+
+        assert source.read_bytes() == source_before
+        assert quota_backend.byte_limits == [MAX_XLSX_BYTES, MAX_XLSX_BYTES]
+        assert all(not root.exists() for root in quota_backend.roots)
+        assert {
+            ref: record["formula"]
+            for ref, record in recalculated.formulas.items()
+        } == {
+            "Inputs!A3": "SUM(A1:A2)",
+            "Inputs!A4": "A3*4",
+            "Summary!A1": "Inputs!A4+1",
+        }
+        assert recalculated.cached_values == {
+            "Inputs!A3": "5",
+            "Inputs!A4": "20",
+            "Summary!A1": "21",
+        }
+        assert not any(
+            str(value).startswith("#")
+            for value in recalculated.cached_values.values()
+        )
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows standard-install LibreOffice XLSX render integration",
+    )
+    def test_real_libreoffice_xlsx_render_provider_operation_reopens_pdf(
+        self,
+        project_root,
+        tmp_path,
+        monkeypatch,
+    ):
+        from document_skills_core.formats.xlsx.create import create_xlsx
+
+        installed = _standard_windows_soffice()
+        if installed is None:
+            pytest.skip("LibreOffice is not installed in a standard Windows location")
+        source = tmp_path / "render-source.xlsx"
+        output = tmp_path / "rendered.pdf"
+        create_xlsx(
+            source,
+            {
+                "metadata": {},
+                "sheets": [
+                    {
+                        "name": "Report",
+                        "rows": [
+                            {
+                                "cells": [
+                                    {"ref": "A1", "value": "Metric", "type": "s"},
+                                    {"ref": "B1", "value": "Value", "type": "s"},
+                                ]
+                            },
+                            {
+                                "cells": [
+                                    {"ref": "A2", "value": "Total", "type": "s"},
+                                    {"ref": "B2", "value": "42", "type": "n"},
+                                ]
+                            },
+                        ],
+                        "number_formats": [],
+                    }
+                ],
+                "defined_names": [],
+                "tables": [],
+            },
+        )
+        source_before = source.read_bytes()
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: None)
+        quota_backend = _RecordingTestHardQuotaBackend()
+        definition, _provider = build_libreoffice_provider(
+            project_root,
+            quota_backend=quota_backend,
+        )
+        registry = ProviderCatalog()
+        registry.register_provider(definition)
+
+        result = registry.execute(
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.render",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {"max_sheets": 5, "max_cells_per_sheet": 50},
+            }
+        )
+
+        assert result["status"] == "success", result
+        assert result["provider_chain"] == ["libreoffice"]
+        assert reopen_pdf(output)["pages"] >= 1
+        assert source.read_bytes() == source_before
+        gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
+        assert gates["visual.render"]["outcome"] == "pass"
+        assert gates["provider.reopen"]["outcome"] == "pass"
+        assert quota_backend.byte_limits == [MAX_PDF_BYTES]
+        assert all(not root.exists() for root in quota_backend.roots)
+
+    @pytest.mark.skipif(
+        sys.platform != "win32",
+        reason="Windows standard-install LibreOffice legacy XLS integration",
+    )
+    def test_real_libreoffice_legacy_xls_conversion_mechanism(
+        self,
+        project_root,
+        tmp_path,
+        monkeypatch,
+    ):
+        from document_skills_core.formats.xlsx.create import create_xlsx
+
+        installed = _standard_windows_soffice()
+        if installed is None:
+            pytest.skip("LibreOffice is not installed in a standard Windows location")
+        fixture_source = tmp_path / "legacy-fixture-source.xlsx"
+        create_xlsx(
+            fixture_source,
+            {
+                "metadata": {},
+                "sheets": [
+                    {
+                        "name": "Legacy",
+                        "rows": [
+                            {
+                                "cells": [
+                                    {
+                                        "ref": "A1",
+                                        "value": "Legacy fixture",
+                                        "type": "s",
+                                    },
+                                    {"ref": "B1", "value": "42", "type": "n"},
+                                ]
+                            }
+                        ],
+                        "number_formats": [],
+                    }
+                ],
+                "defined_names": [],
+                "tables": [],
+            },
+        )
+        fixture_source_before = fixture_source.read_bytes()
+        source = tmp_path / "legacy-input.xls"
+        _create_live_xls_fixture(
+            project_root,
+            installed,
+            fixture_source,
+            source,
+        )
+        source_before = source.read_bytes()
+        output = tmp_path / "legacy-converted.xlsx"
+        monkeypatch.setattr(shutil_module(), "which", lambda _name: None)
+        quota_backend = _RecordingTestHardQuotaBackend()
+        _definition, provider = build_libreoffice_provider(
+            project_root,
+            quota_backend=quota_backend,
+        )
+
+        result = XlsxService(project_root, libreoffice=provider).execute(
+            "xlsx.convert",
+            {
+                "schema_version": "1.0",
+                "operation": "xlsx.convert",
+                "input": str(source),
+                "output": str(output),
+                "arguments": {"source_format": "xls", "target_format": "xlsx"},
+            },
+        )
+
+        assert result["status"] == "degraded", result
+        assert result["provider_chain"] == ["libreoffice"]
+        gates = {gate["id"]: gate for gate in result["validation"]["gates"]}
+        assert gates["conversion.legacy-provider"]["outcome"] == "pass"
+        losses = result["diagnostics"]["operation_result"]["semantic_losses"]
+        assert [loss["code"] for loss in losses] == ["legacy-provider-conversion"]
+        assert fixture_source.read_bytes() == fixture_source_before
+        assert source.read_bytes() == source_before
+        workbook = map_workbook(OpcPackage.open(output))
+        values = {
+            cell["ref"]: cell.get("value")
+            for row in workbook["sheets"][0]["rows"]
+            for cell in row["cells"]
+        }
+        assert values == {"A1": "Legacy fixture", "B1": "42"}
+        assert quota_backend.byte_limits == [MAX_XLSX_BYTES]
+        assert all(not root.exists() for root in quota_backend.roots)
 
     def test_production_factory_shares_libreoffice_allowlist_policy(
         self, project_root, tmp_path, monkeypatch
@@ -1848,7 +2184,7 @@ class TestXlsxServiceIntegration:
             "outcome"
         ] == "unavailable"
         assert required_result["status"] == "success"
-        assert [call["timeout"] for call in runner.calls] == [3.0, 30.0]
+        assert [call["timeout"] for call in runner.calls] == [3.0, 30.0, 30.0]
 
 
 # ---------------------------------------------------------------------------
@@ -1926,10 +2262,14 @@ class TestFindCallable:
 # ---------------------------------------------------------------------------
 
 class TestNoMacroArgv:
-    def test_recalc_uses_convert_to_xlsx_only(self, project_root, fake_xlsx):
-        """The recalc argv contains --convert-to xlsx and no macro tokens."""
+    def test_recalc_uses_private_ods_round_trip_only(self, project_root, fake_xlsx):
+        """Recalculation uses only the two bounded conversion stages."""
         canned_xlsx = fake_xlsx
         runner = FakeCallableRunner(canned_path=canned_xlsx)
         recalculate_xlsx(fake_xlsx, runner, timeout_seconds=3.0)
-        assert len(runner.calls) == 1
-        assert runner.calls[0]["format"] == "xlsx"
+        assert [call["format"] for call in runner.calls] == ["ods", "xlsx"]
+        assert Path(runner.calls[1]["input"]).suffix == ".ods"
+        assert all(
+            not Path(call["output_dir"]).exists()
+            for call in runner.calls
+        )
