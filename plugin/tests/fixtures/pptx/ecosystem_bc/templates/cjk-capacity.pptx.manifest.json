@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.template.inspect,pptx.create.from-template,pptx.template.lint",
+  "fixture_id": "B-TPL-03",
+  "format": "pptx",
+  "invariants": [
+    "long CJK text exceeds the declared recommended capacity",
+    "placeholder and ellipsis markers remain detectable",
+    "speaker-only notes marker remains detectable"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/cjk-capacity.pptx",
+  "purpose": "CJK capacity, placeholder, ellipsis, and speaker-notes leak fixture.",
+  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 4000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-content-lint",
+  "sha256": "sha256:a82ca70dfed9563f88d90485560faa97f6fcf7f68fdb8f7161d579e98fca59b1",
+  "sizeBytes": 20046
+}

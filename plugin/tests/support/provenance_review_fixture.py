@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from tools.regenerate_provenance import regenerate
 from tools.provenance_records import CURRENT_REVIEW_ARTIFACT
+from tools.regenerate_provenance import regenerate
 
 
 def bind_test_review(

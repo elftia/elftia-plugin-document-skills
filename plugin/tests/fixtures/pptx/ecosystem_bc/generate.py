@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+from hashlib import sha256
 import json
 from pathlib import Path
 import sys
@@ -37,10 +38,17 @@ from tests.support.pptx_ecosystem_fixture import (  # noqa: E402
     EcosystemFixtureWriter,
     FixtureMetadata,
 )
+from tests.support.pptx_template_fixture import build_semantic_template  # noqa: E402
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1  # noqa: E402
 
 
 _RELATIVE = "expected/contract-pin.json"
+_REGISTRY_PREFIX = "pptx/ecosystem_bc/"
+_REGISTRY_RECIPE = "tests/fixtures/pptx/ecosystem_bc/generate.py"
+_REGISTRY_RECIPE_DEPENDENCIES = [
+    "tests/support/pptx_ecosystem_fixture.py",
+    "tests/support/pptx_template_fixture.py",
+]
 
 
 def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
@@ -68,7 +76,7 @@ def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
     )
     writer = EcosystemFixtureWriter(output_root)
     writer.write_json(_RELATIVE, summary, metadata)
-    fixture_summary = _write_template_fixtures(writer)
+    fixture_summary = _write_b2_template_fixtures(writer) + _write_template_fixtures(writer)
     return {**summary, "fixtureCount": 1 + len(fixture_summary), "fixtures": fixture_summary}
 
 
@@ -145,6 +153,144 @@ def _write_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
             )
             written.append(fixture_id)
     return written
+
+
+def _write_b2_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
+    recipe = (
+        "uv run --project plugin python "
+        "plugin/tests/fixtures/pptx/ecosystem_bc/generate.py "
+        "<presentation-contract-root> --write"
+    )
+    written: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="pptx-b2-template-fixtures-") as temporary:
+        temporary_root = Path(temporary)
+        for fixture_id, stem, roles, purpose in (
+            (
+                "B-TPL-01",
+                "semantic-neutral",
+                ("cover", "content", "detail", "content", "summary", "appendix"),
+                "Six-page semantic template with native text, image, table, chart, and notes.",
+            ),
+            (
+                "B-TPL-02",
+                "dependency-heavy",
+                ("cover", "content", "detail", "summary"),
+                "Semantic template whose slides own distinct notes, media, and chart dependencies.",
+            ),
+        ):
+            fixture_root = temporary_root / stem
+            fixture_root.mkdir()
+            fixture = build_semantic_template(
+                fixture_root,
+                _PLUGIN_ROOT,
+                slides=len(roles),
+                template_id=stem,
+                slide_roles=roles,
+            )
+            writer.write_bytes(
+                f"templates/{stem}.pptx",
+                fixture.source.read_bytes(),
+                FixtureMetadata(
+                    fixture_id=fixture_id,
+                    format="pptx",
+                    purpose=purpose,
+                    origin="Elftia-authored synthetic OOXML fixture.",
+                    recipe=recipe,
+                    license="GPL-3.0",
+                    expected_operation="pptx.template.inspect,pptx.create.from-template",
+                    expected_consumers=("document-skills", "design-studio", "powerpoint", "libreoffice"),
+                    resource_limits={"maxBytes": 4_000_000},
+                    invariants=(
+                        "stable slide and object ids remain A-Contract conformant",
+                        "semantic slots expose only stable addresses and precondition hashes",
+                        "unselected private dependencies are physically purged",
+                    ),
+                    security_classification="benign-generated-semantic-template",
+                ),
+            )
+            for contract_name in ("template_contract", "semantic_slots", "deck_ir"):
+                source = Path(fixture.descriptor[contract_name]["path"])
+                writer.write_json(
+                    f"templates/{stem}.{contract_name.replace('_', '-')}.json",
+                    json.loads(source.read_text(encoding="utf-8")),
+                    FixtureMetadata(
+                        fixture_id=fixture_id,
+                        format="json",
+                        purpose=f"A-Contract {contract_name} for {stem}.pptx.",
+                        origin="Elftia-authored synthetic A-Contract metadata.",
+                        recipe=recipe,
+                        license="GPL-3.0",
+                        expected_operation="pptx.template.inspect,pptx.create.from-template",
+                        expected_consumers=("document-skills", "design-studio"),
+                        resource_limits={"maxBytes": 256_000},
+                        invariants=(
+                            "schema version remains pinned to the owner package",
+                            "stable ids and slot bindings match the adjacent template",
+                            "license status remains not_evaluated without Governance evidence",
+                        ),
+                        security_classification="benign-generated-metadata",
+                    ),
+                )
+            written.append(fixture_id)
+
+        cjk_root = temporary_root / "cjk-capacity"
+        cjk_root.mkdir()
+        cjk = build_semantic_template(
+            cjk_root,
+            _PLUGIN_ROOT,
+            slides=3,
+            template_id="cjk-capacity",
+        )
+        cjk_path = temporary_root / "cjk-capacity.pptx"
+        _cjk_capacity_template(cjk.source, cjk_path)
+        writer.write_bytes(
+            "templates/cjk-capacity.pptx",
+            cjk_path.read_bytes(),
+            FixtureMetadata(
+                fixture_id="B-TPL-03",
+                format="pptx",
+                purpose="CJK capacity, placeholder, ellipsis, and speaker-notes leak fixture.",
+                origin="Elftia-authored synthetic OOXML fixture.",
+                recipe=recipe,
+                license="GPL-3.0",
+                expected_operation="pptx.template.inspect,pptx.create.from-template,pptx.template.lint",
+                expected_consumers=("document-skills",),
+                resource_limits={"maxBytes": 4_000_000},
+                invariants=(
+                    "long CJK text exceeds the declared recommended capacity",
+                    "placeholder and ellipsis markers remain detectable",
+                    "speaker-only notes marker remains detectable",
+                ),
+                security_classification="benign-generated-content-lint",
+            ),
+        )
+        written.append("B-TPL-03")
+    return written
+
+
+def _cjk_capacity_template(base: Path, destination: Path) -> None:
+    package = OpcPackage.open(base)
+    parts = dict(package.parts)
+    replacements = (
+        "这是一个明显超过推荐容量并用于验证中文字符计数与层级字号检查的超长标题",
+        "[PLACEHOLDER]",
+        "…",
+    )
+    for index, replacement in enumerate(replacements, 1):
+        part = f"ppt/slides/slide{index}.xml"
+        root = fromstring(parts[part])
+        text = next(node for node in root.iter(qn("a", "t")) if node.text)
+        text.text = replacement
+        parts[part] = tostring(root, encoding="UTF-8", xml_declaration=True)
+    notes = fromstring(parts["ppt/notesSlides/notesSlide1.xml"])
+    note_text = next(node for node in notes.iter(qn("a", "t")) if node.text)
+    note_text.text = "DO NOT SHARE — speaker only"
+    parts["ppt/notesSlides/notesSlide1.xml"] = tostring(
+        notes,
+        encoding="UTF-8",
+        xml_declaration=True,
+    )
+    write_deterministic_zip(destination, parts)
 
 
 def _fixture_deck(image: Path) -> dict[str, object]:
@@ -381,7 +527,88 @@ def _check(contract_root: Path, checked_root: Path) -> dict[str, object]:
             raise ValueError(
                 "checked-in PPTX ecosystem fixtures drifted: " + ", ".join(mismatches)
             )
+        _check_fixture_registry(checked_root)
         return summary
+
+
+def _fixture_registry_records(ecosystem_root: Path) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for manifest_path in sorted(ecosystem_root.rglob("*.manifest.json")):
+        metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
+        payload_path = ecosystem_root / metadata["path"]
+        payload_relative = _REGISTRY_PREFIX + metadata["path"]
+        common = {
+            "authorship": "original-elftia",
+            "license": metadata["license"],
+            "origin": "generated",
+            "recipe": _REGISTRY_RECIPE,
+            "recipe_dependencies": _REGISTRY_RECIPE_DEPENDENCIES,
+            "redistribution_allowed": metadata["redistributable"],
+        }
+        records.append({
+            **common,
+            "format": metadata["format"],
+            "path": payload_relative,
+            "purpose": metadata["purpose"],
+            "security_classification": metadata["security_classification"],
+            "sha256": sha256(payload_path.read_bytes()).hexdigest(),
+        })
+        records.append({
+            **common,
+            "format": "json",
+            "path": _REGISTRY_PREFIX + manifest_path.relative_to(ecosystem_root).as_posix(),
+            "purpose": f"Adjacent hash-bound metadata for {metadata['fixture_id']}.",
+            "security_classification": "benign-generated-metadata",
+            "sha256": sha256(manifest_path.read_bytes()).hexdigest(),
+        })
+    return sorted(records, key=lambda item: str(item["path"]))
+
+
+def _fixture_registry_path(ecosystem_root: Path) -> Path:
+    return ecosystem_root.parents[1] / "manifest.json"
+
+
+def _check_fixture_registry(ecosystem_root: Path) -> None:
+    registry = json.loads(_fixture_registry_path(ecosystem_root).read_text(encoding="utf-8"))
+    actual = sorted(
+        (
+            record
+            for record in registry["fixtures"]
+            if str(record["path"]).startswith(_REGISTRY_PREFIX)
+        ),
+        key=lambda item: str(item["path"]),
+    )
+    expected = _fixture_registry_records(ecosystem_root)
+    if actual != expected:
+        raise ValueError("checked-in PPTX ecosystem fixture registry drifted")
+
+
+def _write_fixture_registry(ecosystem_root: Path) -> None:
+    registry_path = _fixture_registry_path(ecosystem_root)
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    current = registry["fixtures"]
+    matching = [
+        index
+        for index, record in enumerate(current)
+        if str(record["path"]).startswith(_REGISTRY_PREFIX)
+    ]
+    insert_at = matching[0] if matching else len(current)
+    retained = [
+        record
+        for record in current
+        if not str(record["path"]).startswith(_REGISTRY_PREFIX)
+    ]
+    retained[insert_at:insert_at] = _fixture_registry_records(ecosystem_root)
+    registry_path.write_text(
+        json.dumps(
+            {"schema_version": "1.0", "fixtures": retained},
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def main() -> int:
@@ -393,11 +620,11 @@ def main() -> int:
     arguments = parser.parse_args()
 
     checked_root = Path(__file__).resolve().parent
-    summary = (
-        _check(arguments.contract_root, checked_root)
-        if arguments.check
-        else generate(arguments.contract_root, checked_root)
-    )
+    if arguments.check:
+        summary = _check(arguments.contract_root, checked_root)
+    else:
+        summary = generate(arguments.contract_root, checked_root)
+        _write_fixture_registry(checked_root)
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
     return 0
 

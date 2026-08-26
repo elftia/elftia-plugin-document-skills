@@ -102,3 +102,34 @@ def test_checked_contract_fixture_has_complete_adjacent_manifest(project_root: P
     assert manifest["sizeBytes"] == len(payload)
     assert manifest["invariants"]
     assert manifest["resource_limits"]["maxBytes"] >= len(payload)
+
+
+def test_checked_b2_semantic_fixtures_keep_distinct_ids_and_allowed_roles(
+    project_root: Path,
+) -> None:
+    templates = project_root / "tests" / "fixtures" / "pptx" / "ecosystem_bc" / "templates"
+    semantic_ir = json.loads(
+        (templates / "semantic-neutral.deck-ir.json").read_text(encoding="utf-8")
+    )
+    dependency_contract = json.loads(
+        (templates / "dependency-heavy.template-contract.json").read_text(encoding="utf-8")
+    )
+    dependency_ir = json.loads(
+        (templates / "dependency-heavy.deck-ir.json").read_text(encoding="utf-8")
+    )
+
+    assert [slide["role"] for slide in semantic_ir["slides"]] == [
+        "cover",
+        "content",
+        "detail",
+        "content",
+        "summary",
+        "appendix",
+    ]
+    assert dependency_contract["templateId"] == "dependency-heavy"
+    assert dependency_contract["assetRef"]["assetId"] == "dependency-heavy"
+    assert all(
+        obj["slotBinding"]["templateId"] == "dependency-heavy"
+        for slide in dependency_ir["slides"]
+        for obj in slide["objects"]
+    )

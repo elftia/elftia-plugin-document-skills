@@ -86,6 +86,7 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
         ("create", "pptx.create"),
         ("markdown", "pptx.create.from-markdown"),
         ("edit", "pptx.edit"),
+        ("sanitize", "pptx.template.sanitize"),
     ):
         request = tmp_path / f"{name}.json"
         request.write_text(json.dumps({"operation": operation}), encoding="utf-8")
@@ -105,6 +106,11 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     render_request = tmp_path / "render.json"
     render_request.write_text(
         json.dumps({"operation": "pptx.render"}),
+        encoding="utf-8",
+    )
+    template_inspect_request = tmp_path / "template-inspect.json"
+    template_inspect_request.write_text(
+        json.dumps({"operation": "pptx.template.inspect"}),
         encoding="utf-8",
     )
     supervisor = PublicCommandSupervisor(project_root, timeout_seconds=8.0)
@@ -131,6 +137,10 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     ) == (60.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(render_request))),
+        tmp_path,
+    ) == (150.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(template_inspect_request))),
         tmp_path,
     ) == (150.0, 2_097_152)
     assert supervisor._command_limits(

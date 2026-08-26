@@ -12,6 +12,10 @@ from .content_contracts import parse_markdown_arguments, parse_outline_arguments
 from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
 from .html_contracts import parse_html_create_arguments
+from .template_contracts import (
+    parse_template_create_arguments,
+    parse_template_inspect_arguments,
+)
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
 PPTX_OPERATIONS = frozenset(
@@ -26,7 +30,9 @@ PPTX_OPERATIONS = frozenset(
         "pptx.create",
         "pptx.create.from-markdown",
         "pptx.create.from-html",
+        "pptx.create.from-template",
         "pptx.template.sanitize",
+        "pptx.template.inspect",
         "pptx.edit",
     }
 )
@@ -71,6 +77,12 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
     elif operation in {"pptx.create.from-html", "pptx.create.from-markdown"}:
         if input_path is None or output_path is None:
             _invalid("PPTX content reconstruction requires input and output paths.")
+    elif operation == "pptx.template.inspect":
+        if input_path is None:
+            _invalid("PPTX template inspection requires an input path.", field="input")
+    elif operation == "pptx.create.from-template":
+        if input_path is None or output_path is None:
+            _invalid("PPTX template creation requires input and output paths.")
     elif operation in {"pptx.convert.legacy", "pptx.convert.pdf", "pptx.render"}:
         if input_path is None or output_path is None:
             _invalid("LibreOffice PPTX output requires input and output paths.")
@@ -80,6 +92,8 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-html": {".htm", ".html"},
         "pptx.create.from-markdown": {".markdown", ".md"},
         "pptx.template.sanitize": {".potx", ".pptx"},
+        "pptx.template.inspect": {".potx", ".pptx"},
+        "pptx.create.from-template": {".pptx"},
         "pptx.edit": {".pptm", ".pptx"},
         "pptx.inspect.structure": {".pptm", ".pptx"},
         "pptx.convert.legacy": {".ppt"},
@@ -91,6 +105,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.convert.pdf": ".pdf",
         "pptx.outline.create": ".json",
         "pptx.render": ".zip",
+        "pptx.template.inspect": ".png",
     }.get(
         operation,
         ".pptm" if operation == "pptx.edit" and input_path is not None
@@ -109,6 +124,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.convert.pdf",
         "pptx.edit",
         "pptx.render",
+        "pptx.create.from-template",
         "pptx.template.sanitize",
     }:
         assert input_path is not None and output_path is not None
@@ -131,10 +147,23 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.validate.schema": _parse_schema_validation,
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
+        "pptx.create.from-template": parse_template_create_arguments,
         "pptx.create.from-markdown": parse_markdown_arguments,
+        "pptx.template.inspect": parse_template_inspect_arguments,
         "pptx.template.sanitize": _parse_template_sanitize,
         "pptx.edit": _parse_edit,
     }[operation](arguments)
+    if operation == "pptx.template.inspect":
+        if parsed["contact_sheet"] is True and output_path is None:
+            _invalid(
+                "Template contact-sheet generation requires an explicit .png output path.",
+                field="output",
+            )
+        if parsed["contact_sheet"] is False and output_path is not None:
+            _invalid(
+                "Template inspection output is accepted only when contact_sheet is true.",
+                field="output",
+            )
     if operation == "pptx.edit":
         assert input_path is not None
         macro_enabled = input_path.suffix.casefold() == ".pptm"

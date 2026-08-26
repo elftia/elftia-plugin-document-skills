@@ -36,6 +36,22 @@ _FIXED_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 _KNOWN_PREFIXES = ("_rels/", "customXml/", "docProps/", "ppt/")
 
 
+def validate_pptx_source_path(path: str | Path) -> Path:
+    """Validate the compressed input size before any caller hashes or reads it."""
+
+    resolved = Path(path).expanduser().resolve()
+    if not resolved.is_file():
+        raise DocumentSkillsError(
+            ErrorCode.INPUT_NOT_FOUND,
+            "PPTX input does not exist.",
+            details={"path": str(resolved)},
+        )
+    size = resolved.stat().st_size
+    if size > MAX_PPTX_BYTES:
+        _unsafe("PPTX exceeds the Core byte ceiling.", bytes=size)
+    return resolved
+
+
 @dataclass(frozen=True)
 class PreservationManifest:
     changed: tuple[str, ...]
@@ -73,15 +89,7 @@ class OpcPackage:
         *,
         allow_dangerous_inventory: bool = False,
     ) -> "OpcPackage":
-        resolved = Path(path).expanduser().resolve()
-        if not resolved.is_file():
-            raise DocumentSkillsError(
-                ErrorCode.INPUT_NOT_FOUND,
-                "PPTX input does not exist.",
-                details={"path": str(resolved)},
-            )
-        if resolved.stat().st_size > MAX_PPTX_BYTES:
-            _unsafe("PPTX exceeds the Core byte ceiling.", bytes=resolved.stat().st_size)
+        resolved = validate_pptx_source_path(path)
         policy = (
             DangerousContentPolicy.PRESERVE_DISABLED
             if allow_dangerous_inventory

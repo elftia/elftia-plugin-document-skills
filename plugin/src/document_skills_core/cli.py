@@ -251,6 +251,31 @@ def _resolve_request_artifact_paths(
             else source
             for source in sources
         ]
+    descriptor = arguments.get("descriptor")
+    if type(descriptor) is dict:
+        resolved_descriptor = dict(descriptor)
+        contract_root = descriptor.get("contract_root")
+        if type(contract_root) is str and not _is_nonlocal_path(contract_root):
+            resolved_descriptor["contract_root"] = str(
+                _resolve_user_path(contract_root, invocation_base)
+            )
+        for field in ("deck_ir", "semantic_slots", "template_contract"):
+            reference = descriptor.get(field)
+            if type(reference) is not dict:
+                continue
+            reference_path = reference.get("path")
+            if type(reference_path) is str and not _is_nonlocal_path(reference_path):
+                resolved_descriptor[field] = {
+                    **reference,
+                    "path": str(_resolve_user_path(reference_path, invocation_base)),
+                }
+        resolved_arguments["descriptor"] = resolved_descriptor
+    pages = arguments.get("pages")
+    if type(pages) is list:
+        resolved_arguments["pages"] = [
+            _resolve_template_page_paths(page, invocation_base)
+            for page in pages
+        ]
     resolved["arguments"] = resolved_arguments
     return resolved
 
@@ -266,6 +291,29 @@ def _resolve_local_image(
         **image,
         "path": str(_resolve_user_path(image_path, invocation_base)),
     }
+
+
+def _resolve_template_page_paths(page: Any, invocation_base: Path) -> Any:
+    if type(page) is not dict or type(page.get("bindings")) is not list:
+        return page
+    resolved_bindings = []
+    for binding in page["bindings"]:
+        if type(binding) is not dict or type(binding.get("value")) is not dict:
+            resolved_bindings.append(binding)
+            continue
+        value = binding["value"]
+        image_path = value.get("path")
+        if (
+            value.get("type") == "image-ref"
+            and type(image_path) is str
+            and not _is_nonlocal_path(image_path)
+        ):
+            value = {
+                **value,
+                "path": str(_resolve_user_path(image_path, invocation_base)),
+            }
+        resolved_bindings.append({**binding, "value": value})
+    return {**page, "bindings": resolved_bindings}
 
 
 def _is_nonlocal_path(value: str) -> bool:

@@ -36,6 +36,8 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.template.sanitize` | yes (distinct `.pptx` output) | Inert fail-closed removal of external/OLE relationships plus unreachable-part purge and `.potx` identity downgrade |
+| `pptx.template.inspect` | optional (distinct `.png` evidence) | Inert structural inventory plus descriptor-bound semantic slots and optional provider-rendered contact sheet |
+| `pptx.create.from-template` | yes (distinct `.pptx` output) | Descriptor-bound semantic fill, page selection/repetition/reorder, and physical purge of unselected private content |
 | `pptx.edit` | yes (distinct output) | Transactional slide/object/deck-size/design-graph edits plus explicit inert `.pptm` keep-VBA copy-through |
 
 ## HTML deck conversion
@@ -86,6 +88,17 @@ literal data when safe, and physically purges unreachable parts. A `.potx`
 input is deliberately downgraded to an ordinary `.pptx` output. Missing chart
 caches, ambiguous/dangling relationships, stale input hashes, or resource
 limits fail without publishing output.
+
+## Semantic template inspection and fill
+
+Use `pptx.template.inspect` before semantic fill, then pass only returned
+`source_slide_id`, `slot_id`, and `expected_hash` selectors to
+`pptx.create.from-template`. Both operations consume the pinned A-Contract
+template contract, semantic slots, and Deck IR; they never infer writable slots
+from visual layout or expose shape/run ordinals. Read
+`references/template-inspect-and-fill.md` for exact requests, supported binding
+values, physical-purge evidence, license behavior, and contact-sheet provider
+truth.
 
 ## Outline and Markdown content entry
 
@@ -171,6 +184,14 @@ provider is absent, but becomes a required promotion gate when it is callable.
   target hashes, while removed parts include their original hashes. Core,
   schema, visual, LibreOffice, and PowerPoint states remain distinct; an
   unrun consumer is never reported as passed.
+- **Semantic template selectors:** Public fill selectors are restricted to
+  stable semantic slot ids plus exact precondition hashes. Strict descriptor or
+  catalog drift fails before staging; tolerant inspection returns diagnostics
+  without making inferred slots writable.
+- **Physical template purge:** Page selection, repetition, and reorder reuse the
+  validated slide graph copier. Unselected slides and their private notes,
+  media, charts, embeddings, and comments are removed from the ZIP; shared
+  reachable master/layout/theme dependencies remain.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
   becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
   required visual gate only after every slide PNG and the full-deck PDF reopen

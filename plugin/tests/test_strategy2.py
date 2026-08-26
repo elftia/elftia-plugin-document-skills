@@ -20,7 +20,10 @@ from tools.audit_python import audit_python_source
 from tools.audit import run_audits
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
-from tools.provenance_records import validate_metadata_exclusion
+from tools.provenance_records import (
+    CURRENT_REVIEW_ARTIFACT,
+    validate_metadata_exclusion,
+)
 from tests.support.provenance_review_fixture import bind_test_review
 
 
@@ -135,12 +138,15 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         "docx.comments.add",
         "docx.comments.read",
         "docx.comments.resolve",
+        "docx.compare.semantic",
+        "docx.compare.visual",
         "docx.convert.legacy",
         "docx.convert.pdf",
         "docx.edit",
         "docx.edit.replace-text",
         "docx.inspect.accessibility",
         "docx.inspect.structure",
+        "docx.layout.repair",
         "docx.merge",
         "docx.read",
         "docx.render",
@@ -154,6 +160,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         operations[operation]["available"]
         for operation in (
             "docx.create",
+            "docx.compare.semantic",
             "docx.edit",
             "docx.edit.replace-text",
             "docx.inspect.accessibility",
@@ -363,10 +370,7 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
 def test_current_review_is_the_only_hashless_review_metadata(project_root):
     from tools.regenerate_provenance import _is_metadata
 
-    review_path = (
-        "provenance/reviews/"
-        "document-skills-0.5.3-xlsx-completion-merge-review.md"
-    )
+    review_path = CURRENT_REVIEW_ARTIFACT
     assert _is_metadata(review_path) is True
     validate_metadata_exclusion(
         project_root,
