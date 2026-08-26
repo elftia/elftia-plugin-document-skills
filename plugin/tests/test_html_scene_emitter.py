@@ -8,15 +8,14 @@ import zipfile
 from xml.etree.ElementTree import tostring
 
 from defusedxml.ElementTree import fromstring
-import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.constants import NS
-from document_skills_core.formats.pptx.create import _PLACEHOLDER_PNG
 from document_skills_core.formats.pptx.package import write_deterministic_zip
 from document_skills_core.formats.pptx.scene_emitter import emit_scene_pptx
 from document_skills_core.formats.pptx.scene_normalizer import NormalizedScene
 from document_skills_core.formats.pptx.validation import validate_scene_created
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 def test_scene_emitter_builds_deterministic_internal_fixed_canvas_package(tmp_path: Path):
@@ -72,6 +71,17 @@ def test_scene_emitter_builds_deterministic_internal_fixed_canvas_package(tmp_pa
         slide = fromstring(archive.read("ppt/slides/slide1.xml"))
         ids = [element.get("id") for element in slide.iter(f"{{{NS['p']}}}cNvPr")]
         assert ids == ["1", "2", "3"]
+        group_transform = slide.find(
+            f"{{{NS['p']}}}cSld/{{{NS['p']}}}spTree/"
+            f"{{{NS['p']}}}grpSpPr/{{{NS['a']}}}xfrm"
+        )
+        assert group_transform is not None
+        assert [child.tag.rsplit("}", 1)[-1] for child in group_transform] == [
+            "off",
+            "ext",
+            "chOff",
+            "chExt",
+        ]
 
 
 def test_scene_emitter_preserves_non_white_slide_background_in_output_bytes(tmp_path: Path):
@@ -159,6 +169,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
         "font_size": 32,
         "font_weight": "700",
         "color": "rgba(200, 10, 20, 0.5)",
+        "letter_spacing": "2px",
     }
     second_style = {
         **text_box["text_style"],
@@ -183,6 +194,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
                 "line_height": "normal",
             },
         ],
+        text_insets={"left": 10, "top": 20, "right": 30, "bottom": 40},
     )
     output = tmp_path / "text.pptx"
 
@@ -195,6 +207,15 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
     with zipfile.ZipFile(output) as archive:
         slide = fromstring(archive.read("ppt/slides/slide1.xml"))
     paragraphs = list(slide.iter(f"{{{NS['a']}}}p"))
+    body_properties = slide.find(f".//{{{NS['a']}}}bodyPr")
+    assert body_properties is not None
+    assert body_properties.attrib == {
+        "wrap": "square",
+        "lIns": "63500",
+        "tIns": "127000",
+        "rIns": "190500",
+        "bIns": "254000",
+    }
     assert len(paragraphs) == 2
     assert paragraphs[0].find(f"{{{NS['a']}}}pPr").get("algn") == "ctr"
     assert paragraphs[1].find(f"{{{NS['a']}}}pPr").get("algn") == "r"
@@ -204,6 +225,7 @@ def test_scene_emitter_writes_editable_paragraphs_and_formatted_runs(tmp_path: P
     first_properties = first_run.find(f"{{{NS['a']}}}rPr")
     assert first_properties.get("sz") == "1600"
     assert first_properties.get("b") == "1"
+    assert first_properties.get("spc") == "150"
     assert first_properties.find(f"{{{NS['a']}}}latin").get("typeface") == "Aptos"
     alpha = first_properties.find(f"{{{NS['a']}}}solidFill/{{{NS['a']}}}srgbClr/{{{NS['a']}}}alpha")
     assert alpha is not None and alpha.get("val") == "25000"
@@ -243,14 +265,14 @@ def test_scene_emitter_marks_boundary_whitespace_for_opc_consumers(tmp_path: Pat
 
 
 def test_scene_emitter_packages_real_deduplicated_internal_images_with_capture_crop(tmp_path: Path):
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
+    digest = hashlib.sha256(PNG_1X1).hexdigest()
     asset_path = tmp_path / f"asset-{digest}.png"
-    asset_path.write_bytes(_PLACEHOLDER_PNG)
+    asset_path.write_bytes(PNG_1X1)
     asset = {
         "id": digest,
         "filename": asset_path.name,
         "mime": "image/png",
-        "bytes": len(_PLACEHOLDER_PNG),
+        "bytes": len(PNG_1X1),
         "width": 1,
         "height": 1,
         "purpose": "source-image",
@@ -280,7 +302,7 @@ def test_scene_emitter_packages_real_deduplicated_internal_images_with_capture_c
     assert manifest["media"] == 1
     assert manifest["media_hashes"] == [digest]
     with zipfile.ZipFile(output) as archive:
-        assert archive.read("ppt/media/image1.png") == _PLACEHOLDER_PNG
+        assert archive.read("ppt/media/image1.png") == PNG_1X1
         content_types = fromstring(archive.read("[Content_Types].xml"))
         png_default = next(
             entry for entry in content_types
@@ -344,8 +366,8 @@ def test_scene_validation_rejects_run_redistribution_with_same_aggregate_text(tm
 
 
 def test_scene_validation_rejects_picture_relationship_swap_with_same_media_set(tmp_path: Path):
-    first_bytes = _PLACEHOLDER_PNG
-    second_bytes = _PLACEHOLDER_PNG + b"distinct"
+    first_bytes = PNG_1X1
+    second_bytes = PNG_1X1 + b"distinct"
     assets = {}
     items = []
     for index, payload in enumerate((first_bytes, second_bytes), 1):
@@ -420,6 +442,7 @@ def _item(
         "color": "rgb(0, 0, 0)",
         "text_align": "left",
         "line_height": "normal",
+        "letter_spacing": "normal",
     }
     return {
         "source_id": source_id,
@@ -441,6 +464,7 @@ def _item(
         "radius": 0,
         "text": "",
         "text_style": style,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [],
         "requested_font": "Arial",
         "font_evidence": {

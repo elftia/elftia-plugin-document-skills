@@ -7,6 +7,8 @@ from typing import Any
 from ..contracts.errors import DocumentSkillsError
 from ..process import ProcessPolicy, ProcessRunner
 
+_DOTNET_PRIVATE_ENVIRONMENT = ("DOTNET_CLI_HOME",)
+
 
 def detect_dotnet_runtime(
     policy: ProcessPolicy,
@@ -23,6 +25,7 @@ def detect_dotnet_runtime(
             ["--list-runtimes"],
             timeout_seconds=2.0,
             output_limit=32_768,
+            private_environment=_DOTNET_PRIVATE_ENVIRONMENT,
         )
     except DocumentSkillsError as error:
         return _state("dotnet-runtime", False, reason=str(error))
@@ -82,6 +85,7 @@ def detect_dotnet_openxml(
             script=allowed_probe,
             timeout_seconds=2.0,
             output_limit=16_384,
+            private_environment=_DOTNET_PRIVATE_ENVIRONMENT,
         )
         payload = result.json()
         valid = (

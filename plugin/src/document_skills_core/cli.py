@@ -20,6 +20,7 @@ from .formats.pdf.validation import reopen_pdf
 from .formats.xlsx.contracts import XLSX_OPERATIONS, parse_xlsx_request
 from .formats.xlsx.validation import reopen_xlsx
 from .formats.pptx.contracts import PPTX_OPERATIONS, parse_pptx_request
+from .formats.pptx.deep_validation import validate_deep_package
 from .formats.pptx.validation import reopen_pptx
 from .providers import build_default_registry
 
@@ -140,18 +141,21 @@ def _dispatch(
         return payload
     if args.command == "validate":
         reopen = None
+        assertions = None
         if format_id == "docx":
             reopen = reopen_docx
         elif format_id == "xlsx":
             reopen = reopen_xlsx
         elif format_id == "pptx":
             reopen = reopen_pptx
+            assertions = [("pptx-deep-validation", validate_deep_package)]
         elif format_id == "pdf":
             reopen = reopen_pdf
         payload = validate_artifact(
             _resolve_user_path(args.input, base),
             expected_format=format_id,
             reopen=reopen,
+            assertions=assertions,
         )
         catalog.validate("validation-report", payload)
         return payload

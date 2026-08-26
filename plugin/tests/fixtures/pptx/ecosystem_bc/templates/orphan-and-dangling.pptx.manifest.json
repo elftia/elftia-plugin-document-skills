@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.template.sanitize",
+  "fixture_id": "B-TPL-06",
+  "format": "pptx",
+  "invariants": [
+    "all relationship anomalies are reported before mutation",
+    "ambiguous input is rejected without output",
+    "orphan payload identity is recorded"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/orphan-and-dangling.pptx",
+  "purpose": "Synthetic orphan part, dangling relationship, and duplicate relationship id.",
+  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 2000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "synthetic-malformed-relationship-graph",
+  "sha256": "sha256:a9072b4dd1c64ab57c181b02a9a3b56e1ebd79bca0a3f78caad5e40052b42daa",
+  "sizeBytes": 13606
+}

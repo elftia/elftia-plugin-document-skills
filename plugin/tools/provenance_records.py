@@ -1,8 +1,16 @@
 """Validation helpers for all-file provenance classifications."""
 
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
+
+
+_REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
+CURRENT_REVIEW_ARTIFACT = (
+    "provenance/reviews/"
+    "document-skills-0.5.3-docx-completion-review.md"
+)
 
 
 def mapping_digest(
@@ -11,22 +19,41 @@ def mapping_digest(
     data_records: list[dict[str, Any]],
     metadata_exclusions: list[dict[str, Any]],
 ) -> str:
-    entries = [
-        *(f"module:{record['module']}:{record['sha256']}" for record in records),
-        *(
-            f"excluded:{record['artifact']}:{record['sha256']}"
-            for record in exclusions
-        ),
-        *(
-            f"data:{record['artifact']}:{record['classification']}:{record['sha256']}"
-            for record in data_records
-        ),
-        *(
-            f"metadata:{record['artifact']}:{record['classification']}"
-            for record in metadata_exclusions
-        ),
+    mapping = {
+        "data_classifications": _canonical_records(data_records),
+        "executable_exclusions": _canonical_records(exclusions),
+        "metadata_exclusions": _canonical_records(metadata_exclusions),
+        "modules": _canonical_records(records),
+        "schema": "document-skills-provenance-mapping/v2",
+    }
+    canonical = json.dumps(
+        mapping,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _canonical_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    projected = [
+        {
+            key: value
+            for key, value in record.items()
+            if key not in _REVIEW_SELF_REFERENCE_FIELDS
+        }
+        for record in records
     ]
-    return hashlib.sha256("\n".join(sorted(entries)).encode("utf-8")).hexdigest()
+    return sorted(projected, key=_canonical_json)
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 def validate_exclusion(
@@ -102,22 +129,7 @@ def validate_metadata_exclusion(
         artifact in {
             "provenance/audit-report.json",
             "provenance/modules.json",
-            "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
-            "provenance/reviews/core-docx-review-cycle-round-1.md",
-            "provenance/reviews/core-pdf-review-cycle-round-1.md",
-            "provenance/reviews/core-pptx-review-cycle-round-1.md",
-            "provenance/reviews/core-xlsx-review-cycle-round-1.md",
-            "provenance/reviews/docx-create-optional-content-review-cycle-round-1.md",
-            "provenance/reviews/document-skills-0.2.0-release.md",
-            "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
-            "provenance/reviews/document-skills-0.5.1-node20-process-review.md",
-            "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
-            "provenance/reviews/document-skills-0.5.3-docx-completion-review.md",
-            "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
-            "provenance/reviews/foundation-review-cycle-round-1.md",
-            "provenance/reviews/html-to-editable-pptx-review-cycle-round-1.md",
-            "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
-            "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
+            CURRENT_REVIEW_ARTIFACT,
         },
         f"Metadata exclusion is outside the exact self-reference allowlist: {artifact}",
     )

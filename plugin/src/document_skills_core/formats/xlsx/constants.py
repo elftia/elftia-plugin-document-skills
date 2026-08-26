@@ -52,6 +52,10 @@ REL_DRAWING = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
 )
 REL_CHART = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+REL_COMMENTS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments"
+REL_VML_DRAWING = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing"
+)
 REL_PIVOT_TABLE = (
     "http://schemas.openxmlformats.org/officeDocument/2006/relationships/pivotTable"
 )
@@ -77,6 +81,22 @@ STYLES_PART = "xl/styles.xml"
 SHARED_STRINGS_PART = "xl/sharedStrings.xml"
 CALC_CHAIN_PART = "xl/calcChain.xml"
 
+# SpreadsheetML workbook main content types
+CONTENT_TYPE_XLSX = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+)
+CONTENT_TYPE_XLTX = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml"
+)
+CONTENT_TYPE_XLSM = "application/vnd.ms-excel.sheet.macroEnabled.main+xml"
+CONTENT_TYPE_XLTM = "application/vnd.ms-excel.template.macroEnabled.main+xml"
+WORKBOOK_CONTENT_TYPES = {
+    "xlsx": CONTENT_TYPE_XLSX,
+    "xltx": CONTENT_TYPE_XLTX,
+    "xlsm": CONTENT_TYPE_XLSM,
+    "xltm": CONTENT_TYPE_XLTM,
+}
+
 # Archive limits
 MAX_XLSX_BYTES = 128 * 1024 * 1024
 MAX_XML_BYTES = 8 * 1024 * 1024
@@ -90,6 +110,7 @@ MAX_SHEETS = 1_000
 MAX_TABLES = 500
 MAX_DEFINED_NAMES = 1_000
 MAX_HYPERLINKS = 1_000
+MAX_COMMENTS = 1_000
 MAX_EDIT_OPS = 256
 
 # Formula state enum

@@ -29,6 +29,7 @@ object response = subcommand switch
     "--comments-resolve" => CommentsOperations.Resolve(request),
     "--template-apply" => TemplateApply(request),
     "--schema-validate" => SchemaValidate(request),
+    "--xlsx-schema-validate" => SpreadsheetSchemaValidate(request),
     _ => new { error = $"Unknown subcommand: {subcommand}" },
 };
 
@@ -313,7 +314,10 @@ static object TemplateApply(JsonElement request)
             var alias = sdt.SdtProperties?.GetFirstChild<SdtAlias>()?.Val?.Value;
             if (alias is not null && variables.TryGetValue(alias, out var value))
             {
-                var run = sdt.Descendants<Run>().FirstOrDefault();
+                var content = sdt.ChildElements.FirstOrDefault(
+                    child => child.LocalName == "sdtContent"
+                );
+                var run = content?.Descendants<Run>().FirstOrDefault();
                 if (run is not null)
                 {
                     run.RemoveAllChildren<Text>();
@@ -337,7 +341,12 @@ static object SchemaValidate(JsonElement request)
         && maximum.TryGetInt32(out var requestedMaximum)
         ? Math.Clamp(requestedMaximum, 1, 1_001)
         : 100;
-    using var doc = WordprocessingDocument.Open(inputPath, false);
+    using OpenXmlPackage doc = Path.GetExtension(inputPath).ToLowerInvariant() switch
+    {
+        ".docx" or ".docm" or ".dotx" or ".dotm" => WordprocessingDocument.Open(inputPath, false),
+        ".pptx" or ".pptm" or ".potx" or ".potm" => PresentationDocument.Open(inputPath, false),
+        _ => throw new InvalidOperationException("Unsupported OOXML schema-validation format."),
+    };
     var validator = new OpenXmlValidator();
     var errors = validator.Validate(doc).Take(maxErrors).Select(e => new
     {
@@ -348,6 +357,36 @@ static object SchemaValidate(JsonElement request)
     }).ToList();
 
     return new { valid = errors.Count == 0, errors };
+}
+
+static object SpreadsheetSchemaValidate(JsonElement request)
+{
+    var inputPath = request.GetProperty("input_path").GetString()!;
+    var maxErrors = request.TryGetProperty("max_errors", out var requestedMax)
+        ? Math.Clamp(requestedMax.GetInt32(), 1, 1000)
+        : 100;
+    using var doc = SpreadsheetDocument.Open(inputPath, false);
+    var validator = new OpenXmlValidator(FileFormatVersions.Microsoft365)
+    {
+        MaxNumberOfErrors = maxErrors + 1,
+    };
+    var validationErrors = validator.Validate(doc).Take(maxErrors + 1).ToList();
+    var errors = validationErrors.Take(maxErrors).Select(e => new
+    {
+        part = e.Part?.GetType().Name ?? "",
+        path = e.Path?.XPath ?? "",
+        description = e.Description,
+        error_type = e.ErrorType.ToString(),
+    }).ToList();
+
+    return new
+    {
+        valid = errors.Count == 0,
+        errors,
+        max_errors = maxErrors,
+        truncated = validationErrors.Count > maxErrors,
+        file_format = validator.FileFormat.ToString(),
+    };
 }
 
 sealed record RevisionItem(

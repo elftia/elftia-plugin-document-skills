@@ -1,13 +1,9 @@
 """Public capability, unavailable, budget, and representative HTML conversion tests."""
 
-import base64
-import hashlib
 import json
 from pathlib import Path
 import subprocess
-import zipfile
 
-from defusedxml.ElementTree import fromstring
 import pytest
 
 from document_skills_core.core.capabilities import (
@@ -20,7 +16,6 @@ from document_skills_core.core.capabilities import (
 from document_skills_core.core.capabilities.reports import build_capabilities
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.html_capture import _capture_status
-from document_skills_core.formats.pptx.constants import NS
 from document_skills_core.public_cli.protocol import PublicCommand
 from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
 
@@ -81,16 +76,63 @@ def test_capability_is_always_reported_but_unavailable_provider_is_not_callable(
     assert not output.exists()
 
 
-def test_html_operation_has_private_public_budget_without_relaxing_existing_commands(project_root: Path, tmp_path: Path):
+def test_provider_operations_have_private_public_budgets_without_relaxing_existing_commands(project_root: Path, tmp_path: Path):
     html_request = tmp_path / "html.json"
     html_request.write_text(json.dumps({"operation": "pptx.create.from-html"}), encoding="utf-8")
     normal_request = tmp_path / "normal.json"
     normal_request.write_text(json.dumps({"operation": "pptx.read"}), encoding="utf-8")
+    mutation_requests = []
+    for name, operation in (
+        ("create", "pptx.create"),
+        ("markdown", "pptx.create.from-markdown"),
+        ("edit", "pptx.edit"),
+    ):
+        request = tmp_path / f"{name}.json"
+        request.write_text(json.dumps({"operation": operation}), encoding="utf-8")
+        mutation_requests.append(request)
+    schema_request = tmp_path / "schema.json"
+    schema_request.write_text(json.dumps({"operation": "pptx.validate.schema"}), encoding="utf-8")
+    convert_request = tmp_path / "convert.json"
+    convert_request.write_text(
+        json.dumps({"operation": "pptx.convert.pdf"}),
+        encoding="utf-8",
+    )
+    legacy_request = tmp_path / "legacy.json"
+    legacy_request.write_text(
+        json.dumps({"operation": "pptx.convert.legacy"}),
+        encoding="utf-8",
+    )
+    render_request = tmp_path / "render.json"
+    render_request.write_text(
+        json.dumps({"operation": "pptx.render"}),
+        encoding="utf-8",
+    )
     supervisor = PublicCommandSupervisor(project_root, timeout_seconds=8.0)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(html_request))),
         tmp_path,
     ) == (60.0, 1_048_576)
+    for request in mutation_requests:
+        assert supervisor._command_limits(
+            PublicCommand("run", ("run", "--request", str(request))),
+            tmp_path,
+        ) == (45.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(schema_request))),
+        tmp_path,
+    ) == (45.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(convert_request))),
+        tmp_path,
+    ) == (60.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(legacy_request))),
+        tmp_path,
+    ) == (60.0, 2_097_152)
+    assert supervisor._command_limits(
+        PublicCommand("run", ("run", "--request", str(render_request))),
+        tmp_path,
+    ) == (150.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(normal_request))),
         tmp_path,
@@ -225,9 +267,10 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
     )
     if not operation["available"]:
         pytest.skip(operation["reason"])
-    image = base64.b64encode(
+    image_name = "review-image.png"
+    (tmp_path / image_name).write_bytes(
         (project_root / "tests/fixtures/html-native-image.png").read_bytes()
-    ).decode()
+    )
     source = tmp_path / "review-cases.html"
     source.write_text(
         f"""<!doctype html><meta charset="utf-8"><style>
@@ -246,7 +289,7 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
         </style><section class="slide"><div class="outer"><div class="inner">
         <div class="shape" data-pptx-id="nested-shape"></div>
         <div class="text" data-pptx-id="nested-text">Editable</div>
-        <img data-pptx-id="nested-image" src="data:image/png;base64,{image}">
+        <img data-pptx-id="nested-image" src="{image_name}">
         </div></div><div class="asym" data-pptx-id="asym-shape"></div>
         <div class="card" data-pptx-id="card">Body</div>
         <div class="complex" data-pptx-id="complex"></div></section>""",

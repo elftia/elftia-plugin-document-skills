@@ -3,8 +3,12 @@
 from pathlib import Path
 
 HTML_PPTX_REQUIREMENT = "Rasen html-to-editable-pptx"
+CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
+COMBINED_PPTX_REQUIREMENT = (
+    "Rasen html-to-editable-pptx + document-skills-core-pptx"
+)
 SHARED_PROVENANCE_REQUIREMENT = (
-    "Rasen html-to-editable-pptx + "
+    "Rasen html-to-editable-pptx + document-skills-core-pptx + "
     "document-skills-consumer-gates-and-truthful-contracts"
 )
 _SHARED_MODULES = {
@@ -24,6 +28,83 @@ _SHARED_MODULES = {
     "tools/regenerate_provenance.py",
     "tools/supply_chain.py",
 }
+
+
+def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
+    core_tests = [
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_operations.py",
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_public.py",
+    ]
+    if path == "src/document_skills_core/formats/pptx/create.py":
+        return (
+            "Schema-ordered native PresentationML creation, including valid body "
+            "shape properties and presentation-namespace graphic-frame transforms.",
+            core_tests,
+        )
+    if path == "src/document_skills_core/formats/pptx/scaffold.py":
+        return (
+            "Office-valid shared PresentationML theme scaffolding with required "
+            "gradient stops for typed and scene-emitted PPTX output.",
+            core_tests,
+        )
+    if path == "src/document_skills_core/public_cli/supervisor.py":
+        return (
+            "Operation-scoped public worker budgets for Core PPTX create, "
+            "create-from-markdown, and edit without relaxing unrelated commands.",
+            ["tests/test_html_pptx_public.py", "tests/test_pptx_public.py"],
+        )
+    if path in {
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_operations.py",
+    }:
+        return (
+            "Direct Core PPTX regression coverage for schema-valid native "
+            "PresentationML creation.",
+            [path],
+        )
+    if path == "tests/test_html_pptx_public.py":
+        return (
+            "Direct public-supervisor regression coverage for operation-scoped "
+            "Core PPTX mutation budgets alongside HTML provider budgets.",
+            [path],
+        )
+    if path in {
+        "tests/test_html_provenance.py",
+        "tools/html_pptx_provenance.py",
+        "tools/regenerate_provenance.py",
+    }:
+        return (
+            "Exact Core PPTX/OpenXML provenance classification and regression "
+            "evidence combined with shared HTML-to-PPTX release records.",
+            [
+                "tests/test_html_provenance.py",
+                "tests/test_strategy3.py",
+                "tests/test_supply_chain.py",
+            ],
+        )
+    return None
+
+
+def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
+    html_profile = html_pptx_module_profile(path)
+    core_profile = core_pptx_module_profile(path)
+    if html_profile is None and core_profile is None:
+        return None
+    profiles = [profile for profile in (html_profile, core_profile) if profile]
+    modifications = " ".join(profile[0] for profile in profiles)
+    tests = list(dict.fromkeys(test for profile in profiles for test in profile[1]))
+    requirement = (
+        COMBINED_PPTX_REQUIREMENT
+        if len(profiles) == 2
+        else HTML_PPTX_REQUIREMENT
+        if html_profile
+        else CORE_PPTX_REQUIREMENT
+    )
+    if path == "tools/regenerate_provenance.py":
+        requirement = SHARED_PROVENANCE_REQUIREMENT
+    return modifications, tests, requirement
 
 
 def html_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:

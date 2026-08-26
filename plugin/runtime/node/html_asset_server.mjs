@@ -16,6 +16,7 @@ const MIME_TYPES = new Map([
   ['.jpeg', 'image/jpeg'],
   ['.jpg', 'image/jpeg'],
   ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
   ['.webp', 'image/webp'],
   ['.woff', 'font/woff'],
   ['.woff2', 'font/woff2'],
@@ -142,7 +143,7 @@ function securityHeaders(contentType, length) {
   return {
     'Cache-Control': 'no-store',
     'Content-Length': String(length),
-    'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'",
+    'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'none'; connect-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'",
     'Content-Type': contentType,
     'Cross-Origin-Resource-Policy': 'same-origin',
     'X-Content-Type-Options': 'nosniff',

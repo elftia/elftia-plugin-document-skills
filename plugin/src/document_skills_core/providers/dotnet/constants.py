@@ -13,28 +13,31 @@ PROBE_PROTOCOL_VERSION = "1.0"
 PROBE_RUNTIME_MAJOR = 8
 
 # Accepted helper subcommands (the token after ``--`` in the argv).
-ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({
-    "--probe-json",
-    "--revisions-read",
-    "--revisions-accept",
-    "--revisions-reject",
-    "--comments-read",
-    "--comments-add",
-    "--comments-resolve",
-    "--template-apply",
-    "--schema-validate",
-})
+ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset(
+    {
+        "--probe-json",
+        "--revisions-read",
+        "--revisions-accept",
+        "--revisions-reject",
+        "--comments-read",
+        "--comments-add",
+        "--template-apply",
+        "--schema-validate",
+        "--xlsx-schema-validate",
+    }
+)
 
 # Default per-operation timeouts (seconds).
-TIMEOUT_PROBE: float = 30.0
+TIMEOUT_PROBE: float = 10.0
 TIMEOUT_REVISIONS_READ: float = 30.0
 TIMEOUT_REVISIONS_MUTATE: float = 30.0
 TIMEOUT_COMMENTS_READ: float = 30.0
 TIMEOUT_COMMENTS_ADD: float = 30.0
-TIMEOUT_COMMENTS_RESOLVE: float = 30.0
 TIMEOUT_TEMPLATE_APPLY: float = 60.0
 TIMEOUT_SCHEMA_VALIDATE: float = 30.0
 TIMEOUT_RUNTIME_PROBE: float = 2.0
+TIMEOUT_LOCKED_RESTORE: float = 60.0
+TIMEOUT_NO_RESTORE_BUILD: float = 60.0
 
 # Output limit (4 MiB — schema validation can produce large error lists).
 OUTPUT_LIMIT: int = 4_194_304
@@ -48,6 +51,27 @@ STDIN_CEILING: int = 1_048_576
 
 # Helper subdirectory name (relative to this package).
 HELPER_DIR_NAME = "helper"
+HELPER_PROJECT_NAME = "OpenXmlHelper.csproj"
+
+# The detector may materialize the checked-in graph, but only under NuGet's
+# fail-closed lock semantics. Provider operations never restore packages.
+LOCKED_RESTORE_FLAGS: tuple[str, ...] = ("--locked-mode", "--use-lock-file")
+RUN_NO_RESTORE_FLAG = "--no-restore"
+RUN_NO_BUILD_FLAG = "--no-build"
+
+# These values are synthesized by ProcessRunner as directories beneath a unique,
+# managed project-private operation root. No user HOME, USERPROFILE, NuGet cache,
+# or per-user NuGet configuration is inherited. NuGet on Windows also requires
+# private replacements for its application-data and machine-wide settings roots.
+DOTNET_PRIVATE_ENVIRONMENT: tuple[str, ...] = (
+    "DOTNET_CLI_HOME",
+    "NUGET_PACKAGES",
+    *(
+        ("APPDATA", "LOCALAPPDATA", "PROGRAMFILES(X86)")
+        if sys.platform == "win32"
+        else ()
+    ),
+)
 
 
 def platform_known_paths() -> list[str]:

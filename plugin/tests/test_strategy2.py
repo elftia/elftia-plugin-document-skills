@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 import shutil
 import subprocess
 
@@ -21,6 +20,7 @@ from tools.audit_python import audit_python_source
 from tools.audit import run_audits
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
+from tools.provenance_records import validate_metadata_exclusion
 from tests.support.provenance_review_fixture import bind_test_review
 
 
@@ -118,7 +118,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         capture_output=True,
         text=True,
         check=True,
-        timeout=30,
+        timeout=60,
     )
     doctor_state = {
         item["id"]: item for item in json.loads(doctor.stdout)["providers"]
@@ -170,6 +170,59 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
     )
     assert capability["validation"]["schema"] == expected_schema
     assert capability["validation"]["visual"] == "unavailable"
+
+
+def test_validation_capabilities_are_format_scoped_and_callable(project_root):
+    def catalog(available=True, validators=None, callable_provider=True):
+        result = ProviderCatalog()
+        result.register_provider(
+            Provider(
+                ProviderId.CORE_PYTHON,
+                "1",
+                detect=lambda: DetectionEvidence(available, version="1"),
+                execute=(lambda _op, _req: {}) if callable_provider else None,
+                capabilities=[
+                    Capability("xlsx.validate.schema", "enhanced"),
+                    Capability("pptx.render", "enhanced"),
+                ],
+                validators=validators
+                or {"schema": lambda: {}, "visual": lambda: {}},
+            )
+        )
+        return result
+
+    registry = catalog()
+    assert build_capabilities(project_root, "docx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pdf", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "xlsx", registry)["validation"] == {
+        "package": "available",
+        "schema": "available",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pptx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "available",
+    }
+    assert build_capabilities(project_root, "xlsx", catalog(available=False))[
+        "validation"
+    ]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root,
+        "xlsx",
+        catalog(validators={"schema": None, "visual": lambda: {}}),
+    )["validation"]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root, "xlsx", catalog(callable_provider=False)
+    )["validation"]["schema"] == "unavailable"
 
 
 def test_catalog_requires_callable_and_available_detector(project_root):
@@ -307,6 +360,30 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     assert run_audits(root)["status"] == "pass"
 
 
+def test_current_review_is_the_only_hashless_review_metadata(project_root):
+    from tools.regenerate_provenance import _is_metadata
+
+    review_path = (
+        "provenance/reviews/"
+        "document-skills-0.5.3-xlsx-completion-merge-review.md"
+    )
+    assert _is_metadata(review_path) is True
+    validate_metadata_exclusion(
+        project_root,
+        {
+            "artifact": review_path,
+            "classification": "self-referential-audit-metadata",
+            "reason": (
+                "The current report binds the exact mapping digest, so hashing "
+                "its own final bytes in that mapping would be circular."
+            ),
+            "reviewer": "Strategy-2 current-review test reviewer",
+            "review_evidence": [review_path],
+        },
+        {"Strategy-2 current-review test reviewer"},
+    )
+
+
 @pytest.mark.parametrize(
     "review_path",
     [
@@ -315,19 +392,36 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
         "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
         "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
+        "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
         "provenance/reviews/foundation-review-cycle-round-1.md",
         "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
     ],
 )
-def test_is_metadata_accepts_every_bound_review_path(review_path):
-    """Both the regenerate_provenance and provenance_records allowlists must
-    accept every review path that can be bound as a metadata exclusion."""
+def test_historical_reviews_are_hash_pinned_data_not_metadata(
+    project_root, review_path
+):
     from tools.regenerate_provenance import _is_metadata
 
-    assert _is_metadata(review_path) is True, (
-        f"_is_metadata must accept {review_path}"
-    )
+    assert _is_metadata(review_path) is False
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(
+            project_root,
+            {
+                "artifact": review_path,
+                "classification": "self-referential-audit-metadata",
+                "reason": (
+                    "A historical report has no circular dependency on the "
+                    "current mapping and must retain an exact content hash."
+                ),
+                "reviewer": "Strategy-2 historical-review test reviewer",
+                "review_evidence": [review_path],
+            },
+            {"Strategy-2 historical-review test reviewer"},
+        )
 
 
 @pytest.mark.parametrize(

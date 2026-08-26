@@ -5,17 +5,30 @@ from typing import Any
 
 from document_skills_core.core.io.core_properties import project_core_properties
 
+from .annotations import project_comments
 from .formula_state import build_formula_state_summary
+from .format_policy import (
+    allowed_inert_categories,
+    assert_package_matches_path,
+    format_id,
+)
+from .macro_policy import macro_read_evidence
 from .mapping import map_workbook
 from .package import OpcPackage
+from .pivot_projection import project_pivot_tables
 from .projection import (
     project_charts,
+    project_conditional_formats,
+    project_data_validations,
     project_drawings,
     project_external_links,
     project_hyperlinks,
     project_pivot_caches,
     project_tables,
 )
+from .sparkline import project_sparklines
+from .worksheet_metadata import project_worksheet_metadata
+from .workbook_properties import project_workbook_properties
 
 
 def read_xlsx(
@@ -23,7 +36,11 @@ def read_xlsx(
     arguments: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Read an XLSX workbook and return (operation_result, warnings)."""
-    package = OpcPackage.open(path)
+    package = OpcPackage.open(
+        path,
+        allowed_inert_categories=allowed_inert_categories(format_id(path)),
+    )
+    assert_package_matches_path(path, package.workbook_format)
     include_formulas = arguments.get("include_formulas", True)
     max_rows = arguments.get("max_rows", 5_000)
     max_cells = arguments.get("max_cells_per_sheet", 10_000)
@@ -86,16 +103,25 @@ def read_xlsx(
     tables = project_tables(package)
     charts = project_charts(package)
     pivot_caches = project_pivot_caches(package)
+    pivot_tables = project_pivot_tables(package)
     external_links = project_external_links(package)
     drawings = project_drawings(package)
+    data_validations = project_data_validations(package)
+    conditional_formats = project_conditional_formats(package)
+    sparklines = project_sparklines(package)
+    worksheet_metadata = project_worksheet_metadata(package)
 
     # Hyperlinks per sheet
     hyperlinks: list[dict[str, Any]] = []
-    for name in package.worksheet_parts():
-        hyperlinks.extend(project_hyperlinks(package, name))
+    for sheet in workbook["sheets"]:
+        if sheet.get("part"):
+            hyperlinks.extend(
+                project_hyperlinks(package, sheet["part"], sheet["name"])
+            )
 
     operation_result: dict[str, Any] = {
         "metadata": project_core_properties(package.parts),
+        "workbook_properties": project_workbook_properties(package.parts),
         "sheets": sheets,
         "sheet_count": len(sheets),
         "defined_names": workbook["defined_names"],
@@ -103,13 +129,21 @@ def read_xlsx(
         "tables": tables,
         "charts": charts,
         "pivot_caches": pivot_caches,
+        "pivot_tables": pivot_tables,
         "external_links": external_links,
         "drawings": drawings,
+        "data_validations": data_validations,
+        "conditional_formats": conditional_formats,
+        "sparklines": sparklines,
+        "worksheet_metadata": worksheet_metadata,
         "hyperlinks": hyperlinks,
+        "comments": project_comments(package),
         "full_calc_on_load": workbook["full_calc_on_load"],
         "formula_state": {
             "cells": formula_cells,
             "summary": formula_summary,
         },
     }
+    if package.workbook_format == "xlsm":
+        operation_result["macro"] = macro_read_evidence(package)
     return operation_result, warnings

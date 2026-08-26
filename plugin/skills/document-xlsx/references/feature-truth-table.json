@@ -1,0 +1,256 @@
+{
+  "schema_version": "1.0",
+  "operations": {
+    "xlsx.read": {
+      "available": [
+        "static_formula_syntax_and_reference_report",
+        "formula_type_classification",
+        "xlsm_inert_vba_read",
+        "native_pivot_readback"
+      ],
+      "limitations": [
+        "static_analysis_is_not_a_calculation_engine"
+      ]
+    },
+    "xlsx.inspect.structure": {
+      "available": [
+        "inert_formula_type_classification",
+        "external_formula_inventory",
+        "xlsm_vba_and_signature_inventory",
+        "native_pivot_relationship_inventory"
+      ]
+    },
+    "xlsx.create": {
+      "available": [
+        "multiple_sheets",
+        "typed_cell_values",
+        "formulas_with_optional_cached_values",
+        "defined_names",
+        "cell_style",
+        "row_style",
+        "column_style",
+        "custom_number_format",
+        "row_height_and_hidden",
+        "column_width_and_hidden",
+        "native_table",
+        "data_validation",
+        "conditional_formatting",
+        "native_chart",
+        "native_area_radar_bubble_chart",
+        "native_combo_chart_secondary_axis",
+        "native_chart_trendline_error_bars",
+        "chart_style_and_structural_reference_maintenance",
+        "native_sparklines",
+        "page_setup",
+        "header_footer",
+        "sheet_view",
+        "print_area",
+        "print_titles",
+        "internal_hyperlink",
+        "cell_comments",
+        "workbook_properties",
+        "recalculation_policy_auto_required_skip",
+        "static_formula_syntax_and_reference_validation",
+        "formula_type_classification"
+      ],
+      "enhancement_required": [
+        "external_hyperlink_authoring"
+      ]
+    },
+    "xlsx.edit": {
+      "available": [
+        "cell_value",
+        "cell_formula",
+        "sheet_rename",
+        "cell_style",
+        "row_style",
+        "column_style",
+        "custom_number_format",
+        "row_insert",
+        "row_delete",
+        "column_insert",
+        "column_delete",
+        "row_height",
+        "row_hidden",
+        "column_width",
+        "column_hidden",
+        "sheet_add",
+        "sheet_delete",
+        "sheet_copy_plain_worksheet",
+        "sheet_reorder",
+        "cells_merge",
+        "cells_unmerge",
+        "range_clear",
+        "freeze_panes",
+        "auto_filter",
+        "print_area",
+        "manual_page_breaks",
+        "defined_name_crud",
+        "native_table_add",
+        "native_table_resize",
+        "native_table_rename",
+        "native_table_style",
+        "native_table_delete",
+        "data_validation_crud",
+        "conditional_formatting_crud",
+        "native_chart_crud",
+        "advanced_native_chart_crud",
+        "chart_style_and_structural_reference_maintenance",
+        "native_sparkline_crud",
+        "sparkline_structural_reference_maintenance",
+        "page_setup",
+        "header_footer",
+        "sheet_view",
+        "print_titles",
+        "internal_hyperlink_crud",
+        "cell_comment_crud",
+        "workbook_properties",
+        "recalculation_policy_auto_required_skip",
+        "static_formula_syntax_and_reference_validation",
+        "formula_type_classification",
+        "xlsm_keep_vba_copy_through",
+        "vba_relationship_and_signature_preservation",
+        "macro_signature_invalidation_disclosure"
+      ],
+      "enhancement_required": [
+        "sheet_copy_with_related_objects",
+        "sheet_delete_with_related_objects",
+        "sheet_delete_with_inbound_references",
+        "shared_array_or_data_table_formula_structural_edit",
+        "external_workbook_reference_structural_edit",
+        "pivot_structural_edit",
+        "external_hyperlink_authoring"
+      ]
+    },
+    "xlsx.recalculate": {
+      "available": [
+        "formula_identity_validation",
+        "formula_error_token_scan",
+        "cached_value_harvest",
+        "static_formula_syntax_and_reference_validation",
+        "special_formula_fail_closed",
+        "unknown_part_copy_through",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "unavailable_without": [
+        "libreoffice_for_formula_workbooks"
+      ]
+    },
+    "xlsx.convert": {
+      "available": [
+        "xlsx_csv_tsv_json",
+        "encoding_bom_delimiter_quote_line_ending",
+        "typed_null_empty_boolean_number_date_time_timezone",
+        "leading_zero_and_large_integer_policy",
+        "formula_preserve_text_evaluated_reject_policy",
+        "stable_multisheet_typed_json",
+        "csv_injection_default_escape",
+        "bounded_streaming_and_resource_limits",
+        "semantic_loss_reporting",
+        "source_preservation",
+        "atomic_promotion",
+        "legacy_xls_to_xlsx_via_libreoffice"
+      ],
+      "limitations": [
+        "delimited_output_is_single_sheet",
+        "xlsx_objects_and_styles_are_not_tabular",
+        "evaluated_formula_cache_is_not_recalculated",
+        "shared_array_data_table_formula_conversion_fails_closed"
+      ],
+      "unavailable_without": [
+        "libreoffice_for_legacy_xls_conversion"
+      ]
+    },
+    "xlsx.template.instantiate": {
+      "available": [
+        "xltx_to_xlsx",
+        "xltm_to_xlsm_keep_vba",
+        "optional_bounded_edits",
+        "vba_relationship_and_signature_preservation",
+        "macro_signature_invalidation_disclosure",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "macro_enabled_template_recalculation_is_skipped",
+        "template_code_and_macros_are_never_executed"
+      ]
+    },
+    "xlsx.summary.aggregate": {
+      "available": [
+        "ordinary_summary_sheet",
+        "group_by",
+        "sum_average_min_max",
+        "count_nonblank_and_distinct",
+        "multi_key_sort",
+        "top_n",
+        "native_table_output",
+        "stored_value_type_preservation",
+        "explicit_cached_formula_policy",
+        "xlsm_keep_vba_copy_through",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "ordinary_summary_is_not_native_pivot",
+        "formula_caches_are_not_recalculated",
+        "formatted_dates_group_as_stored_values"
+      ]
+    },
+    "xlsx.pivot.create": {
+      "available": [
+        "native_pivot_table_and_cache",
+        "worksheet_source_range",
+        "single_row_axis",
+        "optional_single_column_axis",
+        "optional_single_page_filter",
+        "single_value_sum_average_min_max_count",
+        "saved_pivot_cache_records",
+        "relationship_and_content_type_validation",
+        "independent_public_readback",
+        "xlsm_keep_vba_copy_through",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "one_row_one_column_one_filter_one_value_maximum",
+        "target_sheet_must_be_new",
+        "formula_caches_are_not_recalculated",
+        "pivot_structural_edit_is_unavailable"
+      ]
+    },
+    "xlsx.validate.schema": {
+      "available": [
+        "spreadsheetdocument_openxml_schema_validation",
+        "bounded_per_part_error_report",
+        "xlsx_and_inert_xlsm_read_only_validation",
+        "source_preservation"
+      ],
+      "limitations": [
+        "schema_validation_does_not_calculate_formulas_or_prove_visual_fidelity"
+      ],
+      "unavailable_without": [
+        "dotnet_openxml_provider"
+      ]
+    },
+    "xlsx.render": {
+      "available": [
+        "libreoffice_xlsx_to_pdf",
+        "pdf_reopen_validation",
+        "bounded_per_sheet_risk_sampling",
+        "hidden_data_wide_column_and_text_truncation_inventory",
+        "print_setup_table_and_chart_inventory",
+        "source_preservation",
+        "atomic_promotion"
+      ],
+      "limitations": [
+        "metadata_sampling_does_not_prove_per_object_visual_parity",
+        "render_output_is_pdf_only"
+      ],
+      "unavailable_without": [
+        "libreoffice_provider"
+      ]
+    }
+  }
+}

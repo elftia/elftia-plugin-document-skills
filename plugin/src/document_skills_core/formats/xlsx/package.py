@@ -62,6 +62,7 @@ class OpcPackage:
     parts: dict[str, bytes]
     part_hashes: dict[str, str]
     content_types: dict[str, str]
+    workbook_format: str
     relationships: list[Relationship]
     security: dict[str, Any]
     unknown_parts: list[str]
@@ -72,6 +73,7 @@ class OpcPackage:
         path: str | Path,
         *,
         allow_dangerous_inventory: bool = False,
+        allowed_inert_categories: frozenset[str] | None = None,
     ) -> "OpcPackage":
         resolved = Path(path).expanduser().resolve()
         if not resolved.is_file():
@@ -84,7 +86,7 @@ class OpcPackage:
             _unsafe("XLSX exceeds the Core byte ceiling.", bytes=resolved.stat().st_size)
         policy = (
             DangerousContentPolicy.PRESERVE_DISABLED
-            if allow_dangerous_inventory
+            if allow_dangerous_inventory or allowed_inert_categories is not None
             else DangerousContentPolicy.REJECT
         )
         preflight = inspect_ooxml(
@@ -97,20 +99,47 @@ class OpcPackage:
             ),
             dangerous_policy=policy,
         )
+        security = preflight["security"]
+        if allowed_inert_categories is not None:
+            categories = security.get("categories", {})
+            unknown_allowed = sorted(set(allowed_inert_categories) - set(categories))
+            if unknown_allowed:
+                raise ValueError("Unknown inert OOXML security category.")
+            disallowed = {
+                name: records
+                for name, records in categories.items()
+                if records and name not in allowed_inert_categories
+            }
+            if disallowed:
+                raise DocumentSkillsError(
+                    ErrorCode.ARCHIVE_UNSAFE,
+                    "OOXML content exceeds the operation's narrow inert allowance.",
+                    details={
+                        "allowed_inert_categories": sorted(allowed_inert_categories),
+                        "disallowed_categories": disallowed,
+                        "security_inventory": security,
+                    },
+                )
+            security = {
+                **security,
+                "allowed_inert_categories": sorted(allowed_inert_categories),
+                "mutation_authorized": True,
+            }
         parts = _read_parts(resolved)
         if CONTENT_TYPES not in parts or PACKAGE_RELS not in parts or WORKBOOK_MAIN not in parts:
             _unsafe("XLSX is missing a required package part.")
         content_types = parse_content_types(parts[CONTENT_TYPES])
         relationships = _parse_all_relationships(parts)
-        validate_package_content_types(content_types, relationships)
+        workbook_format = validate_package_content_types(content_types, relationships)
         unknown = sorted(name for name in parts if not _known_part(name))
         return cls(
             resolved,
             parts,
             {name: _sha256(payload) for name, payload in parts.items()},
             content_types,
+            workbook_format,
             relationships,
-            preflight["security"],
+            security,
             unknown,
         )
 
@@ -153,20 +182,32 @@ class OpcPackage:
         *,
         changed_parts: dict[str, bytes],
         added_parts: dict[str, bytes] | None = None,
+        removed_parts: set[str] | None = None,
     ) -> PreservationManifest:
         additions = added_parts or {}
-        if set(changed_parts).intersection(additions):
-            raise ValueError("A package part cannot be both changed and added.")
+        removals = removed_parts or set()
+        declarations = [set(changed_parts), set(additions), set(removals)]
+        if any(
+            first.intersection(second)
+            for index, first in enumerate(declarations)
+            for second in declarations[index + 1:]
+        ):
+            raise ValueError("A package part cannot have multiple mutation declarations.")
         missing = sorted(set(changed_parts) - set(self.parts))
         existing_additions = sorted(set(additions).intersection(self.parts))
-        if missing or existing_additions:
+        missing_removals = sorted(set(removals) - set(self.parts))
+        if missing or existing_additions or missing_removals:
             raise ValueError("Copy-through part declaration does not match the package.")
-        output_parts = {**self.parts, **changed_parts, **additions}
+        output_parts = {
+            name: payload
+            for name, payload in {**self.parts, **changed_parts, **additions}.items()
+            if name not in removals
+        }
         write_deterministic_zip(Path(destination), output_parts)
         output_hashes = {
             name: _sha256(payload) for name, payload in sorted(output_parts.items())
         }
-        preserved = sorted(set(self.parts) - set(changed_parts))
+        preserved = sorted(set(self.parts) - set(changed_parts) - set(removals))
         if any(output_hashes[name] != self.part_hashes[name] for name in preserved):
             raise DocumentSkillsError(
                 ErrorCode.VALIDATION_FAILED,
@@ -175,7 +216,7 @@ class OpcPackage:
         return PreservationManifest(
             tuple(sorted(changed_parts)),
             tuple(sorted(additions)),
-            (),
+            tuple(sorted(removals)),
             tuple(preserved),
             dict(sorted(self.part_hashes.items())),
             output_hashes,
@@ -186,6 +227,8 @@ class OpcPackage:
         output: "OpcPackage",
         *,
         allowed_changed: set[str],
+        expected_added: set[str] | None = None,
+        expected_removed: set[str] | None = None,
     ) -> PreservationManifest:
         input_names = set(self.parts)
         output_names = set(output.parts)
@@ -197,17 +240,21 @@ class OpcPackage:
             if self.part_hashes[name] != output.part_hashes[name]
         )
         unexpected = sorted(set(changed) - allowed_changed)
-        if added or removed or unexpected:
+        expected_additions = expected_added or set()
+        expected_removals = expected_removed or set()
+        if set(added) != expected_additions or set(removed) != expected_removals or unexpected:
             raise DocumentSkillsError(
                 ErrorCode.VALIDATION_FAILED,
                 "XLSX output changed an undeclared package part.",
                 details={
                     "added_parts": added,
+                    "expected_added_parts": sorted(expected_additions),
                     "removed_parts": removed,
+                    "expected_removed_parts": sorted(expected_removals),
                     "unexpected_changed_parts": unexpected,
                 },
             )
-        preserved = sorted(input_names - set(changed))
+        preserved = sorted(input_names - set(changed) - set(removed))
         return PreservationManifest(
             tuple(changed),
             tuple(added),

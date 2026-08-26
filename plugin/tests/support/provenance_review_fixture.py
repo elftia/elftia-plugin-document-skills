@@ -4,13 +4,15 @@ import json
 from pathlib import Path
 
 from tools.regenerate_provenance import regenerate
+from tools.provenance_records import CURRENT_REVIEW_ARTIFACT
 
 
 def bind_test_review(
     root: Path,
     *,
-    report_name: str = "foundation-review-cycle-round-1.md",
+    report_name: str | None = None,
 ) -> None:
+    report_name = report_name or Path(CURRENT_REVIEW_ARTIFACT).name
     report_path = root / "provenance" / "reviews" / report_name
     if not report_path.exists():
         report_path.write_text("Pending deterministic test review.\n", encoding="utf-8")

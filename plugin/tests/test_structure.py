@@ -88,6 +88,8 @@ def test_source_and_staged_release_inventory(project_root):
         ".github/workflows/ci.yml",
         ".idea/workspace.xml",
         ".vscode/settings.json",
+        "src/document_skills_core/providers/dotnet/helper/bin/Release/helper.dll",
+        "src/document_skills_core/providers/dotnet/helper/obj/project.assets.json",
     ],
 )
 def test_release_inventory_excludes_non_runtime_developer_state(tmp_path, relative):
@@ -111,6 +113,23 @@ def test_release_inventory_keeps_regular_files_named_like_developer_dirs(
     (root / filename).write_text("runtime data\n", encoding="utf-8")
 
     assert filename in release_inventory(root)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "src/document_skills_core/providers/dotnet/helper/binary/helper.dll",
+        "src/document_skills_core/providers/dotnet/helper/object/project.assets.json",
+        "src/document_skills_core/providers/dotnet/other/obj/project.assets.json",
+    ],
+)
+def test_release_inventory_keeps_helper_build_lookalikes(tmp_path, relative):
+    root = tmp_path / "project"
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("must remain in release scope\n", encoding="utf-8")
+
+    assert relative in release_inventory(root)
 
 
 def test_no_host_boot_or_legacy_boundary_change():

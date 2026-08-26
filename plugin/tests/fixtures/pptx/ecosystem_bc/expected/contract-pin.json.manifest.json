@@ -1,0 +1,27 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "design-studio"
+  ],
+  "expected_operation": "presentation-contract.conformance",
+  "fixture_id": "B0-CONTRACT-01",
+  "format": "json",
+  "invariants": [
+    "owner package, version, schema versions, and manifest hash stay pinned",
+    "stable IDs and Deck IR content hash match both producer consumers",
+    "license status remains not_evaluated without Governance decision evidence"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored metadata derived from the owner package.",
+  "path": "expected/contract-pin.json",
+  "purpose": "Pin the cross-producer presentation contract conformance result.",
+  "recipe": "uv run --project plugin python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 16384
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-metadata",
+  "sha256": "sha256:94df0d01c322285e862af12220a88db1ef2802544754779745144953e72fb91e",
+  "sizeBytes": 659
+}

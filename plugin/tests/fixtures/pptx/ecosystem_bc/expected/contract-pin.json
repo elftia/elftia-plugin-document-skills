@@ -1,0 +1,19 @@
+{
+  "artifactCount": 7,
+  "consumer": "document-skills",
+  "deckContentHash": "sha256:abdb56ca2e0d47c2ba6115e10f52c0bbab5ba155a19c096b892c2d45948fd5a1",
+  "licenseStatus": "not_evaluated",
+  "manifestSha256": "sha256:78989d9891c80a3f89ad25d7d31e4a431737131226df4494fc14dee1bfe3215a",
+  "package": "@elftia/presentation-contracts",
+  "packageVersion": "1.0.0",
+  "schemaVersions": {
+    "deckIr": "1.0.0",
+    "semanticSlots": "1.0.0",
+    "templateContract": "1.0.0"
+  },
+  "stableIds": {
+    "deck": "deck_2cf02b22247617a4c5665544b3fef3d9",
+    "object": "object_4cd538da35f33d9b277fd4318218e98f",
+    "slide": "slide_a7066570cd5835192671a268bd53f1b1"
+  }
+}

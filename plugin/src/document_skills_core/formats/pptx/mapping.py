@@ -3,6 +3,7 @@
 from typing import Any
 
 from .constants import NS, local_name
+from .object_xml import object_hash
 
 _P = NS["p"]
 _A = NS["a"]
@@ -112,6 +113,12 @@ def _map_shape(elem: Any, shape_type: str) -> dict[str, Any]:
         "type": shape_type,
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {
+            "id": shape_id,
+            "name": name,
+            "type": "image" if shape_type == "picture" else "shape",
+        },
         "text_frames": text_frames,
     }
 
@@ -134,6 +141,12 @@ def _map_graphic_frame(elem: Any) -> dict[str, Any]:
         "type": "graphicFrame",
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {
+            "id": shape_id,
+            "name": name,
+            "type": "table" if table_info is not None else "chart" if chart_info is not None else "shape",
+        },
         "table": table_info,
         "chart_ref": chart_info,
     }
@@ -147,6 +160,8 @@ def _map_connector(elem: Any) -> dict[str, Any]:
         "type": "connector",
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {"id": shape_id, "name": name, "type": "shape"},
         "geometry": _map_connector_geometry(elem),
     }
 

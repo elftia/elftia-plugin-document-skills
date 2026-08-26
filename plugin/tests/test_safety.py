@@ -1,5 +1,4 @@
 from datetime import timedelta
-import io
 import os
 from pathlib import Path
 import time
@@ -90,6 +89,58 @@ def test_ooxml_preflight_normalizes_malformed_xml(tmp_path):
         inspect_ooxml(malformed)
     assert captured.value.code == ErrorCode.ARCHIVE_UNSAFE
     assert captured.value.details["reason"] == "ParseError"
+
+
+def test_ooxml_preflight_rejects_nested_content_type_declaration(tmp_path):
+    document = tmp_path / "nested-content-type.docx"
+    _minimal_docx(
+        document,
+        {
+            "[Content_Types].xml": b"""\
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml">
+    <Override PartName="/word/document.xml" ContentType="application/xml"/>
+  </Default>
+</Types>"""
+        },
+    )
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        inspect_ooxml(document)
+    assert captured.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert captured.value.details == {}
+
+
+@pytest.mark.parametrize(
+    "content_types",
+    [
+        pytest.param(
+            b"""\
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Unexpected/>
+</Types>""",
+            id="unknown-child",
+        ),
+        pytest.param(
+            b"""\
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="xml" ContentType="application/xml">payload</Default>
+</Types>""",
+            id="nonempty-declaration",
+        ),
+    ],
+)
+def test_ooxml_preflight_rejects_invalid_content_type_children(
+    tmp_path,
+    content_types,
+):
+    document = tmp_path / "invalid-content-types.docx"
+    _minimal_docx(document, {"[Content_Types].xml": content_types})
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        inspect_ooxml(document)
+    assert captured.value.code == ErrorCode.ARCHIVE_UNSAFE
+    assert captured.value.details == {}
 
 
 def test_visible_dde_prose_is_not_treated_as_a_field_instruction(tmp_path):

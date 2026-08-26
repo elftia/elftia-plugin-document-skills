@@ -13,7 +13,7 @@ Canonical findings: **0 Blocker, 0 Major, 0 Minor, 0 Trivial**.
 
 The independently reviewed mapping SHA-256 is:
 
-`b0de67cb89f999801dd9bb6337d047915a6b9470576dadf20c979f67ba990f47`
+`45c4be411b945b6636a6a8abcec9ed42d6f2d44ca7ea44afdbcd55a45220e0e5`
 
 This approval binds only to those exact reviewed release bytes. Any
 non-metadata release-artifact change requires regeneration and another
@@ -22,7 +22,7 @@ independent review.
 ## Reviewer identity
 
 - Reviewer: `Codex collaboration subagent /root/docx_independent_review`
-- Identity: `codex-reviewer/document-skills-0.5.3-docx-completion/pre-merge-non-author-2026-08-26`
+- Identity: `codex-reviewer/document-skills-0.5.3-docx-completion/post-merge-non-author-2026-08-26`
 - Runtime: `codex`
 - Role: `reviewer`
 - Scope: `all-release-artifacts`
@@ -33,9 +33,10 @@ independent review.
   merge, release, or unobserved operating-system behavior.
 - Report id: `document-skills-0.5.3-docx-completion-review`
 
-The reviewer did not author the implementation or the pre-attestation
-allowlist fix. The full three-round review and pre-attestation integrity delta
-are recorded in the Store Change evidence for `document-skills-core-docx`.
+The reviewer did not author the implementation, integration corrections, or
+the final standard-library allowlist fix. The full three-round review,
+pre-attestation integrity delta, and post-merge integration delta are recorded
+in the Store Change evidence for `document-skills-core-docx`.
 
 ## Reviewed scope
 
@@ -78,6 +79,8 @@ not accepted as evidence.
 
 - Review cycle: 3 rounds, final `VERDICT: CLEAN`.
 - Pre-attestation metadata-integrity delta: `CLEAN`.
+- Post-merge integration delta: `CLEAN` at mapping digest
+  `45c4be411b945b6636a6a8abcec9ed42d6f2d44ca7ea44afdbcd55a45220e0e5`.
 - Canonical findings: Blocker 0 / Major 0 / Minor 0 / Trivial 0.
 - Core public facade: 9/9 successful operations with exact chains.
 - Optional public facade: 11/11 schema-valid successful operations with exact
@@ -86,10 +89,11 @@ not accepted as evidence.
   registry type exactly.
 - Metadata boundary: generator and validator exact allowlists match; normal
   implementation paths remain rejected from the self-reference exception.
+- Integrated Core selection: `400 passed, 3 skipped`; Python compileall and
+  the nine-operation Core evidence driver passed.
 - Provenance before formal binding: all substantive audit checks passed, with
   the missing independent attestation as the sole expected error.
 
-Remote CI, integration with the newer `origin/main`, PR merge, ship,
-retention, and archive are deliberately not claimed by this pre-merge review.
-The integrated tree must be regenerated and independently delta-reviewed
-before final delivery.
+Remote CI, PR merge, ship, retention, and archive are deliberately not claimed
+by this review. The `origin/main` integration bytes were regenerated and
+independently delta-reviewed before this final binding.

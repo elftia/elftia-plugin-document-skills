@@ -1,6 +1,7 @@
 """Bounded dependency-free PNG decoding and normalized visual comparison."""
 
 import struct
+from typing import Any
 import zlib
 
 _SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -8,6 +9,9 @@ _MAX_ENCODED_BYTES = 16 * 1024 * 1024
 _MAX_PIXELS = 10_000_000
 _GRID_WIDTH = 96
 _GRID_HEIGHT = 54
+_REGION_COLUMNS = 12
+_REGION_ROWS = 6
+_MAX_REGION_DIFFERENCES = 24
 MEAN_ABSOLUTE_ERROR_MAX = 0.08
 CHANGED_PIXEL_RATIO_MAX = 0.2
 CHANGED_PIXEL_DELTA = 0.12
@@ -23,6 +27,9 @@ def compare_png(source: bytes, rendered: bytes) -> dict[str, object]:
     total_delta = 0.0
     changed = 0
     sample_count = _GRID_WIDTH * _GRID_HEIGHT
+    region_deltas = [0.0] * (_REGION_COLUMNS * _REGION_ROWS)
+    region_changed = [0] * (_REGION_COLUMNS * _REGION_ROWS)
+    region_samples = [0] * (_REGION_COLUMNS * _REGION_ROWS)
     for grid_y in range(_GRID_HEIGHT):
         source_y = min(source_height - 1, grid_y * source_height // _GRID_HEIGHT)
         rendered_y = min(rendered_height - 1, grid_y * rendered_height // _GRID_HEIGHT)
@@ -39,6 +46,12 @@ def compare_png(source: bytes, rendered: bytes) -> dict[str, object]:
             delta = sum(abs(left - right) for left, right in zip(source_rgb, rendered_rgb)) / 765
             total_delta += delta
             changed += delta > CHANGED_PIXEL_DELTA
+            region_x = grid_x * _REGION_COLUMNS // _GRID_WIDTH
+            region_y = grid_y * _REGION_ROWS // _GRID_HEIGHT
+            region_index = region_y * _REGION_COLUMNS + region_x
+            region_deltas[region_index] += delta
+            region_changed[region_index] += delta > CHANGED_PIXEL_DELTA
+            region_samples[region_index] += 1
     mean_error = total_delta / sample_count
     changed_ratio = changed / sample_count
     within = (
@@ -46,14 +59,31 @@ def compare_png(source: bytes, rendered: bytes) -> dict[str, object]:
         and mean_error <= MEAN_ABSOLUTE_ERROR_MAX
         and changed_ratio <= CHANGED_PIXEL_RATIO_MAX
     )
+    region_differences = _region_differences(
+        source_width,
+        source_height,
+        region_deltas,
+        region_changed,
+        region_samples,
+    )
     return {
         "source_size": {"width": source_width, "height": source_height},
         "rendered_size": {"width": rendered_width, "height": rendered_height},
         "mean_absolute_error": round(mean_error, 6),
         "changed_pixel_ratio": round(changed_ratio, 6),
         "aspect_ratio_delta": round(aspect_delta, 6),
+        "region_differences": region_differences[:_MAX_REGION_DIFFERENCES],
+        "region_differences_truncated": max(
+            0,
+            len(region_differences) - _MAX_REGION_DIFFERENCES,
+        ),
         "within_thresholds": within,
     }
+
+
+def inspect_png(payload: bytes) -> dict[str, int]:
+    width, height, _rgba = _decode_png(payload)
+    return {"height": height, "width": width}
 
 
 def visual_thresholds() -> dict[str, object]:
@@ -63,6 +93,8 @@ def visual_thresholds() -> dict[str, object]:
         "changed_pixel_delta": CHANGED_PIXEL_DELTA,
         "aspect_ratio_delta_max": ASPECT_RATIO_DELTA_MAX,
         "sample_grid": {"width": _GRID_WIDTH, "height": _GRID_HEIGHT},
+        "region_grid": {"columns": _REGION_COLUMNS, "rows": _REGION_ROWS},
+        "max_region_differences": _MAX_REGION_DIFFERENCES,
     }
 
 
@@ -99,6 +131,51 @@ def encode_rgba_png(width: int, height: int, rgba: bytes) -> bytes:
     return _SIGNATURE + chunk(b"IHDR", header) + chunk(
         b"IDAT", zlib.compress(rows, level=9)
     ) + chunk(b"IEND", b"")
+
+
+def _region_differences(
+    width: int,
+    height: int,
+    deltas: list[float],
+    changed: list[int],
+    samples: list[int],
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for row in range(_REGION_ROWS):
+        for column in range(_REGION_COLUMNS):
+            index = row * _REGION_COLUMNS + column
+            sample_count = samples[index]
+            mean_error = deltas[index] / sample_count
+            changed_ratio = changed[index] / sample_count
+            if (
+                mean_error <= MEAN_ABSOLUTE_ERROR_MAX
+                and changed_ratio <= CHANGED_PIXEL_RATIO_MAX
+            ):
+                continue
+            x = min(width - 1, column * width // _REGION_COLUMNS)
+            y = min(height - 1, row * height // _REGION_ROWS)
+            right = max(x + 1, min(width, (column + 1) * width // _REGION_COLUMNS))
+            bottom = max(y + 1, min(height, (row + 1) * height // _REGION_ROWS))
+            result.append({
+                "grid": {"column": column, "row": row},
+                "source_bbox": {
+                    "x": x,
+                    "y": y,
+                    "width": right - x,
+                    "height": bottom - y,
+                },
+                "mean_absolute_error": round(mean_error, 6),
+                "changed_pixel_ratio": round(changed_ratio, 6),
+            })
+    return sorted(
+        result,
+        key=lambda item: (
+            -float(item["mean_absolute_error"]),
+            -float(item["changed_pixel_ratio"]),
+            int(item["grid"]["row"]),
+            int(item["grid"]["column"]),
+        ),
+    )
 
 
 def _decode_png(payload: bytes) -> tuple[int, int, bytes]:
