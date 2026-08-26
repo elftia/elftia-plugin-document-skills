@@ -14,6 +14,7 @@ def success_result(
     operation_result: dict[str, Any],
     warnings: list[dict[str, Any]],
     validation: dict[str, Any],
+    achieved_fidelity: str = "core",
 ) -> dict[str, Any]:
     return {
         "schema_version": "1.0",
@@ -21,7 +22,7 @@ def success_result(
         "operation": request.operation,
         "provider_chain": [],
         "requested_fidelity": request.requested_fidelity,
-        "achieved_fidelity": "core",
+        "achieved_fidelity": achieved_fidelity,
         "degraded": False,
         "degradations": [],
         "artifacts": artifacts,
@@ -56,17 +57,17 @@ def read_validation(
                 "visual.render",
                 "unavailable",
                 required=False,
-                evidence={"reason": "LibreOffice visual validation is not implemented."},
-                warnings=["Optional visual validation is unavailable."],
+                evidence={"reason": "Visual comparison was not requested or run."},
+                warnings=["Optional visual comparison was not run."],
             ),
             gate_record(
                 "schema.full",
                 "unavailable",
                 required=False,
                 evidence={
-                    "reason": ".NET/OpenXML full schema validation is not implemented."
+                    "reason": "OpenXML schema validation was not requested or run."
                 },
-                warnings=["Optional full-schema validation is unavailable."],
+                warnings=["Optional full-schema validation was not run."],
             ),
         ],
     }

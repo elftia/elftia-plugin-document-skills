@@ -14,6 +14,13 @@ from .mapping import (
 )
 from .package import OpcPackage
 from .relationships import relationship_map
+from .semantic_nodes import (
+    FIGURE_NODE_TYPES,
+    PARAGRAPH_NODE_TYPES,
+    TABLE_NODE_TYPES,
+    semantic_node_for,
+)
+from .xml_utils import selector_sha256
 
 
 def project_story(
@@ -49,6 +56,20 @@ def project_story(
         style = paragraph_style(paragraph)
         numbering = paragraph_numbering(paragraph)
         hyperlinks = []
+        for hyperlink in paragraph.iter(qn("w", "hyperlink")):
+            anchor = hyperlink.attrib.get(qn("w", "anchor"))
+            if anchor:
+                hyperlinks.append(
+                    {
+                        "relationship_id": None,
+                        "target": None,
+                        "target_mode": "Internal",
+                        "resolved_target": None,
+                        "type": "internal-bookmark",
+                        "anchor": anchor,
+                        "text": "".join(hyperlink.itertext()),
+                    }
+                )
         for relationship_id in mapped.hyperlink_ids:
             relationship = relationships.get(relationship_id)
             if relationship is None:
@@ -62,18 +83,24 @@ def project_story(
                     "type": relationship.relationship_type,
                 }
             )
-        projected.append(
-            {
-                "index": index,
-                "text": text,
-                "style": style,
-                "heading_level": _heading_level(style),
-                "numbering": numbering,
-                "runs": runs,
-                "hyperlinks": hyperlinks,
-                "protected_text_present": bool(mapped.protected_text),
-            }
+        item = {
+            "index": index,
+            "text": text,
+            "style": style,
+            "heading_level": _heading_level(style),
+            "numbering": numbering,
+            "runs": runs,
+            "hyperlinks": hyperlinks,
+            "protected_text_present": bool(mapped.protected_text),
+        }
+        semantic_node = semantic_node_for(
+            paragraph,
+            allowed_types=PARAGRAPH_NODE_TYPES,
         )
+        if semantic_node is not None:
+            item["node_id"] = semantic_node.node_id
+            item["node_type"] = semantic_node.node_type
+        projected.append(item)
         if truncated["text"]:
             break
     return projected, truncated
@@ -146,26 +173,49 @@ def project_tables(
             if text_limit is not None and text_seen >= text_limit:
                 truncated = True
                 break
-        tables.append(
-            {
-                "index": table_index,
-                "style": (
-                    style_node.attrib.get(qn("w", "val"))
-                    if style_node is not None
-                    else None
-                ),
-                "rows": rows,
-            }
+        item = {
+            "index": table_index,
+            "selector_sha256": table_selector_sha256(table),
+            "style": (
+                style_node.attrib.get(qn("w", "val"))
+                if style_node is not None
+                else None
+            ),
+            "rows": rows,
+        }
+        semantic_node = semantic_node_for(
+            table,
+            allowed_types=TABLE_NODE_TYPES,
         )
+        if semantic_node is not None:
+            item["node_id"] = semantic_node.node_id
+            item["node_type"] = semantic_node.node_type
+        tables.append(item)
         if truncated:
             break
     return tables, truncated
 
 
+def table_selector_sha256(table: Element) -> str:
+    """Bind an edit selector to the complete immutable table subtree."""
+
+    return selector_sha256(table)
+
+
 def project_images(package: OpcPackage, story: Story) -> list[dict[str, Any]]:
     relationships = relationship_map(package.relationships, story.part)
     images = []
+    semantic_drawings = {}
+    for paragraph in story.root.iter(qn("w", "p")):
+        semantic_node = semantic_node_for(
+            paragraph,
+            allowed_types=FIGURE_NODE_TYPES,
+        )
+        if semantic_node is not None:
+            for drawing in paragraph.iter(qn("w", "drawing")):
+                semantic_drawings.setdefault(id(drawing), semantic_node)
     for drawing in story.root.iter(qn("w", "drawing")):
+        semantic_node = semantic_drawings.get(id(drawing))
         for blip in drawing.iter(qn("a", "blip")):
             relationship_id = blip.attrib.get(qn("r", "embed"))
             relationship = relationships.get(relationship_id or "")
@@ -174,22 +224,24 @@ def project_images(package: OpcPackage, story: Story) -> list[dict[str, Any]]:
             extent = next(drawing.iter(qn("wp", "extent")), None)
             properties = next(drawing.iter(qn("wp", "docPr")), None)
             target = relationship.resolved_target
-            images.append(
-                {
-                    "source_part": story.part,
-                    "relationship_id": relationship_id,
-                    "target_part": target,
-                    "content_type": package.content_type_for(target or ""),
-                    "dimensions_emu": (
-                        {"cx": extent.attrib.get("cx"), "cy": extent.attrib.get("cy")}
-                        if extent is not None
-                        else None
-                    ),
-                    "alt_text": (
-                        properties.attrib.get("descr") if properties is not None else None
-                    ),
-                }
-            )
+            item = {
+                "source_part": story.part,
+                "relationship_id": relationship_id,
+                "target_part": target,
+                "content_type": package.content_type_for(target or ""),
+                "dimensions_emu": (
+                    {"cx": extent.attrib.get("cx"), "cy": extent.attrib.get("cy")}
+                    if extent is not None
+                    else None
+                ),
+                "alt_text": (
+                    properties.attrib.get("descr") if properties is not None else None
+                ),
+            }
+            if semantic_node is not None:
+                item["node_id"] = semantic_node.node_id
+                item["node_type"] = semantic_node.node_type
+            images.append(item)
     return images
 
 
@@ -216,11 +268,18 @@ def project_sections(package: OpcPackage) -> list[dict[str, Any]]:
                     "target_part": (
                         relationship.resolved_target if relationship is not None else None
                     ),
+                    "story_sha256": (
+                        package.part_hashes.get(relationship.resolved_target)
+                        if relationship is not None
+                        and relationship.resolved_target is not None
+                        else None
+                    ),
                 }
             )
         sections.append(
             {
                 "index": index,
+                "selector_sha256": selector_sha256(section),
                 "type": (
                     section_type.attrib.get(qn("w", "val"), "continuous")
                     if section_type is not None
@@ -267,6 +326,8 @@ def _heading_level(style: str | None) -> int | None:
     folded = style.casefold().replace(" ", "")
     if folded.startswith("heading") and folded[7:].isdigit():
         return int(folded[7:])
+    if folded.startswith("elftiaheading") and folded[13:].isdigit():
+        return int(folded[13:])
     return None
 
 

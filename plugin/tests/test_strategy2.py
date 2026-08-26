@@ -135,19 +135,47 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
     operations = {item["operation"]: item for item in capability["operations"]}
     assert set(operations) == {
         "docx.create",
+        "docx.comments.add",
+        "docx.comments.read",
+        "docx.comments.resolve",
+        "docx.compare.semantic",
+        "docx.compare.visual",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.edit",
         "docx.edit.replace-text",
+        "docx.inspect.accessibility",
         "docx.inspect.structure",
+        "docx.layout.repair",
+        "docx.merge",
         "docx.read",
+        "docx.render",
+        "docx.revisions.apply",
+        "docx.revisions.read",
         "docx.template.apply",
+        "docx.validate.schema",
     }
     assert operations["docx.template.apply"]["providers"] == ["core-node"]
-    assert all(item["available"] for item in operations.values())
-    assert not any(
-        provider in item["providers"]
-        for item in operations.values()
-        for provider in ("libreoffice", "dotnet-openxml")
+    assert all(
+        operations[operation]["available"]
+        for operation in (
+            "docx.create",
+            "docx.compare.semantic",
+            "docx.edit",
+            "docx.edit.replace-text",
+            "docx.inspect.accessibility",
+            "docx.inspect.structure",
+            "docx.merge",
+            "docx.read",
+            "docx.template.apply",
+        )
     )
-    assert capability["validation"]["schema"] == "unavailable"
+    expected_schema = (
+        "available"
+        if capability_state["dotnet-openxml"]["available"]
+        else "unavailable"
+    )
+    assert capability["validation"]["schema"] == expected_schema
     assert capability["validation"]["visual"] == "unavailable"
 
 

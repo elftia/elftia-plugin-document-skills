@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.apply",
+  "input": "<template.docx>",
+  "output": "<rendered.docx>",
+  "arguments": {
+    "variables": {"title": "Accounts"},
+    "regions": [
+      {
+        "type": "paragraph_repeat",
+        "target": {
+          "story": "body",
+          "range": "paragraph",
+          "paragraph_index": 3,
+          "expected_text": "Customer {customer.name} in {region}"
+        },
+        "items": [
+          {"customer.name": "Ada", "region": "APAC"},
+          {"customer.name": "Grace", "region": "EMEA"}
+        ]
+      },
+      {
+        "type": "paragraph_condition",
+        "target": {
+          "story": "body",
+          "range": "paragraph",
+          "paragraph_index": 4,
+          "expected_text": "Optional appendix"
+        },
+        "include": false
+      }
+    ]
+  }
+}

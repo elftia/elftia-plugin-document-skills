@@ -62,20 +62,30 @@ projection.
 
 Requests and results use `schema_version: "1.0"` and the checked-in schemas in `schemas/`.
 Unknown operations return `DS_OPERATION_UNKNOWN`. The shared provider registry exposes bounded
-DOCX, XLSX, PPTX, and PDF operations. The Core DOCX slice registers five callable operations:
+DOCX, XLSX, PPTX, and PDF operations. The Core DOCX slice registers nine callable operations:
 
 - `docx.read`
+- `docx.inspect.accessibility`
 - `docx.inspect.structure`
+- `docx.compare.semantic`
 - `docx.create`
+- `docx.edit`
 - `docx.edit.replace-text`
+- `docx.merge`
 - `docx.template.apply`
 
 The DOCX implementation lives in `src/document_skills_core/formats/docx/`. Read and inspection
-return bounded structured data. Create emits a styled report with a table, one local image,
-header/footer content, and at least two sections. Replacement is run-aware across the document
-and referenced header/footer stories. Scalar template substitution accepts only bounded
-ASCII/dot identifiers and uses the project-local Node backend privately through Python.
+return bounded structured data. Create accepts either the compatible report contract or a
+source-neutral versioned document spec with stable semantic ids, reusable style profiles, and
+optional domain profiles. Template Engine/physical `.docx|.dotx` bases, Document Spec, Style
+Profile, and Domain Profile are separate layers: `academic-paper` is the first domain application,
+while `technical-report` proves the generic emitter is reusable. Replacement is run-aware across
+the document and referenced header/footer stories. Scalar template substitution accepts only
+bounded ASCII/dot identifiers and uses the project-local Node backend privately through Python.
 `skills/document-docx/references/` contains the complete request/result and safety guidance.
+Mammoth 1.12.1 was evaluated as a lossy HTML adapter and not adopted; no Markdown/HTML placeholder
+operation or runtime dependency was added, and native OOXML remains the comparison/security source
+of truth.
 
 ### XLSX
 
@@ -137,9 +147,11 @@ recoverable in-place replacement.
 ## Optional providers
 
 LibreOffice and `.NET 8 + DocumentFormat.OpenXml` are optional enhancements. `doctor --json`
-reports executable/runtime detection separately from accepted validator capability. LibreOffice
-being present does not make visual validation available until a registered visual validator has
-passed its artifact tests. The OpenXML enhancement is available only when .NET 8 and the
+reports executable/runtime detection separately from accepted callable capability. An accepted
+LibreOffice provider adds DOCX PDF conversion, PDF/PNG page evidence with deterministic layout
+findings, a bounded semantic-node layout repair loop, fixed-profile reference visual comparison,
+and legacy `.doc` conversion. A normal render does not imply reference visual comparison. The
+OpenXML enhancement is available only when .NET 8 and the
 project-local `OpenXmlProbe.dll` successfully load and identify the project-local
 `DocumentFormat.OpenXml` assembly; another .NET major or a bare dotnet executable is not enough.
 Their absence does not make Core unhealthy.
@@ -151,9 +163,11 @@ capability report always lists `pptx.create.from-html`, but marks it `available:
 the locked Node library, a supported system browser, and the bounded sandboxed launch probe all
 pass. Its absence returns `unavailable` and creates no output.
 
-The current DOCX slice does not implement either optional validator. Its validation report marks
-the visual and full-schema gates `unavailable`; detection alone never turns either gate into
-`pass`, changes achieved fidelity, or advertises a callable operation.
+The DOCX slice exposes `docx.compare.visual` only through the accepted LibreOffice provider and
+`docx.validate.schema` only through the accepted .NET/OpenXML provider. Ordinary Core mutations do
+not claim either result: their visual and full-schema gates remain `unavailable` unless the
+corresponding public operation actually runs. Detection alone never turns a gate into `pass`,
+changes achieved fidelity, or advertises a callable operation.
 
 ## Active-content policy
 

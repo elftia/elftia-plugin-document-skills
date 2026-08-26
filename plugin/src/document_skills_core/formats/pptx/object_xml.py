@@ -2,7 +2,7 @@
 
 from hashlib import sha256
 from typing import Any
-from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.etree.ElementTree import canonicalize, Element, SubElement, tostring
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
@@ -86,7 +86,9 @@ def non_visual_properties(element: Element) -> Element:
 
 
 def object_hash(element: Element) -> str:
-    return sha256(tostring(element, encoding="UTF-8")).hexdigest()
+    serialized = tostring(element, encoding="unicode")
+    canonical = canonicalize(serialized, rewrite_prefixes=True)
+    return sha256(canonical.encode("UTF-8")).hexdigest()
 
 
 def next_shape_id(tree: Element) -> int:

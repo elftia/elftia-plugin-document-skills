@@ -25,7 +25,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign",
-      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+      "sha256": "9b345775c8b1a4ed9e0f40a7be850a000a20f6ac63a0b46cc88bd4ff8defd803"
     },
     {
       "authorship": "original-elftia",
@@ -33,7 +33,7 @@
       "license": "GPL-3.0",
       "origin": "generated",
       "path": "docx-rich-word16-rejected.docx",
-      "purpose": "Explicit Word 16 rejection regression preserving the prior docx-rich bytes",
+      "purpose": "Explicit Word 16 rejection regression preserving the legacy relationship bytes",
       "recipe": "tests/fixtures/recipes/docx_fixtures.py",
       "recipe_dependencies": [
         "tests/fixtures/recipes/docx_fixture_security.py",
@@ -57,7 +57,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "consumer-positive",
-      "sha256": "3f41412fa24ea0561bf655e85448d5facad36d9d1f4bda302078836507eb62f5"
+      "sha256": "14e931a5ff6ec9200464705e90aa34b5d7ec428e45b52dc054cd89d3eeb13a7b"
     },
     {
       "authorship": "original-elftia",
@@ -73,7 +73,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-preservation",
-      "sha256": "defd456edd8122238c6d0b8a990d025bf9140594d38ac8246088daf91a25f9c5"
+      "sha256": "a52d2d7f2878cb4f7a784af0f6cd3f9c95935bcb7b8f7a280a9bed5cd37e6e2c"
     },
     {
       "authorship": "original-elftia",
@@ -89,7 +89,23 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "protected-content",
-      "sha256": "e2dc6d7c491d5bdc6a2140eaf9f2a3620dfb050a9858712e2a96c8d3fd001eca"
+      "sha256": "5794c01c723f9cdf68a47ccd9cfc056f4d3e49ea39f2683f4f728f5e445f324f"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "docx",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "docx-revisions-nested.docx",
+      "purpose": "Nested-table tracked-revision scope and filtering fixture",
+      "recipe": "tests/fixtures/recipes/docx_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/recipes/docx_fixture_security.py",
+        "tests/fixtures/recipes/docx_fixture_support.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "protected-content",
+      "sha256": "23acaefcda0b4e4960f4617ca042303542962f922cac2026c1c74123a5f394ba"
     },
     {
       "authorship": "original-elftia",
@@ -105,7 +121,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "d35b78bca43b6ecbdce6234f9b3aa057ffc36d1b76c04bdbb512e1f3757f1d4e"
+      "sha256": "af72625eb47607bfb2bc0182ea23daba6f0e75161c77e409d2cca9f4af552d4b"
     },
     {
       "authorship": "original-elftia",
@@ -121,7 +137,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "c87319a2b88da2d6e73d235f483c59bb8abf8578fc74615b0bffe11788600fa6"
+      "sha256": "091bec50e32e45692f6233b78e320ccad7b5594690d9e93aa1b6109d28623587"
     },
     {
       "authorship": "original-elftia",
@@ -137,7 +153,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "886f9fef7840d28e24a9dac88687566eb03af4b4eecde5b3f395c5e5dd078536"
+      "sha256": "184f09a35a32508c66b84a58913674a4f5c15ff520a3c45852d75c63db3d4cc5"
     },
     {
       "authorship": "original-elftia",
@@ -153,7 +169,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "01e3f06aebfad63dc82069098f6baf822bbebbe7caabb7243ba826b20a3fb562"
+      "sha256": "167f726393ee1287e7506d7ec14a884268afb2f0f194e43437ffe0abcb086bee"
     },
     {
       "authorship": "original-elftia",
@@ -169,7 +185,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "562c435a273809dea99a9c52865afc3506e2a1106b874a2c57387de4bf3be474"
+      "sha256": "4c5d020a542a6c6e0e5295b0c01c793733a6e5e2606908b26f76e60600c695df"
     },
     {
       "authorship": "original-elftia",
@@ -185,7 +201,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "216cd131a616619fc2b4a54e440f57443adc015ce3ffe81817ba9ccc2d1bde6c"
+      "sha256": "7e17bd8e213fee5bf86ad104e20677a60c5d43bc14ce0af3a119cc56316e1f6a"
     },
     {
       "authorship": "original-elftia",
@@ -201,7 +217,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "2550d164acaeb7352439ba49ca6fe6eeaefb0b595e963a045017b276b9ee06d3"
+      "sha256": "b2705ed4e8e5b27f532ec831aecd14d2cd6afb96af261c38b36071e3fea37006"
     },
     {
       "authorship": "original-elftia",
@@ -217,7 +233,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "b578379db62904dfcf0dc8cabc7e66a548f163ac5bc7edabea2cc255a8eeeab8"
+      "sha256": "91f40d1a074a004e35dc37ead574b964ac7dd94518468c3130e21f21d6eea7f0"
     },
     {
       "authorship": "original-elftia",
@@ -233,7 +249,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "f289842ae8c3ad10ac5c15301ae1e70d5aaa8707c9194226ded4ce46fcd1b2b9"
+      "sha256": "6011eedd2703b717ae3894344878544d79a8840d88d1fb8e90c40ba439a3f4e5"
     },
     {
       "authorship": "original-elftia",
@@ -249,7 +265,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "ecac4f5a7a4deffdee241567cea7b38265f2bc6d5d84629a82a742f66e3891b7"
+      "sha256": "c86c1ba1a42570830f734f5c08023162cf5b4bc4f94b94643e0409c753bc9fb4"
     },
     {
       "authorship": "original-elftia",
@@ -265,7 +281,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "0a17b51a53a9f842af6a716c789393a9cca7aff3673df7d19b4c4eff1713c096"
+      "sha256": "88e017c5bd8248ecd8c900ae0ff5d4370b035a4e3973635082120310290c4e34"
     },
     {
       "authorship": "original-elftia",
@@ -281,7 +297,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "0e784d9eed07de710f0f29762842ea13f7b98572fce44a084ab824052c581ad5"
+      "sha256": "0421e00d2664e65af66d288ca7244a3e81536f8ecc12a27c441f4e0aed3b23a1"
     },
     {
       "authorship": "original-elftia",
@@ -297,7 +313,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "b65940f5114fc917d45ad72bc1c8b63189b30017f22464863f6edaece3bc5eaa"
+      "sha256": "80886dcb9ea1ac13f7bd4ef19c3beb93cc8774f8afd63a5193b61df0f279f79b"
     },
     {
       "authorship": "original-elftia",
@@ -337,7 +353,7 @@
       "license": "GPL-3.0",
       "origin": "generated",
       "path": "pptx/ecosystem_bc/templates/cjk-capacity.pptx",
-      "purpose": "CJK capacity, placeholder, ellipsis, and speaker-notes leak fixture.",
+      "purpose": "CJK capacity, type-scale, placeholder, ellipsis, and speaker-notes leak fixture.",
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
@@ -345,7 +361,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-content-lint",
-      "sha256": "a82ca70dfed9563f88d90485560faa97f6fcf7f68fdb8f7161d579e98fca59b1"
+      "sha256": "5f067ce0e070794d3fab3b73d4ae9e70d48184117da53e8d512dda4289c58d33"
     },
     {
       "authorship": "original-elftia",
@@ -361,7 +377,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-generated-metadata",
-      "sha256": "9d2cb87204ba95f040d366fb13de585beb2f4dcfaa7a5cc876ad85dceddf3415"
+      "sha256": "eb0a283e6079d66619e74a1ced58881664087653a19a4936c1df91a7675820a3"
     },
     {
       "authorship": "original-elftia",

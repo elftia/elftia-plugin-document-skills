@@ -10,7 +10,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -35,6 +34,8 @@ from docx_fixture_support import (
     PNG_1X1,
     copy_with_additions,
     enrich_rich,
+    legacy_prefixed_relationship_fixture,
+    nested_revision_fixture,
     report_model,
     revision_fixture,
 )
@@ -72,16 +73,17 @@ def generate(output: Path) -> list[dict[str, object]]:
     records.append(_record(rich, "Rich read/create/template/replace fixture", "benign"))
 
     rejected = output / "docx-rich-word16-rejected.docx"
-    shutil.copyfile(rich, rejected)
+    legacy_prefixed_relationship_fixture(rich, rejected)
     records.append(
         _record(
             rejected,
-            "Explicit Word 16 rejection regression preserving the prior docx-rich bytes",
+            "Explicit Word 16 rejection regression preserving the legacy relationship bytes",
             "consumer-negative",
         )
     )
 
     public_bounded = output / "docx-public-bounded-word16-accepted.docx"
+    public_bounded.unlink(missing_ok=True)
     _create_public_bounded_fixture(public_bounded)
     records.append(
         _record(
@@ -117,6 +119,15 @@ def generate(output: Path) -> list[dict[str, object]]:
         _record(
             revision,
             "Field, revision, deleted text, and comment mutation boundary fixture",
+            "protected-content",
+        )
+    )
+    nested_revision = output / "docx-revisions-nested.docx"
+    nested_revision_fixture(revision, nested_revision)
+    records.append(
+        _record(
+            nested_revision,
+            "Nested-table tracked-revision scope and filtering fixture",
             "protected-content",
         )
     )

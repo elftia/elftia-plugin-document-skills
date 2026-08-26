@@ -10,9 +10,11 @@ from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
+    PPTX_TEMPLATE_B4_REQUIREMENT,
     html_pptx_data_profile,
     pptx_module_profile,
     template_b2_data_profile,
+    template_b4_data_profile,
 )
 from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
 from .release_inventory import release_artifacts
@@ -740,10 +742,16 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
 def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     html_profile = html_pptx_data_profile(artifact.path)
     template_b2_profile = template_b2_data_profile(artifact.path)
+    template_b4_profile = template_b4_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
     selected_profiles = [
         profile
-        for profile in (html_profile, template_b2_profile, xlsx_profile)
+        for profile in (
+            html_profile,
+            template_b2_profile,
+            template_b4_profile,
+            xlsx_profile,
+        )
         if profile is not None
     ]
     modifications = (
@@ -771,8 +779,9 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             _compose_requirements(
                 HTML_PPTX_REQUIREMENT if html_profile else None,
                 PPTX_TEMPLATE_B2_REQUIREMENT if template_b2_profile else None,
+                PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
             )
-            if html_profile or template_b2_profile
+            if html_profile or template_b2_profile or template_b4_profile
             else None
         )
         requirement = (

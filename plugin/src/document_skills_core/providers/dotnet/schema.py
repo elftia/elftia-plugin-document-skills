@@ -17,6 +17,8 @@ _MAX_ERROR_FIELD_BYTES = 256
 def validate_schema(
     input_document: Path,
     runner: DotnetOpenXmlRunner,
+    *,
+    max_errors: int = 100,
 ) -> dict[str, Any]:
     """Run the OpenXML SDK schema validator. Returns valid + per-part errors."""
     suffix = Path(input_document).suffix.casefold()
@@ -30,7 +32,7 @@ def validate_schema(
         staged.write_bytes(Path(input_document).read_bytes())
         result = runner.run(
             "--schema-validate",
-            stdin_payload={"input_path": str(staged)},
+            stdin_payload={"input_path": str(staged), "max_errors": max_errors},
         )
     return _document_schema_response(result)
 
@@ -82,10 +84,10 @@ def _response_envelope(result: Any, subcommand: str) -> tuple[bool, list[Any], d
             "dotnet helper schema valid field is not boolean.",
         )
     errors = data.get("errors", [])
-    if not isinstance(errors, list):
+    if type(errors) is not list:
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
-            "dotnet helper schema errors field is not a list.",
+            "dotnet helper schema errors field is not a bounded list.",
         )
     return valid, errors, data
 

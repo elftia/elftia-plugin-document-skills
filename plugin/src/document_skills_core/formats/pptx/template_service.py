@@ -140,6 +140,8 @@ def create_from_template(
                     output_slide_ids=[
                         item["output_slide_id"] for item in request.arguments["pages"]
                     ],
+                    descriptor=materialization.content_descriptor,
+                    output_object_sources=materialization.output_object_sources,
                 ),
                 allow_removals=True,
             )

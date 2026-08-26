@@ -18,7 +18,11 @@ from .package import OpcPackage, PreservationManifest
 from .slide_graph import copy_slide, delete_slide
 from .template_binding import apply_template_bindings
 from .template_content_lint import lint_materialized_content, validate_binding_plan
-from .template_descriptor import load_template_descriptor, validate_catalog_binding
+from .template_descriptor import (
+    TemplateDescriptor,
+    load_template_descriptor,
+    validate_catalog_binding,
+)
 from .template_inspect import _apply_semantics, _project_pages
 from .template_purge import (
     TemplatePurgePlan,
@@ -33,6 +37,8 @@ class TemplateMaterialization:
     operation_result: dict[str, Any]
     preservation: PreservationManifest
     purge_plan: TemplatePurgePlan
+    content_descriptor: TemplateDescriptor
+    output_object_sources: dict[str, str]
 
 
 def materialize_template(
@@ -146,7 +152,15 @@ def materialize_template(
     })
 
     preservation = target.emit(candidate_path)
-    postflight_lint = lint_materialized_content(candidate_path)
+    output_object_sources = {
+        item["output_object_id"]: item["source_object_id"]
+        for item in object_mapping
+    }
+    postflight_lint = lint_materialized_content(
+        candidate_path,
+        descriptor=descriptor,
+        output_object_sources=output_object_sources,
+    )
     purge = validate_template_purge(
         candidate_path,
         purge_plan,
@@ -193,7 +207,13 @@ def materialize_template(
         },
         "visual": {"status": "not_run"},
     }
-    return TemplateMaterialization(operation_result, preservation, purge_plan)
+    return TemplateMaterialization(
+        operation_result,
+        preservation,
+        purge_plan,
+        descriptor,
+        output_object_sources,
+    )
 
 
 def _validate_resource_plan(
@@ -301,13 +321,19 @@ def validate_materialized_template(
     *,
     purge_plan: TemplatePurgePlan,
     output_slide_ids: list[str],
+    descriptor: TemplateDescriptor,
+    output_object_sources: dict[str, str],
 ) -> dict[str, Any]:
     purge = validate_template_purge(
         candidate_path,
         purge_plan,
         output_slide_ids=output_slide_ids,
     )
-    lint = lint_materialized_content(candidate_path)
+    lint = lint_materialized_content(
+        candidate_path,
+        descriptor=descriptor,
+        output_object_sources=output_object_sources,
+    )
     return {"content_lint": lint, "physical_purge": purge}
 
 

@@ -2,6 +2,8 @@
 
 from hashlib import sha256
 from pathlib import Path
+import subprocess
+import sys
 import zipfile
 
 from pptx import Presentation
@@ -17,6 +19,34 @@ from document_skills_core.formats.pptx.package import OpcPackage, write_determin
 from document_skills_core.formats.pptx.read import read_pptx
 from document_skills_core.formats.pptx.service import PptxService
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
+
+
+def test_object_hash_is_independent_of_process_namespace_prefixes() -> None:
+    script = """
+import sys
+from xml.etree.ElementTree import Element, register_namespace, SubElement
+
+sys.path.insert(0, "src")
+from document_skills_core.formats.pptx.object_xml import object_hash
+
+namespace = "http://schemas.openxmlformats.org/drawingml/2006/main"
+register_namespace(sys.argv[1], namespace)
+element = Element(f"{{{namespace}}}root")
+SubElement(element, f"{{{namespace}}}child", {f"{{{namespace}}}value": "x"})
+print(object_hash(element))
+"""
+    project_root = Path(__file__).parents[1]
+
+    def hash_from_process(prefix: str) -> str:
+        return subprocess.run(
+            [sys.executable, "-c", script, prefix],
+            cwd=project_root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    assert hash_from_process("first") == hash_from_process("second")
 
 
 def _deck() -> dict[str, object]:

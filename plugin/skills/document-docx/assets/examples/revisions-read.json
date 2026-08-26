@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.revisions.read",
+  "input": "<input.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {
+    "max_revisions": 1000,
+    "filters": {
+      "authors": ["Alice"],
+      "types": ["insertion", "deletion"],
+      "date_from": "2026-01-01T00:00:00Z",
+      "date_to": "2026-12-31T23:59:59Z"
+    }
+  }
+}

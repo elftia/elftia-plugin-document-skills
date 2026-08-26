@@ -14,6 +14,7 @@ import pytest
 from document_skills_core.cli import execute_request
 from document_skills_core.core.contracts import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.schemas import SchemaCatalog
+from document_skills_core.formats.docx.constants import qn
 from document_skills_core.formats.docx.inspect import inspect_docx
 from document_skills_core.formats.docx.package import OpcPackage
 from document_skills_core.formats.docx.read import read_docx
@@ -204,7 +205,7 @@ def test_word_positive_and_negative_fixture_names_are_truthful(project_root: Pat
     assert hashlib.sha256(negative.read_bytes()).hexdigest() == (
         "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
     )
-    assert negative.read_bytes() == prior_rich.read_bytes()
+    assert negative.read_bytes() != prior_rich.read_bytes()
     assert positive.read_bytes() != negative.read_bytes()
     report = qualify_artifact(
         format_id="docx",
@@ -432,4 +433,19 @@ def test_revision_field_and_comment_fixture_is_readable_but_protected(
         paragraph["protected_text_present"]
         for story in structured["document"]["stories"]
         for paragraph in story["paragraphs"]
+    )
+
+
+def test_nested_revision_fixture_covers_table_scoping(project_root: Path) -> None:
+    source = _fixture_root(project_root) / "docx-revisions-nested.docx"
+    package = OpcPackage.open(source)
+    inspection, warnings = inspect_docx(source, _INSPECT_ARGUMENTS)
+
+    assert warnings == []
+    assert inspection["word_features"]["revisions"] == 4
+    document = package.xml("word/document.xml")
+    assert len(list(document.iter(qn("w", "tbl")))) == 2
+    assert any(
+        "nested-table insertion" in "".join(paragraph.itertext())
+        for paragraph in document.iter(qn("w", "p"))
     )

@@ -27,9 +27,14 @@ _XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
 _XLSX_COMPLETION_REQUIREMENT = "Rasen document-skills-xlsx-completion"
 _XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
 _PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
+_PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 _PPTX_TEMPLATE_B2_DATA_DESCRIPTION = (
     "Elftia-authored semantic-template guidance, deterministic fixtures, "
     "hash-bound metadata, and exact runtime-source policy for PPTX B2."
+)
+_PPTX_TEMPLATE_B4_DATA_DESCRIPTION = (
+    "B4 template-content guidance, deterministic CJK fixture bytes, "
+    "hash-bound metadata, and exact runtime-source policy."
 )
 
 
@@ -861,10 +866,12 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "THIRD_PARTY_NOTICES.md": html_xlsx_requirement,
         "provenance/dependency-allowlist.json": html_xlsx_requirement,
         "provenance/dependency-licenses.json": html_xlsx_requirement,
-        "provenance/runtime-source-allowlist.json": (
-            f"{_PPTX_TEMPLATE_B2_REQUIREMENT} + "
-            "document-skills-core-xlsx + document-skills-xlsx-completion + "
-            "document-skills-xlsx-advanced-authoring"
+        "provenance/runtime-source-allowlist.json": _compose_requirements(
+            _PPTX_TEMPLATE_B2_REQUIREMENT,
+            _PPTX_TEMPLATE_B4_REQUIREMENT,
+            _XLSX_REQUIREMENT,
+            _XLSX_COMPLETION_REQUIREMENT,
+            _XLSX_ADVANCED_REQUIREMENT,
         ),
         "sbom.cdx.json": html_xlsx_requirement,
     }
@@ -881,7 +888,8 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "provenance/dependency-allowlist.json": nuget_description,
         "provenance/dependency-licenses.json": nuget_description,
         "provenance/runtime-source-allowlist.json": (
-            f"{_PPTX_TEMPLATE_B2_DATA_DESCRIPTION} {runtime_description}"
+            f"{_PPTX_TEMPLATE_B2_DATA_DESCRIPTION} "
+            f"{_PPTX_TEMPLATE_B4_DATA_DESCRIPTION} {runtime_description}"
         ),
         "sbom.cdx.json": nuget_description,
     }

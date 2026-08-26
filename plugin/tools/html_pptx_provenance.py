@@ -5,6 +5,7 @@ from pathlib import Path
 HTML_PPTX_REQUIREMENT = "Rasen html-to-editable-pptx"
 CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
 PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
+PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 COMBINED_PPTX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx"
 )
@@ -17,6 +18,9 @@ SHARED_PROVENANCE_REQUIREMENT = (
 )
 SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT = (
     SHARED_PROVENANCE_REQUIREMENT + " + pptx-ecosystem-phase-bc-b2"
+)
+SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT = (
+    SHARED_PROVENANCE_TEMPLATE_B2_REQUIREMENT + " + pptx-ecosystem-phase-bc-b4"
 )
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
@@ -72,6 +76,32 @@ _PPTX_TEMPLATE_B2_TESTS = [
     "tests/test_html_pptx_public.py",
     "tests/test_pptx_contracts.py",
     "tests/test_pptx_public.py",
+    "tests/test_runtime.py",
+    "tests/test_supply_chain.py",
+]
+_PPTX_TEMPLATE_B4_MODULES = {
+    "src/document_skills_core/formats/pptx/results.py",
+    "src/document_skills_core/formats/pptx/template_content_analysis.py",
+    "src/document_skills_core/formats/pptx/template_content_fonts.py",
+    "src/document_skills_core/formats/pptx/template_content_lint.py",
+    "src/document_skills_core/formats/pptx/template_content_metrics.py",
+    "src/document_skills_core/formats/pptx/template_inspect.py",
+    "src/document_skills_core/formats/pptx/template_materialize.py",
+    "src/document_skills_core/formats/pptx/template_service.py",
+    "tests/fixtures/pptx/ecosystem_bc/generate.py",
+    "tests/test_html_provenance.py",
+    "tests/test_pptx_template_b4.py",
+    "tests/test_pptx_template_b4_fonts.py",
+    "tests/test_pptx_template_b4_hardening.py",
+    "tools/html_pptx_provenance.py",
+    "tools/regenerate_provenance.py",
+}
+_PPTX_TEMPLATE_B4_TESTS = [
+    "tests/test_pptx_template_b4.py",
+    "tests/test_pptx_template_b4_fonts.py",
+    "tests/test_pptx_template_b4_hardening.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_html_provenance.py",
     "tests/test_runtime.py",
     "tests/test_supply_chain.py",
 ]
@@ -138,10 +168,21 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
     html_profile = html_pptx_module_profile(path)
     core_profile = core_pptx_module_profile(path)
     template_profile = template_b2_module_profile(path)
-    if html_profile is None and core_profile is None and template_profile is None:
+    template_b4_profile = template_b4_module_profile(path)
+    if all(
+        profile is None
+        for profile in (html_profile, core_profile, template_profile, template_b4_profile)
+    ):
         return None
     profiles = [
-        profile for profile in (html_profile, core_profile, template_profile) if profile
+        profile
+        for profile in (
+            html_profile,
+            core_profile,
+            template_profile,
+            template_b4_profile,
+        )
+        if profile
     ]
     modifications = " ".join(profile[0] for profile in profiles)
     tests = list(dict.fromkeys(test for profile in profiles for test in profile[1]))
@@ -151,6 +192,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             (html_profile, HTML_PPTX_REQUIREMENT),
             (core_profile, CORE_PPTX_REQUIREMENT),
             (template_profile, PPTX_TEMPLATE_B2_REQUIREMENT),
+            (template_b4_profile, PPTX_TEMPLATE_B4_REQUIREMENT),
         )
         if profile is not None
     ]
@@ -160,6 +202,11 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             *(
                 [PPTX_TEMPLATE_B2_REQUIREMENT]
                 if template_profile is not None
+                else []
+            ),
+            *(
+                [PPTX_TEMPLATE_B4_REQUIREMENT]
+                if template_b4_profile is not None
                 else []
             ),
         ]
@@ -180,6 +227,17 @@ def template_b2_module_profile(path: str) -> tuple[str, list[str]] | None:
             "contact-sheet evidence, stable-slot materialization, content lint, and "
             "physical purge with truthful public and supply-chain evidence.",
             _PPTX_TEMPLATE_B2_TESTS,
+        )
+    return None
+
+
+def template_b4_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_TEMPLATE_B4_MODULES:
+        return (
+            "Bounded CJK capacity, placeholder, ellipsis, speaker-note leak, and "
+            "type-scale content lint shared by inert template inspection and "
+            "fail-closed template materialization.",
+            _PPTX_TEMPLATE_B4_TESTS,
         )
     return None
 
@@ -294,5 +352,23 @@ def template_b2_data_profile(path: str) -> tuple[str, list[str]] | None:
             "Elftia-authored semantic-template guidance, deterministic fixtures, "
             "hash-bound metadata, and exact runtime-source policy for PPTX B2.",
             _PPTX_TEMPLATE_B2_TESTS,
+        )
+    return None
+
+
+def template_b4_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in {
+        "provenance/runtime-source-allowlist.json",
+        "skills/document-pptx/SKILL.md",
+        "skills/document-pptx/references/template-inspect-and-fill.md",
+        "tests/fixtures/manifest.json",
+        "tests/fixtures/pptx/ecosystem_bc/README.md",
+        "tests/fixtures/pptx/ecosystem_bc/templates/cjk-capacity.pptx",
+        "tests/fixtures/pptx/ecosystem_bc/templates/cjk-capacity.pptx.manifest.json",
+    }:
+        return (
+            "B4 template-content guidance, deterministic CJK fixture bytes, "
+            "hash-bound metadata, and exact runtime-source policy.",
+            _PPTX_TEMPLATE_B4_TESTS,
         )
     return None

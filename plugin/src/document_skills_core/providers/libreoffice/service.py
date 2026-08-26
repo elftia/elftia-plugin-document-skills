@@ -187,12 +187,29 @@ class LibreOfficeProvider:
     def try_convert_to_pdf(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for Office-to-PDF conversion. Returns PDF bytes."""
         try:
-            evidence = self._detect_for_operation()
-            if not evidence.available:
-                return None
-            return convert_to_pdf(input_path, self.runner)
+            return self.convert_pdf(input_path)
         except DocumentSkillsError:
             return None
+
+    def convert_pdf(
+        self,
+        input_path: Path,
+        max_output_bytes: int = 64 * 1024 * 1024,
+    ) -> bytes:
+        """Strict conversion path used by public format services."""
+
+        evidence = self._detect_for_operation()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice is not callable.",
+                status="unavailable",
+            )
+        return convert_to_pdf(
+            input_path,
+            self.runner,
+            max_output_bytes=max_output_bytes,
+        )
 
     def try_render_to_image(self, input_path: Path) -> bytes | None:
         """Consult LibreOffice for DOCX/PPTX render. Returns image bytes."""
@@ -238,6 +255,28 @@ class LibreOfficeProvider:
             target_format=target_format,
         )
 
+    def convert_legacy(
+        self,
+        input_path: Path,
+        target_format: str,
+        max_output_bytes: int = 64 * 1024 * 1024,
+    ) -> bytes:
+        """Strict legacy DOC conversion used by the public DOCX service."""
+
+        evidence = self._detect_for_operation()
+        if not evidence.available:
+            raise DocumentSkillsError(
+                ErrorCode.PROVIDER_UNAVAILABLE,
+                "LibreOffice is not callable.",
+                status="unavailable",
+            )
+        return read_or_convert_legacy(
+            input_path,
+            self.runner,
+            target_format=target_format,
+            max_output_bytes=max_output_bytes,
+        )
+
     def _do_recalc(self, input_path: Path) -> dict[str, Any]:
         cached_values = recalculate_xlsx(
             input_path,
@@ -250,7 +289,7 @@ class LibreOfficeProvider:
         )
 
     def _do_convert_pdf(self, input_path: Path) -> dict[str, Any]:
-        pdf_bytes = convert_to_pdf(input_path, self.runner)
+        pdf_bytes = self.convert_pdf(input_path)
         return _build_success(
             "libreoffice.convert-pdf",
             diagnostics={"output_bytes": len(pdf_bytes)},
