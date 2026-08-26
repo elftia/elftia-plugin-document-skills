@@ -23,6 +23,8 @@ from .constants import (
     RUN_NO_BUILD_FLAG,
     RUN_NO_RESTORE_FLAG,
     STDIN_CEILING,
+    helper_assembly_path,
+    helper_build_properties,
 )
 
 # Per-operation timeout lookup (keyed by subcommand).
@@ -86,6 +88,12 @@ class DotnetOpenXmlRunner:
         else:
             self._policy = policy or ProcessPolicy(self.project_root)
             self._runner = ProcessRunner(self._policy)
+        (
+            self._helper_build_properties,
+            self._helper_assembly,
+        ) = _private_helper_build_layout(
+            self._runner
+        )
         if executable is not None:
             self.set_executable(executable)
 
@@ -123,7 +131,15 @@ class DotnetOpenXmlRunner:
                 "dotnet executable is not resolved.",
             )
         _check_stdin(stdin_payload)
-        argv = _build_argv(self._helper_dir, subcommand)
+        if self._helper_assembly is None:
+            argv = _build_argv(self._helper_dir, subcommand)
+        else:
+            argv = _build_argv(
+                self._helper_dir,
+                subcommand,
+                self._helper_build_properties,
+                self._helper_assembly,
+            )
         _require_no_restore_argv(argv)
         resolved_timeout = timeout_seconds or _TIMEOUTS.get(subcommand, 30.0)
         resolved_limit = output_limit or OUTPUT_LIMIT
@@ -139,21 +155,43 @@ class DotnetOpenXmlRunner:
         )
 
 
-def _build_argv(helper_dir: Path, subcommand: str) -> list[str]:
+def _build_argv(
+    helper_dir: Path,
+    subcommand: str,
+    build_properties: tuple[str, ...] = (),
+    helper_assembly: Path | None = None,
+) -> list[str]:
     """Build the full argv with implicit package restore disabled."""
+    if helper_assembly is not None:
+        return ["exec", str(helper_assembly), subcommand]
     return [
         "run",
         RUN_NO_RESTORE_FLAG,
         RUN_NO_BUILD_FLAG,
         "--project",
         str(helper_dir),
+        *build_properties,
         "--",
         subcommand,
     ]
 
 
+def _private_helper_build_layout(
+    runner: _ContainedRunner,
+) -> tuple[tuple[str, ...], Path | None]:
+    if not isinstance(runner, ProcessRunner):
+        return (), None
+    private_home = runner.private_environment_directory("DOTNET_CLI_HOME")
+    return (
+        helper_build_properties(private_home),
+        helper_assembly_path(private_home),
+    )
+
+
 def _require_no_restore_argv(argv: list[str]) -> None:
     """Fail closed if a provider operation could implicitly restore NuGet."""
+    if argv and argv[0] == "exec" and len(argv) == 3:
+        return
     if (
         not argv
         or argv[0] != "run"
