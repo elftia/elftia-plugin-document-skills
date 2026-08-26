@@ -1,7 +1,9 @@
 """Bounded local raster loading and native PresentationML image geometry."""
 
 from hashlib import sha256
+import os
 from pathlib import Path
+import stat
 import struct
 from typing import Any
 
@@ -23,17 +25,50 @@ def load_pptx_image(value: dict[str, Any], index: int) -> dict[str, Any]:
     """Load one request image, validate its bytes, and derive native geometry."""
 
     path = _image_path(value)
-    if not path.is_file():
-        _invalid("The presentation image must be an existing local file.", path=str(path))
-    size = path.stat().st_size
-    if size <= 0 or size > MAX_IMAGE_BYTES:
+    try:
+        with path.open("rb") as handle:
+            source_stat = os.fstat(handle.fileno())
+            if not stat.S_ISREG(source_stat.st_mode):
+                _invalid(
+                    "The presentation image must be an existing local file.",
+                    path=str(path),
+                )
+            if source_stat.st_size <= 0 or source_stat.st_size > MAX_IMAGE_BYTES:
+                _invalid(
+                    "The presentation image exceeds the per-asset byte limit.",
+                    path=str(path),
+                    bytes=source_stat.st_size,
+                    ceiling=MAX_IMAGE_BYTES,
+                )
+            payload = handle.read(MAX_IMAGE_BYTES + 1)
+    except DocumentSkillsError:
+        raise
+    except OSError as error:
+        _invalid(
+            "The presentation image must be an existing readable local file.",
+            path=str(path),
+            reason=type(error).__name__,
+        )
+    if len(payload) <= 0 or len(payload) > MAX_IMAGE_BYTES:
         _invalid(
             "The presentation image exceeds the per-asset byte limit.",
             path=str(path),
-            bytes=size,
+            bytes=len(payload),
             ceiling=MAX_IMAGE_BYTES,
         )
-    payload = path.read_bytes()
+    payload_sha256 = sha256(payload).hexdigest()
+    expected_sha256 = value.get("expected_sha256")
+    if expected_sha256 is not None and payload_sha256 != expected_sha256:
+        raise DocumentSkillsError(
+            ErrorCode.STALE_PRECONDITION,
+            "The presentation image no longer matches its expected SHA-256.",
+            status="invalid_request",
+            details={
+                "actual_sha256": payload_sha256,
+                "expected_sha256": expected_sha256,
+                "path": str(path),
+            },
+        )
     extension, content_type, width, height, orientation = _identify_image(payload)
     declared = value.get("content_type")
     if declared is not None and declared != content_type:
@@ -82,7 +117,7 @@ def load_pptx_image(value: dict[str, Any], index: int) -> dict[str, Any]:
         "part": f"ppt/media/image{index}.{extension}",
         "relationship_id": "rIdImage",
         "rotation": rotation,
-        "sha256": sha256(payload).hexdigest(),
+        "sha256": payload_sha256,
         "source_path": str(path),
         "target": f"../media/image{index}.{extension}",
         "width_px": width,

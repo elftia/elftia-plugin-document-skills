@@ -168,7 +168,7 @@ def _parse_shape_object(value: Any, field: str, *, partial: bool) -> dict[str, A
 def _parse_image_object(value: Any, field: str, *, partial: bool) -> dict[str, Any]:
     if type(value) is not dict:
         _invalid("Image object must be an object.", field=field)
-    _exact_keys(value, {"alt_text", "content_type", "crop", "fit", "frame", "name", "opacity", "path", "rotation", "z_order"}, field)
+    _exact_keys(value, {"alt_text", "content_type", "crop", "expected_sha256", "fit", "frame", "name", "opacity", "path", "rotation", "z_order"}, field)
     image_value = {key: item for key, item in value.items() if key != "name"}
     parsed = parse_image_reference(image_value, field)
     assert parsed is not None

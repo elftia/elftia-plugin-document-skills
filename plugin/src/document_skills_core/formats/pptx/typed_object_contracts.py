@@ -17,7 +17,7 @@ def parse_image_reference(value: Any, field: str) -> dict[str, Any] | None:
         value,
         {
             "alt_text", "content_type", "crop", "filename", "fit", "frame",
-            "opacity", "path", "rotation", "z_order",
+            "expected_sha256", "opacity", "path", "rotation", "z_order",
         },
     )
     raw_path = _text(value.get("path", value.get("filename")), f"{field}.path", False)
@@ -33,6 +33,10 @@ def parse_image_reference(value: Any, field: str) -> dict[str, Any] | None:
         _invalid("Image fit must be contain, cover, or stretch.", field=f"{field}.fit")
     return {
         "path": Path(raw_path).expanduser().resolve(strict=False),
+        "expected_sha256": _sha256(
+            value.get("expected_sha256"),
+            f"{field}.expected_sha256",
+        ),
         "content_type": content_type,
         "fit": fit,
         "crop": _parse_crop(value.get("crop"), f"{field}.crop"),
@@ -42,6 +46,17 @@ def parse_image_reference(value: Any, field: str) -> dict[str, Any] | None:
         "z_order": _integer(value.get("z_order", 100), 0, 10_000),
         "frame": _parse_frame(value.get("frame"), f"{field}.frame"),
     }
+
+
+def _sha256(value: Any, field: str) -> str | None:
+    if value is None:
+        return None
+    digest = _text(value, field, False)
+    if len(digest) != 64 or any(
+        character not in "0123456789abcdef" for character in digest
+    ):
+        _invalid("expected_sha256 must be a lowercase SHA-256 digest.", field=field)
+    return digest
 
 
 def parse_chart_reference(value: Any, field: str) -> dict[str, Any] | None:

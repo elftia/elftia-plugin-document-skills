@@ -14,7 +14,9 @@ import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx import (
+    image as pptx_image,
     package as pptx_package,
+    template_descriptor,
     template_materialize,
     template_service,
 )
@@ -31,9 +33,90 @@ from document_skills_core.formats.pptx.presentation_contracts import (
 from document_skills_core.formats.pptx.service import PptxService
 from document_skills_core.formats.pptx.slide_graph import delete_slide, relationship_part_for
 from document_skills_core.formats.pptx.template_purge import template_private_closure
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 from tests.support.pptx_template_fixture import build_semantic_template
 
 _P_CNV_PR = f"{{{NS['p']}}}cNvPr"
+
+
+def test_image_loader_uses_one_bounded_file_handle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "image.png"
+    source.write_bytes(PNG_1X1)
+    real_stat = Path.stat
+    real_is_file = Path.is_file
+    real_read_bytes = Path.read_bytes
+
+    def reject_stat(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("image loading must not stat before opening")
+        return real_stat(path, *args, **kwargs)
+
+    def reject_is_file(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("image loading must inspect the open handle")
+        return real_is_file(path, *args, **kwargs)
+
+    def reject_read_bytes(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("image loading must read from the inspected handle")
+        return real_read_bytes(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", reject_stat)
+    monkeypatch.setattr(Path, "is_file", reject_is_file)
+    monkeypatch.setattr(Path, "read_bytes", reject_read_bytes)
+
+    image = pptx_image.load_pptx_image(
+        {
+            "path": source,
+            "expected_sha256": sha256(PNG_1X1).hexdigest(),
+        },
+        1,
+    )
+
+    assert image["bytes"] == PNG_1X1
+    assert image["sha256"] == sha256(PNG_1X1).hexdigest()
+
+
+def test_descriptor_loader_uses_one_bounded_file_handle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = b'{"schemaVersion":"1.0"}'
+    source = tmp_path / "descriptor.json"
+    source.write_bytes(payload)
+    real_stat = Path.stat
+    real_is_file = Path.is_file
+    real_read_bytes = Path.read_bytes
+
+    def reject_stat(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("descriptor loading must not stat before opening")
+        return real_stat(path, *args, **kwargs)
+
+    def reject_is_file(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("descriptor loading must inspect the open handle")
+        return real_is_file(path, *args, **kwargs)
+
+    def reject_read_bytes(path: Path, *args, **kwargs):
+        if path == source:
+            raise AssertionError("descriptor loading must read from the inspected handle")
+        return real_read_bytes(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", reject_stat)
+    monkeypatch.setattr(Path, "is_file", reject_is_file)
+    monkeypatch.setattr(Path, "read_bytes", reject_read_bytes)
+
+    value, record = template_descriptor._read_json_ref(
+        {"path": source, "sha256": sha256(payload).hexdigest()},
+        "deck_ir",
+    )
+
+    assert value == {"schemaVersion": "1.0"}
+    assert record["bytes"] == len(payload)
 
 
 def _inspect_request(fixture, *, mode: str = "strict") -> dict[str, object]:
@@ -211,7 +294,7 @@ def test_tolerant_physical_drift_never_exposes_partial_writable_slots(
 
     result = PptxService(project_root).execute("pptx.template.inspect", request)
 
-    assert result["status"] == "success", result
+    assert result["status"] == "success", json.dumps(result, ensure_ascii=False, indent=2)
     operation = result["diagnostics"]["operation_result"]
     codes = {item["code"] for item in operation["descriptor"]["diagnostics"]}
     assert "stable-object-address-duplicate" in codes
@@ -355,7 +438,11 @@ def test_binding_receipt_hash_matches_final_output_object(
         _create_request(fixture, output, [page]),
     )
 
-    assert result["status"] == "success", result
+    assert result["status"] == "success", json.dumps(
+        result,
+        ensure_ascii=False,
+        indent=2,
+    )
     operation = result["diagnostics"]["operation_result"]
     receipt = operation["binding_receipt"][0]
     mapping = next(
@@ -456,6 +543,9 @@ def test_public_worker_resolves_relative_descriptor_and_binding_image_paths(
                 "value": {
                     "type": "image-ref",
                     "path": "source-1.png",
+                    "expected_sha256": sha256(
+                        (tmp_path / "source-1.png").read_bytes()
+                    ).hexdigest(),
                     "content_type": "image/png",
                     "fit": "contain",
                     "alt_text": "Relative image",
@@ -481,8 +571,57 @@ def test_public_worker_resolves_relative_descriptor_and_binding_image_paths(
 
     result = _public_run(project_root, request_path, cwd=tmp_path)
 
-    assert result["status"] == "success", result
+    assert result["status"] == "success", json.dumps(
+        result,
+        ensure_ascii=False,
+        indent=2,
+    )
     assert output.is_file()
+
+
+def test_template_image_expected_sha256_rejects_changed_bytes(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    fixture = build_semantic_template(tmp_path, project_root)
+    inspected = PptxService(project_root).execute(
+        "pptx.template.inspect",
+        _inspect_request(fixture),
+    )["diagnostics"]["operation_result"]
+    slots = {item["kind"]: item for item in inspected["pages"][0]["semantic_slots"]}
+    output = tmp_path / "stale-image.pptx"
+    page = {
+        "source_slide_id": fixture.slide_ids[0],
+        "output_slide_id": _output_slide_id("semantic-neutral", "stale-image"),
+        "bindings": [
+            {
+                "slot_id": slots["text"]["slot_id"],
+                "expected_hash": slots["text"]["expected_hash"],
+                "value": {"type": "text", "text": "Stale image must fail"},
+            },
+            {
+                "slot_id": slots["image-ref"]["slot_id"],
+                "expected_hash": slots["image-ref"]["expected_hash"],
+                "value": {
+                    "type": "image-ref",
+                    "path": str(tmp_path / "source-1.png"),
+                    "expected_sha256": "0" * 64,
+                    "content_type": "image/png",
+                    "fit": "contain",
+                    "alt_text": "Stale image",
+                },
+            },
+        ],
+    }
+
+    result = PptxService(project_root).execute(
+        "pptx.create.from-template",
+        _create_request(fixture, output, [page]),
+    )
+
+    assert result["status"] == "invalid_request"
+    assert result["errors"][0]["code"] == "DS_STALE_PRECONDITION"
+    assert not output.exists()
 
 
 def test_template_images_have_an_aggregate_resource_budget(

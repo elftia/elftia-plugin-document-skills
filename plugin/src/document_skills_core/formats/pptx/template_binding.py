@@ -197,19 +197,28 @@ def _image_edit(
     object_id: str,
     expected_hash: str,
 ) -> dict[str, Any]:
-    _exact(value, {"alt_text", "content_type", "fit", "path", "type"})
+    _exact(
+        value,
+        {"alt_text", "content_type", "expected_sha256", "fit", "path", "type"},
+    )
+    image = {
+        "alt_text": _text(value.get("alt_text"), "value.alt_text"),
+        "content_type": _text(value.get("content_type"), "value.content_type"),
+        "fit": _text(value.get("fit", "contain"), "value.fit"),
+        "name": object_id,
+        "path": _text(value.get("path"), "value.path"),
+    }
+    if "expected_sha256" in value:
+        image["expected_sha256"] = _text(
+            value.get("expected_sha256"),
+            "value.expected_sha256",
+        )
     return {
         "type": "image_replace",
         "slide": slide,
         "selector": {"name": object_id, "type": "image"},
         "precondition_sha256": expected_hash,
-        "object": {
-            "alt_text": _text(value.get("alt_text"), "value.alt_text"),
-            "content_type": _text(value.get("content_type"), "value.content_type"),
-            "fit": _text(value.get("fit", "contain"), "value.fit"),
-            "name": object_id,
-            "path": _text(value.get("path"), "value.path"),
-        },
+        "object": image,
     }
 
 

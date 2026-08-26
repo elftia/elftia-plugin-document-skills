@@ -104,6 +104,18 @@ Use only ids and hashes returned by a successful strict semantic inspection:
               "type": "text",
               "text": "Why action is required now"
             }
+          },
+          {
+            "slot_id": "problem.image",
+            "expected_hash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "value": {
+              "type": "image-ref",
+              "path": "replacement.png",
+              "expected_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "content_type": "image/png",
+              "fit": "contain",
+              "alt_text": "Evidence supporting the problem statement"
+            }
           }
         ]
       }
@@ -122,7 +134,10 @@ slide; each individual page still binds that slot at most once.
 
 Binding value `type` must equal the slot's A-Contract data type. Supported
 types are `text`, `rich-text`, `number`, `date`, `image-ref`, `table-data`, and
-`chart-data`. Images are bounded local PNG/JPEG/static GIF files. Table data
+`chart-data`. Images are bounded local PNG/JPEG/static GIF files. An optional
+`image-ref.expected_sha256` is a lowercase unprefixed digest checked against
+the exact payload embedded in the candidate, closing verify-to-read races for
+cross-producer bundles. Table data
 must match the template table dimensions. Chart data updates the existing
 native chart rather than replacing it with a picture.
 Relative input/output, descriptor, contract, and binding-image paths resolve
