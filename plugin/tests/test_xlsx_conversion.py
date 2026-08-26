@@ -229,6 +229,44 @@ def test_json_to_xlsx_maps_typed_values_and_formula_cache_truthfully(
     }.issubset(losses)
 
 
+def test_xlsx_temporal_values_to_json_reopen_uses_public_cell_shape(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "temporal.json"
+    _write_json(
+        source,
+        _json_document(
+            [
+                [
+                    {"type": "date", "value": "2026-08-24"},
+                    {"type": "time", "value": "12:30:15"},
+                    {"type": "datetime", "value": "2026-08-24T12:30:15"},
+                ]
+            ]
+        ),
+    )
+    workbook = tmp_path / "temporal.xlsx"
+    created = XlsxService(project_root).execute(
+        "xlsx.convert",
+        _request(source, workbook, "json", "xlsx"),
+    )
+    assert created["status"] == "success"
+    output = tmp_path / "temporal-roundtrip.json"
+
+    result = XlsxService(project_root).execute(
+        "xlsx.convert",
+        _request(workbook, output, "xlsx", "json"),
+    )
+
+    assert result["status"] == "degraded"
+    assert json.loads(output.read_text(encoding="utf-8"))["sheets"][0]["rows"][0] == [
+        {"type": "date", "value": "2026-08-24"},
+        {"type": "time", "value": "12:30:15"},
+        {"type": "datetime", "value": "2026-08-24T12:30:15"},
+    ]
+
+
 @pytest.mark.parametrize(
     ("policy", "expected_type", "loss_code"),
     [
