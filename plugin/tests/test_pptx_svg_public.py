@@ -164,6 +164,47 @@ def test_public_svg_success_and_unsafe_failure_preserve_inputs(
     assert hashlib.sha256(unsafe.read_bytes()).hexdigest() == unsafe_hash
 
 
+def test_public_svg_rejects_excessive_group_depth_before_recursion(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    body = "".join(f'<g id="group-{index}">' for index in range(65))
+    body += '<rect id="leaf" x="10" y="10" width="100" height="100"/>'
+    body += "</g>" * 65
+    source = tmp_path / "deep-groups.svg"
+    source.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" '
+        f'viewBox="0 0 1920 1080">{body}</svg>',
+        encoding="utf-8",
+        newline="\n",
+    )
+    output = tmp_path / "deep-groups.pptx"
+    request = _request(
+        tmp_path / "deep-groups.json",
+        {
+            "schema_version": "1.0",
+            "operation": "pptx.create.from-svg",
+            "input": str(source),
+            "output": str(output),
+            "arguments": {"fallback_policy": "reject"},
+        },
+    )
+
+    returncode, result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        cwd=tmp_path,
+    )
+
+    assert returncode == 2
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_RESOURCE_LIMIT"
+    assert result["errors"][0]["details"] == {"limit": 64}
+    assert not output.exists()
+
+
 def test_public_scene_export_success_stale_contract_and_existing_destination(
     project_root: Path,
     tmp_path: Path,

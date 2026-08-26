@@ -4,7 +4,12 @@ import hashlib
 import html
 import json
 from pathlib import Path
+from xml.etree.ElementTree import SubElement, tostring
 
+from defusedxml.ElementTree import fromstring
+import pytest
+
+from document_skills_core.formats.pptx.constants import qn
 from document_skills_core.formats.pptx.package import OpcPackage
 from document_skills_core.formats.pptx.presentation_contracts import (
     PRESENTATION_CONTRACT_V1_PIN,
@@ -196,3 +201,100 @@ def test_scene_export_strict_rejects_and_tolerant_inventories_opaque_objects(
     deck_ir = json.loads((tolerant_output / "deck-ir.json").read_text(encoding="utf-8"))
     opaque = next(item for item in deck_ir["slides"][0]["objects"] if item["content"].get("shapeKind") == "opaque")
     assert opaque["editability"] == "none"
+
+
+@pytest.mark.parametrize(
+    ("mutation", "reason"),
+    [
+        ("mixed-runs", "unsupported-text-run-structure"),
+        ("mixed-paragraphs", "unsupported-text-paragraph-structure"),
+        ("rotation", "unsupported-rotation"),
+        ("flip", "unsupported-flip"),
+        ("visible-line", "unsupported-visible-line-style"),
+        ("text-alignment", "unsupported-text-alignment"),
+        ("text-insets", "unsupported-text-insets"),
+        ("inherited-shape-style", "unsupported-inherited-shape-style"),
+        ("placeholder", "unsupported-placeholder-inheritance"),
+        ("inherited-text-style", "unsupported-inherited-text-style"),
+    ],
+)
+def test_scene_export_strict_rejects_unrepresented_drawingml_semantics(
+    project_root: Path,
+    tmp_path: Path,
+    mutation: str,
+    reason: str,
+) -> None:
+    source = _source_deck(tmp_path)
+    package = OpcPackage.open(source)
+    slide_part = package.slide_parts()[0]
+    root = fromstring(package.parts[slide_part])
+    shapes = {
+        shape.find(f"{qn('p', 'nvSpPr')}/{qn('p', 'cNvPr')}").attrib["name"]: shape
+        for shape in root.iter(qn("p", "sp"))
+    }
+    if mutation == "mixed-runs":
+        paragraph = shapes["source-text"].find(
+            f"{qn('p', 'txBody')}/{qn('a', 'p')}"
+        )
+        run = SubElement(paragraph, qn("a", "r"))
+        SubElement(run, qn("a", "t")).text = "Second run"
+    elif mutation == "mixed-paragraphs":
+        body = shapes["source-text"].find(qn("p", "txBody"))
+        SubElement(body, qn("a", "p"))
+    elif mutation == "rotation":
+        transform = shapes["source-shape"].find(
+            f"{qn('p', 'spPr')}/{qn('a', 'xfrm')}"
+        )
+        transform.set("rot", "60000")
+    elif mutation == "flip":
+        transform = shapes["source-shape"].find(
+            f"{qn('p', 'spPr')}/{qn('a', 'xfrm')}"
+        )
+        transform.set("flipH", "1")
+    elif mutation == "visible-line":
+        line = shapes["source-shape"].find(
+            f"{qn('p', 'spPr')}/{qn('a', 'ln')}"
+        )
+        line.remove(line.find(qn("a", "noFill")))
+        fill = SubElement(line, qn("a", "solidFill"))
+        SubElement(fill, qn("a", "srgbClr"), {"val": "112233"})
+    elif mutation == "text-alignment":
+        paragraph_properties = shapes["source-text"].find(
+            f"{qn('p', 'txBody')}/{qn('a', 'p')}/{qn('a', 'pPr')}"
+        )
+        paragraph_properties.set("algn", "ctr")
+    elif mutation == "text-insets":
+        body_properties = shapes["source-text"].find(
+            f"{qn('p', 'txBody')}/{qn('a', 'bodyPr')}"
+        )
+        body_properties.set("lIns", "91440")
+    elif mutation == "inherited-shape-style":
+        SubElement(shapes["source-shape"], qn("p", "style"))
+    elif mutation == "placeholder":
+        non_visual = shapes["source-text"].find(
+            f"{qn('p', 'nvSpPr')}/{qn('p', 'nvPr')}"
+        )
+        SubElement(non_visual, qn("p", "ph"), {"type": "body"})
+    else:
+        run = shapes["source-text"].find(
+            f"{qn('p', 'txBody')}/{qn('a', 'p')}/{qn('a', 'r')}"
+        )
+        run.remove(run.find(qn("a", "rPr")))
+    changed = tmp_path / f"{mutation}.pptx"
+    package.write_copy(
+        changed,
+        changed_parts={
+            slide_part: tostring(root, encoding="UTF-8", xml_declaration=True),
+        },
+    )
+
+    output = tmp_path / f"{mutation}-bundle"
+    result = PptxService(project_root).execute(
+        "pptx.scene.export",
+        _request(changed, output, _owner_contract_root(project_root), "strict"),
+    )
+
+    assert result["status"] == "enhancement_required"
+    assert result["errors"][0]["code"] == "DS_UNSUPPORTED_FEATURE"
+    assert result["errors"][0]["details"]["reason"] == reason
+    assert not output.exists()

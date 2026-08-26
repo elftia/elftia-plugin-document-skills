@@ -7,23 +7,22 @@
   "fixture_id": "B-SVG-04",
   "format": "json",
   "invariants": [
-    "PowerPoint opens both source and round-trip decks read-only",
+    "only executable PowerPoint COM capture can record a pass outcome",
+    "source and round-trip artifacts, renders, tool, run, and time are hash-bound",
     "group, text, table, chart, and picture remain native objects",
-    "PowerPoint PNG exports stay within the checked visual thresholds",
-    "unavailable LibreOffice execution remains explicitly not_run",
     "temporary render and round-trip bytes are excluded from release bytes"
   ],
   "license": "GPL-3.0",
-  "origin": "Elftia-authored observation recorded from Microsoft PowerPoint 16.0 on Windows.",
+  "origin": "Elftia-authored observation captured by the hash-bound PowerPoint tool; run aa8ed01e-2b00-4d79-83eb-9285dd66f3cc.",
   "path": "expected/visual/b5-powerpoint-consumer.json",
   "purpose": "Auditable Microsoft PowerPoint native-object and visual round-trip evidence for B-SVG-04.",
-  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "recipe": "First run uv run --project plugin --frozen python -m tools.prepare_pptx_svg_roundtrip --source plugin/tests/fixtures/pptx/ecosystem_bc/svg/roundtrip-source.pptx --contract-root <presentation-contract-root> --output <roundtrip.pptx>; then run uv run --project plugin --frozen python -m tools.capture_pptx_powerpoint_evidence --source plugin/tests/fixtures/pptx/ecosystem_bc/svg/roundtrip-source.pptx --roundtrip <roundtrip.pptx> --output plugin/tests/fixtures/pptx/ecosystem_bc/expected/visual/b5-powerpoint-consumer.json",
   "redistributable": true,
   "resource_limits": {
     "maxBytes": 32768
   },
   "schemaVersion": 1,
   "security_classification": "benign-consumer-evidence",
-  "sha256": "sha256:34b30797f68468bcc33f0b452dc99fd9f5e991ab3709626cd147c14282ef01f1",
-  "sizeBytes": 4238
+  "sha256": "sha256:b8bd55474880366aa1886d3a5bc7ddf1c1f34e7bf1e10d58a7fde99080611851",
+  "sizeBytes": 4874
 }

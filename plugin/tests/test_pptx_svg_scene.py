@@ -77,7 +77,7 @@ def test_gradient_and_local_image_remain_element_level(tmp_path: Path) -> None:
     source = _write_svg(
         tmp_path / "gradient.svg",
         """
-        <rect id="gradient-card" x="100" y="80" width="800" height="420" fill="url(#approved-gradient)"/>
+        <rect id="gradient-card" x="100" y="80" width="800" height="420" fill="url(#approved-gradient)" fill-opacity="0.5"/>
         <image id="local-image" x="980" y="100" width="400" height="300" href="pixel.png" opacity="0.6"/>
         """,
         definitions="""
@@ -98,9 +98,40 @@ def test_gradient_and_local_image_remain_element_level(tmp_path: Path) -> None:
     package = OpcPackage.open(output)
 
     assert scene.diagnostics["outcomes"] == {"native": 2}
+    assert scene.slides[0][0]["gradient"]["stops"] == [
+        {"color": "#112233", "offset": 0.0, "opacity": 0.5},
+        {"color": "#88AACC", "offset": 1.0, "opacity": 0.375},
+    ]
     assert manifest["media"] == 1
     assert b"gradFill" in package.parts["ppt/slides/slide1.xml"]
     assert len(package.media_parts()) == 1
+
+
+def test_paint_specific_opacity_survives_scene_and_drawingml(
+    tmp_path: Path,
+) -> None:
+    source = _write_svg(
+        tmp_path / "paint-opacity.svg",
+        '<rect id="paint" x="100" y="100" width="500" height="300" '
+        'fill="#204060" fill-opacity="0.5" stroke="#102030" '
+        'stroke-opacity="0.25" stroke-width="4" opacity="0.8"/>',
+    )
+
+    scene = compile_svg_scene(source, fallback_policy="reject")
+    item = scene.slides[0][0]
+    assert item["fill"] == "rgba(32, 64, 96, 0.500000)"
+    assert item["border_color"] == "rgba(16, 32, 48, 0.250000)"
+    assert item["opacity"] == 0.8
+
+    output = tmp_path / "paint-opacity.pptx"
+    emit_scene_pptx(
+        output,
+        scene,
+        {"creator": "Elftia", "subject": "B5", "title": "Paint opacity"},
+    )
+    slide_xml = OpcPackage.open(output).parts["ppt/slides/slide1.xml"]
+    assert b'<a:alpha val="40000"' in slide_xml
+    assert b'<a:alpha val="20000"' in slide_xml
 
 
 def test_element_fallback_requires_explicit_local_asset_and_stays_bounded(
@@ -161,3 +192,18 @@ def test_path_bomb_and_near_whole_slide_fallback_fail_closed(tmp_path: Path) -> 
     )
     with pytest.raises(DocumentSkillsError):
         compile_svg_scene(source, fallback_policy="element-rasterize")
+
+
+def test_deep_group_nesting_fails_with_resource_limit_before_recursion(
+    tmp_path: Path,
+) -> None:
+    body = "".join(f'<g id="group-{index}">' for index in range(65))
+    body += '<rect id="leaf" x="10" y="10" width="100" height="100"/>'
+    body += "</g>" * 65
+    source = _write_svg(tmp_path / "deep-groups.svg", body)
+
+    with pytest.raises(DocumentSkillsError) as captured:
+        compile_svg_scene(source, fallback_policy="reject")
+
+    assert captured.value.code.value == "DS_RESOURCE_LIMIT"
+    assert captured.value.details == {"limit": 64}

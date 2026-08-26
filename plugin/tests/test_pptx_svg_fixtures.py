@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import uuid
 
 import pytest
 
@@ -12,6 +13,9 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.package import OpcPackage
 from document_skills_core.formats.pptx.scene_emitter import emit_scene_pptx
 from document_skills_core.formats.pptx.svg_parser import compile_svg_scene
+from tests.support.pptx_ecosystem_fixture import EcosystemFixtureWriter
+from tests.support.pptx_svg_fixture import write_svg_fixtures
+from tools.capture_pptx_powerpoint_evidence import _build_evidence
 
 
 def _root(project_root: Path) -> Path:
@@ -137,6 +141,17 @@ def test_checked_powerpoint_consumer_evidence_is_native_and_honest(
     assert manifest["fixture_id"] == "B-SVG-04"
     assert manifest["sha256"] == "sha256:" + hashlib.sha256(payload).hexdigest()
     assert manifest["sizeBytes"] == len(payload)
+    assert (
+        "then run uv run --project plugin --frozen python -m "
+        "tools.capture_pptx_powerpoint_evidence"
+    ) in manifest["recipe"]
+    capture = evidence["capture"]
+    uuid.UUID(capture["runId"])
+    assert capture["capturedAt"].endswith("Z")
+    tool = project_root / capture["tool"]["path"]
+    assert tool == project_root / "tools" / "capture_pptx_powerpoint_evidence.py"
+    assert capture["tool"]["sha256"] == hashlib.sha256(tool.read_bytes()).hexdigest()
+    assert evidence["schemaVersion"] == 2
     assert evidence["consumer"] == {
         "application": "Microsoft PowerPoint",
         "method": "COM read-only open, native object readback, and PNG export",
@@ -167,16 +182,69 @@ def test_checked_powerpoint_consumer_evidence_is_native_and_honest(
     )
     assert evidence["assertions"]["topLevelObjectTypesEqual"] is True
     comparison = evidence["renderComparison"]
-    assert comparison["metrics"]["withinThresholds"] is True
-    assert comparison["metrics"]["meanAbsoluteError"] <= comparison["thresholds"][
-        "meanAbsoluteErrorMax"
+    assert comparison["metrics"]["within_thresholds"] is True
+    assert comparison["metrics"]["mean_absolute_error"] <= comparison["thresholds"][
+        "mean_absolute_error_max"
     ]
-    assert comparison["metrics"]["changedPixelRatio"] <= comparison["thresholds"][
-        "changedPixelRatioMax"
+    assert comparison["metrics"]["changed_pixel_ratio"] <= comparison["thresholds"][
+        "changed_pixel_ratio_max"
     ]
-    assert evidence["libreOffice"] == {
-        "availability": "unavailable",
-        "outcome": "not_run",
-        "reason": "No soffice or libreoffice executable was available on PATH.",
-    }
     assert evidence["releaseBytePolicy"]["renderBytesIncluded"] is False
+
+    registry = json.loads(
+        (project_root / "tests" / "fixtures" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    record = next(
+        item
+        for item in registry["fixtures"]
+        if item["path"].endswith("b5-powerpoint-consumer.json")
+    )
+    assert record["recipe"] == "tools/capture_pptx_powerpoint_evidence.py"
+    assert record["recipe_dependencies"] == [
+        "src/document_skills_core/formats/pptx/png_compare.py",
+        "tools/prepare_pptx_svg_roundtrip.py",
+    ]
+
+
+def test_unavailable_capture_cannot_claim_powerpoint_pass(
+    project_root: Path,
+) -> None:
+    source = _root(project_root) / "svg" / "roundtrip-source.pptx"
+
+    evidence = _build_evidence(
+        source,
+        source,
+        {"available": False, "reason": "PowerPoint COM is unavailable."},
+        b"",
+        b"",
+    )
+
+    assert evidence["consumer"]["outcome"] == "not_run"
+    assert evidence["consumer"]["reason"] == "PowerPoint COM is unavailable."
+    assert "assertions" not in evidence
+    assert "renderComparison" not in evidence
+
+
+def test_deterministic_svg_recipe_cannot_emit_powerpoint_pass(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    contract_root = (
+        project_root.parents[1]
+        / "elftia"
+        / "packages"
+        / "presentation-contracts"
+    )
+    if not contract_root.is_dir():
+        pytest.skip("owner presentation-contract package is not installed")
+
+    write_svg_fixtures(EcosystemFixtureWriter(tmp_path), contract_root)
+
+    assert not (
+        tmp_path
+        / "expected"
+        / "visual"
+        / "b5-powerpoint-consumer.json"
+    ).exists()

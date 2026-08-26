@@ -26,9 +26,6 @@ from tests.support.pptx_ecosystem_fixture import (
     EcosystemFixtureWriter,
     FixtureMetadata,
 )
-from tests.support.pptx_svg_consumer_evidence import (
-    write_powerpoint_consumer_evidence,
-)
 
 _RECIPE = (
     "uv run --project plugin --frozen python "
@@ -208,7 +205,6 @@ def _write_roundtrip(
                 consumers=("document-skills", "design-studio"),
             ),
         )
-        write_powerpoint_consumer_evidence(writer)
 
 
 def _metadata(

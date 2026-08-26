@@ -131,10 +131,6 @@ def test_default_registry_provider_validates_real_x14_sparklines(
         pytest.skip("Microsoft.NETCore.App 8.x is not installed")
 
     registry = build_default_registry(project_root)
-    provider = registry.providers["dotnet-openxml"]
-    evidence = registry.detect(provider)
-    if evidence["available"] is not True:
-        pytest.skip(f"dotnet-openxml provider unavailable: {evidence['reason']}")
     valid, malformed = x14_workbooks
     valid_result = _validate_provider(registry, valid)
     assert valid_result["provider_chain"] == ["dotnet-openxml"]

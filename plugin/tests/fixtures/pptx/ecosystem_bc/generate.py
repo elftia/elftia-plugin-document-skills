@@ -48,9 +48,13 @@ _REGISTRY_PREFIX = "pptx/ecosystem_bc/"
 _REGISTRY_RECIPE = "tests/fixtures/pptx/ecosystem_bc/generate.py"
 _REGISTRY_RECIPE_DEPENDENCIES = [
     "tests/support/pptx_ecosystem_fixture.py",
-    "tests/support/pptx_svg_consumer_evidence.py",
     "tests/support/pptx_svg_fixture.py",
     "tests/support/pptx_template_fixture.py",
+]
+_POWERPOINT_EVIDENCE_RECIPE = "tools/capture_pptx_powerpoint_evidence.py"
+_POWERPOINT_EVIDENCE_DEPENDENCIES = [
+    "src/document_skills_core/formats/pptx/png_compare.py",
+    "tools/prepare_pptx_svg_roundtrip.py",
 ]
 
 
@@ -566,12 +570,23 @@ def _fixture_registry_records(ecosystem_root: Path) -> list[dict[str, object]]:
         metadata = json.loads(manifest_path.read_text(encoding="utf-8"))
         payload_path = ecosystem_root / metadata["path"]
         payload_relative = _REGISTRY_PREFIX + metadata["path"]
+        is_powerpoint_evidence = (
+            metadata["security_classification"] == "benign-consumer-evidence"
+        )
         common = {
             "authorship": "original-elftia",
             "license": metadata["license"],
             "origin": "generated",
-            "recipe": _REGISTRY_RECIPE,
-            "recipe_dependencies": _REGISTRY_RECIPE_DEPENDENCIES,
+            "recipe": (
+                _POWERPOINT_EVIDENCE_RECIPE
+                if is_powerpoint_evidence
+                else _REGISTRY_RECIPE
+            ),
+            "recipe_dependencies": (
+                _POWERPOINT_EVIDENCE_DEPENDENCIES
+                if is_powerpoint_evidence
+                else _REGISTRY_RECIPE_DEPENDENCIES
+            ),
             "redistribution_allowed": metadata["redistributable"],
         }
         records.append({

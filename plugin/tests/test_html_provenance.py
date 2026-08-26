@@ -23,6 +23,8 @@ from tools.html_pptx_provenance import (
     svg_b5_module_profile,
 )
 from tools.regenerate_provenance import (
+    CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+    cross_format_capability_module_profile,
     pptx_openxml_module_profile,
     regenerate,
     xlsx_data_profile,
@@ -64,11 +66,23 @@ def _merged_values(first: list[str], second: list[str]) -> list[str]:
 
 
 def _with_all_xlsx_requirements(base_requirement: str) -> str:
-    return (
-        f"{base_requirement} + document-skills-core-xlsx + "
-        "document-skills-xlsx-completion + "
-        "document-skills-xlsx-advanced-authoring"
+    return _compose_requirements(
+        base_requirement,
+        "document-skills-core-xlsx",
+        "document-skills-xlsx-completion",
+        "document-skills-xlsx-advanced-authoring",
     )
+
+
+def _compose_requirements(*requirements: str | None) -> str:
+    components: list[str] = []
+    for requirement in requirements:
+        if requirement is None:
+            continue
+        for component in requirement.removeprefix("Rasen ").split(" + "):
+            if component not in components:
+                components.append(component)
+    return f"Rasen {' + '.join(components)}"
 
 
 def _combined_profile(
@@ -203,9 +217,13 @@ def test_svg_b5_profiles_are_exact_and_bounded():
     for path in (
         "src/document_skills_core/core/io/directory_promotion.py",
         "src/document_skills_core/formats/pptx/scene_export.py",
+        "src/document_skills_core/formats/pptx/scene_export_leaf.py",
+        "src/document_skills_core/formats/pptx/scene_export_support.py",
+        "src/document_skills_core/formats/pptx/svg_item_projection.py",
         "src/document_skills_core/formats/pptx/svg_parser.py",
-        "tests/support/pptx_svg_consumer_evidence.py",
         "tests/test_pptx_svg_public.py",
+        "tools/capture_pptx_powerpoint_evidence.py",
+        "tools/prepare_pptx_svg_roundtrip.py",
     ):
         profile = pptx_module_profile(path)
         assert profile is not None
@@ -256,23 +274,24 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
         if pptx_profile is None:
             continue
         relevant_modules.append(record["module"])
+        cross_format_profile = cross_format_capability_module_profile(
+            record["module"]
+        )
         pptx_openxml_profile = pptx_openxml_module_profile(record["module"])
         xlsx_profile = xlsx_module_profile(record["module"])
         expected_profile = _combined_profile(
+            cross_format_profile,
             (pptx_profile[0], pptx_profile[1]),
             pptx_openxml_profile,
             xlsx_profile,
         )
         assert expected_profile is not None
-        base_requirement = pptx_profile[2]
-        if pptx_openxml_profile:
-            base_requirement = (
-                _FOUNDATION_REQUIREMENT
-                + " + "
-                + pptx_profile[2].removeprefix("Rasen ")
-                + " + "
-                + _OPENXML_REQUIREMENT
-            )
+        base_requirement = _compose_requirements(
+            _FOUNDATION_REQUIREMENT if pptx_openxml_profile else None,
+            CROSS_FORMAT_CAPABILITY_REQUIREMENT if cross_format_profile else None,
+            pptx_profile[2],
+            _OPENXML_REQUIREMENT if pptx_openxml_profile else None,
+        )
         if xlsx_profile:
             expected_requirement = _with_all_xlsx_requirements(base_requirement)
         else:
