@@ -32,6 +32,12 @@ hashes, object readback, and comparison metrics; temporary render and round-trip
 bytes are not release fixtures. LibreOffice remains `unavailable/not_run` where it
 is absent.
 
+B-EQ-01 and B-EQ-02 under `equations/` pin the closed editable Office Math
+profile: fraction/scripts/sum/root/matrix/Greek plus typed AST, and bounded
+raw-XML/macro/include/unknown-command/resource-limit rejection. PowerPoint and
+LibreOffice consumer observations remain separate from canonical structural
+readback; a consumer result never upgrades another consumer's state.
+
 B-TPL-03 deliberately contains a long Chinese title, a body/title type-scale
 inversion, Chinese table text, a placeholder, a standalone ellipsis, and a
 speaker-only notes marker. Its expected public operation set is

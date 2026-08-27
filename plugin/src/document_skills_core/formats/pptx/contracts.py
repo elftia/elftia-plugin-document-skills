@@ -11,6 +11,7 @@ from .constants import MAX_ARGUMENT_TEXT, MAX_EDIT_OPS, MAX_SHAPES_PER_SLIDE, MA
 from .content_contracts import parse_markdown_arguments, parse_outline_arguments
 from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
+from .equation_contracts import parse_equation_block
 from .html_contracts import parse_html_create_arguments
 from .svg_contracts import parse_scene_export_arguments, parse_svg_create_arguments
 from .template_contracts import (
@@ -350,16 +351,26 @@ def parse_deck(deck: dict[str, Any]) -> dict[str, Any]:
         parsed_shapes = []
         for s_idx, shape in enumerate(shapes):
             if type(shape) is not dict:
-                _invalid(f"Shape must be an object.", field=f"slides.{idx}.shapes.{s_idx}")
+                _invalid("Shape must be an object.", field=f"slides.{idx}.shapes.{s_idx}")
+            if shape.get("type") == "equation":
+                parsed_shapes.append(
+                    parse_equation_block(
+                        shape,
+                        f"slides.{idx}.shapes.{s_idx}",
+                        slide_size=slide_size
+                        or {"cx": "9144000", "cy": "6858000"},
+                    )
+                )
+                continue
             _exact_keys(shape, {"text", "runs"})
             shape_text = _optional_text(shape.get("text"), f"slides.{idx}.shapes.{s_idx}.text")
             runs = shape.get("runs", [])
             if type(runs) is not list:
-                _invalid(f"Shape runs must be an array.", field=f"slides.{idx}.shapes.{s_idx}.runs")
+                _invalid("Shape runs must be an array.", field=f"slides.{idx}.shapes.{s_idx}.runs")
             parsed_runs = []
             for r_idx, run in enumerate(runs):
                 if type(run) is not dict:
-                    _invalid(f"Run must be an object.", field=f"slides.{idx}.shapes.{s_idx}.runs.{r_idx}")
+                    _invalid("Run must be an object.", field=f"slides.{idx}.shapes.{s_idx}.runs.{r_idx}")
                 _exact_keys(run, {"text", "style"})
                 run_text = _optional_text(run.get("text"), f"runs.{r_idx}.text")
                 run_style = run.get("style")

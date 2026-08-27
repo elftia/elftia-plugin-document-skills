@@ -5,11 +5,13 @@ from typing import Any
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import MAX_ARGUMENT_TEXT, MAX_SLIDES
+from .equation_contracts import parse_equation_block
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
 OBJECT_EDIT_TYPES = frozenset({
     "action_add", "action_remove", "action_update",
     "chart_add", "chart_delete", "chart_update",
+    "equation_upsert",
     "hyperlink_add", "hyperlink_remove", "hyperlink_update",
     "image_add", "image_crop", "image_delete", "image_replace",
     "notes_update",
@@ -35,6 +37,37 @@ def parse_object_edit(edit: dict[str, Any], index: int) -> dict[str, Any]:
             "slide": _integer(edit.get("slide"), 1, MAX_SLIDES, f"{field}.slide"),
             "type": edit_type,
             "value": _text(edit.get("value", ""), f"{field}.value"),
+        }
+    if edit_type == "equation_upsert":
+        _exact_keys(
+            edit,
+            {
+                "equation",
+                "precondition_sha256",
+                "selector",
+                "slide",
+                "type",
+            },
+            field,
+        )
+        selector = edit.get("selector")
+        return {
+            "equation": parse_equation_block(
+                edit.get("equation"),
+                f"{field}.equation",
+            ),
+            "precondition_sha256": _precondition(
+                edit.get("precondition_sha256"), field
+            ),
+            "selector": (
+                None
+                if selector is None
+                else _parse_selector(selector, f"{field}.selector")
+            ),
+            "slide": _integer(
+                edit.get("slide"), 1, MAX_SLIDES, f"{field}.slide"
+            ),
+            "type": edit_type,
         }
     if edit_type.endswith("_add") and edit_type not in {"action_add", "hyperlink_add"}:
         _exact_keys(edit, {"object", "slide", "type"}, field)
@@ -116,7 +149,7 @@ def _parse_selector(value: Any, field: str) -> dict[str, str | None]:
     object_type = value.get("type")
     if object_type is not None:
         object_type = _text(object_type, f"{field}.type", False)
-        if object_type not in {"chart", "image", "shape", "table"}:
+        if object_type not in {"chart", "equation", "image", "shape", "table"}:
             _invalid("Object selector type is unsupported.", field=f"{field}.type")
     return {"id": object_id, "name": name, "type": object_type}
 

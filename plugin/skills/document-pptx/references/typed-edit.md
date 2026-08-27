@@ -49,7 +49,7 @@ Run `pptx.read` first. Every projected top-level object includes:
 
 Use the returned selector verbatim. `id` or `name` is required; supplying both
 requires both to match. Supported selector types are `shape`, `image`, `table`,
-and `chart`. A selector must match exactly one object. When a
+`chart`, and `equation`. A selector must match exactly one object. When a
 `precondition_sha256` is supplied, it is checked against that selected object,
 not the whole slide.
 
@@ -93,12 +93,16 @@ using `master_*`, `layout_*`, or `theme_update`.
 | image | `image_add`, `image_replace`, `image_crop`, `image_delete` | bounded local PNG/JPEG/static GIF, frame, fit/crop, opacity, rotation, alt text, z-order |
 | table | `table_add`, `table_update`, `table_delete` | rectangular rows, widths, heights, bounded non-overlapping merges, frame, name, z-order |
 | chart | `chart_add`, `chart_update`, `chart_delete` | native bar/column/line/pie/scatter data, title, legend, axes, labels, colors, frame, name, z-order |
+| equation | `equation_upsert` | add with no selector; replace with the stable equation selector; bounded LaTeX or typed AST only |
 | notes | `notes_update` | creates speaker notes when absent or replaces the editable notes text |
 | hyperlink | `hyperlink_add/update/remove` | internal `target_slide` only |
 | action | `action_add/update/remove` | `first`, `last`, `next`, or `previous` only |
 
 Add operations use an `object`; selected updates use `properties`, except
 `image_replace` and `chart_update`, which use a complete `object`.
+`equation_upsert` uses a complete `equation` block in both forms. Omit
+`selector` to add; include the exact readback selector (and preferably its
+`precondition_sha256`) to replace while retaining the selected shape id.
 
 Example:
 
@@ -128,6 +132,19 @@ Example:
         "selector": {"id": "7", "name": "Callout", "type": "shape"},
         "target_slide": 3
       },
+      {
+        "type": "equation_upsert",
+        "slide": 1,
+        "selector": {"id": "9", "name": "eq-growth", "type": "equation"},
+        "precondition_sha256": "<hash returned by pptx.read>",
+        "equation": {
+          "type": "equation",
+          "id": "eq-growth",
+          "bbox": {"x": 1.0, "y": 5.2, "w": 5.0, "h": 0.7},
+          "source": {"kind": "latex", "value": "E=mc^2"},
+          "fallback": "reject"
+        }
+      },
       {"type": "notes_update", "slide": 1, "value": "Presenter-only context"}
     ]
   }
@@ -146,6 +163,9 @@ Example:
 - External hyperlinks/actions, scripts, macro creation/editing/execution, OLE
   activation, and raw OOXML injection are not accepted. The keep-VBA exception
   preserves only an already-present validated VBA project byte-for-byte.
+- Equation update is closed-profile native Office Math. It never accepts raw
+  OMML/XML, macros, external includes, or image/OLE fallback; see
+  `editable-equations.md`.
 
 Successful output reports the applicable `slide_lifecycle`, `slide_size`,
 `design_edits`, and/or `object_edits` evidence under

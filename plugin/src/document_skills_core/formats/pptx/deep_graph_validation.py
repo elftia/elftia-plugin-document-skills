@@ -216,16 +216,66 @@ def _validate_drawing_ids(package: Any, failures: list[str]) -> int:
     for part in sorted(_content_parts(package)):
         if not part.startswith(_DRAWING_PART_PREFIXES) or not part.endswith(".xml"):
             continue
-        identifiers: list[str] = []
-        for node in package.xml(part).iter():
-            if local_name(node.tag) == "cNvPr":
-                identifiers.append(node.attrib.get("id", ""))
+        identifiers, invalid, duplicate = _drawing_identifier_state(package.xml(part))
         total += len(identifiers)
-        if any(not value.isdigit() or int(value) <= 0 for value in identifiers):
+        if invalid:
             failures.append(f"drawing-id-invalid:{part}")
-        if len(identifiers) != len(set(identifiers)):
+        if duplicate:
             failures.append(f"drawing-id-duplicate:{part}")
     return total
+
+
+def _drawing_identifier_state(root: Any) -> tuple[set[str], bool, bool]:
+    """Return possible ids plus invalid/duplicate truth across every MC branch."""
+    if local_name(root.tag) == "AlternateContent":
+        branches = [
+            child
+            for child in list(root)
+            if local_name(child.tag) in {"Choice", "Fallback"}
+        ]
+        common = [child for child in list(root) if child not in branches]
+        common_ids, invalid, duplicate = _combined_identifier_state(common)
+        possible = set(common_ids)
+        for branch in branches:
+            branch_ids, branch_invalid, branch_duplicate = _drawing_identifier_state(
+                branch
+            )
+            invalid = invalid or branch_invalid
+            duplicate = (
+                duplicate
+                or branch_duplicate
+                or bool(common_ids.intersection(branch_ids))
+            )
+            possible.update(branch_ids)
+        return possible, invalid, duplicate
+
+    identifiers: set[str] = set()
+    invalid = False
+    duplicate = False
+    if local_name(root.tag) == "cNvPr":
+        value = root.attrib.get("id", "")
+        identifiers.add(value)
+        invalid = not value.isdigit() or int(value) <= 0
+    child_ids, child_invalid, child_duplicate = _combined_identifier_state(list(root))
+    duplicate = duplicate or child_duplicate or bool(identifiers.intersection(child_ids))
+    identifiers.update(child_ids)
+    return identifiers, invalid or child_invalid, duplicate
+
+
+def _combined_identifier_state(nodes: list[Any]) -> tuple[set[str], bool, bool]:
+    identifiers: set[str] = set()
+    invalid = False
+    duplicate = False
+    for node in nodes:
+        child_ids, child_invalid, child_duplicate = _drawing_identifier_state(node)
+        duplicate = (
+            duplicate
+            or child_duplicate
+            or bool(identifiers.intersection(child_ids))
+        )
+        invalid = invalid or child_invalid
+        identifiers.update(child_ids)
+    return identifiers, invalid, duplicate
 
 
 def _validate_slide_ids(package: Any, failures: list[str]) -> int:

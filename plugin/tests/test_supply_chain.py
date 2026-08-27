@@ -156,6 +156,7 @@ def test_mapping_digest_excludes_review_self_reference_fields():
     [
         "core-docx-review-cycle-round-1.md",
         "document-skills-core-xlsx-completion-review-cycle-round-1.md",
+        "document-skills-0.5.3-pptx-b5-merge-review.md",
     ],
 )
 def test_historical_review_reports_are_hash_pinned_reviewed_data(

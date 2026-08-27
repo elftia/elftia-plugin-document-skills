@@ -8,6 +8,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .constants import MAX_ARGUMENT_TEXT, MAX_SLIDES
 from .design_contracts import parse_recipe
 from .design_edit_contracts import DESIGN_EDIT_TYPES, parse_design_edit
+from .equation_contracts import parse_equation_block
 from .object_contracts import OBJECT_EDIT_TYPES, parse_object_edit
 from .typed_object_contracts import parse_chart_reference, parse_image_reference
 
@@ -172,6 +173,11 @@ def _parse_added_slide(value: dict[str, Any], field: str) -> dict[str, Any]:
     for index, shape in enumerate(shapes):
         if type(shape) is not dict:
             _invalid("Added slide shape must be an object.", field=f"{field}.shapes.{index}")
+        if shape.get("type") == "equation":
+            parsed_shapes.append(
+                parse_equation_block(shape, f"{field}.shapes.{index}")
+            )
+            continue
         _exact_keys(shape, {"runs", "text"}, f"{field}.shapes.{index}")
         runs = shape.get("runs", [])
         if type(runs) is not list or len(runs) > 1_000:

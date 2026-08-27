@@ -9,6 +9,8 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .chart import build_chart_part, prepare_chart, public_chart_record
 from .constants import NS
 from .design_contracts import DEFAULT_LAYOUT_TOKENS, DEFAULT_THEME, LAYOUT_RECIPES
+from .equation_contracts import equation_records
+from .equation_omml import build_equation
 from .image import (
     MAX_TOTAL_IMAGE_BYTES,
     load_pptx_image,
@@ -89,6 +91,7 @@ def create_pptx(
         slides_data.append(slide)
     parts: dict[str, bytes] = {}
     has_chart = bool(charts)
+    equations = equation_records(slides_data)
     has_image = bool(images)
     has_table = any(s.get("table") for s in slides_data)
     note_slide_numbers = [
@@ -146,10 +149,12 @@ def create_pptx(
         "slides": len(slides_data),
         "layouts": layout_count,
         "has_chart": has_chart,
+        "has_equation": bool(equations),
         "has_image": has_image,
         "has_table": has_table,
         "has_notes": has_notes,
         "charts": [public_chart_record(chart) for chart in charts],
+        "equations": equations,
         "images": [public_image_record(image) for image in images],
         "layout_recipes": [
             {
@@ -327,6 +332,13 @@ def _build_slide(slide: dict[str, Any], slide_num: int) -> bytes:
         ordinal += 1
         shape_id += 1
     for shape_index, shape in enumerate(slide.get("shapes", [])):
+        if shape.get("type") == "equation":
+            equation = build_equation(shape_id, shape)
+            sp_tree.append(equation)
+            drawables.append((shape["z_order"], ordinal, equation))
+            ordinal += 1
+            shape_id += 1
+            continue
         sp = SubElement(sp_tree, f"{{{_P_NS}}}sp")
         drawables.append((100 + ordinal, ordinal, sp))
         ordinal += 1

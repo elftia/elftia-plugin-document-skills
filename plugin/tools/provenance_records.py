@@ -9,7 +9,7 @@ from typing import Any
 _REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
 CURRENT_REVIEW_ARTIFACT = (
     "provenance/reviews/"
-    "document-skills-0.5.3-pptx-b5-merge-review.md"
+    "document-skills-0.5.3-pptx-b6-merge-review.md"
 )
 
 

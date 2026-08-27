@@ -7,6 +7,7 @@ CORE_PPTX_REQUIREMENT = "Rasen document-skills-core-pptx"
 PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
+PPTX_EQUATION_B6_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b6"
 COMBINED_PPTX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx"
 )
@@ -26,6 +27,10 @@ SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT = (
 SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT = (
     SHARED_PROVENANCE_TEMPLATE_B2_B4_REQUIREMENT
     + " + pptx-ecosystem-phase-bc-b5"
+)
+SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT = (
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT
+    + " + pptx-ecosystem-phase-bc-b6"
 )
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
@@ -183,6 +188,70 @@ _PPTX_SVG_B5_TESTS = [
     "tests/test_strategy3.py",
     "tests/test_supply_chain.py",
 ]
+_PPTX_EQUATION_B6_MODULES = {
+    "src/document_skills_core/formats/pptx/constants.py",
+    "src/document_skills_core/formats/pptx/contracts.py",
+    "src/document_skills_core/formats/pptx/create.py",
+    "src/document_skills_core/formats/pptx/deep_graph_validation.py",
+    "src/document_skills_core/formats/pptx/edit_contracts.py",
+    "src/document_skills_core/formats/pptx/equation_ast.py",
+    "src/document_skills_core/formats/pptx/equation_contracts.py",
+    "src/document_skills_core/formats/pptx/equation_latex.py",
+    "src/document_skills_core/formats/pptx/equation_omml.py",
+    "src/document_skills_core/formats/pptx/equation_omml_emit.py",
+    "src/document_skills_core/formats/pptx/equation_omml_read.py",
+    "src/document_skills_core/formats/pptx/equation_omml_tags.py",
+    "src/document_skills_core/formats/pptx/mapping.py",
+    "src/document_skills_core/formats/pptx/object_contracts.py",
+    "src/document_skills_core/formats/pptx/object_edit.py",
+    "src/document_skills_core/formats/pptx/object_validation.py",
+    "src/document_skills_core/formats/pptx/object_xml.py",
+    "src/document_skills_core/formats/pptx/slide_graph.py",
+    "src/document_skills_core/formats/pptx/template_create.py",
+    "src/document_skills_core/formats/pptx/typed_validation.py",
+    "tests/fixtures/pptx/ecosystem_bc/generate.py",
+    "tests/test_html_provenance.py",
+    "tests/test_pptx_deep_validation.py",
+    "tests/test_pptx_equation.py",
+    "tests/test_pptx_equation_contracts.py",
+    "tests/test_pptx_equation_libreoffice.py",
+    "tests/test_pptx_equation_powerpoint.py",
+    "tests/test_pptx_equation_public.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tests/test_supply_chain.py",
+    "tools/html_pptx_provenance.py",
+    "tools/provenance_records.py",
+    "tools/regenerate_provenance.py",
+}
+_PPTX_EQUATION_B6_TESTS = [
+    "tests/test_pptx_equation.py",
+    "tests/test_pptx_equation_contracts.py",
+    "tests/test_pptx_equation_public.py",
+    "tests/test_pptx_deep_validation.py",
+    "tests/test_pptx_equation_libreoffice.py",
+    "tests/test_pptx_equation_powerpoint.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_html_provenance.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tests/test_supply_chain.py",
+]
+_PPTX_EQUATION_B6_DATA_ARTIFACTS = {
+    "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
+    "provenance/runtime-source-allowlist.json",
+    "skills/document-pptx/SKILL.md",
+    "skills/document-pptx/references/editable-equations.md",
+    "skills/document-pptx/references/typed-create.md",
+    "skills/document-pptx/references/typed-edit.md",
+    "tests/fixtures/manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/README.md",
+    "tests/fixtures/pptx/ecosystem_bc/equations/supported.json",
+    "tests/fixtures/pptx/ecosystem_bc/equations/supported.json.manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json",
+    "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json.manifest.json",
+}
 
 
 def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
@@ -248,6 +317,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
     template_profile = template_b2_module_profile(path)
     template_b4_profile = template_b4_module_profile(path)
     svg_b5_profile = svg_b5_module_profile(path)
+    equation_b6_profile = equation_b6_module_profile(path)
     if all(
         profile is None
         for profile in (
@@ -256,6 +326,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             template_profile,
             template_b4_profile,
             svg_b5_profile,
+            equation_b6_profile,
         )
     ):
         return None
@@ -267,6 +338,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             template_profile,
             template_b4_profile,
             svg_b5_profile,
+            equation_b6_profile,
         )
         if profile
     ]
@@ -280,6 +352,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             (template_profile, PPTX_TEMPLATE_B2_REQUIREMENT),
             (template_b4_profile, PPTX_TEMPLATE_B4_REQUIREMENT),
             (svg_b5_profile, PPTX_SVG_B5_REQUIREMENT),
+            (equation_b6_profile, PPTX_EQUATION_B6_REQUIREMENT),
         )
         if profile is not None
     ]
@@ -299,6 +372,11 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             *(
                 [PPTX_SVG_B5_REQUIREMENT]
                 if svg_b5_profile is not None
+                else []
+            ),
+            *(
+                [PPTX_EQUATION_B6_REQUIREMENT]
+                if equation_b6_profile is not None
                 else []
             ),
         ]
@@ -341,6 +419,17 @@ def svg_b5_module_profile(path: str) -> tuple[str, list[str]] | None:
             "A-Contract scene export and round trip, directory no-replace atomic "
             "promotion, and real PowerPoint consumer evidence.",
             _PPTX_SVG_B5_TESTS,
+        )
+    return None
+
+
+def equation_b6_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_EQUATION_B6_MODULES:
+        return (
+            "Bounded LaTeX and typed-AST parsing, native Office Math emission and "
+            "readback, transactional equation upsert, exact AlternateContent "
+            "branch validation, and truthful PowerPoint/LibreOffice evidence.",
+            _PPTX_EQUATION_B6_TESTS,
         )
     return None
 
@@ -496,5 +585,16 @@ def svg_b5_data_profile(path: str) -> tuple[str, list[str]] | None:
             "hash-bound semantic and real-consumer evidence, and exact "
             "runtime-source policy.",
             _PPTX_SVG_B5_TESTS,
+        )
+    return None
+
+
+def equation_b6_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_EQUATION_B6_DATA_ARTIFACTS:
+        return (
+            "B6 editable-equation guidance, deterministic fixtures, bounded native "
+            "Office Math implementation evidence, historical-review hash binding, "
+            "and exact runtime-source policy.",
+            _PPTX_EQUATION_B6_TESTS,
         )
     return None

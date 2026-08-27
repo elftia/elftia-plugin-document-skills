@@ -9,6 +9,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .constants import NS, local_name
 from .design_contracts import DEFAULT_THEME
+from .equation_contracts import equation_records
 from .mapping import map_slides
 from .mutation import MutablePptxPackage
 from .package import OpcPackage
@@ -85,9 +86,12 @@ def create_pptx_from_template(
         )
 
     candidate = OpcPackage.open(destination)
+    equations = equation_records(deck["slides"])
     return {
         "charts": chart_records,
+        "equations": equations,
         "has_chart": bool(chart_records),
+        "has_equation": bool(equations),
         "has_image": bool(image_records),
         "has_notes": any(slide.get("notes") is not None for slide in deck["slides"]),
         "has_table": any(slide.get("table") is not None for slide in deck["slides"]),

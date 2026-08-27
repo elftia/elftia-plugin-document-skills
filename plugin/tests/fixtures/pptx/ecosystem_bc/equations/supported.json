@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "id": "fraction",
+      "source": {
+        "kind": "latex",
+        "value": "\\frac{1}{2}"
+      }
+    },
+    {
+      "id": "scripts",
+      "source": {
+        "kind": "latex",
+        "value": "x_i^2"
+      }
+    },
+    {
+      "id": "sum",
+      "source": {
+        "kind": "latex",
+        "value": "\\sum_{i=1}^{n}i"
+      }
+    },
+    {
+      "id": "root",
+      "source": {
+        "kind": "latex",
+        "value": "\\sqrt[3]{x}"
+      }
+    },
+    {
+      "id": "matrix",
+      "source": {
+        "kind": "latex",
+        "value": "\\begin{matrix}a & b \\\\ c & d\\end{matrix}"
+      }
+    },
+    {
+      "id": "greek",
+      "source": {
+        "kind": "latex",
+        "value": "\\alpha+\\beta=\\Gamma"
+      }
+    },
+    {
+      "id": "typed-ast",
+      "source": {
+        "kind": "ast",
+        "value": {
+          "denominator": {
+            "degree": null,
+            "radicand": {
+              "type": "text",
+              "value": "b"
+            },
+            "type": "radical"
+          },
+          "numerator": {
+            "type": "text",
+            "value": "a"
+          },
+          "type": "fraction"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

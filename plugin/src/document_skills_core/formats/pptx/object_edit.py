@@ -9,6 +9,8 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .chart import build_chart_part, prepare_chart, public_chart_record
 from .constants import local_name
+from .equation_contracts import public_equation_record, validate_equation_frame
+from .equation_omml import build_equation
 from .image import fit_existing_image, load_pptx_image, public_image_record
 from .mapping import map_slides
 from .mutation import MutablePptxPackage
@@ -45,6 +47,7 @@ from .object_xml import (
     update_picture_geometry,
     update_text,
 )
+
 _TRAILING_NUMBER = re.compile(r"(\d+)$")
 
 
@@ -59,7 +62,9 @@ def apply_object_edit(
 
     root = target.xml(slide_part)
     tree = slide_shape_tree(root)
-    if edit_type.endswith("_add") and edit_type not in {
+    if edit_type == "equation_upsert" and edit["selector"] is None:
+        evidence = _add_equation(target, slide_part, root, tree, edit)
+    elif edit_type.endswith("_add") and edit_type not in {
         "action_add",
         "hyperlink_add",
     }:
@@ -77,6 +82,31 @@ def apply_object_edit(
         )
     target.set_part(slide_part, _xml_bytes(root))
     return evidence
+
+
+def _add_equation(
+    target: MutablePptxPackage,
+    slide_part: str,
+    root: Element,
+    tree: Element,
+    edit: dict[str, Any],
+) -> dict[str, Any]:
+    equation = edit["equation"]
+    _validate_equation_placement(target, edit["slide"], equation)
+    element = build_equation(next_shape_id(tree), equation)
+    tree.append(element)
+    place_at_z_order(tree, element, equation["z_order"])
+    return _evidence(
+        edit,
+        slide_part,
+        element,
+        before=None,
+        equation=public_equation_record(
+            equation,
+            slide=edit["slide"],
+            shape_id=non_visual_properties(element).attrib.get("id", ""),
+        ),
+    )
 
 
 def _add_object(
@@ -122,11 +152,14 @@ def _add_object(
             "rIdChart",
         )
         target.set_part(chart["part"], build_chart_part(chart))
-        register_content_types(target, {
-            chart["part"]: (
-                "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
-            )
-        })
+        register_content_types(
+            target,
+            {
+                chart["part"]: (
+                    "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
+                )
+            },
+        )
         added_parts.append(chart["part"])
         chart_record = public_chart_record(chart)
         element = build_chart_frame(shape_id, value, relationship_id)
@@ -157,6 +190,7 @@ def _edit_selected_object(
     added_parts: list[str] = []
     image_record = None
     chart_record = None
+    equation_record = None
     if edit_type.endswith("_delete"):
         relationship_id = _object_relationship_id(element)
         tree.remove(element)
@@ -173,7 +207,23 @@ def _edit_selected_object(
             object_kind=object_type(element),
             removed_parts=removed_parts,
         )
-    if edit_type == "shape_update":
+    if edit_type == "equation_upsert":
+        equation = edit["equation"]
+        _validate_equation_placement(target, edit["slide"], equation)
+        replacement = build_equation(
+            int(non_visual_properties(element).attrib["id"]),
+            equation,
+        )
+        _replace_tree_element(tree, element, replacement)
+        element = replacement
+        if equation["z_order_explicit"]:
+            place_at_z_order(tree, element, equation["z_order"])
+        equation_record = public_equation_record(
+            equation,
+            slide=edit["slide"],
+            shape_id=non_visual_properties(element).attrib.get("id", ""),
+        )
+    elif edit_type == "shape_update":
         properties = edit["properties"]
         apply_shape_update(element, properties)
         _apply_z_order(tree, element, properties)
@@ -225,6 +275,7 @@ def _edit_selected_object(
         removed_parts=removed_parts,
         image=image_record,
         chart=chart_record,
+        equation=equation_record,
     )
 
 
@@ -272,9 +323,13 @@ def _update_chart(
         "chart",
     )
     match = _TRAILING_NUMBER.search(posixpath.splitext(chart_part)[0])
-    index = int(match.group(1)) if match is not None else next_part_index(
-        target.parts,
-        "ppt/charts/chart",
+    index = (
+        int(match.group(1))
+        if match is not None
+        else next_part_index(
+            target.parts,
+            "ppt/charts/chart",
+        )
     )
     chart = prepare_chart(value, index)
     chart["part"] = chart_part
@@ -352,18 +407,21 @@ def _table_state(tree: Element, element: Element) -> dict[str, Any]:
                 row_span = int(cell.attrib.get("rowSpan", "1"))
                 column_span = int(cell.attrib.get("gridSpan", "1"))
                 if row_span > 1 or column_span > 1:
-                    merges.append({
-                        "row": row_index,
-                        "column": column_index,
-                        "row_span": row_span,
-                        "column_span": column_span,
-                    })
+                    merges.append(
+                        {
+                            "row": row_index,
+                            "column": column_index,
+                            "row_span": row_span,
+                            "column_span": column_span,
+                        }
+                    )
         rows.append(cells)
     grid = table.find(A("tblGrid"))
-    widths = [] if grid is None else [
-        int(column.attrib.get("w", "1"))
-        for column in grid.findall(A("gridCol"))
-    ]
+    widths = (
+        []
+        if grid is None
+        else [int(column.attrib.get("w", "1")) for column in grid.findall(A("gridCol"))]
+    )
     return {
         "frame": _element_frame(element),
         "heights": heights,
@@ -453,7 +511,7 @@ def _require_object_type(element: Element, edit_type: str) -> None:
     expected = next(
         (
             prefix
-            for prefix in ("shape", "image", "table", "chart")
+            for prefix in ("shape", "image", "table", "chart", "equation")
             if edit_type.startswith(f"{prefix}_")
         ),
         None,
@@ -466,6 +524,20 @@ def _require_object_type(element: Element, edit_type: str) -> None:
         )
     if expected == "shape" and local_name(element.tag) not in {"cxnSp", "sp"}:
         _invalid("Grouped or non-native shape editing is not supported.")
+
+
+def _validate_equation_placement(
+    target: MutablePptxPackage,
+    slide: int,
+    equation: dict[str, Any],
+) -> None:
+    slides = map_slides(target)
+    if slide < 1 or slide > len(slides):
+        _invalid("Equation slide position is outside the current deck.")
+    slide_size = slides[slide - 1].get("slide_size")
+    if slide_size is None:
+        _invalid("Presentation slide size is missing.")
+    validate_equation_frame(equation["frame"], slide_size, "equation.bbox")
 
 
 def _slide_part(target: MutablePptxPackage, position: int) -> str:
@@ -495,6 +567,7 @@ def _evidence(
     removed_parts: list[str] | None = None,
     image: dict[str, Any] | None = None,
     chart: dict[str, Any] | None = None,
+    equation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if element is not None:
         properties = non_visual_properties(element)
@@ -506,6 +579,7 @@ def _evidence(
         "after_sha256": None if element is None else object_hash(element),
         "before_sha256": before,
         "chart": chart,
+        "equation": equation,
         "image": image,
         "object_id": object_id,
         "object_name": object_name,

@@ -3,6 +3,7 @@
 from typing import Any
 
 from .constants import NS, local_name
+from .equation_omml import is_equation_element, project_equation
 from .object_xml import object_hash
 
 _P = NS["p"]
@@ -91,7 +92,9 @@ def _map_shapes(sp_tree: Any) -> list[dict[str, Any]]:
     shapes: list[dict[str, Any]] = []
     for child in sp_tree:
         tag = local_name(child.tag)
-        if tag == "sp":
+        if is_equation_element(child):
+            shapes.append(_map_equation(child))
+        elif tag == "sp":
             shapes.append(_map_shape(child, "shape"))
         elif tag == "pic":
             shapes.append(_map_shape(child, "picture"))
@@ -102,6 +105,20 @@ def _map_shapes(sp_tree: Any) -> list[dict[str, Any]]:
         elif tag == "grpSp":
             shapes.extend(_map_group(child))
     return shapes
+
+
+def _map_equation(element: Any) -> dict[str, Any]:
+    nv_pr = next(iter(element.iter(P("cNvPr"))), None)
+    shape_id = "" if nv_pr is None else nv_pr.get("id", "")
+    name = "" if nv_pr is None else nv_pr.get("name", "")
+    return {
+        "type": "equation",
+        "id": shape_id,
+        "name": name,
+        "precondition_sha256": object_hash(element),
+        "selector": {"id": shape_id, "name": name, "type": "equation"},
+        "equation": project_equation(element, strict=False),
+    }
 
 
 def _map_shape(elem: Any, shape_type: str) -> dict[str, Any]:

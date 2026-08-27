@@ -32,7 +32,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.convert.legacy` | yes (distinct `.pptx` output) | LibreOffice-gated semantic conversion from bounded legacy `.ppt`; no exact source-visual claim |
 | `pptx.validate.schema` | no | Provider-gated OpenXML SDK schema report for an existing `.pptx` |
 | `pptx.outline.create` | yes (distinct `.json` output) | Versioned planning JSON that explicitly does not claim to be a presentation |
-| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
+| `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, editable Office Math, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
 | `pptx.create.from-svg` | yes (distinct `.pptx` output) | Closed-profile local SVG to editable DrawingML primitives/groups/text/table/chart/image objects; whole-slide raster is forbidden |
@@ -40,7 +40,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.template.sanitize` | yes (distinct `.pptx` output) | Inert fail-closed removal of external/OLE relationships plus unreachable-part purge and `.potx` identity downgrade |
 | `pptx.template.inspect` | optional (distinct `.png` evidence) | Inert structural inventory, bounded content lint, descriptor-bound semantic slots, and optional provider-rendered contact sheet |
 | `pptx.create.from-template` | yes (distinct `.pptx` output) | Descriptor-bound semantic fill, page selection/repetition/reorder, and physical purge of unselected private content |
-| `pptx.edit` | yes (distinct output) | Transactional slide/object/deck-size/design-graph edits plus explicit inert `.pptm` keep-VBA copy-through |
+| `pptx.edit` | yes (distinct output) | Transactional slide/object/equation/deck-size/design-graph edits plus explicit inert `.pptm` keep-VBA copy-through |
 
 ## HTML deck conversion
 
@@ -95,6 +95,9 @@ request, read `references/typed-design.md`. Theme and layout tokens are closed
 contracts: unsupported properties fail closed. A local `.pptx` or `.potx` template reuses
 its master/layout/theme graph byte-for-byte and cannot be combined with new
 `deck.theme` tokens or a different slide size.
+For native editable Office Math in `pptx.create`, read
+`references/editable-equations.md`. Equations accept only the documented LaTeX
+subset or typed math AST; raw OMML/XML is never caller input.
 For explicit master/layout/theme graph edits or template inheritance lint,
 read `references/design-authoring.md`.
 
@@ -141,6 +144,9 @@ fails closed unless every final object boundary fits. Object selectors use
 slide number plus stable shape id and/or exact name,
 optionally narrowed by native type. `pptx.read` returns a reusable selector and
 `precondition_sha256` for every projected top-level object.
+Use `equation_upsert` to add an equation or replace one selected by the exact
+`type: "equation"` selector returned by `pptx.read`; the request remains part of
+the existing `pptx.edit` transaction. See `references/editable-equations.md`.
 
 Every edit array is one transaction. All supplied preconditions are checked
 against the original inputs before mutation, and any failure prevents output
@@ -150,7 +156,8 @@ first/last/next/previous set and never execute external content.
 ## Advanced-object inventory
 
 Use `pptx.inspect.structure` for inert discovery of SmartArt/diagram parts,
-equations, audio/video, OLE, animations, transitions, and comment metadata.
+unsupported equation variants, audio/video, OLE, animations, transitions, and
+comment metadata. Supported native Office Math is also projected by `pptx.read`.
 Read `references/advanced-inventory.md` before interpreting these records. They
 do not authorize playback, activation, execution, creation, or editing.
 
@@ -194,6 +201,10 @@ provider is absent, but becomes a required promotion gate when it is callable.
   `diagnostics.operation_result.creation`. Read/inspect project chart series,
   literal values, axis ids/titles/number formats, and media parts back from the
   emitted package.
+- **Editable equation boundary:** Equation blocks emit native Office Math, not
+  OLE or whole-object images. Input is a bounded LaTeX subset or typed AST,
+  `fallback` is currently only `reject`, and default PowerPoint/LibreOffice
+  consumer states remain `not_run` until that consumer is actually exercised.
 - **Copy-through preservation:** Every untargeted package part retains an
   identical payload SHA-256. Unknown safe parts, custom XML, media, charts,
   tables, slide masters, slide layouts, themes, notes masters, and notes slides

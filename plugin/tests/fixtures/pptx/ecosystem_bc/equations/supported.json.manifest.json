@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.create,pptx.edit",
+  "fixture_id": "B-EQ-01",
+  "format": "json",
+  "invariants": [
+    "each source normalizes to one canonical math AST and LaTeX value",
+    "each emitted object is native editable Office Math",
+    "readback preserves canonical semantics"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic math fixture.",
+  "path": "equations/supported.json",
+  "purpose": "Supported fraction, scripts, sum, root, matrix, Greek, and typed-AST equations.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 32768
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-equations",
+  "sha256": "sha256:0f02ca1e2a10470c941e867a8c92914a5d3946d3dc7c311d308771af8d4afe90",
+  "sizeBytes": 1218
+}
