@@ -79,7 +79,10 @@ _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
 _LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
 _LIBREOFFICE_RENDER_OPERATION = "pptx.render"
 _LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
-_PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
+# Provider reports probe independent runtimes serially.  The bounded .NET
+# restore/build/probe chain alone can consume 132 seconds, so this aggregate
+# ceiling also leaves room for Node, LibreOffice, browser, and PDF-tool probes.
+_PROVIDER_PROBE_TIMEOUT_SECONDS = 210.0
 _SCHEMA_OPERATION = "pptx.validate.schema"
 _SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
 _WORKER_TIMEOUT_SECONDS = 15.0

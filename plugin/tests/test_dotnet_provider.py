@@ -263,6 +263,7 @@ class TestConstants:
     def test_accepted_subcommands_contains_comments(self):
         assert "--comments-read" in ACCEPTED_SUBCOMMANDS
         assert "--comments-add" in ACCEPTED_SUBCOMMANDS
+        assert "--comments-resolve" in ACCEPTED_SUBCOMMANDS
 
     def test_accepted_subcommands_contains_template_and_schema(self):
         assert "--template-apply" in ACCEPTED_SUBCOMMANDS

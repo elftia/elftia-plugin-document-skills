@@ -221,7 +221,7 @@ def test_public_pdf_worker_failure_is_atomic_and_private(
             # copy before the measured supervisor path. Keep the product
             # budget enforced by the trace assertion below while allowing
             # full-suite startup contention outside that measured path.
-            timeout=30 if lock_mode else 15,
+            timeout=60,
             env=environment,
         )
         if trace_path is not None:

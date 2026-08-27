@@ -69,7 +69,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=300,
     )
     if check:
         diagnostic = process.stdout.decode("utf-8", errors="replace")

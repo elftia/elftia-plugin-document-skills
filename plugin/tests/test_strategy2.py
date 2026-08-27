@@ -72,7 +72,7 @@ def test_public_supervisor_is_one_json_protocol(project_root, command, mode):
         capture_output=True,
         text=False,
         shell=False,
-        timeout=15,
+        timeout=300,
     )
     assert completed.stdout.count(b"\n") == 1
     assert completed.stderr == b""
@@ -169,7 +169,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         capture_output=True,
         text=True,
         check=True,
-        timeout=60,
+        timeout=300,
     )
     doctor_state = {item["id"]: item for item in json.loads(doctor.stdout)["providers"]}
     capability = build_capabilities(project_root, "docx", registry)

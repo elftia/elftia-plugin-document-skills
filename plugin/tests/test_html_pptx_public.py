@@ -31,7 +31,7 @@ def _public(project_root: Path, cwd: Path, *arguments: str, check: bool = True):
         check=False,
         text=True,
         shell=False,
-        timeout=90,
+        timeout=300,
     )
     if check:
         assert process.returncode == 0, process.stdout

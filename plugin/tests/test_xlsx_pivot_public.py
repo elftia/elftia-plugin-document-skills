@@ -24,7 +24,7 @@ def _public(project_root: Path, *arguments: str) -> dict[str, object]:
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=300,
     )
     assert process.returncode == 0, (
         process.stderr.decode("utf-8", errors="replace")

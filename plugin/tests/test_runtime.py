@@ -29,14 +29,16 @@ from document_skills_core.core.process import (
     ProcessResult,
     ProcessRunner,
 )
+from document_skills_core.public_cli.protocol import PublicCommand
+from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
 from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice.constants import platform_known_paths
 from document_skills_core.providers.libreoffice.quota import hard_quota_capability
 
 
-# Covers the bounded 132-second dotnet chain plus the other sequential detectors
-# and Windows process-startup overhead without inheriting their private constants.
-_CORE_REPORT_TIMEOUT_SECONDS = 210
+# Leaves process-startup and teardown headroom above the supervisor's bounded
+# aggregate provider-report budget.
+_CORE_REPORT_TIMEOUT_SECONDS = 300
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -48,6 +50,19 @@ def _detector_state(provider_id: str = "fixture-provider") -> dict:
         "required": False,
         "path": None,
     }
+
+
+def test_provider_reports_cover_the_bounded_serial_probe_chain(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    supervisor = PublicCommandSupervisor(project_root)
+
+    for command_name in ("doctor", "capabilities"):
+        assert supervisor._command_limits(
+            PublicCommand(command_name, (command_name, "--json")),
+            tmp_path,
+        ) == (210.0, 2_097_152)
 
 
 def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
@@ -884,7 +899,7 @@ raise SystemExit(facade.main("docx", root, argv))
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=300,
     )
     assert completed.stdout.count(b"\n") == 1, completed
     assert completed.stderr == b""
