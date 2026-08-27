@@ -11,15 +11,17 @@
   "scripts": {
     "build": "node scripts/build-artifact.mjs",
     "release": "elftia-plugin release dist/document-skills --out release",
-    "test": "node scripts/run-plugin-checks.mjs",
+    "test": "npm run verify:docs && node scripts/run-plugin-checks.mjs",
     "test:xlsx:dist-e2e": "node scripts/run-xlsx-dist-e2e.mjs",
     "test:repro": "node --test scripts/__tests__/reproducibility.test.mjs",
     "validate:artifact": "node scripts/validate-artifact.mjs",
     "verify": "node scripts/verify.mjs && npm run verify:dist && npm run release",
+    "verify:docs": "node --test scripts/__tests__/readmes.test.mjs scripts/__tests__/readmes-negative.test.mjs && node scripts/verify-readmes.mjs",
     "verify:dist": "elftia-plugin verify dist/document-skills",
     "verify:repro": "node scripts/verify-reproducible-build.mjs"
   },
   "devDependencies": {
-    "@elftia/plugin-kit": "^0.1.2"
+    "@elftia/plugin-kit": "^0.1.2",
+    "markdown-it": "14.2.0"
   }
 }

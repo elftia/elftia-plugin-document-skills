@@ -196,9 +196,9 @@ def worker_failure_category(error: BaseException) -> str:
             return reason_category
         if error.code == ErrorCode.PROCESS_TIMEOUT:
             return "timeout"
-        text = str(error).casefold()
-        if "byte ceiling" in text or "output exceeded" in text:
-            return "overflow"
+    text = str(error).casefold()
+    if "byte ceiling" in text or "output exceeded" in text:
+        return "overflow"
     return "invalid_worker_result"
 
 

@@ -10,12 +10,14 @@ from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
     PPTX_EQUATION_B6_REQUIREMENT,
+    PPTX_RECONSTRUCTION_B7_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
     PPTX_TEMPLATE_B4_REQUIREMENT,
     PPTX_SVG_B5_REQUIREMENT,
     equation_b6_data_profile,
     html_pptx_data_profile,
     pptx_module_profile,
+    reconstruction_b7_data_profile,
     template_b2_data_profile,
     template_b4_data_profile,
     svg_b5_data_profile,
@@ -49,6 +51,36 @@ CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
     "document-skills-core-pptx + document-skills-core-xlsx + "
     "document-skills-xlsx-completion"
 )
+README_SYSTEM_REQUIREMENT = "Rasen document-skills-readme-system"
+
+_README_SYSTEM_DATA_ARTIFACTS = {
+    "README.md",
+    "consumer_validation/README.md",
+    "provenance/README.md",
+    "schemas/README.md",
+    "skills/README.md",
+    "src/document_skills_core/README.md",
+    "src/document_skills_core/formats/docx/README.md",
+    "src/document_skills_core/formats/pdf/README.md",
+    "src/document_skills_core/formats/pptx/README.md",
+    "src/document_skills_core/formats/xlsx/README.md",
+    "tests/README.md",
+}
+_README_SYSTEM_MODULES = {
+    "runtime/node/README.md",
+    "src/document_skills_core/providers/README.md",
+    "tests/test_readme_provenance.py",
+    "tools/README.md",
+}
+_README_SYSTEM_DESCRIPTION = (
+    "Layered producer README navigation, truthful capability and verification "
+    "boundaries, executable-reference validation, or direct provenance evidence."
+)
+_README_SYSTEM_TESTS = [
+    "tests/test_readme_provenance.py",
+    "tests/test_structure.py",
+    "tests/test_supply_chain.py",
+]
 
 _CROSS_FORMAT_CAPABILITY_MODULE_PROFILES: dict[
     str, tuple[str, list[str]]
@@ -606,6 +638,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     pptx_profile = pptx_module_profile(artifact.path)
     pptx_openxml_profile = pptx_openxml_module_profile(artifact.path)
     xlsx_profile = xlsx_module_profile(artifact.path)
+    readme_profile = readme_system_profile(artifact.path)
     pptx_record_profile = (
         (pptx_profile[0], pptx_profile[1]) if pptx_profile else None
     )
@@ -613,6 +646,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         cross_format_profile,
         pptx_record_profile,
         pptx_openxml_profile,
+        readme_profile,
     )
     is_consumer_gate = artifact.path.startswith("consumer_validation/") or artifact.path in {
         "tests/test_consumer_validation.py",
@@ -645,6 +679,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         else None,
         pptx_profile[2] if pptx_profile else None,
         OPENXML_DOTNET_REQUIREMENT if pptx_openxml_profile else None,
+        README_SYSTEM_REQUIREMENT if readme_profile else None,
     )
     base_requirement = (
         format_requirement
@@ -784,7 +819,9 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     template_b4_profile = template_b4_data_profile(artifact.path)
     svg_b5_profile = svg_b5_data_profile(artifact.path)
     equation_b6_profile = equation_b6_data_profile(artifact.path)
+    reconstruction_b7_profile = reconstruction_b7_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
+    readme_profile = readme_system_profile(artifact.path)
     selected_profiles = [
         profile
         for profile in (
@@ -793,7 +830,9 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             template_b4_profile,
             svg_b5_profile,
             equation_b6_profile,
+            reconstruction_b7_profile,
             xlsx_profile,
+            readme_profile,
         )
         if profile is not None
     ]
@@ -825,6 +864,10 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
                 PPTX_SVG_B5_REQUIREMENT if svg_b5_profile else None,
                 PPTX_EQUATION_B6_REQUIREMENT if equation_b6_profile else None,
+                PPTX_RECONSTRUCTION_B7_REQUIREMENT
+                if reconstruction_b7_profile
+                else None,
+                README_SYSTEM_REQUIREMENT if readme_profile else None,
             )
             if (
                 html_profile
@@ -832,6 +875,8 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 or template_b4_profile
                 or svg_b5_profile
                 or equation_b6_profile
+                or reconstruction_b7_profile
+                or readme_profile
             )
             else None
         )
@@ -886,6 +931,13 @@ def xlsx_module_profile(path: str) -> tuple[str, list[str]] | None:
             _XLSX_ALL_CHANGE_TESTS,
         )
     return xlsx_shared_module_profile(path)
+
+
+def readme_system_profile(path: str) -> tuple[str, list[str]] | None:
+    """Return direct evidence only for the new README hierarchy artifacts."""
+    if path in _README_SYSTEM_DATA_ARTIFACTS or path in _README_SYSTEM_MODULES:
+        return (_README_SYSTEM_DESCRIPTION, _README_SYSTEM_TESTS)
+    return None
 
 
 def xlsx_data_profile(path: str) -> tuple[str, list[str]] | None:

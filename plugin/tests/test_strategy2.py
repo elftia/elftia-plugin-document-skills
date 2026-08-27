@@ -453,7 +453,7 @@ def test_pdf_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
     expected_review = "provenance/reviews/core-pdf-review-cycle-round-1.md"
     previous_review = (
         "provenance/reviews/"
-        "document-skills-0.5.3-pptx-b6-merge-review.md"
+        "document-skills-0.5.3-pptx-b7-merge-review.md"
     )
     assert CURRENT_REVIEW_ARTIFACT == expected_review
 
@@ -493,6 +493,7 @@ def test_pdf_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md",
     ],
 )
 def test_historical_reviews_are_hash_pinned_data_not_metadata(

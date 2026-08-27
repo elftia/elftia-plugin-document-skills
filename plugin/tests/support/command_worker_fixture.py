@@ -143,6 +143,8 @@ def main():
         time.sleep(30)
     if mode == "overflow":
         os.write(1, b"x" * 3_000_000)
+    if mode == "huge-string":
+        os.write(1, b"x" * 3_000_000)
     if mode == "os-exit":
         os._exit(23)
     if mode == "crash":

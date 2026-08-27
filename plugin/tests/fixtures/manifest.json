@@ -325,6 +325,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -342,6 +343,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -359,6 +361,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -376,6 +379,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -393,6 +397,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -410,6 +415,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -427,6 +433,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -444,6 +451,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -485,6 +493,150 @@
     },
     {
       "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/low-confidence.observations.json",
+      "purpose": "Expected deterministic OCR/vision observations for low-confidence.png.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-reconstruction-observations",
+      "sha256": "449a3273b9f8d6bff8960bfb9a26a8cd1509767e91963f4cb1805897acac5be4"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/low-confidence.observations.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-REC-02.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "119b7420df71fcbace6882d076e3ec75239f353faa3d1232c85be5947e5c7d18"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "png",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/low-confidence.png",
+      "purpose": "Mixed-confidence cards with one isolated low-confidence text region.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-reconstruction-raster",
+      "sha256": "4f0d42dec3215700cf0812678a969d0dd42bbc22fd48e9b80f7b496552bbe70c"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/low-confidence.png.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-REC-02.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "49ac7b7084c9996499539df146ba42b86e20871953eb1173a1a2aefa2e122b79"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/synthetic-cards.observations.json",
+      "purpose": "Expected deterministic OCR/vision observations for synthetic-cards.png.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-reconstruction-observations",
+      "sha256": "a49e71e6456c4739afa9b048a9e3f81c279a490a7d819b3ce92ba2ca04dff85d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/synthetic-cards.observations.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-REC-01.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "c63a647daec3f1bde43581e0773dcff10a4cc35d5b7c22ca6bc4bc6c1aa64312"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "png",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/synthetic-cards.png",
+      "purpose": "Layered synthetic cards with confident editable text and shapes.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-reconstruction-raster",
+      "sha256": "84e656d10bb9dc18c861a376ec528737f020db6bfb767e0bd37c458f0795a1f8"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/reconstruction/synthetic-cards.png.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-REC-01.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "2390e1d771bc2abee9c96e72a1a1dbdd2d43b49c7f70c15dd1167a66b23e5071"
+    },
+    {
+      "authorship": "original-elftia",
       "format": "svg",
       "license": "GPL-3.0",
       "origin": "generated",
@@ -493,6 +645,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -510,6 +663,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -527,6 +681,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -544,6 +699,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -561,6 +717,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -578,6 +735,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -595,6 +753,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -612,6 +771,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -629,6 +789,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -646,6 +807,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -663,6 +825,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -680,6 +843,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -697,6 +861,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -714,6 +879,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -731,6 +897,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -748,6 +915,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -765,6 +933,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -782,6 +951,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -799,6 +969,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -816,6 +987,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -833,6 +1005,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -850,6 +1023,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -867,6 +1041,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -884,6 +1059,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -901,6 +1077,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -918,6 +1095,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -935,6 +1113,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -952,6 +1131,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -969,6 +1149,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -986,6 +1167,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1003,6 +1185,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1020,6 +1203,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1037,6 +1221,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1054,6 +1239,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1071,6 +1257,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1088,6 +1275,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1105,6 +1293,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1122,6 +1311,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1139,6 +1329,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1156,6 +1347,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1173,6 +1365,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1190,6 +1383,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1207,6 +1401,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1224,6 +1419,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1241,6 +1437,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],
@@ -1258,6 +1455,7 @@
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
       "recipe_dependencies": [
         "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_reconstruction_fixture.py",
         "tests/support/pptx_svg_fixture.py",
         "tests/support/pptx_template_fixture.py"
       ],

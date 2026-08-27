@@ -1,49 +1,68 @@
 # Elftia Document Skills Producer
 
-This repository is the canonical standalone producer for the `document-skills` runtime-managed
-Agent Skills bundle. The reviewed plugin project lives under `plugin/`; host consumers read only
-the deterministic artifact emitted at `dist/document-skills/`.
+## Purpose
 
-## XLSX implementation map
+This repository is the canonical standalone producer for Elftia's `document-skills` bundle. It owns the reviewed source, exact Python and Node locks, schemas, tests, provenance, SBOM, build tooling, and deterministic artifact emitted at `dist/document-skills/` after a build.
 
-The XLSX Skill entrypoint and guidance live at
-`plugin/skills/document-xlsx/{SKILL.md,scripts/,references/}`. Its Python implementation is in
-`plugin/src/document_skills_core/formats/xlsx/`; optional execution adapters are isolated under
-`plugin/src/document_skills_core/providers/{libreoffice,dotnet}/`.
+The bundled runtime exposes four narrow Agent Skills—DOCX, XLSX, PPTX, and PDF—through one frozen uv/Python façade. Start with the [runtime overview](plugin/README.md) when integrating the bundle and the [Skill catalog](plugin/skills/README.md) when choosing a format.
 
-The four foundation Core operations are `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`,
-and `xlsx.edit`. The completed Core surface also provides `xlsx.recalculate`, `xlsx.convert`,
-`xlsx.template.instantiate`, `xlsx.summary.aggregate`, and `xlsx.pivot.create`. Two additional
-operations are provider-only: `xlsx.validate.schema` requires the callable .NET/OpenXML provider,
-and `xlsx.render` requires callable LibreOffice. Core conversion remains available without
-LibreOffice except for the explicit legacy `.xls` to `.xlsx` branch; formula-bearing explicit
-recalculation likewise requires LibreOffice, while a workbook with no formulas reports
-`not_applicable` without invoking it.
+## Ownership and boundaries
 
-Formula results use the closed states `recalculated`, `stale`, `never_calculated`, and
-`recalculation_required`. Cached values are not described as current, and `recalculated` is used
-only after an accepted provider result. Read/create/edit can therefore return a validated Core
-artifact with an honest degradation when optional recalculation is unavailable.
+- Authoring source lives under [`plugin/`](plugin/); host consumers read only the verified `dist/document-skills/` artifact.
+- Producer commands do not discover or modify an Elftia checkout, synchronize host resources, create remotes, push, publish packages, or mutate user documents.
+- Python owns the public protocol, path policy, transactions, validation, and the only stdout result. Node, LibreOffice, .NET/OpenXML, browser, and OCR/vision components are private capability-gated providers.
+- Missing optional providers are normal availability outcomes. They are never installed silently and are never reported as passing because a weaker Core check succeeded.
 
-Optional-provider source belongs to separately scoped enhancement Changes and is not established
-by this Core XLSX delivery. Source presence alone does not make LibreOffice callable: execution
-fails closed unless executable identity, private storage, and a validated aggregate hard-quota
-backend are all available; the default backend reports unavailable. Full schema validation
-similarly does not fall back to a package reopen when .NET 8, the locked helper, or its exact
-OpenXML dependency is unavailable. These are producer capability boundaries only: the source
-paths do not establish host seeding, live optional-provider execution, or a remote-CI result.
+## Entry points
 
-## Verification
+Requires Node 20 or newer and [uv](https://docs.astral.sh/uv/). From the repository root:
 
 ```text
 npm ci --ignore-scripts
+npm run verify:docs
 npm run verify
 npm run verify:repro
 ```
 
-`npm run verify` installs the plugin's exact production Node graph with lifecycle scripts
-disabled, creates its frozen uv environment, runs the complete Python/Node/provenance suite, and
-emits and validates the artifact. The build never discovers or writes an Elftia checkout.
+`npm run verify:docs` validates the README hierarchy and executable references. `npm run verify` prepares frozen dependencies, runs the producer suite and audits, builds and validates the artifact, verifies the plugin package, and creates the release package. `npm run verify:repro` compares two clean artifact builds byte-for-byte.
 
-The artifact is consumed by the host's pinned plugin fleet. Producer commands never synchronize
-host resources, create remotes, push, publish packages, or mutate user data.
+Agent-visible document commands are documented in the [plugin entry point](plugin/README.md). Build and release command ownership is documented in [`scripts/README.md`](scripts/README.md).
+
+### Capability map
+
+| Skill | Core ownership | Optional boundaries | Module guide |
+| --- | --- | --- | --- |
+| `document-docx` | Direct OOXML read, inspect, create, edit, merge, semantic compare | LibreOffice rendering/conversion; .NET/OpenXML revisions, comments, schema | [DOCX](plugin/src/document_skills_core/formats/docx/README.md) |
+| `document-xlsx` | Direct OOXML/tabular read, inspect, authoring, conversion, summary, pivot | LibreOffice recalculation/render/legacy conversion; .NET/OpenXML schema | [XLSX](plugin/src/document_skills_core/formats/xlsx/README.md) |
+| `document-pptx` | Direct OOXML read, inspect, typed authoring/editing, SVG/template/scene flows | LibreOffice render/conversion; .NET schema; system browser HTML capture; configured OCR/vision reconstruction | [PPTX](plugin/src/document_skills_core/formats/pptx/README.md) |
+| `document-pdf` | Direct PDF read, inspect, create, edit, rewrite, structural validation | Visual rendering and OCR remain separate unavailable gates unless a future accepted provider owns them | [PDF](plugin/src/document_skills_core/formats/pdf/README.md) |
+
+## Safety and failure semantics
+
+Mutations require explicit output paths distinct from inputs. The normal lifecycle snapshots and hashes the source, stages output in a private operation root, validates the candidate, atomically promotes it without replacing an unrelated destination, verifies source preservation, and cleans temporary state.
+
+Active content, external relationships, unsafe package graphs, ambiguous selectors, provider crashes, timeouts, and required validation failures fail closed. Result status distinguishes `success`, authorized `degraded`, `enhancement_required`, `unavailable`, `invalid_request`, and `failed`; unavailable or unexecuted validators never become passes.
+
+## Verification
+
+The verification layers are deliberately separate:
+
+- `npm run verify:docs` checks documentation structure, UTF-8, links, package commands, and registered-operation coverage.
+- `npm run verify` runs deterministic producer tests, supply-chain audit, artifact validation, plugin verification, and release packaging.
+- `npm run verify:repro` proves repeated builds have identical inventories and hashes.
+- [`e2e/README.md`](e2e/README.md) documents distribution-level E2E owned by this repository. Real Office-consumer evidence is recorded separately and must name the consumer and run outcome.
+
+The 2026-08-28 PPTX B7 evidence passed real PowerPoint consumption and non-PPTX LibreOffice paths. On that machine, LibreOffice Impress crashed even for a minimal control PPTX, while the product failed closed; production OCR/vision was not configured; remote CI was not executed. Those run facts are not universal compatibility claims.
+
+## Related documentation
+
+- [Bundled runtime](plugin/README.md)
+- [Public Skill catalog](plugin/skills/README.md)
+- [Shared Core architecture](plugin/src/document_skills_core/README.md)
+- [Optional provider model](plugin/src/document_skills_core/providers/README.md)
+- [Schemas](plugin/schemas/README.md)
+- [Consumer validation](plugin/consumer_validation/README.md)
+- [Provenance and supply chain](plugin/provenance/README.md)
+- [Producer scripts](scripts/README.md)
+- [Distribution E2E](e2e/README.md)
+- [PPTX ecosystem contract ADR](docs/adr/0001-pptx-ecosystem-phase-bc-contract-and-operations.md)

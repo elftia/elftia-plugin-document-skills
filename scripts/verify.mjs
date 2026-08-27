@@ -1,6 +1,12 @@
 import { buildArtifact, validateArtifact } from './artifact.mjs';
 import { runCommand } from './process.mjs';
 
+runCommand(process.execPath, [
+  '--test',
+  'scripts/__tests__/readmes.test.mjs',
+  'scripts/__tests__/readmes-negative.test.mjs',
+]);
+runCommand(process.execPath, ['scripts/verify-readmes.mjs']);
 runCommand(process.execPath, ['--test', 'scripts/__tests__/reproducibility.test.mjs']);
 runCommand(process.execPath, ['scripts/run-plugin-checks.mjs']);
 const built = await buildArtifact();

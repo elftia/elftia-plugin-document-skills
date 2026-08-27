@@ -13,6 +13,7 @@ class ProviderId(StrEnum):
     POPPLER = "poppler"
     TESSERACT_OCR = "tesseract-ocr"
     HTML_BROWSER = "html-browser"
+    OCR_VISION = "ocr-vision"
     LIBREOFFICE = "libreoffice"
     DOTNET_OPENXML = "dotnet-openxml"
 

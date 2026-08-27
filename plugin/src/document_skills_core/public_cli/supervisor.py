@@ -33,6 +33,9 @@ _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
 _PDF_WORKER_TIMEOUT_SECONDS = 30.0
+_PPTX_RECONSTRUCTION_OPERATION = "pptx.reconstruct.from-image"
+_PPTX_RECONSTRUCTION_TIMEOUT_SECONDS = 60.0
+_PPTX_RECONSTRUCTION_RESULT_BYTES = 1_048_576
 _DOCX_LIBREOFFICE_OPERATIONS = frozenset(
     {
         "docx.compare.visual",
@@ -280,6 +283,14 @@ class PublicCommandSupervisor:
                 return max(
                     self.timeout_seconds, _PDF_WORKER_TIMEOUT_SECONDS
                 ), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") == _PPTX_RECONSTRUCTION_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _PPTX_RECONSTRUCTION_TIMEOUT_SECONDS),
+                    _PPTX_RECONSTRUCTION_RESULT_BYTES,
+                )
             if (
                 type(value) is dict
                 and value.get("operation") in _DOCX_LIBREOFFICE_OPERATIONS

@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.reconstruct.from-image",
+  "fixture_id": "B-REC-01",
+  "format": "png",
+  "invariants": [
+    "all observations exceed the default confidence threshold",
+    "stable reading order alternates each card before its text",
+    "no observation proposes an uncropped whole-slide raster"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic raster and observation fixture.",
+  "path": "reconstruction/synthetic-cards.png",
+  "purpose": "Layered synthetic cards with confident editable text and shapes.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 256000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-reconstruction-raster",
+  "sha256": "sha256:84e656d10bb9dc18c861a376ec528737f020db6bfb767e0bd37c458f0795a1f8",
+  "sizeBytes": 1200
+}
