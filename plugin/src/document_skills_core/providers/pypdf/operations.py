@@ -22,6 +22,7 @@ from .compression_evidence import (
     measure_compression,
     reopen_visual_evidence,
 )
+from .safety import assert_core_safe_pdf
 
 pypdf_filters.ZLIB_MAX_OUTPUT_LENGTH = MAX_STREAM_BYTES
 
@@ -67,6 +68,7 @@ def encrypt_pdf(
     preflight = preflight_pdf(source)
     if preflight.encrypted:
         _invalid("pdf.encrypt requires an unencrypted input PDF.")
+    assert_core_safe_pdf(source)
     reader = _reader(source)
     writer = PdfWriter()
     writer.clone_document_from_reader(reader)
@@ -107,6 +109,7 @@ def decrypt_pdf(
     writer.clone_document_from_reader(reader)
     writer.pdf_header = f"%PDF-{_OUTPUT_VERSION}"
     writer.write(staged)
+    assert_core_safe_pdf(staged)
     return (
         {
             "decryption": {
@@ -129,6 +132,7 @@ def compress_pdf(
     preflight = preflight_pdf(source)
     if preflight.encrypted:
         _invalid("pdf.compress requires an unencrypted input PDF.")
+    assert_core_safe_pdf(source)
     reader = _reader(source)
     writer = PdfWriter()
     writer.clone_document_from_reader(reader)

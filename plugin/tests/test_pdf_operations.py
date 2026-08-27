@@ -98,6 +98,56 @@ def _merge_inputs(*paths: Path) -> list[dict[str, str]]:
     ]
 
 
+def _write_pdf_fixture(path: Path, objects: list[bytes]) -> Path:
+    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
+    body = bytearray()
+    offsets: list[int] = []
+    for number, payload in enumerate(objects, start=1):
+        offsets.append(len(header) + len(body))
+        body.extend(f"{number} 0 obj\n".encode("ascii"))
+        body.extend(payload)
+        body.extend(b"\nendobj\n")
+    xref_offset = len(header) + len(body)
+    xref = bytearray(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    xref.extend(b"0000000000 65535 f\r\n")
+    for offset in offsets:
+        xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
+    xref.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("ascii")
+    )
+    path.write_bytes(header + bytes(body) + bytes(xref))
+    return path
+
+
+def _cidfont_without_tounicode_pdf(path: Path) -> Path:
+    content = b"BT /FCID 12 Tf 72 720 Td <0001> Tj ET"
+    return _write_pdf_fixture(
+        path,
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                b"/Resources << /Font << /FCID 5 0 R >> >> /Contents 4 0 R >>"
+            ),
+            b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+            + content + b"\nendstream",
+            (
+                b"<< /Type /Font /Subtype /Type0 /BaseFont /MissingMap "
+                b"/Encoding /Identity-H /DescendantFonts [6 0 R] >>"
+            ),
+            (
+                b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /MissingMap "
+                b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) "
+                b"/Supplement 0 >> >>"
+            ),
+        ],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Create
 # ---------------------------------------------------------------------------
@@ -207,6 +257,142 @@ class TestRead:
         text_page = operation_result["text_by_page"][0]
         assert "Page One" in text_page["text"]
         assert text_page["text_extraction"] == "embedded"
+
+    def test_read_does_not_fabricate_cidfont_text_without_semantic_mapping(
+        self,
+        tmp_path: Path,
+    ):
+        source = _cidfont_without_tounicode_pdf(tmp_path / "missing-map.pdf")
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert operation_result["text_blocks"] == []
+        assert operation_result["text_by_page"] == [
+            {
+                "page": 1,
+                "text": "",
+                "block_count": 0,
+                "text_extraction": "text_extraction_unavailable",
+            }
+        ]
+        assert warnings == [
+            {
+                "code": "DS_PDF_TEXT_EXTRACTION_UNAVAILABLE",
+                "message": "Text blocks without a proven semantic mapping were omitted.",
+                "details": {"affected": "text_blocks", "omitted": 1, "pages": [1]},
+            }
+        ]
+
+    def test_read_reports_caller_selected_block_truncation(self, created_pdf: Path):
+        operation_result, warnings = read_pdf(
+            created_pdf,
+            {"max_blocks_per_page": 1},
+        )
+
+        assert sum(
+            block["page"] == 1 for block in operation_result["text_blocks"]
+        ) == 1
+        assert {
+            "code": "DS_PDF_READ_TRUNCATED",
+            "message": "Text blocks exceeded the caller-selected per-page limit.",
+            "details": {
+                "affected": "text_blocks",
+                "limit": 1,
+                "pages": [1],
+            },
+        } in warnings
+
+    def test_read_reports_default_block_truncation_at_internal_ceiling(
+        self,
+        tmp_path: Path,
+    ):
+        content = b"BT /F1 12 Tf " + (b"(x) Tj " * 5_001) + b"ET"
+        source = _write_pdf_fixture(
+            tmp_path / "over-block-limit.pdf",
+            [
+                b"<< /Type /Catalog /Pages 2 0 R >>",
+                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                (
+                    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                    b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
+                ),
+                b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+                + content + b"\nendstream",
+                b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            ],
+        )
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert len(operation_result["text_blocks"]) == 5_000
+        assert {
+            "code": "DS_PDF_READ_TRUNCATED",
+            "message": "Text blocks exceeded the caller-selected per-page limit.",
+            "details": {
+                "affected": "text_blocks",
+                "limit": 5_000,
+                "pages": [1],
+            },
+        } in warnings
+
+    def test_read_filters_unmapped_cid_blocks_before_projection_limit(
+        self,
+        tmp_path: Path,
+    ):
+        content = (
+            b"BT /FCID 12 Tf "
+            + (b"<0001> Tj " * 5_001)
+            + b"/F1 12 Tf (SAFE) Tj ET"
+        )
+        source = _write_pdf_fixture(
+            tmp_path / "cid-before-readable-text.pdf",
+            [
+                b"<< /Type /Catalog /Pages 2 0 R >>",
+                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                (
+                    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                    b"/Resources << /Font << /FCID 5 0 R /F1 7 0 R >> >> "
+                    b"/Contents 4 0 R >>"
+                ),
+                b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+                + content + b"\nendstream",
+                (
+                    b"<< /Type /Font /Subtype /Type0 /BaseFont /MissingMap "
+                    b"/Encoding /Identity-H /DescendantFonts [6 0 R] >>"
+                ),
+                (
+                    b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /MissingMap "
+                    b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) "
+                    b"/Supplement 0 >> >>"
+                ),
+                b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            ],
+        )
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert [block["text"] for block in operation_result["text_blocks"]] == [
+            "SAFE"
+        ]
+        assert operation_result["text_by_page"] == [
+            {
+                "page": 1,
+                "text": "SAFE",
+                "block_count": 1,
+                "text_extraction": "embedded",
+            }
+        ]
+        assert warnings == [
+            {
+                "code": "DS_PDF_TEXT_EXTRACTION_UNAVAILABLE",
+                "message": "Text blocks without a proven semantic mapping were omitted.",
+                "details": {
+                    "affected": "text_blocks",
+                    "omitted": 5_001,
+                    "pages": [1],
+                },
+            }
+        ]
 
 
 # ---------------------------------------------------------------------------

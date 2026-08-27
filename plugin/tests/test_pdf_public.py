@@ -23,6 +23,7 @@ from pypdf import PdfReader, PdfWriter
 
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.formats.pdf.create import create_pdf
+from document_skills_core.providers.pypdf.service import PypdfService
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
@@ -361,6 +362,53 @@ def _compressible_pdf(path: Path) -> Path:
             b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
         ],
     )
+
+
+def _pypdf_malicious_pdf(path: Path, payload_kind: str, *, encrypted: bool) -> Path:
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    if payload_kind == "javascript":
+        writer.add_js("app.alert('blocked')")
+    else:
+        writer.add_attachment("payload.exe", b"MZ\x00\x01blocked")
+    if encrypted:
+        writer.encrypt(
+            user_password="malicious-reader-4821",
+            owner_password="malicious-owner-5932",
+            algorithm="AES-256-R5",
+        )
+    with path.open("wb") as stream:
+        writer.write(stream)
+    return path
+
+
+def _pypdf_security_request(
+    operation: str,
+    source: Path,
+    output: Path,
+) -> dict[str, object]:
+    request: dict[str, object] = {
+        "schema_version": "1.0",
+        "operation": operation,
+        "input": str(source),
+        "output": str(output),
+        "arguments": {},
+    }
+    if operation == "pdf.encrypt":
+        request["secrets"] = {
+            "user_password": "malicious-reader-4821",
+            "owner_password": "malicious-owner-5932",
+        }
+        request["arguments"] = {
+            "algorithm": "AES-256-R5",
+            "permissions": [],
+            "encrypt_metadata": True,
+        }
+    elif operation == "pdf.decrypt":
+        request["secrets"] = {"password": "malicious-reader-4821"}
+    else:
+        request["arguments"] = {"mode": "lossless"}
+    return request
 
 
 @pytest.fixture
@@ -3587,6 +3635,82 @@ def test_public_edit_adds_updates_and_deletes_text_annotations_atomically(
 # Encryption, decryption, and compression
 # ---------------------------------------------------------------------------
 
+_PYPDF_SECURITY_CASES = [
+    ("pdf.encrypt", "javascript"),
+    ("pdf.encrypt", "embedded-executable"),
+    ("pdf.compress", "javascript"),
+    ("pdf.compress", "embedded-executable"),
+    ("pdf.decrypt", "javascript"),
+    ("pdf.decrypt", "embedded-executable"),
+]
+
+
+@pytest.mark.parametrize(("operation", "payload_kind"), _PYPDF_SECURITY_CASES)
+def test_pypdf_provider_mutations_reject_active_or_executable_content(
+    project_root: Path,
+    tmp_path: Path,
+    operation: str,
+    payload_kind: str,
+) -> None:
+    source = _pypdf_malicious_pdf(
+        tmp_path / f"provider-{operation}-{payload_kind}.pdf",
+        payload_kind,
+        encrypted=operation == "pdf.decrypt",
+    )
+    output = tmp_path / f"provider-{operation}-{payload_kind}-output.pdf"
+    original_destination = b"existing destination"
+    output.write_bytes(original_destination)
+
+    result = PypdfService(project_root).execute(
+        operation,
+        _pypdf_security_request(operation, source, output),
+    )
+
+    assert result["status"] == "failed"
+    assert result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert output.read_bytes() == original_destination
+
+
+@pytest.mark.parametrize(
+    ("operation", "payload_kind"),
+    _PYPDF_SECURITY_CASES,
+)
+def test_public_pypdf_mutations_reject_active_or_executable_content(
+    project_root: Path,
+    tmp_path: Path,
+    operation: str,
+    payload_kind: str,
+) -> None:
+    source = _pypdf_malicious_pdf(
+        tmp_path / f"public-{operation}-{payload_kind}.pdf",
+        payload_kind,
+        encrypted=operation == "pdf.decrypt",
+    )
+    source_before = source.read_bytes()
+    output = tmp_path / f"public-{operation}-{payload_kind}-output.pdf"
+    original_destination = b"existing destination"
+    output.write_bytes(original_destination)
+    request = _request(
+        tmp_path,
+        f"public-{operation}-{payload_kind}.json",
+        _pypdf_security_request(operation, source, output),
+    )
+
+    result = _public(
+        project_root,
+        "run",
+        "--request",
+        str(request),
+        check=False,
+    )
+
+    assert result["status"] == "failed"
+    assert result["provider_chain"] == ["pypdf"]
+    assert result["errors"][0]["code"] == "DS_ARCHIVE_UNSAFE"
+    assert source.read_bytes() == source_before
+    assert output.read_bytes() == original_destination
+
+
 def test_public_encrypt_writes_verified_aes_256_r5_without_secret_disclosure(
     project_root: Path,
     public_created: Path,
@@ -4434,3 +4558,27 @@ def test_public_provider_chain_identifies_core_python(project_root: Path, public
     assert result["status"] == "success"
     # The result should carry honest provider evidence
     assert "fidelity" in result or "provider_chain" in result
+
+
+def test_document_pdf_wrapper_dispatches_registered_docx_operation(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    source = project_root / "tests" / "fixtures" / "docx-rich.docx"
+    request = _request(
+        tmp_path,
+        "pdf-wrapper-docx-read.json",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.read",
+            "input": str(source),
+            "arguments": {},
+        },
+    )
+
+    result = _public(project_root, "run", "--request", str(request))
+
+    assert result["status"] == "success"
+    assert result["provider_chain"] == ["core-python"]
+    assert "pypdf" not in result["provider_chain"]
+    assert result["artifacts"][0]["path"] == str(source.resolve())

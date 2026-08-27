@@ -1,14 +1,20 @@
 ---
 status: clean
 approval_claimed: true
-identity: codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-2026-08-25
-reviewer: "Codex native non-author review team/process: PDF completion 2026-08-25"
+identity: codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-14-0.5.5-2026-08-27
+reviewer: "Codex native non-author review team/process: PDF completion rounds 1-14 and 0.5.5 release delta 2026-08-27"
 scope: all-release-artifacts
 identity_assurance: self-asserted
 identity_limitations: >-
   Self-asserted composite native Codex non-author review-process identity on
   local Windows; it cannot cryptographically prove the service principal or
-  claim that one individual reviewer executed all rounds.
+  claim that one individual reviewer executed all rounds. Rounds 1-13 retain
+  the role and scope limitations recorded in their sections below. The fresh
+  read-only Round 14 reviewer examined only the six-file PDF read/pypdf
+  hardening delta against `28f3fdce26e7d45513fb9023d89eff006177e256` and
+  the producer's successive fixes for its findings; it did not independently
+  re-review the historical implementation or write source, tests, provenance,
+  or this report.
   The nested reviewer `/root/pdf_independent_review/pdf_independent_review`
   executed round 1; its non-author parent `/root/pdf_independent_review`
   executed rounds 2 and 3. The fresh non-author reviewer
@@ -24,14 +30,14 @@ identity_limitations: >-
   could not execute remote CI, a live host consumer, Poppler, Tesseract, qpdf,
   or a native PDF viewer, and does not claim OS-level resource-quota or current
   host-fleet evidence.
-reviewed_mapping_sha256: 4b1750343aec47aeddadefacc75cfb6391a092de16b9c663a973f56e2710f021
+reviewed_mapping_sha256: b81cfd16d52d1a4e868ab98655560cd348bec6d3c2353ea60a3895241803e674
 report_evidence: provenance/reviews/core-pdf-review-cycle-round-1.md
-baseline: 120d60be42b3a29b85fc34af2bcd352f1ab40b75
-review_round: 8
-review_mode: windows-consumer-timeout-harness-delta-attestation
+baseline: 28f3fdce26e7d45513fb9023d89eff006177e256
+review_round: 14
+review_mode: pdf-core-parsing-and-pypdf-mutation-hardening-delta-attestation
 ---
 
-# PDF completion independent review - rounds 1-8
+# PDF completion independent review - rounds 1-14
 
 ## Attestation and verdict
 
@@ -51,12 +57,13 @@ artifacts. Round 6 narrowly reviews the post-review removal of one terminal LF f
 frozen uncommitted JPEG/create-image and watermark semantic-closure delta against
 `120d60be42b3a29b85fc34af2bcd352f1ab40b75`, including a producer fix made after the reviewer
 reproduced an ordering failure. Round 8 narrowly reviews the single Windows consumer-harness
-timeout change from 0.25 to 2.0 seconds and the resulting prospective provenance identity. None
-of the delta reviews restarted or generalized the review over the full historical implementation
-diff. No
-reviewer authored the production fixes or generated artifacts. This canonical report and the
-round-6 provenance metadata were the only files written by the round-6 reviewer; this canonical
-report is the only file written by each of the round-7 and round-8 reviewers.
+timeout change from 0.25 to 2.0 seconds and the resulting prospective provenance identity.
+Rounds 9-13 are recorded in their dedicated sections below. Round 14 is a fresh read-only review
+of the final six-file PDF read/pypdf safety delta and the producer's successive fixes. None of
+the delta reviews restarted or generalized the review over the full historical implementation
+diff. Reviewers did not author the production fixes. The write roles and limitations for the
+historical review/provenance rounds remain recorded in their respective sections; the Round 14
+reviewer made no file changes.
 
 **Verdict: clean; approval claimed.** All four round-1 Blockers and both round-1 Majors are
 closed by source inspection, independent public supervisor/worker reproductions, exact object
@@ -64,12 +71,17 @@ and byte-preservation checks, and focused regression runs. No new Blocker or Maj
 the fixer delta, final PDF delta, or scoped generated-artifact deltas. Round 7 initially found a
 Blocker in page-identity-replacement followed by watermarking; the producer fix is independently
 verified closed below, and no release-significant finding remains. The final mapping digest
-above is approved for this reviewed snapshot. Round 8 found that the failed full `npm test` run
+above is approved for the Round 14 reviewed snapshot. Round 8 found that the failed full `npm test` run
 was startup-starved at the 0.25-second consumer-harness timeout rather than exposing a product
 cleanup failure; the unchanged cleanup contract passes the independent evidence below. That
 failed full run is not passing evidence, and a fresh full `npm test` run remains mandatory before
-delivery. The round-8 report edit remains outside the
-mapping hash because this canonical report is an explicit self-referential metadata exclusion.
+delivery. The round-8 report edit remains outside the mapping hash because this canonical report
+is an explicit self-referential metadata exclusion. Round 14 initially found three related
+read-projection Majors: a silent 5,000-block truncation, semantic filtering after a raw sentinel
+that could hide later readable text, and a multi-page raw-block retention regression introduced
+by the first fix. The producer closed all three with explicit warning evidence,
+semantic-before-projection ordering, and page-local compaction; the fresh reviewer returned
+`CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0` on the final delta.
 
 ## Review-cycle history and disposition
 
@@ -83,6 +95,12 @@ mapping hash because this canonical report is an explicit self-referential metad
 | 6 | `/root/pdf_final_independent_review` | Narrow review of one removed terminal LF; provenance report/modules/runtime/audit rebinding to the resulting exact mapping. |
 | 7 | Fresh Codex non-author reviewer | Frozen uncommitted JPEG/create-image and watermark closure review; reproduced and closed the ordering Blocker, reran focused/P0 gates, and approved the prospective mapping. |
 | 8 | Fresh Codex non-author reviewer | Narrow Windows consumer-timeout harness review; distinguished startup starvation from cleanup behavior, independently reran the unchanged contract, and approved the prospective mapping with a fresh full npm run still required. |
+| 9 | Fresh Codex non-author reviewer | Monotonic 0.5.5 release-version and generated-artifact delta review. |
+| 10 | Fresh Codex non-author reviewer | Bounded pipe worker boundary and identity-bound private-workspace review. |
+| 11 | Fresh Codex non-author reviewer | Generated runtime-source allowlist and final mapping re-review. |
+| 12 | Fresh Codex non-author reviewer | Volatile runtime-root test-copy isolation review. |
+| 13 | Fresh Codex non-author reviewer | Public worker protocol documentation-truth delta review. |
+| 14 | `/root/pdf_read_honesty_fixer` | Read-only six-file PDF read/pypdf hardening review; reproduced three projection/resource findings, re-reviewed their fixes, and approved the final prospective mapping. |
 
 | Round-1 finding | Severity | Round-1 observed failure | Round-2 disposition |
 | --- | --- | --- | --- |
@@ -1052,3 +1070,76 @@ new Producer commit, or live Host fleet/consumer receipt is claimed. The checked
 outside this round and must be rebuilt from the approved source only after the provenance rebind.
 All external, full-suite, build, dist, reproducibility, release ZIP, Producer commit, and Host
 consumer gates remain mandatory and unwaived.
+
+## Round 14 — PDF read honesty and pypdf mutation safety hardening
+
+### Scope and role separation
+
+Round 14 is a fresh native subagent review of the source/test delta against Producer baseline
+`28f3fdce26e7d45513fb9023d89eff006177e256`. The reviewer inspected exactly these release inputs:
+
+- `src/document_skills_core/formats/pdf/content_streams.py`
+- `src/document_skills_core/formats/pdf/read.py`
+- `src/document_skills_core/providers/pypdf/operations.py`
+- `src/document_skills_core/providers/pypdf/safety.py`
+- `tests/test_pdf_operations.py`
+- `tests/test_pdf_public.py`
+
+The reviewer did not author or edit source, tests, generated artifacts, provenance, or this report.
+The review was limited to the new PDF read truthfulness, pypdf mutation-safety gates, and shared
+facade regression; it did not independently re-review the historical implementation.
+
+### Findings and closure
+
+- Unmapped Type0/CID bytes are no longer projected as Latin-1 text. Only text carrying proven
+  `/ActualText` semantics survives for that unsupported font path; an affected page reports
+  `text_extraction_unavailable` when no readable block remains and emits the schema-valid
+  `DS_PDF_TEXT_EXTRACTION_UNAVAILABLE` warning.
+- Caller-selected block limits now emit `DS_PDF_READ_TRUNCATED`. Independent review found and the
+  producer closed three successive Majors: the original silent 5,000-block slice; a raw sentinel
+  that could discard later readable Type1/ActualText after 5,001 unmapped CID blocks; and the
+  aggregate-memory regression in the first full-operator fix. The final implementation processes
+  one page at a time, filters unsupported semantic text before applying the caller projection,
+  compacts each page before aggregation, and combines omission/truncation evidence across pages.
+- `pdf.encrypt` and `pdf.compress` now Core-parse unencrypted sources before pypdf mutation;
+  `pdf.decrypt` Core-parses the private decrypted candidate before validation or promotion.
+  JavaScript, external actions, and executable embedded content therefore fail closed with
+  `DS_ARCHIVE_UNSAFE`, preserving both the source and any existing destination.
+- A direct public regression proves that the `document-pdf` wrapper dispatches a registered
+  `docx.read` request through the shared registry to `core-python`; the PDF provider does not
+  claim or process the foreign operation.
+
+The conservative Type0 path does not yet decode ToUnicode-only CID text when `/ActualText` is
+absent. This is an explicit under-extraction capability limit, not fabricated output: affected
+bytes are omitted and the limitation is surfaced. It is not treated as a release finding in this
+round.
+
+### Independent verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Final focused PDF read, CJK/RTL, pypdf malicious/happy-path, wrong-password atomicity, and wrapper dispatch suite | PASS — 28 passed |
+| Independent two-page omission/truncation aggregation probe | PASS — one combined warning per kind; readable Type1 text survived semantic filtering |
+| Ruff over the six source/test delta files | PASS — all checks passed |
+| Strict UTF-8, BOM, U+FFFD/mojibake scan over the six delta files | PASS |
+| `git diff --check HEAD` | PASS |
+| Materialized runtime-source allowlist | PASS — includes the new `providers/pypdf/safety.py` runtime source |
+| Two consecutive prospective mapping calculations | PASS — both returned `b81cfd16d52d1a4e868ab98655560cd348bec6d3c2353ea60a3895241803e674` |
+| Regenerated CycloneDX SBOM comparison | PASS — unchanged SHA-256 `477eb8d13f7ec594a4e31d595b07e917e6d05e0b4e585043e25a53e033c5a4f8` |
+
+### Round-14 approval and remaining delivery gates
+
+`approval_claimed: true`; `status: clean`. Final independent verdict:
+`CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0`. Round 14 supersedes the Round-13 prospective
+mapping because the six reviewed source/test files and materialized runtime-source allowlist are
+release inputs. The exact approved prospective mapping is:
+
+`b81cfd16d52d1a4e868ab98655560cd348bec6d3c2353ea60a3895241803e674`.
+
+Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-14-0.5.5-2026-08-27`.
+
+This approval authorizes only the official reuse-review provenance rebind and generated audit
+receipt for this exact frozen source/test snapshot. No remote CI, native Poppler/Tesseract/qpdf
+or viewer execution, final dist/release reproducibility, Producer commit, or live Host consumer
+receipt is claimed here; those remain LEAD delivery gates.

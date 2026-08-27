@@ -288,6 +288,7 @@
     "src/document_skills_core/providers/pypdf/compression_evidence.py",
     "src/document_skills_core/providers/pypdf/detector.py",
     "src/document_skills_core/providers/pypdf/operations.py",
+    "src/document_skills_core/providers/pypdf/safety.py",
     "src/document_skills_core/providers/pypdf/service.py",
     "src/document_skills_core/providers/pypdf/validation.py",
     "src/document_skills_core/public_cli/__init__.py",

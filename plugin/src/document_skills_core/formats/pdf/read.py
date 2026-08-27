@@ -13,6 +13,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 
 from .actions import classify_actions, has_dangerous_actions, has_executable_embedded_files
 from .byte_preflight import PdfByteLimits, preflight_pdf
+from .constants import MAX_CONTENT_STREAM_OPERATORS
 from .mapping import (
     map_acroform_fields,
     map_annotations,
@@ -87,9 +88,9 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
     if len(pages) > max_pages:
         pages = pages[:max_pages]
         warnings.append({
-            "code": "truncation",
+            "code": "DS_PDF_READ_TRUNCATED",
             "message": "Page count exceeded the caller-selected limit.",
-            "affected": "pages",
+            "details": {"affected": "pages", "limit": max_pages},
         })
 
     page_infos = [project_page_info(p) for p in pages]
@@ -100,14 +101,58 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
     # Fonts and images per page
     fonts_by_page: list[list[dict[str, Any]]] = []
     images_by_page: list[list[dict[str, Any]]] = []
+    type0_fonts_by_page: dict[int, set[str]] = {}
     for page in pages:
         fonts = inventory_fonts(model, page.resources)
         images = inventory_images(model, page.resources)
         fonts_by_page.append(project_font_summary(fonts))
         images_by_page.append(project_image_summary(images))
+        type0_fonts_by_page[page.page_number] = {
+            font.name for font in fonts if font.type == "/Type0"
+        }
 
     # Text content
-    text_blocks = map_text_blocks(model, pages, max_blocks_per_page=max_blocks)
+    text_blocks: list[Any] = []
+    omitted_by_page: dict[int, int] = {}
+    truncated_pages: set[int] = set()
+    for page in pages:
+        # The operator walker already enforces the bounded parser ceiling.
+        # Process one page at a time so semantic filtering can precede the
+        # public projection limit without retaining the raw blocks from every
+        # selected page at once.
+        page_blocks = map_text_blocks(
+            model,
+            [page],
+            max_blocks_per_page=MAX_CONTENT_STREAM_OPERATORS,
+        )
+        page_blocks, page_omissions = _omit_unmapped_type0_text(
+            page_blocks,
+            type0_fonts_by_page,
+        )
+        omitted_by_page.update(page_omissions)
+        page_blocks, page_truncations = _limit_text_blocks(page_blocks, max_blocks)
+        truncated_pages.update(page_truncations)
+        text_blocks.extend(page_blocks)
+    if omitted_by_page:
+        warnings.append({
+            "code": "DS_PDF_TEXT_EXTRACTION_UNAVAILABLE",
+            "message": "Text blocks without a proven semantic mapping were omitted.",
+            "details": {
+                "affected": "text_blocks",
+                "omitted": sum(omitted_by_page.values()),
+                "pages": sorted(omitted_by_page),
+            },
+        })
+    if truncated_pages:
+        warnings.append({
+            "code": "DS_PDF_READ_TRUNCATED",
+            "message": "Text blocks exceeded the caller-selected per-page limit.",
+            "details": {
+                "affected": "text_blocks",
+                "limit": max_blocks,
+                "pages": sorted(truncated_pages),
+            },
+        })
     text_blocks = _select_text_blocks(text_blocks, pages, arguments)
     text_by_page: list[dict[str, Any]] = []
     for page in pages:
@@ -224,6 +269,38 @@ def read_pdf(path, arguments: dict[str, Any]) -> tuple[dict[str, Any], list[dict
         "embedded_files": embedded_files,
     }
     return operation_result, warnings
+
+
+def _omit_unmapped_type0_text(
+    blocks: list[Any],
+    type0_fonts_by_page: dict[int, set[str]],
+) -> tuple[list[Any], dict[int, int]]:
+    kept: list[Any] = []
+    omitted_by_page: dict[int, int] = {}
+    for block in blocks:
+        type0_fonts = type0_fonts_by_page.get(block.page, set())
+        if block.font_name in type0_fonts and not block.semantic_text:
+            omitted_by_page[block.page] = omitted_by_page.get(block.page, 0) + 1
+            continue
+        kept.append(block)
+    return kept, omitted_by_page
+
+
+def _limit_text_blocks(
+    blocks: list[Any],
+    limit: int,
+) -> tuple[list[Any], set[int]]:
+    kept: list[Any] = []
+    counts: dict[int, int] = {}
+    truncated_pages: set[int] = set()
+    for block in blocks:
+        count = counts.get(block.page, 0)
+        counts[block.page] = count + 1
+        if count >= limit:
+            truncated_pages.add(block.page)
+            continue
+        kept.append(block)
+    return kept, truncated_pages
 
 
 def _select_text_blocks(

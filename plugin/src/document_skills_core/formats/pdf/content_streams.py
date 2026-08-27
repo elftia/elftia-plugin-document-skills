@@ -52,6 +52,7 @@ class TextBlock:
     font_name: str
     font_size: float
     color: tuple[float, ...]
+    semantic_text: bool = False
 
 
 @dataclass
@@ -205,7 +206,14 @@ def _actual_text_block(
     gs: GraphicsState,
 ) -> TextBlock:
     if not capture.blocks:
-        return _make_block(page_number, "ActualText", capture.text, ts, gs)
+        return _make_block(
+            page_number,
+            "ActualText",
+            capture.text,
+            ts,
+            gs,
+            semantic_text=True,
+        )
     return TextBlock(
         page=page_number,
         operator="ActualText",
@@ -219,6 +227,7 @@ def _actual_text_block(
         font_name=capture.blocks[0].font_name,
         font_size=capture.blocks[0].font_size,
         color=capture.blocks[0].color,
+        semantic_text=True,
     )
 
 
@@ -246,7 +255,15 @@ def _translate_text_line(gs: GraphicsState, tx: float, ty: float) -> None:
     gs.line_y = translated[5]
 
 
-def _make_block(page: int, op: str, text: str, ts: TextState, gs: GraphicsState) -> TextBlock:
+def _make_block(
+    page: int,
+    op: str,
+    text: str,
+    ts: TextState,
+    gs: GraphicsState,
+    *,
+    semantic_text: bool = False,
+) -> TextBlock:
     """Build a TextBlock from current text/graphics state."""
     # Approximate the glyph box in text space, then transform all four corners.
     # Taking the user-space envelope keeps scale, rotation, and reflection visible
@@ -268,6 +285,7 @@ def _make_block(page: int, op: str, text: str, ts: TextState, gs: GraphicsState)
         font_name=ts.font_name,
         font_size=ts.font_size,
         color=gs.fill_color,
+        semantic_text=semantic_text,
     )
 
 
