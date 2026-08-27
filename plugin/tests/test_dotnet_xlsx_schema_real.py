@@ -14,7 +14,10 @@ import pytest
 from document_skills_core.core.capabilities import ProviderCatalog
 from document_skills_core.formats.xlsx.service import XlsxService
 from document_skills_core.providers import build_default_registry
-from document_skills_core.providers.dotnet.constants import RUNTIME_PREFIX
+from document_skills_core.providers.dotnet.constants import (
+    RUNTIME_PREFIX,
+    helper_build_properties,
+)
 from test_xlsx_sparkline import _workbook
 
 
@@ -61,12 +64,16 @@ def x14_workbooks(
 def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
     dotnet_sdk: str,
     project_root: Path,
+    tmp_path: Path,
     x14_workbooks: tuple[Path, Path],
 ) -> None:
     helper = (
         project_root
         / "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj"
     )
+    build_properties = helper_build_properties(tmp_path)
+    forbidden_generated_roots = (helper.parent / "bin", helper.parent / "obj")
+    assert not [path for path in forbidden_generated_roots if path.exists()]
     environment = _dotnet_environment()
     restored = subprocess.run(
         [
@@ -75,6 +82,7 @@ def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
             str(helper),
             "--locked-mode",
             "--use-lock-file",
+            *build_properties,
         ],
         cwd=project_root,
         capture_output=True,
@@ -96,6 +104,7 @@ def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
         project_root,
         valid,
         environment,
+        build_properties,
     )
     assert valid_schema["file_format"] == "Microsoft365"
     assert valid_schema["valid"] is True, valid_schema["errors"]
@@ -106,10 +115,12 @@ def test_real_openxml_helper_accepts_and_rejects_x14_sparklines(
         project_root,
         malformed,
         environment,
+        build_properties,
     )
     assert invalid_schema["file_format"] == "Microsoft365"
     assert invalid_schema["valid"] is False
     assert invalid_schema["errors"]
+    assert not [path for path in forbidden_generated_roots if path.exists()]
 
 
 def test_default_registry_provider_validates_real_x14_sparklines(
@@ -164,6 +175,7 @@ def _validate_helper(
     project_root: Path,
     workbook: Path,
     environment: dict[str, str],
+    build_properties: tuple[str, ...],
 ) -> dict[str, object]:
     completed = subprocess.run(
         [
@@ -172,6 +184,7 @@ def _validate_helper(
             "--no-restore",
             "--project",
             str(helper),
+            *build_properties,
             "--",
             "--xlsx-schema-validate",
         ],

@@ -1250,3 +1250,82 @@ receipt for this exact frozen integration snapshot. It does not claim that the r
 complete test suite. A fresh complete verify/build/release and reproducibility run, remote CI,
 native optional-provider/viewer coverage, Producer delivery, and live Host consumer receipt remain
 mandatory and unwaived delivery gates.
+
+## Round 17 — Full-verify failure triage and regression-fix review
+
+### Scope and role separation
+
+Round 17 is a fresh native non-author review of the ten non-metadata files changed after the
+Round-16 merged-main integration snapshot. The first completed full pytest run at merge commit
+`a74b8fdd102640b1bba2347b48b249e88f39ab0e` reported 2,448 passed, 20 skipped, and 21 failed in
+1:21:47. An earlier run terminated externally at 60 minutes and is not used as evidence. The
+reviewer independently inspected the complete fix delta, explicitly replayed the cached failure
+parameters, identified one cross-test .NET build-output defect missed in the initial triage, and
+re-reviewed that correction. The reviewer authored no source, test, lock, manifest, provenance,
+SBOM, report, stage, or commit change.
+
+The reviewed non-metadata delta is:
+
+- `package.json`, `package-lock.json`, `pyproject.toml`, `uv.lock`,
+  `src/document_skills_core/__init__.py`, and
+  `src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj`;
+- `tests/test_pdf_tools_provider.py`, `tests/test_strategy3.py`,
+  `tests/test_structure.py`, and `tests/test_dotnet_xlsx_schema_real.py`.
+
+### Failure classification, findings, and closure
+
+- Fifteen PDF-tool provider failures came from tests that represented accepted executables with
+  nonexistent or zero-byte files. Production executable identity validation correctly rejects
+  those identities. The tests now materialize nonempty placeholder executable bytes; no
+  production detector, identity, timeout, or selection rule was weakened.
+- The shared XLSX provenance expectation omitted the already-delivered PDF-completion requirement
+  for `formats/pdf/byte_preflight.py`. The generator already composed the correct requirements;
+  the regression now models that shared PDF-plus-XLSX ownership instead of changing generated
+  provenance policy.
+- Runtime and lock version sources had drifted to `0.5.3` while the merged Producer manifests,
+  design, SBOM identity, and release target were `0.5.5`. The package manifests, locks, Python
+  runtime version, OpenXML helper version, and one-source-value regression are synchronized to
+  `0.5.5`; the reviewed release-version sources contain no residual `0.5.3`.
+- The initial two .NET failures were associated with source-tree `helper/bin` and `helper/obj`
+  residue. Independent review found the causal suite-order defect: the real XLSX OpenXML test ran
+  `dotnet restore` and `dotnet run` directly against the checked-in project without the private
+  MSBuild output properties used by production. The test now reuses
+  `helper_build_properties(tmp_path)` for both commands and asserts the source helper has no
+  `bin/obj` before or after execution. The DOCX clean-tree invariant remains strict.
+- Two hostile-detector cases did not reproduce: the exact surrogate and Unicode cases passed five
+  consecutive rounds (10/10), and the explicit cached failure selection passed. No production or
+  test timeout was raised without a reproducible red signal.
+
+The reviewer initially classified the direct .NET source-build behavior as **Major**. After the
+private-output correction and ordered regression, the finding was closed. Final independent
+verdict: `CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0`. The reviewer found no evidence that the
+fixes mask a production defect or relax a safety/cleanliness invariant.
+
+### Independent verification and prospective evidence
+
+| Command or check | Result |
+| --- | --- |
+| Combined PDF/XLSX provenance/version/.NET/hostile-detector focused regression | PASS — 34 tests |
+| Corrected direct helper → default registry → DOCX clean-tree order | PASS — 3 tests in the independent run; source `helper/bin` and `helper/obj` absent before and after |
+| Explicit replay of the cached PDF-tool failures | PASS — 29 parameter instances |
+| Changed-Python Ruff, `uv lock --project plugin --check`, and `git diff --check` | PASS |
+| Locked Node install with lifecycle scripts disabled | PASS |
+| Stage-1 generated audit | Expected pre-bind FAIL — sole error `Independent review attestation is missing`; all other checks pass with 1,022 release files, 791 risky/module records, and 101 fixtures |
+| Regenerated CycloneDX SBOM | PASS — SHA-256 `17b44f28892482a8938e0c95dd0820fa956db49e8edd5a54033a7d37f0f8911d` |
+| Two independent prospective mapping calculations plus reviewer in-memory recomputation | PASS — every run returned `c72c442290c62924a207786159f6a5b32c5ede9985f51ea49ab1ce7b198d4c14`; regenerated manifests matched stage 1 field-for-field |
+
+### Round-17 approval and remaining delivery gates
+
+`approval_claimed: true`; `status: clean`. The exact approved prospective mapping is:
+
+`c72c442290c62924a207786159f6a5b32c5ede9985f51ea49ab1ce7b198d4c14`.
+
+Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-17-verify-failure-fixes-0.5.5-2026-08-28`.
+
+This approval authorizes the official second-stage reuse-review rebind of the existing single
+composite attestation and the final generated audit receipt for these exact frozen bytes. Round 17
+does not independently re-review every historical DOCX/XLSX/PPTX/PDF source file and does not
+claim the corrected complete verify, reproducibility build, release ZIP, remote CI, native optional
+provider/viewer coverage, Producer delivery, or live Host consumer receipt. Those gates remain
+mandatory and unwaived after the provenance rebind and local commit.

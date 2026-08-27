@@ -163,7 +163,7 @@ def test_runner_rejects_unprobed_ocr_language(
 ) -> None:
     runner = PdfToolRunner(project_root)
     executable = tmp_path / "tesseract.exe"
-    executable.touch()
+    executable.write_bytes(b"placeholder")
     runner.configure(
         {"tesseract": executable},
         languages=frozenset({"eng"}),
@@ -182,7 +182,7 @@ def test_runner_renders_the_crop_box_with_stable_poppler_argument_order(
 ) -> None:
     source = _minimal_pdf(tmp_path / "source.pdf")
     executable = tmp_path / "pdftoppm.exe"
-    executable.touch()
+    executable.write_bytes(b"placeholder")
     process_runner = CapturingRenderProcessRunner()
     runner = PdfToolRunner(project_root, process_runner=process_runner)
     runner.configure({"pdftoppm": executable})
@@ -758,6 +758,8 @@ def _detector(
         name: str(tmp_path / f"{name}.exe")
         for name in ("pdftoppm", "tesseract")
     }
+    for path in paths.values():
+        Path(path).write_bytes(b"placeholder")
     return PdfToolDetector(
         project_root,
         require_tesseract=require_tesseract,

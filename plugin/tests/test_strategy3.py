@@ -26,6 +26,10 @@ from tools.supply_chain import build_sbom, canonical_json
 _XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
 _XLSX_COMPLETION_REQUIREMENT = "Rasen document-skills-xlsx-completion"
 _XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
+_PDF_COMPLETION_REQUIREMENT = (
+    "Rasen Elftia docs/research/document-skills/tasks/"
+    "pdf-completion-task.md (2026-08-24)"
+)
 _PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 _PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 _PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
@@ -772,9 +776,10 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         for path in expected_paths
         if path.startswith("src/document_skills_core/providers/dotnet/")
     } | {"tests/test_dotnet_provider.py"}
-    advanced_shared_paths = expected_paths - dotnet_paths - libreoffice_paths - {
+    pdf_paths = {
         "src/document_skills_core/formats/pdf/byte_preflight.py",
     }
+    advanced_shared_paths = expected_paths - dotnet_paths - libreoffice_paths - pdf_paths
     required_evidence = {
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
@@ -848,6 +853,8 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
             if path in libreoffice_paths
             else "Rasen document-skills-openxml-dotnet-enhancement"
             if path in dotnet_paths
+            else _PDF_COMPLETION_REQUIREMENT
+            if path in pdf_paths
             else "Rasen document-skills-foundation strategy-attempt-3"
         )
         requirement = _compose_requirements(

@@ -1,6 +1,6 @@
 [project]
 name = "elftia-document-skills"
-version = "0.5.3"
+version = "0.5.5"
 description = "Shared Python facade for the Elftia document Agent Skills project"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0" }
