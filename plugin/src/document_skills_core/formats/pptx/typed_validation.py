@@ -19,8 +19,15 @@ def assert_typed_objects(
     slides = map_slides(package)
     image_records = [] if creation is None else creation.get("images", [])
     chart_records = [] if creation is None else creation.get("charts", [])
+    equation_records = None if creation is None else creation.get("equations", [])
     _assert_images(package, deck, slides, image_records, failures)
     _assert_charts(package, deck, slides, chart_records, failures)
+    equation_count = _assert_equations(
+        deck,
+        slides,
+        equation_records,
+        failures,
+    )
     if failures:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
@@ -29,9 +36,58 @@ def assert_typed_objects(
         )
     return {
         "charts": len(package.chart_parts()),
+        "equations": equation_count,
         "images": len(package.media_parts()),
         "native_object_correspondence": True,
     }
+
+
+def _assert_equations(
+    deck: dict[str, Any],
+    slides: list[dict[str, Any]],
+    records: list[dict[str, Any]] | None,
+    failures: list[str],
+) -> int:
+    expected = [
+        (slide_index, equation)
+        for slide_index, slide in enumerate(deck.get("slides", []))
+        for equation in slide.get("shapes", [])
+        if equation.get("type") == "equation"
+    ]
+    actual = [
+        (slide_index, shape)
+        for slide_index, slide in enumerate(slides)
+        for shape in slide.get("shapes", [])
+        if shape.get("type") == "equation"
+    ]
+    if len(actual) != len(expected):
+        failures.append("equation-count")
+    if records is not None and len(records) != len(expected):
+        failures.append("equation-evidence-count")
+    for ordinal, (slide_index, equation) in enumerate(expected):
+        candidates = [
+            shape
+            for candidate_slide, shape in actual
+            if candidate_slide == slide_index
+            and shape.get("name") == equation.get("id")
+        ]
+        if len(candidates) != 1:
+            failures.append(f"equation-{ordinal + 1}-identity")
+            continue
+        projected = candidates[0].get("equation") or {}
+        if projected.get("canonical_ast") != equation.get(
+            "canonical_ast"
+        ) or projected.get("canonical_latex") != equation.get("canonical_latex"):
+            failures.append(f"equation-{ordinal + 1}-readback")
+        if records is not None and ordinal < len(records):
+            record = records[ordinal]
+            if (
+                record.get("editable") is not True
+                or record.get("fallback") != "native"
+                or record.get("format") != "office-math"
+            ):
+                failures.append(f"equation-{ordinal + 1}-native")
+    return len(actual)
 
 
 def _assert_images(
@@ -56,7 +112,8 @@ def _assert_images(
             continue
         slide_part = slides[slide_index]["part"]
         relationships = [
-            rel for rel in package.part_rels(slide_part)
+            rel
+            for rel in package.part_rels(slide_part)
             if rel.relationship_type.endswith("/image")
         ]
         if len(relationships) != 1 or relationships[0].resolved_target is None:
@@ -77,13 +134,15 @@ def _assert_images(
             if record.get("fallback") != "native":
                 failures.append(f"image-{ordinal + 1}-fallback")
         root = package.xml(slide_part)
-        embeds = [node.attrib.get(f"{{{NS['r']}}}embed") for node in root.iter(f"{{{NS['a']}}}blip")]
+        embeds = [
+            node.attrib.get(f"{{{NS['r']}}}embed")
+            for node in root.iter(f"{{{NS['a']}}}blip")
+        ]
         if relationships[0].relationship_id not in embeds:
             failures.append(f"image-{ordinal + 1}-drawing")
         requested_alt = request.get("alt_text", "Presentation image")
         alt_texts = [
-            node.attrib.get("descr", "")
-            for node in root.iter(f"{{{NS['p']}}}cNvPr")
+            node.attrib.get("descr", "") for node in root.iter(f"{{{NS['p']}}}cNvPr")
         ]
         if requested_alt not in alt_texts:
             failures.append(f"image-{ordinal + 1}-alt-text")
@@ -99,7 +158,11 @@ def _assert_charts(
     expected = [
         (index, prepare_chart(slide["chart_reference"], ordinal + 1))
         for ordinal, (index, slide) in enumerate(
-            (item for item in enumerate(deck.get("slides", [])) if item[1].get("chart_reference"))
+            (
+                item
+                for item in enumerate(deck.get("slides", []))
+                if item[1].get("chart_reference")
+            )
         )
     ]
     projected = project_charts(package)
@@ -114,7 +177,8 @@ def _assert_charts(
             continue
         slide_part = slides[slide_index]["part"]
         relationships = [
-            rel for rel in package.part_rels(slide_part)
+            rel
+            for rel in package.part_rels(slide_part)
             if rel.relationship_type.endswith("/chart")
         ]
         if len(relationships) != 1 or relationships[0].resolved_target is None:
@@ -129,7 +193,9 @@ def _assert_charts(
             failures.append(f"chart-{ordinal + 1}-type")
         if actual["title"] != request["title"]:
             failures.append(f"chart-{ordinal + 1}-title")
-        if not _series_equal(actual["series"], request["series"], request["categories"]):
+        if not _series_equal(
+            actual["series"], request["series"], request["categories"]
+        ):
             failures.append(f"chart-{ordinal + 1}-series")
         expected_axes = 0 if request["chart_type"] == "pie" else 2
         if len(actual["axes"]) != expected_axes or not _axes_linked(actual["axes"]):
@@ -143,7 +209,10 @@ def _assert_charts(
             if record.get("data_storage") != "literal-cache":
                 failures.append(f"chart-{ordinal + 1}-storage")
         root = package.xml(slide_part)
-        references = [node.attrib.get(f"{{{NS['r']}}}id") for node in root.iter(f"{{{NS['c']}}}chart")]
+        references = [
+            node.attrib.get(f"{{{NS['r']}}}id")
+            for node in root.iter(f"{{{NS['c']}}}chart")
+        ]
         if relationships[0].relationship_id not in references:
             failures.append(f"chart-{ordinal + 1}-drawing")
         chart_root = package.xml(target)
@@ -178,4 +247,6 @@ def _axes_linked(axes: list[dict[str, Any]]) -> bool:
     if not axes:
         return True
     ids = {axis.get("id") for axis in axes}
-    return len(ids) == len(axes) and all(axis.get("cross_axis_id") in ids for axis in axes)
+    return len(ids) == len(axes) and all(
+        axis.get("cross_axis_id") in ids for axis in axes
+    )

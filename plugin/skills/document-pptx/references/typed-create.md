@@ -47,6 +47,29 @@ Successful creation reports `editable: true`, `fallback: "native"`, and
 series/categories/values, and axis ids, cross-axis ids, titles, positions, and
 number formats.
 
+## Editable equation contract
+
+An item in `deck.slides[].shapes[]` may instead be a discriminated
+`type: "equation"` block. Its `bbox` is in slide inches, `id` is a bounded
+stable name, and `source` is either the documented LaTeX subset or typed math
+AST. `fallback` currently accepts only `reject`.
+
+```json
+{
+  "type": "equation",
+  "id": "eq-growth",
+  "bbox": {"x": 1.5, "y": 2.0, "w": 7.0, "h": 0.8},
+  "source": {"kind": "latex", "value": "\\sum_{i=1}^{n} i^2"},
+  "fallback": "reject",
+  "z_order": 120
+}
+```
+
+The emitter creates native editable Office Math plus an element-level plain
+text compatibility branch. It does not create an OLE object or rasterize the
+equation. Read `editable-equations.md` for the complete grammar, typed AST,
+limits, edit form, and result interpretation.
+
 ## Example
 
 ```json
@@ -66,7 +89,14 @@ number formats.
           "layout": "content",
           "title": "Regional plan",
           "shapes": [
-            {"text": "Editable summary", "runs": []}
+            {"text": "Editable summary", "runs": []},
+            {
+              "type": "equation",
+              "id": "eq-plan",
+              "bbox": {"x": 1.0, "y": 5.5, "w": 5.0, "h": 0.7},
+              "source": {"kind": "latex", "value": "x_i^2"},
+              "fallback": "reject"
+            }
           ],
           "table": null,
           "image_reference": {

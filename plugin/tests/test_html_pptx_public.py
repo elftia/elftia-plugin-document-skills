@@ -333,7 +333,7 @@ def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
     assert gates["operation.scene-package-correspondence"]["outcome"] == "pass"
     assert gates["operation.scene-package-correspondence"]["evidence"] == {
         "slides": 1,
-        "objects": 9,
+        "objects": 10,
         "media": 3,
         "one_to_one_manifest": True,
         "finite_in_bounds_geometry": True,

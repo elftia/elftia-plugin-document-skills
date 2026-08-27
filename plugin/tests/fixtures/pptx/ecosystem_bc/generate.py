@@ -25,7 +25,6 @@ from document_skills_core.formats.pptx.presentation_contracts import (  # noqa: 
 )
 from document_skills_core.formats.pptx.constants import (  # noqa: E402
     CONTENT_TYPES_NS,
-    NS,
     qn,
 )
 from document_skills_core.formats.pptx.contracts import parse_deck  # noqa: E402
@@ -87,8 +86,128 @@ def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
         _write_b2_template_fixtures(writer)
         + _write_template_fixtures(writer)
         + write_svg_fixtures(writer, contract_root)
+        + _write_equation_fixtures(writer)
     )
     return {**summary, "fixtureCount": 1 + len(fixture_summary), "fixtures": fixture_summary}
+
+
+def _write_equation_fixtures(writer: EcosystemFixtureWriter) -> list[str]:
+    recipe = (
+        "uv run --project plugin --frozen python "
+        "plugin/tests/fixtures/pptx/ecosystem_bc/generate.py "
+        "<presentation-contract-root> --write"
+    )
+    supported = {
+        "schemaVersion": 1,
+        "cases": [
+            {"id": "fraction", "source": {"kind": "latex", "value": r"\frac{1}{2}"}},
+            {"id": "scripts", "source": {"kind": "latex", "value": "x_i^2"}},
+            {"id": "sum", "source": {"kind": "latex", "value": r"\sum_{i=1}^{n}i"}},
+            {"id": "root", "source": {"kind": "latex", "value": r"\sqrt[3]{x}"}},
+            {
+                "id": "matrix",
+                "source": {
+                    "kind": "latex",
+                    "value": r"\begin{matrix}a & b \\ c & d\end{matrix}",
+                },
+            },
+            {"id": "greek", "source": {"kind": "latex", "value": r"\alpha+\beta=\Gamma"}},
+            {
+                "id": "typed-ast",
+                "source": {
+                    "kind": "ast",
+                    "value": {
+                        "type": "fraction",
+                        "numerator": {"type": "text", "value": "a"},
+                        "denominator": {
+                            "type": "radical",
+                            "radicand": {"type": "text", "value": "b"},
+                            "degree": None,
+                        },
+                    },
+                },
+            },
+        ],
+    }
+    deep_ast: dict[str, object] = {"type": "text", "value": "x"}
+    for _index in range(33):
+        deep_ast = {"type": "radical", "radicand": deep_ast, "degree": None}
+    unsupported = {
+        "schemaVersion": 1,
+        "cases": [
+            {
+                "id": "raw-omml",
+                "source": {"kind": "latex", "value": "<m:oMath><m:r/></m:oMath>"},
+                "expectedCode": "DS_ARCHIVE_UNSAFE",
+            },
+            {
+                "id": "macro-command",
+                "source": {"kind": "latex", "value": r"\newcommand{\x}{1}"},
+                "expectedCode": "DS_ARCHIVE_UNSAFE",
+            },
+            {
+                "id": "external-include",
+                "source": {"kind": "latex", "value": r"\input{secret.tex}"},
+                "expectedCode": "DS_ARCHIVE_UNSAFE",
+            },
+            {
+                "id": "unknown-command",
+                "source": {"kind": "latex", "value": r"\unknown{x}"},
+                "expectedCode": "DS_UNSUPPORTED_FEATURE",
+            },
+            {
+                "id": "length-limit",
+                "source": {"kind": "latex", "value": "x" * 4_097},
+                "expectedCode": "DS_RESOURCE_LIMIT",
+            },
+            {
+                "id": "depth-limit",
+                "source": {"kind": "ast", "value": deep_ast},
+                "expectedCode": "DS_RESOURCE_LIMIT",
+            },
+        ],
+    }
+    common = {
+        "origin": "Elftia-authored synthetic math fixture.",
+        "recipe": recipe,
+        "license": "GPL-3.0",
+        "expected_operation": "pptx.create,pptx.edit",
+        "expected_consumers": ("document-skills", "powerpoint", "libreoffice"),
+        "resource_limits": {"maxBytes": 32_768},
+    }
+    writer.write_json(
+        "equations/supported.json",
+        supported,
+        FixtureMetadata(
+            fixture_id="B-EQ-01",
+            format="json",
+            purpose="Supported fraction, scripts, sum, root, matrix, Greek, and typed-AST equations.",
+            invariants=(
+                "each source normalizes to one canonical math AST and LaTeX value",
+                "each emitted object is native editable Office Math",
+                "readback preserves canonical semantics",
+            ),
+            security_classification="benign-generated-equations",
+            **common,
+        ),
+    )
+    writer.write_json(
+        "equations/unsupported.json",
+        unsupported,
+        FixtureMetadata(
+            fixture_id="B-EQ-02",
+            format="json",
+            purpose="Raw XML, macro, external include, unsupported command, and equation resource-limit cases.",
+            invariants=(
+                "raw OMML and XML are never accepted",
+                "macros and external include commands fail closed",
+                "depth and length limits return DS_RESOURCE_LIMIT",
+            ),
+            security_classification="synthetic-adversarial-equations",
+            **common,
+        ),
+    )
+    return ["B-EQ-01", "B-EQ-02"]
 
 
 def _write_template_fixtures(writer: EcosystemFixtureWriter) -> list[str]:

@@ -29,6 +29,7 @@ _XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
 _PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 _PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 _PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
+_PPTX_EQUATION_B6_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b6"
 _PPTX_TEMPLATE_B2_DATA_DESCRIPTION = (
     "Elftia-authored semantic-template guidance, deterministic fixtures, "
     "hash-bound metadata, and exact runtime-source policy for PPTX B2."
@@ -41,6 +42,11 @@ _PPTX_SVG_B5_DATA_DESCRIPTION = (
     "B5 constrained-SVG and scene guidance, deterministic fixtures, "
     "hash-bound semantic and real-consumer evidence, and exact "
     "runtime-source policy."
+)
+_PPTX_EQUATION_B6_DATA_DESCRIPTION = (
+    "B6 editable-equation guidance, deterministic fixtures, bounded native "
+    "Office Math implementation evidence, historical-review hash binding, and "
+    "exact runtime-source policy."
 )
 
 
@@ -343,6 +349,7 @@ def test_cross_format_capability_provenance_is_exact_and_composed(project_root):
         "tests/test_strategy2.py": _compose_requirements(
             CROSS_FORMAT_CAPABILITY_REQUIREMENT,
             _PPTX_SVG_B5_REQUIREMENT,
+            _PPTX_EQUATION_B6_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
@@ -885,6 +892,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
             _PPTX_TEMPLATE_B2_REQUIREMENT,
             _PPTX_TEMPLATE_B4_REQUIREMENT,
             _PPTX_SVG_B5_REQUIREMENT,
+            _PPTX_EQUATION_B6_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
@@ -906,7 +914,8 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "provenance/runtime-source-allowlist.json": (
             f"{_PPTX_TEMPLATE_B2_DATA_DESCRIPTION} "
             f"{_PPTX_TEMPLATE_B4_DATA_DESCRIPTION} "
-            f"{_PPTX_SVG_B5_DATA_DESCRIPTION} {runtime_description}"
+            f"{_PPTX_SVG_B5_DATA_DESCRIPTION} "
+            f"{_PPTX_EQUATION_B6_DATA_DESCRIPTION} {runtime_description}"
         ),
         "sbom.cdx.json": nuget_description,
     }

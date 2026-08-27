@@ -8,6 +8,7 @@ import zipfile
 from xml.etree.ElementTree import tostring
 
 from defusedxml.ElementTree import fromstring
+import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.constants import NS
@@ -82,6 +83,26 @@ def test_scene_emitter_builds_deterministic_internal_fixed_canvas_package(tmp_pa
             "chOff",
             "chExt",
         ]
+
+
+def test_scene_emitter_rejects_a_child_of_a_non_group_parent(tmp_path: Path):
+    parent = _item("parent", x=10, y=20)
+    child = _item("child", x=30, y=40)
+    child["parent_source_id"] = "parent"
+    scene = NormalizedScene(
+        slides=((parent, child),),
+        assets={},
+        diagnostics={},
+    )
+    output = tmp_path / "invalid-parent.pptx"
+
+    with pytest.raises(
+        DocumentSkillsError,
+        match="Scene child references a missing non-group parent",
+    ):
+        emit_scene_pptx(output, scene, {})
+
+    assert not output.exists()
 
 
 def test_scene_emitter_preserves_non_white_slide_background_in_output_bytes(tmp_path: Path):

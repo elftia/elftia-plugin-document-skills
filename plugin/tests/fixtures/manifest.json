@@ -320,6 +320,74 @@
       "format": "json",
       "license": "GPL-3.0",
       "origin": "generated",
+      "path": "pptx/ecosystem_bc/equations/supported.json",
+      "purpose": "Supported fraction, scripts, sum, root, matrix, Greek, and typed-AST equations.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-equations",
+      "sha256": "0f02ca1e2a10470c941e867a8c92914a5d3946d3dc7c311d308771af8d4afe90"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/equations/supported.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-EQ-01.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "7c52a80eb887c6cdf964e72afd8cba5208a9cb2f21a542d1019eedcbe80ebb1a"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/equations/unsupported.json",
+      "purpose": "Raw XML, macro, external include, unsupported command, and equation resource-limit cases.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "synthetic-adversarial-equations",
+      "sha256": "c73c2af3f24a9664eb88841bc72fe7052566e8015298a004ab230c377fe4d75f"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pptx/ecosystem_bc/equations/unsupported.json.manifest.json",
+      "purpose": "Adjacent hash-bound metadata for B-EQ-02.",
+      "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",
+      "recipe_dependencies": [
+        "tests/support/pptx_ecosystem_fixture.py",
+        "tests/support/pptx_svg_fixture.py",
+        "tests/support/pptx_template_fixture.py"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign-generated-metadata",
+      "sha256": "94d51e086f3ed38f67428590720fdc6cf7e82c851b5f7ae012b22c1ea4bf98cc"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
       "path": "pptx/ecosystem_bc/expected/contract-pin.json",
       "purpose": "Pin the cross-producer presentation contract conformance result.",
       "recipe": "tests/fixtures/pptx/ecosystem_bc/generate.py",

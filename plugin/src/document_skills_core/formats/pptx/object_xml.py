@@ -7,6 +7,7 @@ from xml.etree.ElementTree import canonicalize, Element, SubElement, tostring
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import NS, local_name
+from .equation_omml import is_equation_element
 
 _P = NS["p"]
 _A = NS["a"]
@@ -63,10 +64,13 @@ def drawable_elements(tree: Element) -> list[Element]:
         element
         for element in list(tree)
         if local_name(element.tag) in {"cxnSp", "graphicFrame", "grpSp", "pic", "sp"}
+        or is_equation_element(element)
     ]
 
 
 def object_type(element: Element) -> str:
+    if is_equation_element(element):
+        return "equation"
     kind = local_name(element.tag)
     if kind == "pic":
         return "image"

@@ -1,5 +1,6 @@
 """Deep PPTX graph, chart/workbook, and static-layout validation tests."""
 
+from copy import deepcopy
 from pathlib import Path
 from typing import Callable
 from xml.etree.ElementTree import Element, tostring
@@ -11,6 +12,8 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.formats.pptx.constants import NS, local_name
 from document_skills_core.formats.pptx.deep_validation import validate_deep_package
 from document_skills_core.formats.pptx.package import write_deterministic_zip
+from document_skills_core.formats.pptx.service import PptxService
+import document_skills_core.formats.pptx.service as pptx_service_module
 
 
 @pytest.fixture
@@ -123,6 +126,89 @@ def test_deep_validator_rejects_wrong_embedded_workbook_content_type(
     assert "chart-workbook-content-type:ppt/charts/chart1.xml" in failures
 
 
+@pytest.mark.parametrize("branch", ["fallback", "later-choice"])
+@pytest.mark.parametrize("fault", ["zero", "non-numeric", "external-collision"])
+def test_equation_alternate_branches_block_invalid_candidate_promotion(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    branch: str,
+    fault: str,
+) -> None:
+    output = tmp_path / f"{branch}-{fault}.pptx"
+    real_create = pptx_service_module.create_pptx
+
+    def tampered_create(
+        destination: Path,
+        deck: dict[str, object],
+        template: Path | None = None,
+    ) -> dict[str, object]:
+        creation = real_create(destination, deck, template=template)
+        _tamper_equation_alternate(destination, branch=branch, fault=fault)
+        return creation
+
+    monkeypatch.setattr(pptx_service_module, "create_pptx", tampered_create)
+    result = PptxService(project_root).execute(
+        "pptx.create",
+        {
+            "schema_version": "1.0",
+            "operation": "pptx.create",
+            "output": str(output),
+            "arguments": {
+                "deck": {
+                    "metadata": {
+                        "title": "Deep equation branches",
+                        "creator": "Elftia",
+                        "subject": "B6",
+                    },
+                    "slides": [
+                        {
+                            "layout": "content",
+                            "title": "Alternate branches",
+                            "shapes": [
+                                {
+                                    "type": "equation",
+                                    "id": "eq-branch",
+                                    "bbox": {
+                                        "x": 0.5,
+                                        "y": 1.5,
+                                        "w": 4.0,
+                                        "h": 0.7,
+                                    },
+                                    "source": {
+                                        "kind": "latex",
+                                        "value": "x+1",
+                                    },
+                                    "fallback": "reject",
+                                }
+                            ],
+                            "table": None,
+                            "chart_reference": None,
+                            "image_reference": None,
+                            "notes": None,
+                        }
+                    ],
+                }
+            },
+        },
+    )
+
+    deep_gate = next(
+        gate
+        for gate in result["validation"]["gates"]
+        if gate["id"] == "operation.pptx-deep-validation"
+    )
+    expected = (
+        "drawing-id-duplicate:ppt/slides/slide1.xml"
+        if fault == "external-collision"
+        else "drawing-id-invalid:ppt/slides/slide1.xml"
+    )
+    assert result["errors"][0]["code"] == "DS_VALIDATION_FAILED"
+    assert deep_gate["outcome"] == "fail"
+    assert expected in deep_gate["evidence"]["failures"]
+    assert not output.exists()
+
+
 def test_static_layout_reports_tokens_overflow_contrast_and_geometry(tmp_path: Path) -> None:
     from pptx import Presentation
     from pptx.dml.color import RGBColor
@@ -218,6 +304,56 @@ def _replace_xlsx_content_type(root: Element) -> None:
         if node.attrib.get("Extension", "").casefold() == "xlsx"
     )
     declaration.attrib["ContentType"] = "application/octet-stream"
+
+
+def _tamper_equation_alternate(
+    path: Path,
+    *,
+    branch: str,
+    fault: str,
+) -> None:
+    from defusedxml.ElementTree import fromstring
+
+    parts = _parts(path)
+    part = "ppt/slides/slide1.xml"
+    root = fromstring(parts[part])
+    alternate = next(
+        node for node in root.iter() if local_name(node.tag) == "AlternateContent"
+    )
+    if branch == "fallback":
+        selected = next(
+            child for child in alternate if local_name(child.tag) == "Fallback"
+        )
+    else:
+        first_choice = next(
+            child for child in alternate if local_name(child.tag) == "Choice"
+        )
+        selected = deepcopy(first_choice)
+        selected.attrib["Requires"] = "a15"
+        fallback_index = next(
+            index
+            for index, child in enumerate(alternate)
+            if local_name(child.tag) == "Fallback"
+        )
+        alternate.insert(fallback_index, selected)
+    properties = next(
+        node for node in selected.iter() if local_name(node.tag) == "cNvPr"
+    )
+    if fault == "zero":
+        properties.attrib["id"] = "0"
+    elif fault == "non-numeric":
+        properties.attrib["id"] = "invalid"
+    else:
+        selected_nodes = set(selected.iter())
+        external = next(
+            node
+            for node in root.iter()
+            if local_name(node.tag) == "cNvPr" and node not in selected_nodes
+            and node.attrib.get("id") != properties.attrib.get("id")
+        )
+        properties.attrib["id"] = external.attrib["id"]
+    parts[part] = tostring(root, encoding="utf-8", xml_declaration=True)
+    write_deterministic_zip(path, parts)
 
 
 def _failures(path: Path) -> list[str]:

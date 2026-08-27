@@ -202,25 +202,49 @@ def _paint_records(parent: dict[str, Any]) -> list[dict[str, Any]]:
     before = [_pseudo_item(parent, pseudo) for pseudo in pseudos if pseudo["paint_slot"] == 2]
     after = [_pseudo_item(parent, pseudo) for pseudo in pseudos if pseudo["paint_slot"] == 4]
     has_box = parent["kind"] != "text" or parent["border_width"] > 0 or _visible_fill(parent["fill"])
-    records: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = [_paint_group(parent)]
     if has_box:
-        records.append({**parent, "text": "", "paragraphs": []})
-    records.extend(before)
-    if parent["text"]:
-        content_id = parent["source_id"] if not has_box else f"{parent['source_id'][:72]}:content"
         records.append({
             **parent,
-            "source_id": content_id,
-            "parent_source_id": parent["source_id"] if has_box else parent["parent_source_id"],
+            "source_id": f"{parent['source_id'][:76]}:box",
+            "parent_source_id": parent["source_id"],
+            "text": "",
+            "paragraphs": [],
+            "pseudo": [],
+        })
+    records.extend(before)
+    if parent["text"]:
+        records.append({
+            **parent,
+            "source_id": f"{parent['source_id'][:72]}:content",
+            "parent_source_id": parent["source_id"],
             "kind": "text",
             "fill": "rgba(0, 0, 0, 0)",
             "border_width": 0,
             "radius": 0,
             "paint_order": parent["paint_order"] + 2,
             "pseudo": [],
+            "outcome": "native" if has_box else parent["outcome"],
+            "outcome_reason": None if has_box else parent["outcome_reason"],
         })
     records.extend(after)
     return records
+
+
+def _paint_group(parent: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **parent,
+        "kind": "group",
+        "text": "",
+        "paragraphs": [],
+        "fill": "rgba(0, 0, 0, 0)",
+        "border_width": 0,
+        "radius": 0,
+        "asset_id": None,
+        "pseudo": [],
+        "outcome": "native",
+        "outcome_reason": None,
+    }
 
 
 def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, Any]:

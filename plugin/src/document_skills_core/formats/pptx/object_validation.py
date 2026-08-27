@@ -17,6 +17,7 @@ from .object_xml import (
     slide_shape_tree,
 )
 from .macro_policy import open_presentation_package
+from .equation_omml import project_equation
 from .package import OpcPackage
 
 
@@ -82,6 +83,21 @@ def validate_object_edits(
             continue
         if object_hash(selected) != evidence.get("after_sha256"):
             failures.append(f"object-hash:{slide_part}:{object_id}")
+        equation = evidence.get("equation")
+        if equation is not None:
+            try:
+                projected = project_equation(selected)
+            except DocumentSkillsError:
+                failures.append(f"equation-readback:{slide_part}:{object_id}")
+            else:
+                if (
+                    projected.get("canonical_ast") != equation.get("canonical_ast")
+                    or projected.get("canonical_latex")
+                    != equation.get("canonical_latex")
+                ):
+                    failures.append(
+                        f"equation-correspondence:{slide_part}:{object_id}"
+                    )
         _validate_click_action(candidate, slide_part, selected, evidence, failures)
 
     for notes_part, evidence in final_notes.items():

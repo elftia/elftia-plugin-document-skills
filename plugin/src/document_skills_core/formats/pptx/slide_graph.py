@@ -16,10 +16,12 @@ from .create import (
     _build_notes_slide,
     _build_slide,
 )
+from .equation_contracts import validate_equation_frame
 from .image import load_pptx_image, public_image_record
 from .layout_recipes import layout_recipe
 from .mapping import map_slides
 from .mutation import MutablePptxPackage
+from .projection import project_slide_size
 
 _P = NS["p"]
 _R = NS["r"]
@@ -76,10 +78,15 @@ def add_slide(
     prepared = dict(slide)
     mapped = map_slides(target)
     slide_size = (
-        mapped[0].get("slide_size")
-        if mapped
-        else {"cx": "9144000", "cy": "6858000"}
-    )
+        mapped[0].get("slide_size") if mapped else project_slide_size(target)
+    ) or {"cx": "9144000", "cy": "6858000"}
+    for shape_index, shape in enumerate(slide.get("shapes", [])):
+        if shape.get("type") == "equation":
+            validate_equation_frame(
+                shape["frame"],
+                slide_size,
+                f"slide.shapes.{shape_index}",
+            )
     recipe = layout_recipe(
         slide.get("recipe", "cover" if slide.get("layout") == "title" else "content"),
         slide_size,
@@ -122,7 +129,9 @@ def add_slide(
             chart = prepare_chart(chart_reference, chart_index)
         prepared["_chart"] = chart
         target.set_part(chart["part"], build_chart_part(chart))
-        additions[chart["part"]] = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
+        additions[chart["part"]] = (
+            "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
+        )
         created_parts.append(chart["part"])
         chart_record = public_chart_record(chart)
     requested_layout = slide.get("layout", "content")
@@ -133,9 +142,15 @@ def add_slide(
     notes_master = None
     if slide.get("notes") is not None:
         notes_master = _ensure_notes_master(target, additions, created_parts)
-        notes_part = _allocate_part_name("ppt/notesSlides/notesSlide1.xml", set(target.parts))
-        target.set_part(notes_part, _build_notes_slide(target_position, slide["notes"] or ""))
-        additions[notes_part] = "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"
+        notes_part = _allocate_part_name(
+            "ppt/notesSlides/notesSlide1.xml", set(target.parts)
+        )
+        target.set_part(
+            notes_part, _build_notes_slide(target_position, slide["notes"] or "")
+        )
+        additions[notes_part] = (
+            "application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"
+        )
         created_parts.append(notes_part)
     target.set_part(slide_part, _build_slide(prepared, target_position))
     target.set_part(
@@ -151,16 +166,26 @@ def add_slide(
     created_parts.append(relationship_part_for(slide_part))
     if notes_part is not None and notes_master is not None:
         notes_rels = Element(RELS("Relationships"))
-        SubElement(notes_rels, RELS("Relationship"), {
-            "Id": "rIdSlide",
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
-            "Target": posixpath.relpath(slide_part, posixpath.dirname(notes_part)),
-        })
-        SubElement(notes_rels, RELS("Relationship"), {
-            "Id": "rIdNotesMaster",
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
-            "Target": posixpath.relpath(notes_master, posixpath.dirname(notes_part)),
-        })
+        SubElement(
+            notes_rels,
+            RELS("Relationship"),
+            {
+                "Id": "rIdSlide",
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
+                "Target": posixpath.relpath(slide_part, posixpath.dirname(notes_part)),
+            },
+        )
+        SubElement(
+            notes_rels,
+            RELS("Relationship"),
+            {
+                "Id": "rIdNotesMaster",
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
+                "Target": posixpath.relpath(
+                    notes_master, posixpath.dirname(notes_part)
+                ),
+            },
+        )
         target.set_part(relationship_part_for(notes_part), _xml_bytes(notes_rels))
         created_parts.append(relationship_part_for(notes_part))
     _add_slide_to_presentation(target, slide_part, target_position)
@@ -287,29 +312,45 @@ def _new_slide_relationships(
 ) -> bytes:
     root = Element(RELS("Relationships"))
     directory = posixpath.dirname(slide_part)
-    SubElement(root, RELS("Relationship"), {
-        "Id": "rIdLayout",
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
-        "Target": posixpath.relpath(layout_part, directory),
-    })
+    SubElement(
+        root,
+        RELS("Relationship"),
+        {
+            "Id": "rIdLayout",
+            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout",
+            "Target": posixpath.relpath(layout_part, directory),
+        },
+    )
     if chart is not None:
-        SubElement(root, RELS("Relationship"), {
-            "Id": chart["relationship_id"],
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
-            "Target": posixpath.relpath(chart["part"], directory),
-        })
+        SubElement(
+            root,
+            RELS("Relationship"),
+            {
+                "Id": chart["relationship_id"],
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart",
+                "Target": posixpath.relpath(chart["part"], directory),
+            },
+        )
     if image is not None:
-        SubElement(root, RELS("Relationship"), {
-            "Id": image["relationship_id"],
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-            "Target": posixpath.relpath(image["part"], directory),
-        })
+        SubElement(
+            root,
+            RELS("Relationship"),
+            {
+                "Id": image["relationship_id"],
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+                "Target": posixpath.relpath(image["part"], directory),
+            },
+        )
     if notes_part is not None:
-        SubElement(root, RELS("Relationship"), {
-            "Id": "rIdNotes",
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
-            "Target": posixpath.relpath(notes_part, directory),
-        })
+        SubElement(
+            root,
+            RELS("Relationship"),
+            {
+                "Id": "rIdNotes",
+                "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
+                "Target": posixpath.relpath(notes_part, directory),
+            },
+        )
     return _xml_bytes(root)
 
 
@@ -346,32 +387,48 @@ def _ensure_notes_master(
     existing = _first_relationship_target(target, "notesMaster")
     if existing is not None:
         return existing
-    notes_master = _allocate_part_name("ppt/notesMasters/notesMaster1.xml", set(target.parts))
+    notes_master = _allocate_part_name(
+        "ppt/notesMasters/notesMaster1.xml", set(target.parts)
+    )
     theme = _first_theme_part(target)
     target.set_part(notes_master, _build_notes_master())
-    additions[notes_master] = "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
+    additions[notes_master] = (
+        "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
+    )
     created_parts.append(notes_master)
     rels = Element(RELS("Relationships"))
-    SubElement(rels, RELS("Relationship"), {
-        "Id": "rIdTheme",
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
-        "Target": posixpath.relpath(theme, posixpath.dirname(notes_master)),
-    })
+    SubElement(
+        rels,
+        RELS("Relationship"),
+        {
+            "Id": "rIdTheme",
+            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
+            "Target": posixpath.relpath(theme, posixpath.dirname(notes_master)),
+        },
+    )
     target.set_part(relationship_part_for(notes_master), _xml_bytes(rels))
     created_parts.append(relationship_part_for(notes_master))
     presentation_rels = target.xml("ppt/_rels/presentation.xml.rels")
     relationship_id = _next_relationship_id(presentation_rels, "rIdNotesMaster")
-    SubElement(presentation_rels, RELS("Relationship"), {
-        "Id": relationship_id,
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
-        "Target": posixpath.relpath(notes_master, "ppt"),
-    })
+    SubElement(
+        presentation_rels,
+        RELS("Relationship"),
+        {
+            "Id": relationship_id,
+            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
+            "Target": posixpath.relpath(notes_master, "ppt"),
+        },
+    )
     target.set_part("ppt/_rels/presentation.xml.rels", _xml_bytes(presentation_rels))
     presentation = target.xml("ppt/presentation.xml")
     notes_master_ids = Element(P("notesMasterIdLst"))
     SubElement(notes_master_ids, P("notesMasterId"), {R("id"): relationship_id})
     slide_ids = presentation.find(P("sldIdLst"))
-    insertion = list(presentation).index(slide_ids) if slide_ids is not None else len(presentation)
+    insertion = (
+        list(presentation).index(slide_ids)
+        if slide_ids is not None
+        else len(presentation)
+    )
     presentation.insert(insertion, notes_master_ids)
     target.set_part("ppt/presentation.xml", _xml_bytes(presentation))
     return notes_master
@@ -398,7 +455,7 @@ def _next_part_index(parts: dict[str, bytes], prefix: str) -> int:
         if not name.startswith(prefix):
             continue
         stem = posixpath.splitext(name)[0]
-        suffix = stem[len(prefix):]
+        suffix = stem[len(prefix) :]
         if suffix.isdigit():
             indices.append(int(suffix))
     return max(indices, default=0) + 1
@@ -416,7 +473,9 @@ def _copy_part_graph(
 ) -> str:
     destination = mapping.get(source_part)
     if destination is None:
-        destination = _allocate_part_name(source_part, set(target.parts).union(mapping.values()))
+        destination = _allocate_part_name(
+            source_part, set(target.parts).union(mapping.values())
+        )
         mapping[source_part] = destination
     if destination not in target.parts:
         target.set_part(destination, source.parts[source_part])
@@ -495,7 +554,11 @@ def _add_slide_to_presentation(
     slide_ids = presentation.find(P("sldIdLst"))
     if slide_ids is None:
         slide_ids = SubElement(presentation, P("sldIdLst"))
-    numeric_ids = [int(node.attrib["id"]) for node in slide_ids if node.attrib.get("id", "").isdigit()]
+    numeric_ids = [
+        int(node.attrib["id"])
+        for node in slide_ids
+        if node.attrib.get("id", "").isdigit()
+    ]
     node = Element(
         P("sldId"),
         {"id": str(max(numeric_ids, default=255) + 1), R("id"): relationship_id},
@@ -512,13 +575,15 @@ def _add_imported_masters(
     imported_masters = [
         destination
         for source_part, destination in mapping.items()
-        if source.content_type_for(source_part) == "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"
+        if source.content_type_for(source_part)
+        == "application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"
         and destination != source_part
     ]
     imported_notes_masters = [
         destination
         for source_part, destination in mapping.items()
-        if source.content_type_for(source_part) == "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
+        if source.content_type_for(source_part)
+        == "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
         and destination not in target.source.parts
     ]
     if not imported_masters and not imported_notes_masters:
@@ -529,7 +594,11 @@ def _add_imported_masters(
     if master_ids is None:
         master_ids = Element(P("sldMasterIdLst"))
         presentation.insert(0, master_ids)
-    numeric_ids = [int(node.attrib["id"]) for node in master_ids if node.attrib.get("id", "").isdigit()]
+    numeric_ids = [
+        int(node.attrib["id"])
+        for node in master_ids
+        if node.attrib.get("id", "").isdigit()
+    ]
     next_master_id = max(numeric_ids, default=2_147_483_647) + 1
     for master_part in sorted(set(imported_masters)):
         relationship_id = _next_relationship_id(rels, "rIdImportedMaster")
@@ -563,7 +632,11 @@ def _add_imported_masters(
         notes_master_ids = Element(P("notesMasterIdLst"))
         SubElement(notes_master_ids, P("notesMasterId"), {R("id"): relationship_id})
         slide_ids = presentation.find(P("sldIdLst"))
-        insertion = list(presentation).index(slide_ids) if slide_ids is not None else len(presentation)
+        insertion = (
+            list(presentation).index(slide_ids)
+            if slide_ids is not None
+            else len(presentation)
+        )
         presentation.insert(insertion, notes_master_ids)
     target.set_part("ppt/_rels/presentation.xml.rels", _xml_bytes(rels))
     target.set_part("ppt/presentation.xml", _xml_bytes(presentation))
@@ -578,7 +651,10 @@ def _rewrite_content_types(
     root = target.xml("[Content_Types].xml")
     removed_keys = {f"/{part}" for part in removed}
     for node in list(root):
-        if node.tag == f"{{{CONTENT_TYPES_NS}}}Override" and node.attrib.get("PartName") in removed_keys:
+        if (
+            node.tag == f"{{{CONTENT_TYPES_NS}}}Override"
+            and node.attrib.get("PartName") in removed_keys
+        ):
             root.remove(node)
     defaults = {
         node.attrib.get("Extension", "").casefold(): node.attrib.get("ContentType", "")
@@ -593,7 +669,9 @@ def _rewrite_content_types(
     for part, content_type in sorted(additions.items()):
         if not content_type:
             _invalid("Copied dependency lacks a content type.", part=part)
-        extension = part.rsplit(".", 1)[-1].casefold() if "." in part.rsplit("/", 1)[-1] else ""
+        extension = (
+            part.rsplit(".", 1)[-1].casefold() if "." in part.rsplit("/", 1)[-1] else ""
+        )
         if defaults.get(extension) == content_type:
             continue
         override = f"/{part}"
@@ -611,7 +689,9 @@ def _forward_dependencies(relationships: list[Any], root_part: str) -> set[str]:
     adjacency: dict[str, set[str]] = {}
     for relationship in relationships:
         if relationship.resolved_target is not None:
-            adjacency.setdefault(relationship.source_part, set()).add(relationship.resolved_target)
+            adjacency.setdefault(relationship.source_part, set()).add(
+                relationship.resolved_target
+            )
     seen: set[str] = set()
     pending = [root_part]
     while pending:
@@ -635,7 +715,9 @@ def _root_reachable_without(
         ):
             continue
         if relationship.resolved_target is not None:
-            adjacency.setdefault(relationship.source_part, set()).add(relationship.resolved_target)
+            adjacency.setdefault(relationship.source_part, set()).add(
+                relationship.resolved_target
+            )
     seen: set[str] = set()
     pending = list(adjacency.get("", ()))
     while pending:
@@ -681,14 +763,22 @@ def _next_relationship_id(root: Element, prefix: str) -> str:
 
 def _slide_at(slides: list[dict[str, Any]], position: int) -> dict[str, Any]:
     if position < 1 or position > len(slides):
-        _invalid("Slide position is outside the current deck.", position=position, slides=len(slides))
+        _invalid(
+            "Slide position is outside the current deck.",
+            position=position,
+            slides=len(slides),
+        )
     return slides[position - 1]
 
 
 def _bounded_insert_position(value: int | None, maximum: int) -> int:
     position = maximum if value is None else value
     if position < 1 or position > maximum:
-        _invalid("Slide insertion position is outside the target deck.", position=position, maximum=maximum)
+        _invalid(
+            "Slide insertion position is outside the target deck.",
+            position=position,
+            maximum=maximum,
+        )
     return position
 
 

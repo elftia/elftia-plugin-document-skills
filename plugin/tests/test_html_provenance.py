@@ -5,13 +5,15 @@ import json
 from tools.html_pptx_provenance import (
     COMBINED_PPTX_REQUIREMENT,
     COMBINED_PPTX_TEMPLATE_B2_REQUIREMENT,
-    CORE_PPTX_REQUIREMENT,
     HTML_PPTX_REQUIREMENT,
+    PPTX_EQUATION_B6_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
     PPTX_TEMPLATE_B4_REQUIREMENT,
     PPTX_SVG_B5_REQUIREMENT,
-    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT,
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT,
     core_pptx_module_profile,
+    equation_b6_data_profile,
+    equation_b6_module_profile,
     html_pptx_data_profile,
     html_pptx_module_profile,
     pptx_module_profile,
@@ -46,6 +48,15 @@ _HTML_TEMPLATE_B2_B4_B5_REQUIREMENT = (
 )
 _HTML_SVG_B5_REQUIREMENT = (
     "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b5"
+)
+_HTML_EQUATION_B6_REQUIREMENT = (
+    "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b6"
+)
+_CORE_EQUATION_B6_REQUIREMENT = (
+    "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b6"
+)
+_TEMPLATE_B2_EQUATION_B6_REQUIREMENT = (
+    "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b6"
 )
 _COMBINED_TEMPLATE_B2_B5_REQUIREMENT = (
     COMBINED_PPTX_TEMPLATE_B2_REQUIREMENT + " + pptx-ecosystem-phase-bc-b5"
@@ -114,9 +125,14 @@ def test_core_pptx_profiles_cover_repair_and_shared_public_evidence():
         "src/document_skills_core/formats/pptx/create.py"
     )
     assert core_only is not None
-    assert core_only[2] == CORE_PPTX_REQUIREMENT
-    assert core_only[:2] == core_pptx_module_profile(
-        "src/document_skills_core/formats/pptx/create.py"
+    assert core_only[2] == _CORE_EQUATION_B6_REQUIREMENT
+    assert core_only[:2] == _combined_profile(
+        core_pptx_module_profile(
+            "src/document_skills_core/formats/pptx/create.py"
+        ),
+        equation_b6_module_profile(
+            "src/document_skills_core/formats/pptx/create.py"
+        ),
     )
 
     scaffold = pptx_module_profile(
@@ -146,7 +162,7 @@ def test_core_pptx_profiles_cover_repair_and_shared_public_evidence():
 
     generator = pptx_module_profile("tools/regenerate_provenance.py")
     assert generator is not None
-    assert generator[2] == SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT
+    assert generator[2] == SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT
 
 
 def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
@@ -174,7 +190,6 @@ def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
         assert template_b2_module_profile(path) is not None
 
     legacy_template_modules = {
-        "src/document_skills_core/formats/pptx/template_create.py",
         "src/document_skills_core/formats/pptx/template_lint.py",
         "src/document_skills_core/formats/pptx/template_sanitize.py",
         "src/document_skills_core/formats/pptx/template_sanitize_inventory.py",
@@ -188,6 +203,12 @@ def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
     records = {record["module"]: record for record in manifest["modules"]}
     for path in legacy_template_modules:
         assert records[path]["requirement_source"] == _FOUNDATION_REQUIREMENT
+
+    template_create = pptx_module_profile(
+        "src/document_skills_core/formats/pptx/template_create.py"
+    )
+    assert template_create is not None
+    assert template_create[2] == PPTX_EQUATION_B6_REQUIREMENT
 
 
 def test_template_b4_profiles_are_exact_and_bounded():
@@ -242,6 +263,99 @@ def test_svg_b5_profiles_are_exact_and_bounded():
     ) is not None
     assert svg_b5_data_profile(
         "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.pptx"
+    ) is None
+
+
+def test_equation_b6_profiles_match_the_exact_release_inventory(project_root):
+    expected_modules = {
+        "src/document_skills_core/formats/pptx/constants.py",
+        "src/document_skills_core/formats/pptx/contracts.py",
+        "src/document_skills_core/formats/pptx/create.py",
+        "src/document_skills_core/formats/pptx/deep_graph_validation.py",
+        "src/document_skills_core/formats/pptx/edit_contracts.py",
+        "src/document_skills_core/formats/pptx/equation_ast.py",
+        "src/document_skills_core/formats/pptx/equation_contracts.py",
+        "src/document_skills_core/formats/pptx/equation_latex.py",
+        "src/document_skills_core/formats/pptx/equation_omml.py",
+        "src/document_skills_core/formats/pptx/equation_omml_emit.py",
+        "src/document_skills_core/formats/pptx/equation_omml_read.py",
+        "src/document_skills_core/formats/pptx/equation_omml_tags.py",
+        "src/document_skills_core/formats/pptx/mapping.py",
+        "src/document_skills_core/formats/pptx/object_contracts.py",
+        "src/document_skills_core/formats/pptx/object_edit.py",
+        "src/document_skills_core/formats/pptx/object_validation.py",
+        "src/document_skills_core/formats/pptx/object_xml.py",
+        "src/document_skills_core/formats/pptx/slide_graph.py",
+        "src/document_skills_core/formats/pptx/template_create.py",
+        "src/document_skills_core/formats/pptx/typed_validation.py",
+        "tests/fixtures/pptx/ecosystem_bc/generate.py",
+        "tests/test_html_provenance.py",
+        "tests/test_pptx_deep_validation.py",
+        "tests/test_pptx_equation.py",
+        "tests/test_pptx_equation_contracts.py",
+        "tests/test_pptx_equation_libreoffice.py",
+        "tests/test_pptx_equation_powerpoint.py",
+        "tests/test_pptx_equation_public.py",
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py",
+        "tools/html_pptx_provenance.py",
+        "tools/provenance_records.py",
+        "tools/regenerate_provenance.py",
+    }
+    expected_data = {
+        "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
+        "provenance/runtime-source-allowlist.json",
+        "skills/document-pptx/SKILL.md",
+        "skills/document-pptx/references/editable-equations.md",
+        "skills/document-pptx/references/typed-create.md",
+        "skills/document-pptx/references/typed-edit.md",
+        "tests/fixtures/manifest.json",
+        "tests/fixtures/pptx/ecosystem_bc/README.md",
+        "tests/fixtures/pptx/ecosystem_bc/equations/supported.json",
+        "tests/fixtures/pptx/ecosystem_bc/equations/supported.json.manifest.json",
+        "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json",
+        "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json.manifest.json",
+    }
+
+    manifest, _digest = regenerate(project_root)
+    module_paths = {record["module"] for record in manifest["modules"]}
+    data_paths = {
+        record["artifact"] for record in manifest["data_classifications"]
+    }
+    assert {
+        path for path in module_paths if equation_b6_module_profile(path)
+    } == expected_modules
+    assert {
+        path for path in data_paths if equation_b6_data_profile(path)
+    } == expected_data
+
+    records = {record["module"]: record for record in manifest["modules"]}
+    assert records[
+        "src/document_skills_core/formats/pptx/equation_ast.py"
+    ]["requirement_source"] == PPTX_EQUATION_B6_REQUIREMENT
+    assert records[
+        "src/document_skills_core/formats/pptx/create.py"
+    ]["requirement_source"] == _CORE_EQUATION_B6_REQUIREMENT
+
+    data_records = {
+        record["artifact"]: record for record in manifest["data_classifications"]
+    }
+    assert data_records[
+        "skills/document-pptx/references/editable-equations.md"
+    ]["requirement_source"] == _HTML_EQUATION_B6_REQUIREMENT
+    assert data_records[
+        "tests/fixtures/pptx/ecosystem_bc/equations/supported.json"
+    ]["requirement_source"] == _TEMPLATE_B2_EQUATION_B6_REQUIREMENT
+    assert data_records[
+        "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md"
+    ]["requirement_source"] == PPTX_EQUATION_B6_REQUIREMENT
+
+    assert equation_b6_module_profile(
+        "src/document_skills_core/formats/pptx/scene_export.py"
+    ) is None
+    assert equation_b6_data_profile(
+        "skills/document-pptx/references/svg-and-scene.md"
     ) is None
 
 
@@ -312,12 +426,14 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
         template_profile = template_b2_data_profile(record["artifact"])
         template_b4_profile = template_b4_data_profile(record["artifact"])
         svg_b5_profile = svg_b5_data_profile(record["artifact"])
+        equation_b6_profile = equation_b6_data_profile(record["artifact"])
         xlsx_profile = xlsx_data_profile(record["artifact"])
         expected_profile = _combined_profile(
             html_profile,
             template_profile,
             template_b4_profile,
             svg_b5_profile,
+            equation_b6_profile,
             xlsx_profile,
         )
         assert expected_profile is not None
@@ -327,16 +443,14 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
                 if record["artifact"] == "README.md"
                 else _HTML_NUGET_XLSX_REQUIREMENT
             )
-        elif template_profile and template_b4_profile and svg_b5_profile:
-            expected_requirement = _HTML_TEMPLATE_B2_B4_B5_REQUIREMENT
-        elif template_profile and template_b4_profile:
-            expected_requirement = _HTML_TEMPLATE_B2_B4_REQUIREMENT
-        elif template_profile:
-            expected_requirement = _HTML_TEMPLATE_B2_REQUIREMENT
-        elif svg_b5_profile:
-            expected_requirement = _HTML_SVG_B5_REQUIREMENT
         else:
-            expected_requirement = HTML_PPTX_REQUIREMENT
+            expected_requirement = _compose_requirements(
+                HTML_PPTX_REQUIREMENT,
+                PPTX_TEMPLATE_B2_REQUIREMENT if template_profile else None,
+                PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
+                PPTX_SVG_B5_REQUIREMENT if svg_b5_profile else None,
+                PPTX_EQUATION_B6_REQUIREMENT if equation_b6_profile else None,
+            )
         assert record["requirement_source"] == expected_requirement
         assert record["modifications"] == expected_profile[0]
         assert record["artifact_tests"] == expected_profile[1]
