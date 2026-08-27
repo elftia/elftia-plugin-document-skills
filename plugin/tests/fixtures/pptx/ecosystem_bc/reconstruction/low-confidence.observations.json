@@ -1,0 +1,158 @@
+{
+  "canvas": {
+    "height": 225,
+    "width": 400
+  },
+  "elements": [
+    {
+      "confidence": 0.99,
+      "geometry": {
+        "height": 130,
+        "width": 150,
+        "x": 20,
+        "y": 40
+      },
+      "id": "card-build",
+      "kind": "shape",
+      "reading_order": 0,
+      "source_region": {
+        "height": 130,
+        "width": 150,
+        "x": 20,
+        "y": 40
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": ""
+    },
+    {
+      "confidence": 0.96,
+      "geometry": {
+        "height": 18,
+        "width": 90,
+        "x": 35,
+        "y": 65
+      },
+      "id": "text-build",
+      "kind": "text",
+      "reading_order": 1,
+      "source_region": {
+        "height": 18,
+        "width": 90,
+        "x": 35,
+        "y": 65
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "BUILD"
+    },
+    {
+      "confidence": 0.98,
+      "geometry": {
+        "height": 80,
+        "width": 150,
+        "x": 230,
+        "y": 40
+      },
+      "id": "card-ship",
+      "kind": "shape",
+      "reading_order": 2,
+      "source_region": {
+        "height": 80,
+        "width": 150,
+        "x": 230,
+        "y": 40
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": ""
+    },
+    {
+      "confidence": 0.95,
+      "geometry": {
+        "height": 18,
+        "width": 80,
+        "x": 245,
+        "y": 65
+      },
+      "id": "text-ship",
+      "kind": "text",
+      "reading_order": 3,
+      "source_region": {
+        "height": 18,
+        "width": 80,
+        "x": 245,
+        "y": 65
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "SHIP"
+    },
+    {
+      "confidence": 0.42,
+      "geometry": {
+        "height": 30,
+        "width": 110,
+        "x": 230,
+        "y": 145
+      },
+      "id": "text-low",
+      "kind": "text",
+      "reading_order": 4,
+      "source_region": {
+        "height": 30,
+        "width": 110,
+        "x": 230,
+        "y": 145
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "LOW"
+    }
+  ]
+}

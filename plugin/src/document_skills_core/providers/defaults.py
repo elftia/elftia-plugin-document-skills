@@ -20,6 +20,7 @@ from document_skills_core.formats.xlsx.service import build_xlsx_service
 from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
 from document_skills_core.providers.html_browser.provider import build_html_browser_provider
+from document_skills_core.providers.ocr_vision import build_ocr_vision_provider
 
 _XLSX_CORE_ONLY_ENV = "DOCUMENT_SKILLS_XLSX_CORE_ONLY"
 _PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
@@ -124,6 +125,10 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
         libreoffice=libreoffice_provider,
         dotnet=dotnet_provider,
     )
+    ocr_vision_provider = build_ocr_vision_provider(
+        project_root,
+        dotnet=dotnet_provider,
+    )
     docx_service = build_docx_service(
         project_root, libreoffice=libreoffice_provider, dotnet=dotnet_provider,
     )
@@ -226,4 +231,5 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
     registry.register_provider(libreoffice_def)
     registry.register_provider(dotnet_def)
     registry.register_provider(html_browser_provider)
+    registry.register_provider(ocr_vision_provider)
     return registry

@@ -27,6 +27,7 @@ def write_candidate_result(
     *,
     warnings: list[dict[str, Any]],
     source: ArtifactRecord | None,
+    additional_artifacts: list[ArtifactRecord] | None = None,
     status: str = "success",
     degraded: bool = False,
     degradations: list[dict[str, Any]] | None = None,
@@ -40,9 +41,11 @@ def write_candidate_result(
         staged_record.sha256,
         staged_record.bytes,
     )
-    artifacts = ([source.as_dict()] if source is not None else []) + [
-        output_record.as_dict()
-    ]
+    artifacts = (
+        ([source.as_dict()] if source is not None else [])
+        + [item.as_dict() for item in (additional_artifacts or [])]
+        + [output_record.as_dict()]
+    )
     result = success_result(
         request,
         artifacts=artifacts,

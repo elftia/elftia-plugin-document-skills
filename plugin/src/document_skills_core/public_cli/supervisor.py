@@ -27,6 +27,9 @@ _INVOCATION_ROOT = ".document-skills-tmp"
 _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
+_PPTX_RECONSTRUCTION_OPERATION = "pptx.reconstruct.from-image"
+_PPTX_RECONSTRUCTION_TIMEOUT_SECONDS = 60.0
+_PPTX_RECONSTRUCTION_RESULT_BYTES = 1_048_576
 _DOCX_LIBREOFFICE_OPERATIONS = frozenset(
     {
         "docx.compare.visual",
@@ -252,6 +255,14 @@ class PublicCommandSupervisor:
                 return max(self.timeout_seconds, _HTML_WORKER_TIMEOUT_SECONDS), _HTML_WORKER_RESULT_BYTES
             if (
                 type(value) is dict
+                and value.get("operation") == _PPTX_RECONSTRUCTION_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _PPTX_RECONSTRUCTION_TIMEOUT_SECONDS),
+                    _PPTX_RECONSTRUCTION_RESULT_BYTES,
+                )
+            if (
+                type(value) is dict
                 and value.get("operation") in _DOCX_LIBREOFFICE_OPERATIONS
             ):
                 return (
@@ -384,9 +395,9 @@ class PublicCommandSupervisor:
                 return "cancelled"
             if error.code == ErrorCode.PROCESS_TIMEOUT:
                 return "timeout"
-            text = str(error).casefold()
-            if "byte ceiling" in text or "output exceeded" in text:
-                return "overflow"
+        text = str(error).casefold()
+        if "byte ceiling" in text or "output exceeded" in text:
+            return "overflow"
         return "invalid_worker_result"
 
     @staticmethod

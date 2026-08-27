@@ -8,6 +8,7 @@ PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
 PPTX_EQUATION_B6_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b6"
+PPTX_RECONSTRUCTION_B7_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b7"
 COMBINED_PPTX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-core-pptx"
 )
@@ -31,6 +32,10 @@ SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT = (
 SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT = (
     SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_REQUIREMENT
     + " + pptx-ecosystem-phase-bc-b6"
+)
+SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_B7_REQUIREMENT = (
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT
+    + " + pptx-ecosystem-phase-bc-b7"
 )
 _SHARED_MODULES = {
     "src/document_skills_core/core/capabilities/catalog.py",
@@ -252,6 +257,74 @@ _PPTX_EQUATION_B6_DATA_ARTIFACTS = {
     "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json",
     "tests/fixtures/pptx/ecosystem_bc/equations/unsupported.json.manifest.json",
 }
+_PPTX_RECONSTRUCTION_B7_MODULES = {
+    "src/document_skills_core/core/capabilities/catalog.py",
+    "src/document_skills_core/formats/pptx/contracts.py",
+    "src/document_skills_core/formats/pptx/reconstruction_contracts.py",
+    "src/document_skills_core/formats/pptx/reconstruction_models.py",
+    "src/document_skills_core/formats/pptx/reconstruction_scene.py",
+    "src/document_skills_core/formats/pptx/reconstruction_service.py",
+    "src/document_skills_core/formats/pptx/reconstruction_transaction.py",
+    "src/document_skills_core/formats/pptx/reconstruction_validation.py",
+    "src/document_skills_core/formats/pptx/transaction.py",
+    "src/document_skills_core/providers/defaults.py",
+    "src/document_skills_core/providers/ocr_vision/__init__.py",
+    "src/document_skills_core/providers/ocr_vision/provider.py",
+    "src/document_skills_core/public_cli/supervisor.py",
+    "tests/fixtures/pptx/ecosystem_bc/generate.py",
+    "tests/support/pptx_reconstruction_adapter.py",
+    "tests/support/pptx_reconstruction_fixture.py",
+    "tests/test_html_provenance.py",
+    "tests/test_pptx_contracts.py",
+    "tests/test_pptx_reconstruction_contracts.py",
+    "tests/test_pptx_reconstruction_documentation.py",
+    "tests/test_pptx_reconstruction_fixture_e2e.py",
+    "tests/test_pptx_reconstruction_fixtures.py",
+    "tests/test_pptx_reconstruction_public.py",
+    "tests/test_pptx_reconstruction_security.py",
+    "tests/test_pptx_reconstruction_transaction.py",
+    "tests/test_pptx_reconstruction_validation.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tools/html_pptx_provenance.py",
+    "tools/provenance_records.py",
+    "tools/regenerate_provenance.py",
+}
+_PPTX_RECONSTRUCTION_B7_TESTS = [
+    "tests/test_pptx_reconstruction_contracts.py",
+    "tests/test_pptx_reconstruction_documentation.py",
+    "tests/test_pptx_reconstruction_fixture_e2e.py",
+    "tests/test_pptx_reconstruction_fixtures.py",
+    "tests/test_pptx_reconstruction_public.py",
+    "tests/test_pptx_reconstruction_security.py",
+    "tests/test_pptx_reconstruction_transaction.py",
+    "tests/test_pptx_reconstruction_validation.py",
+    "tests/test_pptx_ecosystem_fixtures.py",
+    "tests/test_html_provenance.py",
+    "tests/test_runtime.py",
+    "tests/test_strategy2.py",
+    "tests/test_strategy3.py",
+    "tests/test_supply_chain.py",
+]
+_PPTX_RECONSTRUCTION_B7_DATA_ARTIFACTS = {
+    "README.md",
+    "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
+    "provenance/runtime-source-allowlist.json",
+    "sbom.cdx.json",
+    "skills/document-pptx/SKILL.md",
+    "skills/document-pptx/references/layered-reconstruction.md",
+    "tests/fixtures/manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/README.md",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/low-confidence.observations.json",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/low-confidence.observations.json.manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/low-confidence.png",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/low-confidence.png.manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.observations.json",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.observations.json.manifest.json",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.png",
+    "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.png.manifest.json",
+}
 
 
 def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
@@ -318,6 +391,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
     template_b4_profile = template_b4_module_profile(path)
     svg_b5_profile = svg_b5_module_profile(path)
     equation_b6_profile = equation_b6_module_profile(path)
+    reconstruction_b7_profile = reconstruction_b7_module_profile(path)
     if all(
         profile is None
         for profile in (
@@ -327,6 +401,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             template_b4_profile,
             svg_b5_profile,
             equation_b6_profile,
+            reconstruction_b7_profile,
         )
     ):
         return None
@@ -339,6 +414,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             template_b4_profile,
             svg_b5_profile,
             equation_b6_profile,
+            reconstruction_b7_profile,
         )
         if profile
     ]
@@ -353,6 +429,7 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             (template_b4_profile, PPTX_TEMPLATE_B4_REQUIREMENT),
             (svg_b5_profile, PPTX_SVG_B5_REQUIREMENT),
             (equation_b6_profile, PPTX_EQUATION_B6_REQUIREMENT),
+            (reconstruction_b7_profile, PPTX_RECONSTRUCTION_B7_REQUIREMENT),
         )
         if profile is not None
     ]
@@ -377,6 +454,11 @@ def pptx_module_profile(path: str) -> tuple[str, list[str], str] | None:
             *(
                 [PPTX_EQUATION_B6_REQUIREMENT]
                 if equation_b6_profile is not None
+                else []
+            ),
+            *(
+                [PPTX_RECONSTRUCTION_B7_REQUIREMENT]
+                if reconstruction_b7_profile is not None
                 else []
             ),
         ]
@@ -430,6 +512,17 @@ def equation_b6_module_profile(path: str) -> tuple[str, list[str]] | None:
             "readback, transactional equation upsert, exact AlternateContent "
             "branch validation, and truthful PowerPoint/LibreOffice evidence.",
             _PPTX_EQUATION_B6_TESTS,
+        )
+    return None
+
+
+def reconstruction_b7_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_RECONSTRUCTION_B7_MODULES:
+        return (
+            "Bounded provider-gated raster observations, layered native projection, "
+            "smallest-region fallback, independent editable coverage, transactional "
+            "audit assets, deterministic fixtures, and truthful unavailable behavior.",
+            _PPTX_RECONSTRUCTION_B7_TESTS,
         )
     return None
 
@@ -596,5 +689,16 @@ def equation_b6_data_profile(path: str) -> tuple[str, list[str]] | None:
             "Office Math implementation evidence, historical-review hash binding, "
             "and exact runtime-source policy.",
             _PPTX_EQUATION_B6_TESTS,
+        )
+    return None
+
+
+def reconstruction_b7_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _PPTX_RECONSTRUCTION_B7_DATA_ARTIFACTS:
+        return (
+            "B7 layered-reconstruction guidance, deterministic fixtures, bounded "
+            "provider and audit evidence, historical-review hash binding, exact "
+            "runtime-source policy, and SBOM proof that no OCR dependency was added.",
+            _PPTX_RECONSTRUCTION_B7_TESTS,
         )
     return None

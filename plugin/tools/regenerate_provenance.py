@@ -10,12 +10,14 @@ from .audit_execution import runtime_source_allowlist
 from .html_pptx_provenance import (
     HTML_PPTX_REQUIREMENT,
     PPTX_EQUATION_B6_REQUIREMENT,
+    PPTX_RECONSTRUCTION_B7_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
     PPTX_TEMPLATE_B4_REQUIREMENT,
     PPTX_SVG_B5_REQUIREMENT,
     equation_b6_data_profile,
     html_pptx_data_profile,
     pptx_module_profile,
+    reconstruction_b7_data_profile,
     template_b2_data_profile,
     template_b4_data_profile,
     svg_b5_data_profile,
@@ -749,6 +751,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     template_b4_profile = template_b4_data_profile(artifact.path)
     svg_b5_profile = svg_b5_data_profile(artifact.path)
     equation_b6_profile = equation_b6_data_profile(artifact.path)
+    reconstruction_b7_profile = reconstruction_b7_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
     selected_profiles = [
         profile
@@ -758,6 +761,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             template_b4_profile,
             svg_b5_profile,
             equation_b6_profile,
+            reconstruction_b7_profile,
             xlsx_profile,
         )
         if profile is not None
@@ -790,6 +794,9 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
                 PPTX_SVG_B5_REQUIREMENT if svg_b5_profile else None,
                 PPTX_EQUATION_B6_REQUIREMENT if equation_b6_profile else None,
+                PPTX_RECONSTRUCTION_B7_REQUIREMENT
+                if reconstruction_b7_profile
+                else None,
             )
             if (
                 html_profile
@@ -797,6 +804,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 or template_b4_profile
                 or svg_b5_profile
                 or equation_b6_profile
+                or reconstruction_b7_profile
             )
             else None
         )

@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.reconstruct.from-image",
+  "fixture_id": "B-REC-02",
+  "format": "png",
+  "invariants": [
+    "exactly one observation is below the default confidence threshold",
+    "the low-confidence source region is smaller than and separate from the editable cards",
+    "editable area and object-count coverage have distinct ratios"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic raster and observation fixture.",
+  "path": "reconstruction/low-confidence.png",
+  "purpose": "Mixed-confidence cards with one isolated low-confidence text region.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 256000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-reconstruction-raster",
+  "sha256": "sha256:4f0d42dec3215700cf0812678a969d0dd42bbc22fd48e9b80f7b496552bbe70c",
+  "sizeBytes": 1207
+}

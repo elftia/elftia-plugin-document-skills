@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.reconstruct.from-image",
+  "fixture_id": "B-REC-02",
+  "format": "json",
+  "invariants": [
+    "exactly one observation is below the default confidence threshold",
+    "the low-confidence source region is smaller than and separate from the editable cards",
+    "editable area and object-count coverage have distinct ratios"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic raster and observation fixture.",
+  "path": "reconstruction/low-confidence.observations.json",
+  "purpose": "Expected deterministic OCR/vision observations for low-confidence.png.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 64000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-reconstruction-observations",
+  "sha256": "sha256:449a3273b9f8d6bff8960bfb9a26a8cd1509767e91963f4cb1805897acac5be4",
+  "sizeBytes": 3219
+}

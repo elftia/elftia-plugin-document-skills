@@ -7,16 +7,19 @@ from tools.html_pptx_provenance import (
     COMBINED_PPTX_TEMPLATE_B2_REQUIREMENT,
     HTML_PPTX_REQUIREMENT,
     PPTX_EQUATION_B6_REQUIREMENT,
+    PPTX_RECONSTRUCTION_B7_REQUIREMENT,
     PPTX_TEMPLATE_B2_REQUIREMENT,
     PPTX_TEMPLATE_B4_REQUIREMENT,
     PPTX_SVG_B5_REQUIREMENT,
-    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT,
+    SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_B7_REQUIREMENT,
     core_pptx_module_profile,
     equation_b6_data_profile,
     equation_b6_module_profile,
     html_pptx_data_profile,
     html_pptx_module_profile,
     pptx_module_profile,
+    reconstruction_b7_data_profile,
+    reconstruction_b7_module_profile,
     template_b2_data_profile,
     template_b2_module_profile,
     template_b4_data_profile,
@@ -34,7 +37,8 @@ from tools.regenerate_provenance import (
 )
 
 _HTML_XLSX_REQUIREMENT = (
-    "Rasen html-to-editable-pptx + document-skills-core-xlsx + "
+    "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+    "document-skills-core-xlsx + "
     "document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring"
 )
 _HTML_TEMPLATE_B2_REQUIREMENT = (
@@ -52,14 +56,23 @@ _HTML_SVG_B5_REQUIREMENT = (
 _HTML_EQUATION_B6_REQUIREMENT = (
     "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b6"
 )
+_HTML_RECONSTRUCTION_B7_REQUIREMENT = (
+    "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7"
+)
 _CORE_EQUATION_B6_REQUIREMENT = (
     "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b6"
 )
 _TEMPLATE_B2_EQUATION_B6_REQUIREMENT = (
     "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b6"
 )
+_TEMPLATE_B2_RECONSTRUCTION_B7_REQUIREMENT = (
+    "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b7"
+)
 _COMBINED_TEMPLATE_B2_B5_REQUIREMENT = (
     COMBINED_PPTX_TEMPLATE_B2_REQUIREMENT + " + pptx-ecosystem-phase-bc-b5"
+)
+_COMBINED_TEMPLATE_B2_B5_B7_REQUIREMENT = (
+    _COMBINED_TEMPLATE_B2_B5_REQUIREMENT + " + pptx-ecosystem-phase-bc-b7"
 )
 _TEMPLATE_B2_B4_REQUIREMENT = (
     "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b4"
@@ -69,6 +82,11 @@ _OPENXML_REQUIREMENT = "document-skills-openxml-dotnet-enhancement"
 _HTML_NUGET_XLSX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + document-skills-openxml-dotnet-enhancement + "
     "document-skills-core-xlsx + document-skills-xlsx-completion"
+)
+_HTML_NUGET_XLSX_B7_REQUIREMENT = (
+    "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+    "document-skills-openxml-dotnet-enhancement + document-skills-core-xlsx + "
+    "document-skills-xlsx-completion"
 )
 
 
@@ -155,14 +173,17 @@ def test_core_pptx_profiles_cover_repair_and_shared_public_evidence():
         "src/document_skills_core/public_cli/supervisor.py"
     )
     assert supervisor is not None
-    assert supervisor[2] == _COMBINED_TEMPLATE_B2_B5_REQUIREMENT
+    assert supervisor[2] == _COMBINED_TEMPLATE_B2_B5_B7_REQUIREMENT
     assert template_b2_module_profile(
         "src/document_skills_core/public_cli/supervisor.py"
     ) is not None
 
     generator = pptx_module_profile("tools/regenerate_provenance.py")
     assert generator is not None
-    assert generator[2] == SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_REQUIREMENT
+    assert (
+        generator[2]
+        == SHARED_PROVENANCE_TEMPLATE_B2_B4_B5_B6_B7_REQUIREMENT
+    )
 
 
 def test_template_b2_profiles_are_exact_and_do_not_capture_unrelated_pptx(
@@ -359,6 +380,124 @@ def test_equation_b6_profiles_match_the_exact_release_inventory(project_root):
     ) is None
 
 
+def test_reconstruction_b7_profiles_match_exact_release_inventory(project_root):
+    expected_modules = {
+        "src/document_skills_core/core/capabilities/catalog.py",
+        "src/document_skills_core/formats/pptx/contracts.py",
+        "src/document_skills_core/formats/pptx/reconstruction_contracts.py",
+        "src/document_skills_core/formats/pptx/reconstruction_models.py",
+        "src/document_skills_core/formats/pptx/reconstruction_scene.py",
+        "src/document_skills_core/formats/pptx/reconstruction_service.py",
+        "src/document_skills_core/formats/pptx/reconstruction_transaction.py",
+        "src/document_skills_core/formats/pptx/reconstruction_validation.py",
+        "src/document_skills_core/formats/pptx/transaction.py",
+        "src/document_skills_core/providers/defaults.py",
+        "src/document_skills_core/providers/ocr_vision/__init__.py",
+        "src/document_skills_core/providers/ocr_vision/provider.py",
+        "src/document_skills_core/public_cli/supervisor.py",
+        "tests/fixtures/pptx/ecosystem_bc/generate.py",
+        "tests/support/pptx_reconstruction_adapter.py",
+        "tests/support/pptx_reconstruction_fixture.py",
+        "tests/test_html_provenance.py",
+        "tests/test_pptx_contracts.py",
+        "tests/test_pptx_reconstruction_contracts.py",
+        "tests/test_pptx_reconstruction_documentation.py",
+        "tests/test_pptx_reconstruction_fixture_e2e.py",
+        "tests/test_pptx_reconstruction_fixtures.py",
+        "tests/test_pptx_reconstruction_public.py",
+        "tests/test_pptx_reconstruction_security.py",
+        "tests/test_pptx_reconstruction_transaction.py",
+        "tests/test_pptx_reconstruction_validation.py",
+        "tests/test_runtime.py",
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tools/html_pptx_provenance.py",
+        "tools/provenance_records.py",
+        "tools/regenerate_provenance.py",
+    }
+    expected_data = {
+        "README.md",
+        "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
+        "provenance/runtime-source-allowlist.json",
+        "sbom.cdx.json",
+        "skills/document-pptx/SKILL.md",
+        "skills/document-pptx/references/layered-reconstruction.md",
+        "tests/fixtures/manifest.json",
+        "tests/fixtures/pptx/ecosystem_bc/README.md",
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "low-confidence.observations.json"
+        ),
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "low-confidence.observations.json.manifest.json"
+        ),
+        "tests/fixtures/pptx/ecosystem_bc/reconstruction/low-confidence.png",
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "low-confidence.png.manifest.json"
+        ),
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "synthetic-cards.observations.json"
+        ),
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "synthetic-cards.observations.json.manifest.json"
+        ),
+        "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.png",
+        (
+            "tests/fixtures/pptx/ecosystem_bc/reconstruction/"
+            "synthetic-cards.png.manifest.json"
+        ),
+    }
+
+    manifest, _digest = regenerate(project_root)
+    module_paths = {record["module"] for record in manifest["modules"]}
+    data_paths = {
+        record["artifact"] for record in manifest["data_classifications"]
+    }
+    assert {
+        path for path in module_paths if reconstruction_b7_module_profile(path)
+    } == expected_modules
+    assert {
+        path for path in data_paths if reconstruction_b7_data_profile(path)
+    } == expected_data
+
+    records = {record["module"]: record for record in manifest["modules"]}
+    assert records[
+        "src/document_skills_core/formats/pptx/reconstruction_service.py"
+    ]["requirement_source"] == PPTX_RECONSTRUCTION_B7_REQUIREMENT
+
+    data_records = {
+        record["artifact"]: record for record in manifest["data_classifications"]
+    }
+    assert data_records[
+        "skills/document-pptx/references/layered-reconstruction.md"
+    ]["requirement_source"] == _HTML_RECONSTRUCTION_B7_REQUIREMENT
+    assert data_records[
+        "tests/fixtures/pptx/ecosystem_bc/reconstruction/synthetic-cards.png"
+    ]["requirement_source"] == _TEMPLATE_B2_RECONSTRUCTION_B7_REQUIREMENT
+    assert data_records[
+        "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md"
+    ]["requirement_source"] == PPTX_RECONSTRUCTION_B7_REQUIREMENT
+
+    sbom = json.loads((project_root / "sbom.cdx.json").read_text(encoding="utf-8"))
+    dependency_names = {
+        component["name"].casefold() for component in sbom["components"]
+    }
+    assert not any(
+        "ocr" in name or "vision" in name for name in dependency_names
+    )
+
+    assert reconstruction_b7_module_profile(
+        "src/document_skills_core/formats/pptx/equation_ast.py"
+    ) is None
+    assert reconstruction_b7_data_profile(
+        "skills/document-pptx/references/editable-equations.md"
+    ) is None
+
+
 def test_html_readme_uses_the_complete_xlsx_profile(project_root):
     manifest, _digest = regenerate(project_root)
     record = next(
@@ -367,13 +506,17 @@ def test_html_readme_uses_the_complete_xlsx_profile(project_root):
         if item["artifact"] == "README.md"
     )
     html_profile = html_pptx_data_profile("README.md")
+    reconstruction_profile = reconstruction_b7_data_profile("README.md")
     xlsx_profile = xlsx_data_profile("README.md")
     assert html_profile is not None
+    assert reconstruction_profile is not None
     assert xlsx_profile is not None
     assert record["requirement_source"] == _HTML_XLSX_REQUIREMENT
-    assert record["modifications"] == f"{html_profile[0]} {xlsx_profile[0]}"
+    assert record["modifications"] == (
+        f"{html_profile[0]} {reconstruction_profile[0]} {xlsx_profile[0]}"
+    )
     assert record["artifact_tests"] == _merged_values(
-        html_profile[1],
+        _merged_values(html_profile[1], reconstruction_profile[1]),
         xlsx_profile[1],
     )
 
@@ -427,6 +570,9 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
         template_b4_profile = template_b4_data_profile(record["artifact"])
         svg_b5_profile = svg_b5_data_profile(record["artifact"])
         equation_b6_profile = equation_b6_data_profile(record["artifact"])
+        reconstruction_b7_profile = reconstruction_b7_data_profile(
+            record["artifact"]
+        )
         xlsx_profile = xlsx_data_profile(record["artifact"])
         expected_profile = _combined_profile(
             html_profile,
@@ -434,15 +580,19 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             template_b4_profile,
             svg_b5_profile,
             equation_b6_profile,
+            reconstruction_b7_profile,
             xlsx_profile,
         )
         assert expected_profile is not None
         if xlsx_profile:
-            expected_requirement = (
-                _HTML_XLSX_REQUIREMENT
-                if record["artifact"] == "README.md"
-                else _HTML_NUGET_XLSX_REQUIREMENT
-            )
+            if record["artifact"] == "README.md":
+                expected_requirement = _HTML_XLSX_REQUIREMENT
+            else:
+                expected_requirement = (
+                    _HTML_NUGET_XLSX_B7_REQUIREMENT
+                    if reconstruction_b7_profile
+                    else _HTML_NUGET_XLSX_REQUIREMENT
+                )
         else:
             expected_requirement = _compose_requirements(
                 HTML_PPTX_REQUIREMENT,
@@ -450,6 +600,11 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
                 PPTX_TEMPLATE_B4_REQUIREMENT if template_b4_profile else None,
                 PPTX_SVG_B5_REQUIREMENT if svg_b5_profile else None,
                 PPTX_EQUATION_B6_REQUIREMENT if equation_b6_profile else None,
+                (
+                    PPTX_RECONSTRUCTION_B7_REQUIREMENT
+                    if reconstruction_b7_profile
+                    else None
+                ),
             )
         assert record["requirement_source"] == expected_requirement
         assert record["modifications"] == expected_profile[0]

@@ -1,0 +1,158 @@
+{
+  "canvas": {
+    "height": 225,
+    "width": 400
+  },
+  "elements": [
+    {
+      "confidence": 0.99,
+      "geometry": {
+        "height": 135,
+        "width": 165,
+        "x": 20,
+        "y": 45
+      },
+      "id": "card-plan",
+      "kind": "shape",
+      "reading_order": 0,
+      "source_region": {
+        "height": 135,
+        "width": 165,
+        "x": 20,
+        "y": 45
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": ""
+    },
+    {
+      "confidence": 0.98,
+      "geometry": {
+        "height": 24,
+        "width": 95,
+        "x": 35,
+        "y": 68
+      },
+      "id": "text-plan",
+      "kind": "text",
+      "reading_order": 1,
+      "source_region": {
+        "height": 24,
+        "width": 95,
+        "x": 35,
+        "y": 68
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "PLAN"
+    },
+    {
+      "confidence": 0.96,
+      "geometry": {
+        "height": 18,
+        "width": 90,
+        "x": 35,
+        "y": 112
+      },
+      "id": "text-build",
+      "kind": "text",
+      "reading_order": 2,
+      "source_region": {
+        "height": 18,
+        "width": 90,
+        "x": 35,
+        "y": 112
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "BUILD"
+    },
+    {
+      "confidence": 0.99,
+      "geometry": {
+        "height": 135,
+        "width": 165,
+        "x": 215,
+        "y": 45
+      },
+      "id": "card-ship",
+      "kind": "shape",
+      "reading_order": 3,
+      "source_region": {
+        "height": 135,
+        "width": 165,
+        "x": 215,
+        "y": 45
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": ""
+    },
+    {
+      "confidence": 0.97,
+      "geometry": {
+        "height": 24,
+        "width": 85,
+        "x": 230,
+        "y": 68
+      },
+      "id": "text-ship",
+      "kind": "text",
+      "reading_order": 4,
+      "source_region": {
+        "height": 24,
+        "width": 85,
+        "x": 230,
+        "y": 68
+      },
+      "style": {
+        "border_color": "#2457A6",
+        "border_width": 2,
+        "color": "#102030",
+        "fill": "#DCE8FF",
+        "font_family": "Arial",
+        "font_size": 28,
+        "font_weight": 600,
+        "radius": 8,
+        "text_align": "left"
+      },
+      "text": "SHIP"
+    }
+  ]
+}

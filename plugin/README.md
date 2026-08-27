@@ -119,7 +119,7 @@ documentation records producer behavior only and makes no claim that a host seed
 that either optional provider ran live, or that remote CI was observed.
 
 The PPTX surface adds browser-gated `pptx.create.from-html` to its read, inspect, typed-create,
-and edit operations. Typed create embeds bounded local PNG/JPEG/static GIF bytes and emits
+provider-gated `pptx.reconstruct.from-image`, and edit operations. Typed create embeds bounded local PNG/JPEG/static GIF bytes and emits
 editable bar/column, line, pie, and scatter DrawingML charts with literal caches; missing or
 invalid assets fail closed instead of becoming placeholders. Python owns the public request,
 path policy, transaction, validation, and promotion. A private Node adapter uses exact
@@ -131,6 +131,15 @@ Scene and raster payloads return through nonce-bound private files. Supported te
 and images remain native/editable; unsupported effects use bounded element-level fallback or
 fail, never silent whole-slide rasterization. See
 `skills/document-pptx/references/html-to-editable-pptx.md`.
+
+Layered reconstruction accepts only bounded local PNG/JPEG input plus the exact
+fail-closed `ocr-vision` policy and an explicit `retain`/`discard` audit policy.
+The production provider is unavailable by default until an audited adapter is
+configured. When callable, confident text/shapes remain native, low-confidence
+elements use only their smallest source-region crops, and overlap-safe area and
+object-count coverage remain separate receipt fields. It never reports a hidden
+or uncropped whole-slide image as editable reconstruction. See
+`skills/document-pptx/references/layered-reconstruction.md`.
 
 Result status is one of `success`, `degraded`, `enhancement_required`, `invalid_request`,
 `unavailable`, or `failed`. Semantic degradation requires `options.allow_degraded: true`; an optional validator
@@ -162,6 +171,11 @@ document operation.
 capability report always lists `pptx.create.from-html`, but marks it `available: true` only when
 the locked Node library, a supported system browser, and the bounded sandboxed launch probe all
 pass. Its absence returns `unavailable` and creates no output.
+
+`ocr-vision` is also an optional execution provider. The capability report
+always lists `pptx.reconstruct.from-image`, but the shipped detector reports it
+unavailable because no production OCR/vision adapter is configured. Its absence
+creates no output and never degrades to a single-image PPTX.
 
 The DOCX slice exposes `docx.compare.visual` only through the accepted LibreOffice provider and
 `docx.validate.schema` only through the accepted .NET/OpenXML provider. Ordinary Core mutations do

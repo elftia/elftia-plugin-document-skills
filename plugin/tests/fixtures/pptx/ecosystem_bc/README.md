@@ -38,6 +38,13 @@ raw-XML/macro/include/unknown-command/resource-limit rejection. PowerPoint and
 LibreOffice consumer observations remain separate from canonical structural
 readback; a consumer result never upgrades another consumer's state.
 
+B-REC-01 and B-REC-02 under `reconstruction/` pair deterministic standard-library
+PNG bytes with strict expected OCR/vision observation envelopes. B-REC-01 keeps
+all card text and shapes editable. B-REC-02 isolates exactly one low-confidence
+text region for source-region crop fallback and gives area and object-count
+coverage different expected ratios. Neither fixture authorizes a production
+provider or a whole-slide raster fallback.
+
 B-TPL-03 deliberately contains a long Chinese title, a body/title type-scale
 inversion, Chinese table text, a placeholder, a standalone ellipsis, and a
 speaker-only notes marker. Its expected public operation set is

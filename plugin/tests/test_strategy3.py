@@ -30,6 +30,7 @@ _PPTX_TEMPLATE_B2_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b2"
 _PPTX_TEMPLATE_B4_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b4"
 _PPTX_SVG_B5_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b5"
 _PPTX_EQUATION_B6_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b6"
+_PPTX_RECONSTRUCTION_B7_REQUIREMENT = "Rasen pptx-ecosystem-phase-bc-b7"
 _PPTX_TEMPLATE_B2_DATA_DESCRIPTION = (
     "Elftia-authored semantic-template guidance, deterministic fixtures, "
     "hash-bound metadata, and exact runtime-source policy for PPTX B2."
@@ -47,6 +48,11 @@ _PPTX_EQUATION_B6_DATA_DESCRIPTION = (
     "B6 editable-equation guidance, deterministic fixtures, bounded native "
     "Office Math implementation evidence, historical-review hash binding, and "
     "exact runtime-source policy."
+)
+_PPTX_RECONSTRUCTION_B7_DATA_DESCRIPTION = (
+    "B7 layered-reconstruction guidance, deterministic fixtures, bounded "
+    "provider and audit evidence, historical-review hash binding, exact "
+    "runtime-source policy, and SBOM proof that no OCR dependency was added."
 )
 
 
@@ -350,6 +356,7 @@ def test_cross_format_capability_provenance_is_exact_and_composed(project_root):
             CROSS_FORMAT_CAPABILITY_REQUIREMENT,
             _PPTX_SVG_B5_REQUIREMENT,
             _PPTX_EQUATION_B6_REQUIREMENT,
+            _PPTX_RECONSTRUCTION_B7_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
@@ -629,7 +636,8 @@ def test_xlsx_data_provenance_respects_change_boundaries(project_root):
             "document-skills-core-xlsx + document-skills-xlsx-completion"
         ),
         "README.md": (
-            "Rasen html-to-editable-pptx + document-skills-core-xlsx + "
+            "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+            "document-skills-core-xlsx + "
             "document-skills-xlsx-completion + "
             "document-skills-xlsx-advanced-authoring"
         ),
@@ -884,6 +892,11 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
         "document-skills-openxml-dotnet-enhancement + "
         "document-skills-core-xlsx + document-skills-xlsx-completion"
     )
+    html_xlsx_b7_requirement = (
+        "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+        "document-skills-openxml-dotnet-enhancement + "
+        "document-skills-core-xlsx + document-skills-xlsx-completion"
+    )
     expected_requirements = {
         "THIRD_PARTY_NOTICES.md": html_xlsx_requirement,
         "provenance/dependency-allowlist.json": html_xlsx_requirement,
@@ -893,11 +906,12 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
             _PPTX_TEMPLATE_B4_REQUIREMENT,
             _PPTX_SVG_B5_REQUIREMENT,
             _PPTX_EQUATION_B6_REQUIREMENT,
+            _PPTX_RECONSTRUCTION_B7_REQUIREMENT,
             _XLSX_REQUIREMENT,
             _XLSX_COMPLETION_REQUIREMENT,
             _XLSX_ADVANCED_REQUIREMENT,
         ),
-        "sbom.cdx.json": html_xlsx_requirement,
+        "sbom.cdx.json": html_xlsx_b7_requirement,
     }
     nuget_description = (
         "Exact NuGet dependency lock, allowlist, license, notice, and SBOM evidence "
@@ -915,7 +929,8 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
             f"{_PPTX_TEMPLATE_B2_DATA_DESCRIPTION} "
             f"{_PPTX_TEMPLATE_B4_DATA_DESCRIPTION} "
             f"{_PPTX_SVG_B5_DATA_DESCRIPTION} "
-            f"{_PPTX_EQUATION_B6_DATA_DESCRIPTION} {runtime_description}"
+            f"{_PPTX_EQUATION_B6_DATA_DESCRIPTION} "
+            f"{_PPTX_RECONSTRUCTION_B7_DATA_DESCRIPTION} {runtime_description}"
         ),
         "sbom.cdx.json": nuget_description,
     }
@@ -942,7 +957,7 @@ def test_shared_xlsx_nuget_data_provenance_is_exact_and_composed(project_root):
     for path, requirement in expected_requirements.items():
         record = records[path]
         assert record["requirement_source"] == requirement
-        if requirement == html_xlsx_requirement:
+        if requirement in {html_xlsx_requirement, html_xlsx_b7_requirement}:
             assert record["modifications"].endswith(expected_descriptions[path])
         else:
             assert record["modifications"] == expected_descriptions[path]

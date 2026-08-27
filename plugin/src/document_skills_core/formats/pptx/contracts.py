@@ -13,6 +13,7 @@ from .design_contracts import parse_layout_tokens, parse_recipe, parse_theme
 from .edit_contracts import parse_edit
 from .equation_contracts import parse_equation_block
 from .html_contracts import parse_html_create_arguments
+from .reconstruction_contracts import parse_reconstruction_arguments
 from .svg_contracts import parse_scene_export_arguments, parse_svg_create_arguments
 from .template_contracts import (
     parse_template_create_arguments,
@@ -33,6 +34,7 @@ PPTX_OPERATIONS = frozenset(
         "pptx.create.from-markdown",
         "pptx.create.from-html",
         "pptx.create.from-svg",
+        "pptx.reconstruct.from-image",
         "pptx.create.from-template",
         "pptx.template.sanitize",
         "pptx.template.inspect",
@@ -82,6 +84,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-html",
         "pptx.create.from-markdown",
         "pptx.create.from-svg",
+        "pptx.reconstruct.from-image",
         "pptx.scene.export",
     }:
         if input_path is None or output_path is None:
@@ -101,6 +104,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create.from-html": {".htm", ".html"},
         "pptx.create.from-markdown": {".markdown", ".md"},
         "pptx.create.from-svg": {".svg"},
+        "pptx.reconstruct.from-image": {".jpeg", ".jpg", ".png"},
         "pptx.scene.export": {".pptx"},
         "pptx.template.sanitize": {".potx", ".pptx"},
         "pptx.template.inspect": {".potx", ".pptx"},
@@ -139,6 +143,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.render",
         "pptx.create.from-template",
         "pptx.create.from-svg",
+        "pptx.reconstruct.from-image",
         "pptx.scene.export",
         "pptx.template.sanitize",
     }:
@@ -163,6 +168,7 @@ def parse_pptx_request(request: dict[str, Any]) -> ParsedPptxRequest:
         "pptx.create": _parse_create,
         "pptx.create.from-html": parse_html_create_arguments,
         "pptx.create.from-svg": parse_svg_create_arguments,
+        "pptx.reconstruct.from-image": parse_reconstruction_arguments,
         "pptx.create.from-template": parse_template_create_arguments,
         "pptx.create.from-markdown": parse_markdown_arguments,
         "pptx.template.inspect": parse_template_inspect_arguments,

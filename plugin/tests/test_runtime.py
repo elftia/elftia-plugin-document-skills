@@ -101,7 +101,16 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "libreoffice",
         "dotnet-openxml",
         "html-browser",
+        "ocr-vision",
     } == set(registry.providers)
+    ocr_vision = registry.providers["ocr-vision"]
+    ocr_state = registry.detect(ocr_vision)
+    assert ocr_state["available"] is False
+    assert ocr_state["reason"] == "ocr-vision adapter is not configured"
+    assert registry.find_callable(ProviderId.OCR_VISION) is False
+    bindings = registry.operations["pptx.reconstruct.from-image"]
+    assert len(bindings) == 1
+    assert bindings[0].provider_id == ProviderId.OCR_VISION
     # Existing public format-prefix operations remain unbound to optional providers.
     public_operations = {
         "docx.create",
