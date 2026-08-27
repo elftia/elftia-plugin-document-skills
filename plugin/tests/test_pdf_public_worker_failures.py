@@ -217,7 +217,11 @@ def test_public_pdf_worker_failure_is_atomic_and_private(
             capture_output=True,
             text=False,
             shell=False,
-            timeout=15,
+            # Windows lock fixtures include a fresh uv process and sandbox
+            # copy before the measured supervisor path. Keep the product
+            # budget enforced by the trace assertion below while allowing
+            # full-suite startup contention outside that measured path.
+            timeout=30 if lock_mode else 15,
             env=environment,
         )
         if trace_path is not None:

@@ -1,18 +1,18 @@
 ---
 status: clean
 approval_claimed: true
-identity: codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-14-0.5.5-2026-08-27
-reviewer: "Codex native non-author review team/process: PDF completion rounds 1-14 and 0.5.5 release delta 2026-08-27"
+identity: codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-15-0.5.5-2026-08-27
+reviewer: "Codex native non-author review team/process: PDF completion rounds 1-15 and 0.5.5 release delta 2026-08-27"
 scope: all-release-artifacts
 identity_assurance: self-asserted
 identity_limitations: >-
   Self-asserted composite native Codex non-author review-process identity on
   local Windows; it cannot cryptographically prove the service principal or
-  claim that one individual reviewer executed all rounds. Rounds 1-13 retain
+  claim that one individual reviewer executed all rounds. Rounds 1-14 retain
   the role and scope limitations recorded in their sections below. The fresh
-  read-only Round 14 reviewer examined only the six-file PDF read/pypdf
-  hardening delta against `28f3fdce26e7d45513fb9023d89eff006177e256` and
-  the producer's successive fixes for its findings; it did not independently
+  read-only Round 15 reviewer examined only the one-file Windows lock-fixture
+  harness deadline delta against
+  `cf2ea23c27feaeff72105070dedca41b8b0e7586`; it did not independently
   re-review the historical implementation or write source, tests, provenance,
   or this report.
   The nested reviewer `/root/pdf_independent_review/pdf_independent_review`
@@ -30,14 +30,14 @@ identity_limitations: >-
   could not execute remote CI, a live host consumer, Poppler, Tesseract, qpdf,
   or a native PDF viewer, and does not claim OS-level resource-quota or current
   host-fleet evidence.
-reviewed_mapping_sha256: b81cfd16d52d1a4e868ab98655560cd348bec6d3c2353ea60a3895241803e674
+reviewed_mapping_sha256: 8a8b0f188b56fe74dd4f248e69366c7447733b2dbe06a7c16cf35c8ef71e449a
 report_evidence: provenance/reviews/core-pdf-review-cycle-round-1.md
-baseline: 28f3fdce26e7d45513fb9023d89eff006177e256
-review_round: 14
-review_mode: pdf-core-parsing-and-pypdf-mutation-hardening-delta-attestation
+baseline: cf2ea23c27feaeff72105070dedca41b8b0e7586
+review_round: 15
+review_mode: windows-lock-fixture-full-suite-startup-budget-attestation
 ---
 
-# PDF completion independent review - rounds 1-14
+# PDF completion independent review - rounds 1-15
 
 ## Attestation and verdict
 
@@ -81,7 +81,10 @@ read-projection Majors: a silent 5,000-block truncation, semantic filtering afte
 that could hide later readable text, and a multi-page raw-block retention regression introduced
 by the first fix. The producer closed all three with explicit warning evidence,
 semantic-before-projection ordering, and page-local compaction; the fresh reviewer returned
-`CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0` on the final delta.
+`CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0` on the final delta. Round 15 then reviewed the
+single test-harness deadline change produced after the first complete verify run exposed Windows
+startup starvation; the product's measured supervisor and cleanup assertions remain unchanged,
+and the Round 15 reviewer also returned a clean verdict.
 
 ## Review-cycle history and disposition
 
@@ -101,6 +104,7 @@ semantic-before-projection ordering, and page-local compaction; the fresh review
 | 12 | Fresh Codex non-author reviewer | Volatile runtime-root test-copy isolation review. |
 | 13 | Fresh Codex non-author reviewer | Public worker protocol documentation-truth delta review. |
 | 14 | `/root/pdf_read_honesty_fixer` | Read-only six-file PDF read/pypdf hardening review; reproduced three projection/resource findings, re-reviewed their fixes, and approved the final prospective mapping. |
+| 15 | `/root/pdf_worker_retry_review` | Read-only one-file Windows lock-fixture harness review; confirmed the outer deadline change does not relax measured product behavior. |
 
 | Round-1 finding | Severity | Round-1 observed failure | Round-2 disposition |
 | --- | --- | --- | --- |
@@ -1143,3 +1147,42 @@ This approval authorizes only the official reuse-review provenance rebind and ge
 receipt for this exact frozen source/test snapshot. No remote CI, native Poppler/Tesseract/qpdf
 or viewer execution, final dist/release reproducibility, Producer commit, or live Host consumer
 receipt is claimed here; those remain LEAD delivery gates.
+
+## Round 15 — Windows lock-fixture full-suite startup budget
+
+### Scope, evidence, and role separation
+
+The first full `npm run verify` on Producer commit
+`cf2ea23c27feaeff72105070dedca41b8b0e7586` completed with 1,614 passed and seven
+platform skips, but one existing `workspace-lock-transient` harness process exceeded its outer
+15-second `subprocess.run` deadline under full-suite load. The failure occurred outside any PDF
+operation assertion: the process did not return before the test could read its trace. Three
+immediate isolated reruns passed in approximately 4.2 seconds each.
+
+The producer changed exactly one release input, `tests/test_pdf_public_worker_failures.py`.
+Windows `workspace-lock-transient` and `workspace-lock-permanent` fixture processes now receive a
+30-second outer harness deadline; every non-lock case retains 15 seconds. This deadline includes
+fresh `uv` startup, imports, and copying `src`/`schemas` into a temporary sandbox before the
+supervisor is measured. The product contract remains separately and unchanged enforced by
+`trace["supervisor_elapsed_seconds"] < 5.0`, along with exact cleanup-attempt counts, lock release,
+identity-replacement blocking, residual-entry, and fixture-cleanup assertions. No production
+source, supervisor/worker timeout, or cleanup policy changed.
+
+The fresh native non-author reviewer authored no code, test, provenance, or report change. Its
+read-only review returned `CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0` after both Windows lock
+cases passed in focused execution and their `<5.0s` product trace assertions remained active.
+Strict UTF-8/no-BOM checks and `git diff --check` also passed.
+
+### Round-15 approval
+
+The regenerated SBOM remains byte-identical at SHA-256
+`477eb8d13f7ec594a4e31d595b07e917e6d05e0b4e585043e25a53e033c5a4f8`. Two consecutive
+prospective mapping calculations returned:
+
+`8a8b0f188b56fe74dd4f248e69366c7447733b2dbe06a7c16cf35c8ef71e449a`.
+
+`approval_claimed: true`; `status: clean`. Round 15 supersedes the Round-14 prospective mapping
+only because the reviewed test file is a release input. Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-15-0.5.5-2026-08-27`.
+This approval authorizes the single-attestation provenance rebind for the exact frozen snapshot;
+a fresh complete verify/build/release run remains mandatory delivery evidence.
