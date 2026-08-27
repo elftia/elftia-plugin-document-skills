@@ -15,13 +15,7 @@ export async function importImageAsset(sourceRoot, assetsDir, item, limits) {
   let bytes;
   let mime;
   if (item.image_src.startsWith('data:')) {
-    const match = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(item.image_src);
-    if (!match) throw new Error('data_url_invalid');
-    mime = match.at(1);
-    bytes = Buffer.from(match.at(2), 'base64');
-    if (bytes.toString('base64') !== match.at(2) || sniffImage(bytes) !== mime) {
-      throw new Error('data_url_invalid');
-    }
+    throw new Error('data_url_blocked');
   } else {
     if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(item.image_src) || item.image_src.startsWith('//')) {
       throw new Error('image_scheme_blocked');
@@ -29,6 +23,7 @@ export async function importImageAsset(sourceRoot, assetsDir, item, limits) {
     const file = await resolveLocalAsset(sourceRoot, item.image_src);
     bytes = await fs.readFile(file);
     mime = sniffImage(bytes);
+    if (mime === 'image/svg+xml') throw new Error('svg_raster_fallback');
   }
   if (bytes.length <= 0 || bytes.length > limits.image_bytes || !NATIVE_IMAGE_MIMES.has(mime)) {
     throw new Error('image_type_or_size');
@@ -100,5 +95,7 @@ export function assetReason(error) {
 function sniffImage(bytes) {
   if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
   if (bytes.at(0) === 0xff && bytes.at(1) === 0xd8 && bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9) return 'image/jpeg';
+  const text = bytes.subarray(0, 4096).toString('utf8').trimStart();
+  if (/^(?:<\?xml[^>]*>\s*)?<svg(?:\s|>)/i.test(text)) return 'image/svg+xml';
   throw new Error('image_magic');
 }

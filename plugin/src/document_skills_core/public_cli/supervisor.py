@@ -1,6 +1,7 @@
 """One-shot public command supervisor and sole stdout/cancellation owner."""
 
 import json
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -32,7 +33,58 @@ _HTML_OPERATION = "pptx.create.from-html"
 _HTML_WORKER_TIMEOUT_SECONDS = 60.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
 _PDF_WORKER_TIMEOUT_SECONDS = 30.0
-_PROVIDER_PROBE_TIMEOUT_SECONDS = 30.0
+_DOCX_LIBREOFFICE_OPERATIONS = frozenset(
+    {
+        "docx.compare.visual",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.layout.repair",
+        "docx.render",
+    }
+)
+_DOCX_LIBREOFFICE_WORKER_TIMEOUT_SECONDS = 90.0
+_DOCX_DOTNET_OPERATIONS = frozenset(
+    {
+        "docx.comments.add",
+        "docx.comments.read",
+        "docx.comments.resolve",
+        "docx.revisions.apply",
+        "docx.revisions.read",
+        "docx.validate.schema",
+    }
+)
+_DOCX_DOTNET_WORKER_TIMEOUT_SECONDS = 90.0
+_PPTX_MUTATION_OPERATIONS = {
+    "pptx.create",
+    "pptx.create.from-markdown",
+    "pptx.create.from-svg",
+    "pptx.create.from-template",
+    "pptx.edit",
+    "pptx.template.sanitize",
+}
+_PPTX_MUTATION_WORKER_TIMEOUT_SECONDS = 45.0
+_PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS = 150.0
+_PROVIDER_OPERATION_TIMEOUTS = {
+    "pptx.scene.export": 90.0,
+    "pptx.template.inspect": _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS,
+    "xlsx.convert": 45.0,
+    "xlsx.recalculate": 90.0,
+    "xlsx.render": 45.0,
+    "xlsx.validate.schema": 45.0,
+}
+_RECALCULATION_POLICY_OPERATIONS = {"xlsx.create", "xlsx.edit"}
+_REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 90.0
+_LIBREOFFICE_CONVERT_OPERATION = "pptx.convert.pdf"
+_LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
+_LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
+_LIBREOFFICE_RENDER_OPERATION = "pptx.render"
+_LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
+_PROVIDER_PROBE_TIMEOUT_SECONDS = 45.0
+_SCHEMA_OPERATION = "pptx.validate.schema"
+_SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
+_WORKER_TIMEOUT_SECONDS = 15.0
+_PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
+_CORE_ONLY_PROFILE = "core-only"
 
 
 class PublicCommandSupervisor:
@@ -40,13 +92,17 @@ class PublicCommandSupervisor:
         self,
         project_root: Path,
         *,
-        timeout_seconds: float = 8.0,
+        timeout_seconds: float = _WORKER_TIMEOUT_SECONDS,
         output_limit: int = 65_536,
         nonce_factory: Callable[[], str] | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
         self.worker_script = (
-            self.project_root / "src" / "document_skills_core" / "worker" / "main.py"
+            self.project_root
+            / "src"
+            / "document_skills_core"
+            / "worker"
+            / "main.py"
         ).resolve()
         self.timeout_seconds = timeout_seconds
         self.output_limit = output_limit
@@ -171,6 +227,11 @@ class PublicCommandSupervisor:
         runner = ProcessRunner(policy)
         executable = policy.allow_executable("public-command-worker", sys.executable)
         worker = policy.allow_script("public-command-worker", self.worker_script)
+        fixed_environment = (
+            {_PROVIDER_PROFILE_ENV: _CORE_ONLY_PROFILE}
+            if os.environ.get(_PROVIDER_PROFILE_ENV) == _CORE_ONLY_PROFILE
+            else None
+        )
         cwd, descriptor, identity, bootstrap_args = workspace.launch_parameters()
         return runner.run_public_command_worker(
             "public-command-worker",
@@ -183,6 +244,7 @@ class PublicCommandSupervisor:
             posix_workspace_identity=identity,
             timeout_seconds=timeout_seconds,
             output_limit=result_limit + self.output_limit,
+            fixed_environment=fixed_environment,
         )
 
     def _command_limits(
@@ -215,6 +277,67 @@ class PublicCommandSupervisor:
                 return max(
                     self.timeout_seconds, _PDF_WORKER_TIMEOUT_SECONDS
                 ), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOCX_LIBREOFFICE_OPERATIONS
+            ):
+                return (
+                    max(
+                        self.timeout_seconds,
+                        _DOCX_LIBREOFFICE_WORKER_TIMEOUT_SECONDS,
+                    ),
+                    MAX_WORKER_BYTES,
+                )
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOCX_DOTNET_OPERATIONS
+            ):
+                return (
+                    max(self.timeout_seconds, _DOCX_DOTNET_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if type(value) is dict and value.get("operation") in _PPTX_MUTATION_OPERATIONS:
+                return (
+                    max(self.timeout_seconds, _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if type(value) is dict and value.get("operation") in _PROVIDER_OPERATION_TIMEOUTS:
+                operation = value["operation"]
+                return max(
+                    self.timeout_seconds,
+                    _PROVIDER_OPERATION_TIMEOUTS[operation],
+                ), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in _RECALCULATION_POLICY_OPERATIONS
+                and type(value.get("arguments")) is dict
+                and value["arguments"].get("recalculation") == "required"
+            ):
+                return max(
+                    self.timeout_seconds,
+                    _REQUIRED_RECALCULATION_TIMEOUT_SECONDS,
+                ), MAX_WORKER_BYTES
+            if type(value) is dict and value.get("operation") == _SCHEMA_OPERATION:
+                return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
+            if (
+                type(value) is dict
+                and value.get("operation") in {
+                    _LIBREOFFICE_CONVERT_OPERATION,
+                    _LIBREOFFICE_LEGACY_OPERATION,
+                }
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
+            if (
+                type(value) is dict
+                and value.get("operation") == _LIBREOFFICE_RENDER_OPERATION
+            ):
+                return (
+                    max(self.timeout_seconds, _LIBREOFFICE_RENDER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
         except (OSError, UnicodeError, ValueError, json.JSONDecodeError):
             pass
         return self.timeout_seconds, MAX_WORKER_BYTES

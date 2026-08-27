@@ -3,6 +3,8 @@
 from typing import Any
 
 from .constants import NS, local_name
+from .equation_omml import is_equation_element, project_equation
+from .object_xml import object_hash
 
 _P = NS["p"]
 _A = NS["a"]
@@ -90,7 +92,9 @@ def _map_shapes(sp_tree: Any) -> list[dict[str, Any]]:
     shapes: list[dict[str, Any]] = []
     for child in sp_tree:
         tag = local_name(child.tag)
-        if tag == "sp":
+        if is_equation_element(child):
+            shapes.append(_map_equation(child))
+        elif tag == "sp":
             shapes.append(_map_shape(child, "shape"))
         elif tag == "pic":
             shapes.append(_map_shape(child, "picture"))
@@ -103,6 +107,20 @@ def _map_shapes(sp_tree: Any) -> list[dict[str, Any]]:
     return shapes
 
 
+def _map_equation(element: Any) -> dict[str, Any]:
+    nv_pr = next(iter(element.iter(P("cNvPr"))), None)
+    shape_id = "" if nv_pr is None else nv_pr.get("id", "")
+    name = "" if nv_pr is None else nv_pr.get("name", "")
+    return {
+        "type": "equation",
+        "id": shape_id,
+        "name": name,
+        "precondition_sha256": object_hash(element),
+        "selector": {"id": shape_id, "name": name, "type": "equation"},
+        "equation": project_equation(element, strict=False),
+    }
+
+
 def _map_shape(elem: Any, shape_type: str) -> dict[str, Any]:
     nv_pr = _get_nv_pr(elem)
     shape_id = nv_pr.get("id", "")
@@ -112,6 +130,12 @@ def _map_shape(elem: Any, shape_type: str) -> dict[str, Any]:
         "type": shape_type,
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {
+            "id": shape_id,
+            "name": name,
+            "type": "image" if shape_type == "picture" else "shape",
+        },
         "text_frames": text_frames,
     }
 
@@ -134,6 +158,12 @@ def _map_graphic_frame(elem: Any) -> dict[str, Any]:
         "type": "graphicFrame",
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {
+            "id": shape_id,
+            "name": name,
+            "type": "table" if table_info is not None else "chart" if chart_info is not None else "shape",
+        },
         "table": table_info,
         "chart_ref": chart_info,
     }
@@ -147,6 +177,8 @@ def _map_connector(elem: Any) -> dict[str, Any]:
         "type": "connector",
         "id": shape_id,
         "name": name,
+        "precondition_sha256": object_hash(elem),
+        "selector": {"id": shape_id, "name": name, "type": "shape"},
         "geometry": _map_connector_geometry(elem),
     }
 
@@ -265,7 +297,13 @@ def _map_table(tbl_elem: Any) -> dict[str, Any]:
 
 def _get_nv_pr(elem: Any) -> dict[str, str]:
     tag = local_name(elem.tag)
-    nv_tag = f"nv{tag.capitalize()}Pr"
+    nv_tag = {
+        "cxnSp": "nvCxnSpPr",
+        "graphicFrame": "nvGraphicFramePr",
+        "grpSp": "nvGrpSpPr",
+        "pic": "nvPicPr",
+        "sp": "nvSpPr",
+    }.get(tag, f"nv{tag.capitalize()}Pr")
     nv_pr_elem = elem.find(P(nv_tag))
     if nv_pr_elem is None:
         for child in elem:

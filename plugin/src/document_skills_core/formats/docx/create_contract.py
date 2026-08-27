@@ -1,9 +1,8 @@
-"""Bounded typed report contract used by DOCX creation.
+"""Bounded typed contracts used by DOCX creation.
 
-Only ``blocks`` is required. Tables, images, a running head, a running foot,
-extra sections, and metadata are all opt-in: the contract never conjures
-content the caller did not ask for, so a plain heading-and-paragraph document
-is a first-class request rather than something to be padded out.
+The versioned ``document_spec`` is the source-neutral path; ``report`` remains
+the compatible original path. Both contracts normalize into the same emitter
+IR and never conjure content the caller did not request.
 """
 
 from pathlib import Path
@@ -25,7 +24,15 @@ MAX_CREATE_TEXT_BYTES = 524_288
 
 
 def parse_create(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"report"})
+    _exact_keys(value, {"document_spec", "report"})
+    has_document_spec = "document_spec" in value
+    has_report = "report" in value
+    if has_document_spec == has_report:
+        _invalid("DOCX creation requires exactly one of document_spec or report.")
+    if has_document_spec:
+        from .document_spec import parse_document_spec
+
+        return {"report": parse_document_spec(value["document_spec"])}
     report = value.get("report")
     if type(report) is not dict:
         _invalid("report must be an object.", field="report")
@@ -51,6 +58,7 @@ def parse_create(value: dict[str, Any]) -> dict[str, Any]:
             "footer": _story_text(report.get("footer"), "report.footer"),
             "sections": _parse_sections(report.get("sections")),
             "metadata": _parse_metadata(report.get("metadata", {})),
+            "style_profile": None,
         }
     }
 

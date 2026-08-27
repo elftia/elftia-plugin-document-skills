@@ -1,0 +1,188 @@
+{
+  "cases": [
+    {
+      "expectedCode": "DS_ARCHIVE_UNSAFE",
+      "id": "raw-omml",
+      "source": {
+        "kind": "latex",
+        "value": "<m:oMath><m:r/></m:oMath>"
+      }
+    },
+    {
+      "expectedCode": "DS_ARCHIVE_UNSAFE",
+      "id": "macro-command",
+      "source": {
+        "kind": "latex",
+        "value": "\\newcommand{\\x}{1}"
+      }
+    },
+    {
+      "expectedCode": "DS_ARCHIVE_UNSAFE",
+      "id": "external-include",
+      "source": {
+        "kind": "latex",
+        "value": "\\input{secret.tex}"
+      }
+    },
+    {
+      "expectedCode": "DS_UNSUPPORTED_FEATURE",
+      "id": "unknown-command",
+      "source": {
+        "kind": "latex",
+        "value": "\\unknown{x}"
+      }
+    },
+    {
+      "expectedCode": "DS_RESOURCE_LIMIT",
+      "id": "length-limit",
+      "source": {
+        "kind": "latex",
+        "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "expectedCode": "DS_RESOURCE_LIMIT",
+      "id": "depth-limit",
+      "source": {
+        "kind": "ast",
+        "value": {
+          "degree": null,
+          "radicand": {
+            "degree": null,
+            "radicand": {
+              "degree": null,
+              "radicand": {
+                "degree": null,
+                "radicand": {
+                  "degree": null,
+                  "radicand": {
+                    "degree": null,
+                    "radicand": {
+                      "degree": null,
+                      "radicand": {
+                        "degree": null,
+                        "radicand": {
+                          "degree": null,
+                          "radicand": {
+                            "degree": null,
+                            "radicand": {
+                              "degree": null,
+                              "radicand": {
+                                "degree": null,
+                                "radicand": {
+                                  "degree": null,
+                                  "radicand": {
+                                    "degree": null,
+                                    "radicand": {
+                                      "degree": null,
+                                      "radicand": {
+                                        "degree": null,
+                                        "radicand": {
+                                          "degree": null,
+                                          "radicand": {
+                                            "degree": null,
+                                            "radicand": {
+                                              "degree": null,
+                                              "radicand": {
+                                                "degree": null,
+                                                "radicand": {
+                                                  "degree": null,
+                                                  "radicand": {
+                                                    "degree": null,
+                                                    "radicand": {
+                                                      "degree": null,
+                                                      "radicand": {
+                                                        "degree": null,
+                                                        "radicand": {
+                                                          "degree": null,
+                                                          "radicand": {
+                                                            "degree": null,
+                                                            "radicand": {
+                                                              "degree": null,
+                                                              "radicand": {
+                                                                "degree": null,
+                                                                "radicand": {
+                                                                  "degree": null,
+                                                                  "radicand": {
+                                                                    "degree": null,
+                                                                    "radicand": {
+                                                                      "degree": null,
+                                                                      "radicand": {
+                                                                        "degree": null,
+                                                                        "radicand": {
+                                                                          "degree": null,
+                                                                          "radicand": {
+                                                                            "type": "text",
+                                                                            "value": "x"
+                                                                          },
+                                                                          "type": "radical"
+                                                                        },
+                                                                        "type": "radical"
+                                                                      },
+                                                                      "type": "radical"
+                                                                    },
+                                                                    "type": "radical"
+                                                                  },
+                                                                  "type": "radical"
+                                                                },
+                                                                "type": "radical"
+                                                              },
+                                                              "type": "radical"
+                                                            },
+                                                            "type": "radical"
+                                                          },
+                                                          "type": "radical"
+                                                        },
+                                                        "type": "radical"
+                                                      },
+                                                      "type": "radical"
+                                                    },
+                                                    "type": "radical"
+                                                  },
+                                                  "type": "radical"
+                                                },
+                                                "type": "radical"
+                                              },
+                                              "type": "radical"
+                                            },
+                                            "type": "radical"
+                                          },
+                                          "type": "radical"
+                                        },
+                                        "type": "radical"
+                                      },
+                                      "type": "radical"
+                                    },
+                                    "type": "radical"
+                                  },
+                                  "type": "radical"
+                                },
+                                "type": "radical"
+                              },
+                              "type": "radical"
+                            },
+                            "type": "radical"
+                          },
+                          "type": "radical"
+                        },
+                        "type": "radical"
+                      },
+                      "type": "radical"
+                    },
+                    "type": "radical"
+                  },
+                  "type": "radical"
+                },
+                "type": "radical"
+              },
+              "type": "radical"
+            },
+            "type": "radical"
+          },
+          "type": "radical"
+        }
+      }
+    }
+  ],
+  "schemaVersion": 1
+}

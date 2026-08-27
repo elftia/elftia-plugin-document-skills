@@ -1,0 +1,18 @@
+{
+  "assetRef": {
+    "assetId": "semantic-neutral",
+    "catalogId": "synthetic",
+    "sha256": "sha256:ed1c0229b18bfe1508a7cc4fa0e4667004794597e0946e5f0ad59e213b67d0d9",
+    "version": "1.0.0"
+  },
+  "deckIrSchemaVersion": "1.0.0",
+  "licenseStatus": "not_evaluated",
+  "provenanceRef": {
+    "assetId": "semantic-neutral",
+    "catalogId": "synthetic"
+  },
+  "schemaVersion": "1.0.0",
+  "semanticSlotSchemaVersion": "1.0.0",
+  "templateId": "semantic-neutral",
+  "version": "1.0.0"
+}

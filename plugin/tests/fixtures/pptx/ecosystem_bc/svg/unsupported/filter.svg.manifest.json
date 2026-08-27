@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-03",
+  "format": "svg",
+  "invariants": [
+    "unsafe or unsupported content never executes or dereferences",
+    "rejection publishes no PPTX output",
+    "element fallback never becomes a whole-slide raster"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/unsupported/filter.svg",
+  "purpose": "Closed-profile rejection fixture for filter.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 128000
+  },
+  "schemaVersion": 1,
+  "security_classification": "unsupported-svg-filter",
+  "sha256": "sha256:9462d2d0325e1f1e36c002e00d3f425bfcddcce43d144644d8176314314eb908",
+  "sizeBytes": 410
+}

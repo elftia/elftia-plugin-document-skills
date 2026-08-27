@@ -14,14 +14,29 @@ from .runner import DotnetOpenXmlRunner
 def read_revisions(
     input_docx: Path,
     runner: DotnetOpenXmlRunner,
+    *,
+    limit: int = 10_000,
+    filters: dict[str, Any] | None = None,
+    scope: dict[str, Any] | None = None,
+    revision_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Read tracked changes (insertions/deletions/moves) keyed by revision id."""
     with OperationTempRoot() as private_root:
         staged = private_root / "input.docx"
         staged.write_bytes(Path(input_docx).read_bytes())
+        payload: dict[str, Any] = {
+            "input_path": str(staged),
+            "max_revisions": limit,
+        }
+        if filters is not None:
+            payload["filters"] = filters
+        if scope is not None:
+            payload["scope"] = scope
+        if revision_ids is not None:
+            payload["revision_ids"] = revision_ids
         result = runner.run(
             "--revisions-read",
-            stdin_payload={"input_path": str(staged)},
+            stdin_payload=payload,
         )
     if result.returncode != 0:
         raise DocumentSkillsError(
@@ -36,10 +51,10 @@ def read_revisions(
             "dotnet helper returned non-object revisions JSON.",
         )
     revisions = payload.get("revisions", [])
-    if not isinstance(revisions, list):
+    if type(revisions) is not list or len(revisions) > limit:
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,
-            "dotnet helper revisions field is not a list.",
+            "dotnet helper revisions field is not a bounded list.",
         )
     return revisions
 

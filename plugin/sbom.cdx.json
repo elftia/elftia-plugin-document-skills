@@ -86,6 +86,84 @@
       "version": "1.62.1"
     },
     {
+      "bom-ref": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "9168d9bb016c75b6ca039537a365fab509f4c88f60af63b2e021d6bdb73978745471b9791548b54a2e38237496dc2c722bfdc070c882e3ff7dc230552ce939e0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "DocumentFormat.OpenXml.Framework",
+      "properties": [
+        {
+          "name": "elftia:nuget-dependency-type",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0",
+      "type": "library",
+      "version": "3.0.0"
+    },
+    {
+      "bom-ref": "pkg:nuget/DocumentFormat.OpenXml@3.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "a36c6ed7bfb854e4f880ac2911c2f95013585ab3f51d01a47def8af8b1efab9ff4ed48e9ce818c050cd63211a29b380bd50da510f600a7b26004d6564dc7c62b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "DocumentFormat.OpenXml",
+      "properties": [
+        {
+          "name": "elftia:nuget-dependency-type",
+          "value": "direct"
+        }
+      ],
+      "purl": "pkg:nuget/DocumentFormat.OpenXml@3.0.0",
+      "type": "library",
+      "version": "3.0.0"
+    },
+    {
+      "bom-ref": "pkg:nuget/System.IO.Packaging@8.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "f20d55e1846974603115c2bcbfd3a3b8c7483894a9177d196f524689cc15661972dc8f7de1617205d57a990128f1ddd3f944507b9e7f3345347881f41edb356e"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "System.IO.Packaging",
+      "properties": [
+        {
+          "name": "elftia:nuget-dependency-type",
+          "value": "transitive"
+        }
+      ],
+      "purl": "pkg:nuget/System.IO.Packaging@8.0.0",
+      "type": "library",
+      "version": "8.0.0"
+    },
+    {
       "bom-ref": "pkg:pypi/attrs@26.1.0",
       "licenses": [
         {
@@ -375,6 +453,7 @@
         "pkg:npm/docxtemplater@3.69.3",
         "pkg:npm/pizzip@3.2.0",
         "pkg:npm/playwright-core@1.62.1",
+        "pkg:nuget/DocumentFormat.OpenXml@3.0.0",
         "pkg:pypi/cryptography@50.0.0",
         "pkg:pypi/defusedxml@0.7.1",
         "pkg:pypi/fonttools@4.63.0",
@@ -413,6 +492,22 @@
     {
       "dependsOn": [],
       "ref": "pkg:npm/playwright-core@1.62.1"
+    },
+    {
+      "dependsOn": [
+        "pkg:nuget/System.IO.Packaging@8.0.0"
+      ],
+      "ref": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0"
+    },
+    {
+      "dependsOn": [
+        "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0"
+      ],
+      "ref": "pkg:nuget/DocumentFormat.OpenXml@3.0.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:nuget/System.IO.Packaging@8.0.0"
     },
     {
       "dependsOn": [],
@@ -500,11 +595,11 @@
     "properties": [
       {
         "name": "elftia:lock-sha256",
-        "value": "2d5e8da7a5ba74d47ac09f3d7aadc9ba56f91ce9b0d74ff06e3714d135c8af90"
+        "value": "8b0a2d0c2174a8992fa4b8850da91dca0fcb6da7591cb47e779870328c4f20f9"
       }
     ]
   },
-  "serialNumber": "urn:uuid:2d5e8da7-a5ba-74d4-7ac0-9f3d7aadc9ba",
+  "serialNumber": "urn:uuid:8b0a2d0c-2174-a899-2fa4-b8850da91dca",
   "specVersion": "1.5",
   "version": 1
 }

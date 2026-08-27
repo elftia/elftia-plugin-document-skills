@@ -27,6 +27,7 @@ def write_candidate_result(
     *,
     warnings: list[dict[str, Any]],
     source: ArtifactRecord | None,
+    achieved_fidelity: str = "core",
 ) -> dict[str, Any]:
     assert request.output_path is not None
     staged_record = assert_promotable("success", validation, staged)
@@ -45,6 +46,7 @@ def write_candidate_result(
         operation_result=operation_result,
         warnings=warnings,
         validation=validation,
+        achieved_fidelity=achieved_fidelity,
     )
     schemas.validate("operation-result", result)
     return result
@@ -57,11 +59,13 @@ def promote_candidate(
     *,
     source: ArtifactRecord | None,
     destination: DestinationSnapshot,
+    guard_sources: tuple[ArtifactRecord, ...] = (),
 ) -> dict[str, Any]:
     assert request.output_path is not None
     identity = assert_promotable(result["status"], result["validation"], staged)
-    if source is not None:
-        assert_source_preserved(source.path, source.sha256)
+    sources = ((source,) if source is not None else ()) + guard_sources
+    for guarded in sources:
+        assert_source_preserved(guarded.path, guarded.sha256)
     promoted = atomic_promote(
         staged,
         request.output_path,
@@ -76,11 +80,12 @@ def promote_candidate(
             "Promoted DOCX differs from the validated candidate.",
         )
     source_error = None
-    if source is not None:
+    for guarded in sources:
         try:
-            assert_source_preserved(source.path, source.sha256)
+            assert_source_preserved(guarded.path, guarded.sha256)
         except DocumentSkillsError as error:
-            source_error = error
+            if source_error is None:
+                source_error = error
     return apply_committed_promotion(
         result,
         promoted,

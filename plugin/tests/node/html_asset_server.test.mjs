@@ -64,6 +64,33 @@ test('server rejects a non-cryptographic origin token', async (context) => {
   );
 });
 
+test('server serves local SVG only through a tokenized bounded descendant route', async (context) => {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'document-skills-assets-'));
+  context.after(() => fs.rm(temporary, { recursive: true, force: true }));
+  const root = path.join(temporary, 'deck');
+  await fs.mkdir(root);
+  await fs.writeFile(
+    path.join(root, 'vector.svg'),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"></svg>',
+  );
+  await fs.writeFile(path.join(root, 'too-large.svg'), Buffer.alloc(8 * 1024 * 1024 + 1));
+  await fs.writeFile(path.join(temporary, 'outside.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+  const blocked = [];
+  const server = await startAssetServer(root, TOKEN, (reason) => blocked.push(reason));
+  context.after(() => server.close());
+
+  const vector = await fetch(`${server.origin}/vector.svg`);
+  assert.equal(vector.status, 200);
+  assert.equal(vector.headers.get('content-type'), 'image/svg+xml');
+  assert.match(await vector.text(), /^<svg /);
+
+  const endpoint = new URL(server.origin);
+  assert.equal((await fetch(`${endpoint.origin}/vector.svg`)).status, 404);
+  assert.equal((await fetch(`${server.origin}/too-large.svg`)).status, 404);
+  await assert.rejects(resolveLocalAsset(root, '../outside.svg'), /asset_escape/);
+  assert.deepEqual(blocked, ['invalid_token', 'asset_unavailable']);
+});
+
 test('asset resolution rejects traversal, absolute paths, and symlink escape', async (context) => {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'document-skills-assets-'));
   context.after(() => fs.rm(temporary, { recursive: true, force: true }));

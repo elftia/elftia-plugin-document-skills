@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -7,10 +8,19 @@ import sys
 
 import pytest
 
-from tools.audit import audit_fixtures, audit_provenance, release_inventory, run_audits
+from tools.audit import (
+    audit_fixtures,
+    audit_provenance,
+    audit_sbom,
+    release_inventory,
+    run_audits,
+)
+from tools.audit_execution import _audit_dependency_manifests
 from tools.audit_provenance import provenance_modules
 from tools.provenance_records import (
+    CURRENT_REVIEW_ARTIFACT,
     SELF_REFERENTIAL_METADATA_ALLOWLIST,
+    mapping_digest,
     validate_metadata_exclusion,
 )
 from tools.regenerate_provenance import regenerate
@@ -59,43 +69,157 @@ def test_provenance_covers_implementation_modules(project_root, tmp_path):
     assert len(report["mapping_sha256"]) == 64
 
 
+def _semantic_mapping_fixture():
+    reviewer = "independent-reviewer"
+    evidence = ["provenance/reviews/review.md"]
+    return (
+        [
+            {
+                "module": "src/example.py",
+                "sha256": "1" * 64,
+                "source_class": "original",
+                "clean_room": True,
+                "implementation_source": "Original project code",
+                "requirement_source": "Change requirement",
+                "modifications": "Semantic implementation details.",
+                "third_party_files": [],
+                "license": "GPL-3.0",
+                "artifact_tests": ["tests/test_example.py"],
+                "reviewer": reviewer,
+                "review_evidence": evidence,
+            }
+        ],
+        [
+            {
+                "artifact": "runtime/reference.ps1",
+                "sha256": "2" * 64,
+                "classification": "non-executable-data",
+                "reason": "Reviewed inert reference data.",
+                "reviewer": reviewer,
+                "review_evidence": evidence,
+            }
+        ],
+        [
+            {
+                "artifact": "assets/reference.json",
+                "sha256": "3" * 64,
+                "classification": "reviewed-data",
+                "reason": "Reviewed release data classification.",
+                "reviewer": reviewer,
+                "review_evidence": evidence,
+            }
+        ],
+        [
+            {
+                "artifact": "provenance/modules.json",
+                "classification": "self-referential-audit-metadata",
+                "reason": "Reviewed circular audit metadata exclusion.",
+                "reviewer": reviewer,
+                "review_evidence": evidence,
+            }
+        ],
+    )
+
+
+def test_mapping_digest_binds_every_semantic_record_field():
+    fixture = _semantic_mapping_fixture()
+    baseline = mapping_digest(*fixture)
+    for collection_index, records in enumerate(fixture):
+        for field, value in records[0].items():
+            if field in {"reviewer", "review_evidence"}:
+                continue
+            mutated = copy.deepcopy(fixture)
+            if isinstance(value, bool):
+                replacement = not value
+            elif isinstance(value, list):
+                replacement = [*value, "semantic-drift"]
+            else:
+                replacement = f"{value}-semantic-drift"
+            mutated[collection_index][0][field] = replacement
+            assert mapping_digest(*mutated) != baseline, (
+                collection_index,
+                field,
+            )
+
+
+def test_mapping_digest_excludes_review_self_reference_fields():
+    fixture = _semantic_mapping_fixture()
+    mutated = copy.deepcopy(fixture)
+    for records in mutated:
+        records[0]["reviewer"] = "replacement-reviewer"
+        records[0]["review_evidence"] = [
+            "provenance/reviews/replacement-review.md"
+        ]
+    assert mapping_digest(*mutated) == mapping_digest(*fixture)
+
+
 @pytest.mark.parametrize(
     "report_name",
     [
         "core-docx-review-cycle-round-1.md",
         "core-pptx-review-cycle-round-1.md",
+        "document-skills-core-xlsx-completion-review-cycle-round-1.md",
+        "document-skills-0.5.3-pptx-b5-merge-review.md",
+        "document-skills-0.5.3-pptx-b6-merge-review.md",
     ],
 )
-def test_historical_review_is_hash_bound_data_not_metadata(
-    project_root,
-    tmp_path,
-    report_name,
+def test_historical_review_reports_are_hash_pinned_reviewed_data(
+    project_root, tmp_path, report_name
 ):
-    root = _copy_audit_project(project_root, tmp_path / report_name)
-    manifest, _digest = regenerate(root)
-    artifact = f"provenance/reviews/{report_name}"
-    record = next(
-        item
-        for item in manifest["data_classifications"]
-        if item["artifact"] == artifact
+    root = _copy_audit_project(
+        project_root,
+        tmp_path / f"historical-review-{report_name}",
     )
+    bind_test_review(root)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
 
-    assert record["sha256"] == hashlib.sha256((root / artifact).read_bytes()).hexdigest()
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    artifact = f"provenance/reviews/{report_name}"
+    historical = next(
+        record for record in manifest["data_classifications"]
+        if record["artifact"] == artifact
+    )
+    assert historical["classification"] == "reviewed-data"
+    assert historical["sha256"] == hashlib.sha256(
+        (root / artifact).read_bytes()
+    ).hexdigest()
     assert artifact not in {
-        item["artifact"] for item in manifest["metadata_exclusions"]
+        record["artifact"] for record in manifest["metadata_exclusions"]
     }
-    forged_metadata = {
-        "artifact": artifact,
-        "classification": "self-referential-audit-metadata",
-        "reason": "Historical review bytes do not participate in a digest cycle.",
-        "reviewer": record["reviewer"],
-        "review_evidence": ["PROVENANCE.md"],
+
+
+def test_current_review_metadata_binding_uses_an_exact_allowlist(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "current-review")
+    report_name = Path(CURRENT_REVIEW_ARTIFACT).name
+    bind_test_review(root)
+    report = audit_provenance(root)
+    assert report["review_attestations"] == 1
+
+    manifest = json.loads(
+        (root / "provenance" / "modules.json").read_text(encoding="utf-8")
+    )
+    core_record = next(
+        record
+        for record in manifest["metadata_exclusions"]
+        if record["artifact"] == f"provenance/reviews/{report_name}"
+    )
+    reviewers = {manifest["review_attestations"][0]["reviewer"]}
+    validate_metadata_exclusion(root, core_record, reviewers)
+
+    unexpected = {
+        **core_record,
+        "artifact": f"{CURRENT_REVIEW_ARTIFACT}.unexpected",
     }
     with pytest.raises(
         AssertionError,
         match="outside the exact self-reference allowlist",
     ):
-        validate_metadata_exclusion(root, forged_metadata, {record["reviewer"]})
+        validate_metadata_exclusion(root, unexpected, reviewers)
 
 
 def test_metadata_exclusion_boundary_is_exactly_three_paths(project_root, tmp_path):
@@ -114,13 +238,13 @@ def test_historical_review_report_drift_changes_mapping_digest(
     root = _copy_audit_project(project_root, tmp_path / "historical-mapping")
     relative = "provenance/reviews/core-docx-review-cycle-round-1.md"
     report_path = root / relative
-
     before, before_digest = regenerate(root)
     before_record = next(
         record
         for record in before["data_classifications"]
         if record["artifact"] == relative
     )
+
     report_path.write_bytes(report_path.read_bytes() + b"\nHistorical drift.\n")
     after, after_digest = regenerate(root)
     after_record = next(
@@ -159,6 +283,7 @@ def test_sbom_is_deterministic_and_matches_locks(project_root):
     assert first == second
     assert json.loads(first)["bomFormat"] == "CycloneDX"
     assert (project_root / "sbom.cdx.json").read_text(encoding="utf-8") == first
+    assert audit_sbom(project_root)["status"] == "pass"
 
 
 def test_sbom_application_identity_matches_both_plugin_manifests(project_root):
@@ -198,6 +323,71 @@ def test_sbom_records_docx_node_provider_and_transitive_graph(project_root):
     ]
 
 
+def test_sbom_records_locked_nuget_hashes_licenses_and_edges(project_root):
+    sbom = build_sbom(project_root)
+    components = {item["bom-ref"]: item for item in sbom["components"]}
+    dependencies = {
+        item["ref"]: item["dependsOn"] for item in sbom["dependencies"]
+    }
+    openxml = components["pkg:nuget/DocumentFormat.OpenXml@3.0.0"]
+    assert openxml["licenses"] == [{"license": {"id": "MIT"}}]
+    assert openxml["hashes"][0]["alg"] == "SHA-512"
+    assert len(openxml["hashes"][0]["content"]) == 128
+    assert dependencies["pkg:nuget/DocumentFormat.OpenXml@3.0.0"] == [
+        "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0"
+    ]
+    assert dependencies[
+        "pkg:nuget/DocumentFormat.OpenXml.Framework@3.0.0"
+    ] == ["pkg:nuget/System.IO.Packaging@8.0.0"]
+    assert dependencies["pkg:nuget/System.IO.Packaging@8.0.0"] == []
+    assert "pkg:nuget/DocumentFormat.OpenXml@3.0.0" in dependencies[
+        "application:document-skills"
+    ]
+
+
+def test_missing_nuget_lock_fails_supply_chain_audit(project_root, tmp_path):
+    root = _copy_audit_project(project_root, tmp_path / "missing-nuget-lock")
+    lock = (
+        root
+        / "src/document_skills_core/providers/dotnet/helper/packages.lock.json"
+    )
+    lock.unlink()
+    with pytest.raises(AssertionError, match="must be present together"):
+        _audit_dependency_manifests(root)
+
+
+def test_drifted_nuget_lock_fails_supply_chain_audit(project_root, tmp_path):
+    root = _copy_audit_project(project_root, tmp_path / "drifted-nuget-lock")
+    lock = (
+        root
+        / "src/document_skills_core/providers/dotnet/helper/packages.lock.json"
+    )
+    payload = json.loads(lock.read_text(encoding="utf-8"))
+    package = payload["dependencies"]["net8.0"]["DocumentFormat.OpenXml"]
+    package["resolved"] = "3.0.1"
+    lock.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="resolved version drifted"):
+        _audit_dependency_manifests(root)
+
+
+def test_drifted_nuget_content_hash_fails_exact_dependency_policy(
+    project_root, tmp_path
+):
+    root = _copy_audit_project(project_root, tmp_path / "drifted-nuget-hash")
+    lock = (
+        root
+        / "src/document_skills_core/providers/dotnet/helper/packages.lock.json"
+    )
+    payload = json.loads(lock.read_text(encoding="utf-8"))
+    packages = payload["dependencies"]["net8.0"]
+    packages["DocumentFormat.OpenXml"]["contentHash"] = packages[
+        "DocumentFormat.OpenXml.Framework"
+    ]["contentHash"]
+    lock.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(AssertionError, match="content hashes differ"):
+        _audit_dependency_manifests(root)
+
+
 def test_consumer_dependencies_are_exactly_allowlisted_but_not_in_runtime_sbom(
     project_root,
 ):
@@ -210,8 +400,35 @@ def test_consumer_dependencies_are_exactly_allowlisted_but_not_in_runtime_sbom(
     assert policy["python"]["development_packages"]["pymupdf"] == "1.27.2.2"
     assert policy["python"]["development_packages"]["python-docx"] == "1.2.0"
     assert policy["python"]["development_packages"]["python-pptx"] == "1.0.2"
+    assert policy["nuget"]["packages"] == {
+        "DocumentFormat.OpenXml": "3.0.0",
+        "DocumentFormat.OpenXml.Framework": "3.0.0",
+        "System.IO.Packaging": "8.0.0",
+    }
+    assert policy["nuget"]["dependencies"] == {
+        "DocumentFormat.OpenXml": ["DocumentFormat.OpenXml.Framework"],
+        "DocumentFormat.OpenXml.Framework": ["System.IO.Packaging"],
+        "System.IO.Packaging": [],
+    }
+    assert set(policy["nuget"]["sha512"]) == set(
+        policy["nuget"]["packages"]
+    )
     runtime_names = {item["name"] for item in build_sbom(project_root)["components"]}
     assert runtime_names.isdisjoint({"openpyxl", "pymupdf", "python-docx", "python-pptx"})
+
+
+def test_mammoth_evaluation_does_not_add_a_runtime_dependency(project_root):
+    package = json.loads((project_root / "package.json").read_text(encoding="utf-8"))
+    lock = json.loads(
+        (project_root / "package-lock.json").read_text(encoding="utf-8")
+    )
+    assert "mammoth" not in package.get("dependencies", {})
+    assert "node_modules/mammoth" not in lock.get("packages", {})
+    review = (
+        project_root / "provenance/reviews/mammoth-1.12.1-evaluation.md"
+    ).read_text(encoding="utf-8")
+    assert "evaluated, not adopted" in review
+    assert "lossy_projection" in review
 
 
 def test_machine_readable_audit_report(project_root):
@@ -249,8 +466,8 @@ def _copy_audit_project(project_root: Path, destination: Path) -> Path:
             ignore=shutil.ignore_patterns(
                 ".venv",
                 "node_modules",
-                ".document-skills-tmp",
                 ".pytest_cache",
+                ".document-skills-tmp",
                 "__pycache__",
                 "*.pyc",
             ),
@@ -329,31 +546,19 @@ def test_reviewed_non_executable_artifact_exclusion_is_exact_and_evidenced(
             ],
         }
     )
-    entries = [
-        *(f"module:{record['module']}:{record['sha256']}" for record in manifest["modules"]),
-        *(
-            f"excluded:{record['artifact']}:{record['sha256']}"
-            for record in manifest["executable_exclusions"]
-        ),
-        *(
-            f"data:{record['artifact']}:{record['classification']}:{record['sha256']}"
-            for record in manifest["data_classifications"]
-        ),
-        *(
-            f"metadata:{record['artifact']}:{record['classification']}"
-            for record in manifest["metadata_exclusions"]
-        ),
-    ]
-    mapping_digest = hashlib.sha256(
-        "\n".join(sorted(entries)).encode("utf-8")
-    ).hexdigest()
+    mapping_sha256 = mapping_digest(
+        manifest["modules"],
+        manifest["executable_exclusions"],
+        manifest["data_classifications"],
+        manifest["metadata_exclusions"],
+    )
     review = manifest["review_attestations"][0]
     evidence_path = root / review["report_evidence"]
     evidence = evidence_path.read_text(encoding="utf-8").replace(
-        review["reviewed_mapping_sha256"], mapping_digest
+        review["reviewed_mapping_sha256"], mapping_sha256
     )
     evidence_path.write_text(evidence, encoding="utf-8")
-    review["reviewed_mapping_sha256"] = mapping_digest
+    review["reviewed_mapping_sha256"] = mapping_sha256
     review["report_sha256"] = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     report = audit_provenance(root)

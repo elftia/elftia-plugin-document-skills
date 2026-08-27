@@ -5,7 +5,7 @@ from defusedxml.ElementTree import fromstring
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.io.portable_paths import PORTABLE_PATH_POLICY
 
-from .constants import CONTENT_TYPES_NS, WORKBOOK_MAIN
+from .constants import CONTENT_TYPES_NS, WORKBOOK_CONTENT_TYPES, WORKBOOK_MAIN
 from .relationships import Relationship
 
 
@@ -35,7 +35,7 @@ def parse_content_types(payload: bytes) -> dict[str, str]:
 def validate_package_content_types(
     content_types: dict[str, str],
     relationships: list[Relationship],
-) -> None:
+) -> str:
     office_documents = [
         item
         for item in relationships
@@ -48,11 +48,17 @@ def validate_package_content_types(
     ):
         _unsafe("Package root must identify one contained SpreadsheetML workbook.")
     main_type = content_type_for(WORKBOOK_MAIN, content_types) or ""
-    if not (
-        main_type.endswith("spreadsheetml.sheet.main+xml")
-        or main_type.endswith("spreadsheetml.template.main+xml")
-    ):
+    workbook_format = next(
+        (
+            format_id
+            for format_id, content_type in WORKBOOK_CONTENT_TYPES.items()
+            if main_type == content_type
+        ),
+        None,
+    )
+    if workbook_format is None:
         _unsafe("Workbook main document has an invalid content type.", content_type=main_type)
+    return workbook_format
 
 
 def content_type_for(name: str, content_types: dict[str, str]) -> str | None:

@@ -8,6 +8,18 @@ from document_skills_core.core.io.portable_paths import PORTABLE_PATH_POLICY
 from .constants import CONTENT_TYPES_NS, WORD_MAIN
 from .relationships import Relationship
 
+WORD_DOCUMENT_MAIN_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument."
+    "wordprocessingml.document.main+xml"
+)
+WORD_TEMPLATE_MAIN_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument."
+    "wordprocessingml.template.main+xml"
+)
+WORD_MACRO_ENABLED_MAIN_CONTENT_TYPE = (
+    "application/vnd.ms-word.document.macroEnabled.main+xml"
+)
+
 
 def parse_content_types(payload: bytes) -> dict[str, str]:
     root = fromstring(payload)
@@ -35,6 +47,8 @@ def parse_content_types(payload: bytes) -> dict[str, str]:
 def validate_package_content_types(
     content_types: dict[str, str],
     relationships: list[Relationship],
+    *,
+    allow_template_main: bool = False,
 ) -> None:
     office_documents = [
         item
@@ -48,10 +62,11 @@ def validate_package_content_types(
     ):
         _unsafe("Package root must identify one contained Word main document.")
     main_type = content_type_for(WORD_MAIN, content_types) or ""
-    if not (
-        main_type.endswith("wordprocessingml.document.main+xml")
-        or main_type.endswith("ms-word.document.macroEnabled.main+xml")
-    ):
+    accepted = {WORD_DOCUMENT_MAIN_CONTENT_TYPE}
+    if allow_template_main:
+        accepted.add(WORD_TEMPLATE_MAIN_CONTENT_TYPE)
+    accepted.add(WORD_MACRO_ENABLED_MAIN_CONTENT_TYPE)
+    if main_type not in accepted:
         _unsafe("Word main document has an invalid content type.", content_type=main_type)
 
 

@@ -1,0 +1,70 @@
+{
+  "contractManifestSha256": "sha256:78989d9891c80a3f89ad25d7d31e4a431737131226df4494fc14dee1bfe3215a",
+  "deckId": "deck_5936364efbc1f5a5eb1031c976e3b3fe",
+  "emission": {
+    "charts": 1,
+    "media": 1,
+    "objects": 6,
+    "slides": 1
+  },
+  "objectTypes": [
+    "shape",
+    "shape",
+    "text",
+    "table",
+    "chart",
+    "image"
+  ],
+  "slideId": "slide_b613b3771ad0ebf39b2896bcf016425f",
+  "sourceMapping": [
+    {
+      "object_id": "object_15e15359adb7b0df55ecda0c9bbb8294",
+      "source_name": "source-shape",
+      "source_object_id": "3",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "sp"
+    },
+    {
+      "object_id": "object_5e4941d3c4e6c95c18b99f78a5544eb8",
+      "source_name": "source-text",
+      "source_object_id": "4",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "sp"
+    },
+    {
+      "object_id": "object_2c2171f908da61fd81548d34789d614f",
+      "source_name": "source-group",
+      "source_object_id": "2",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "grpSp"
+    },
+    {
+      "object_id": "object_774a686ebf1a8cf0e5ee1941efcbff6c",
+      "source_name": "source-table",
+      "source_object_id": "5",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "graphicFrame"
+    },
+    {
+      "object_id": "object_2573ab4335b7a4244a4219d64998ea61",
+      "source_name": "source-chart",
+      "source_object_id": "6",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "graphicFrame"
+    },
+    {
+      "object_id": "object_c338f3378510f7f3d976c3515f4aadc6",
+      "source_name": "source-image",
+      "source_object_id": "7",
+      "source_part": "ppt/slides/slide1.xml",
+      "type": "pic"
+    }
+  ],
+  "sourcePptxSha256": "44deff5f1e7f028089de2ec3b0a9bef11a54ccdbfc11df1458490754dac56d04",
+  "unsupported": [],
+  "visualExpectation": {
+    "libreoffice": "run-when-provider-available",
+    "powerpoint": "required-on-windows-release-evidence"
+  },
+  "wholeSlideRaster": false
+}

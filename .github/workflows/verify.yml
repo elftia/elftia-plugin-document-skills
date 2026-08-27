@@ -46,6 +46,7 @@ jobs:
             packages: poppler-utils tesseract-ocr tesseract-ocr-eng
           - profile: full
             packages: poppler-utils tesseract-ocr tesseract-ocr-eng
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,3 +61,450 @@ jobs:
         run: sudo apt-get install -y ${{ matrix.packages }}
       - name: Run real public PDF provider smoke
         run: uv run --project plugin --frozen python plugin/tools/pdf_provider_profile.py --profile ${{ matrix.profile }} --strict
+
+  xlsx-core:
+    name: Core-only XLSX behavior (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      DOCUMENT_SKILLS_XLSX_CORE_ONLY: "1"
+      XLSX_EVIDENCE_DIR: .ci-evidence/xlsx-core
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            plugin/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.13"
+          enable-cache: true
+      - name: Install frozen Node and Python environments
+        run: npm ci --ignore-scripts
+      - run: npm --prefix plugin ci --omit=dev --ignore-scripts
+      - run: uv sync --project plugin --frozen --python 3.13
+      - run: uv lock --check --offline --project plugin
+      - name: Run explicit Core-only XLSX acceptance
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE $env:XLSX_EVIDENCE_DIR
+          New-Item -ItemType Directory -Force -Path $evidenceDir | Out-Null
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE "plugin")
+          try {
+            $testPaths = @(
+              "tests/test_xlsx_core_only.py",
+              "tests/test_xlsx_contracts.py",
+              "tests/test_xlsx_formula_state.py",
+              "tests/test_xlsx_operations.py",
+              "tests/test_xlsx_recalculation.py",
+              "tests/test_safety.py",
+              "tests/test_structure.py",
+              "tests/test_supply_chain.py"
+            )
+            [IO.File]::WriteAllLines(
+              (Join-Path $evidenceDir "test-files.txt"),
+              $testPaths,
+              [Text.UTF8Encoding]::new($false)
+            )
+            & uv run --project . --frozen --python 3.13 python -m pytest -p no:cacheprovider @testPaths -q `
+              --junitxml (Join-Path $evidenceDir "pytest.xml") 2>&1 |
+              Tee-Object -FilePath (Join-Path $evidenceDir "pytest.log")
+            $pytestExit = $LASTEXITCODE
+          } finally {
+            Pop-Location
+          }
+          if ($pytestExit -ne 0) {
+            throw "Explicit Core-only XLSX suite failed with exit code $pytestExit"
+          }
+      - name: Run frozen compilation and release audit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE $env:XLSX_EVIDENCE_DIR
+          $bytecodeRoot = Join-Path $env:RUNNER_TEMP ("document-skills-bytecode-" + [guid]::NewGuid().ToString("N"))
+          Push-Location (Join-Path $env:GITHUB_WORKSPACE "plugin")
+          try {
+            & uv run --project . --frozen --python 3.13 python -X "pycache_prefix=$bytecodeRoot" -m compileall -q src tools tests 2>&1 |
+              Tee-Object -FilePath (Join-Path $evidenceDir "compileall.log")
+            $compileExit = $LASTEXITCODE
+            if ($compileExit -ne 0) {
+              throw "Python compilation failed with exit code $compileExit"
+            }
+            & uv run --project . --frozen --python 3.13 python -m tools.audit --project-root . 2>&1 |
+              Tee-Object -FilePath (Join-Path $evidenceDir "release-audit.log")
+            $releaseAuditExit = $LASTEXITCODE
+          } finally {
+            Pop-Location
+            if (Test-Path -LiteralPath $bytecodeRoot) {
+              Remove-Item -LiteralPath $bytecodeRoot -Recurse -Force
+            }
+          }
+          if ($releaseAuditExit -ne 0) {
+            throw "Release audit failed with exit code $releaseAuditExit"
+          }
+      - name: Run and record real four-operation public façade probe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $evidenceDir = Join-Path $env:GITHUB_WORKSPACE $env:XLSX_EVIDENCE_DIR
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          $entrypoint = Join-Path $env:GITHUB_WORKSPACE `
+            "plugin/skills/document-xlsx/scripts/run.py"
+          $createdPath = Join-Path $evidenceDir "created.xlsx"
+          $editedPath = Join-Path $evidenceDir "edited.xlsx"
+          $pythonVersion = (
+            & uv run --project plugin --frozen --python 3.13 python --version 2>&1 |
+              Out-String
+          ).Trim()
+          if ($LASTEXITCODE -ne 0 -or $pythonVersion -notmatch '^Python 3\.13\.') {
+            throw "Core-only XLSX probe did not use the pinned Python 3.13 runtime"
+          }
+
+          function Invoke-XlsxProbe {
+            param(
+              [string] $Name,
+              [System.Collections.IDictionary] $Request,
+              [bool] $ExpectProviderNotConfigured
+            )
+            $requestPath = Join-Path $evidenceDir "$Name-request.json"
+            $resultPath = Join-Path $evidenceDir "$Name-result.json"
+            [IO.File]::WriteAllText(
+              $requestPath,
+              (($Request | ConvertTo-Json -Depth 20) + "`n"),
+              $utf8
+            )
+            $resultLines = & uv run --project plugin --frozen --python 3.13 python `
+              $entrypoint run --request $requestPath
+            $commandExit = $LASTEXITCODE
+            $resultText = ($resultLines -join "`n")
+            [IO.File]::WriteAllText($resultPath, ($resultText + "`n"), $utf8)
+            if ($commandExit -ne 0) {
+              throw "$Name public XLSX probe failed with exit code $commandExit"
+            }
+            $result = $resultText | ConvertFrom-Json
+            $providerChain = @($result.provider_chain)
+            if ($providerChain.Count -ne 1 -or $providerChain[0] -ne "core-python") {
+              throw "$Name public XLSX probe used an unexpected provider chain"
+            }
+            $formulaState = $result.diagnostics.operation_result.formula_state
+            if ($null -ne $formulaState) {
+              if ($formulaState.summary.no_unverified_claimed_recalculated -ne $true) {
+                throw "$Name public XLSX probe did not prove formula-state honesty"
+              }
+              $recalculated = @(
+                $formulaState.cells.PSObject.Properties |
+                  Where-Object { $_.Value.state -eq "recalculated" }
+              )
+              if ($recalculated.Count -ne 0) {
+                throw "$Name public XLSX probe falsely reported recalculated formulas"
+              }
+            }
+            $recalculation = $result.diagnostics.operation_result.recalculation
+            if ($ExpectProviderNotConfigured) {
+              if (
+                $recalculation.policy -ne "auto" -or
+                $recalculation.outcome -ne "unavailable" -or
+                $recalculation.reason -ne "provider-not-configured"
+              ) {
+                throw "$Name did not prove the explicit Core-only LibreOffice deny seam"
+              }
+            }
+            $operationEvidence = [ordered]@{
+              schema_version = "1.0"
+              operation = $Request.operation
+              request = "$Name-request.json"
+              request_sha256 = (
+                Get-FileHash -Algorithm SHA256 $requestPath
+              ).Hash.ToLowerInvariant()
+              result = "$Name-result.json"
+              result_sha256 = (
+                Get-FileHash -Algorithm SHA256 $resultPath
+              ).Hash.ToLowerInvariant()
+              status = $result.status
+              provider_chain = $providerChain
+              formula_state = if ($null -eq $formulaState) {
+                $null
+              } else {
+                $formulaState.summary
+              }
+              recalculation = $recalculation
+            }
+            [IO.File]::WriteAllText(
+              (Join-Path $evidenceDir "$Name-evidence.json"),
+              (($operationEvidence | ConvertTo-Json -Depth 20) + "`n"),
+              $utf8
+            )
+            return $result
+          }
+
+          $createRequest = [ordered]@{
+            schema_version = "1.0"
+            operation = "xlsx.create"
+            output = $createdPath
+            arguments = [ordered]@{
+              recalculation = "auto"
+              workbook = [ordered]@{
+                metadata = [ordered]@{ title = "Core-only CI"; creator = "GitHub Actions"; subject = "" }
+                sheets = @(
+                  [ordered]@{
+                    name = "Sheet1"
+                    rows = @(
+                      [ordered]@{
+                        cells = @(
+                          [ordered]@{ ref = "A1"; value = "Name"; type = "s" },
+                          [ordered]@{ ref = "B1"; value = "10"; type = "n" },
+                          [ordered]@{ ref = "B2"; formula = "B1*2"; type = "n" }
+                        )
+                      }
+                    )
+                    number_formats = @()
+                  }
+                )
+                defined_names = @()
+                tables = @()
+                chart_reference = $null
+                page_setup = $null
+              }
+            }
+          }
+          $createResult = Invoke-XlsxProbe "create" $createRequest $true
+          $readRequest = [ordered]@{
+            schema_version = "1.0"
+            operation = "xlsx.read"
+            input = $createdPath
+            arguments = [ordered]@{}
+          }
+          $readResult = Invoke-XlsxProbe "read" $readRequest $false
+          $inspectRequest = [ordered]@{
+            schema_version = "1.0"
+            operation = "xlsx.inspect.structure"
+            input = $createdPath
+            arguments = [ordered]@{}
+          }
+          $inspectResult = Invoke-XlsxProbe "inspect" $inspectRequest $false
+          $editRequest = [ordered]@{
+            schema_version = "1.0"
+            operation = "xlsx.edit"
+            input = $createdPath
+            output = $editedPath
+            arguments = [ordered]@{
+              recalculation = "auto"
+              edits = @(
+                [ordered]@{
+                  sheet = "Sheet1"
+                  type = "cell_value"
+                  ref = "B1"
+                  value = "11"
+                }
+              )
+            }
+          }
+          $editResult = Invoke-XlsxProbe "edit" $editRequest $true
+          $record = [ordered]@{
+            schema_version = "1.0"
+            scope = "document-skills-core-xlsx/task-11.3-core-only-behavior"
+            scope_limitation = "The explicit deny-only environment seam disables XLSX LibreOffice consultation; this does not prove LibreOffice or .NET executables are physically absent from the runner."
+            control = [ordered]@{
+              name = "DOCUMENT_SKILLS_XLSX_CORE_ONLY"
+              value = $env:DOCUMENT_SKILLS_XLSX_CORE_ONLY
+              semantics = "XLSX-only LibreOffice consultation disabled"
+            }
+            platform = [ordered]@{
+              os = $env:RUNNER_OS
+              arch = $env:RUNNER_ARCH
+              image_os = $env:ImageOS
+              image_version = $env:ImageVersion
+              python = $pythonVersion
+            }
+            revision = $env:GITHUB_SHA
+            run = [ordered]@{
+              id = $env:GITHUB_RUN_ID
+              attempt = $env:GITHUB_RUN_ATTEMPT
+              job = $env:GITHUB_JOB
+            }
+            locks = [ordered]@{
+              root_node = (
+                Get-FileHash -Algorithm SHA256 `
+                  (Join-Path $env:GITHUB_WORKSPACE "package-lock.json")
+              ).Hash.ToLowerInvariant()
+              plugin_node = (
+                Get-FileHash -Algorithm SHA256 `
+                  (Join-Path $env:GITHUB_WORKSPACE "plugin/package-lock.json")
+              ).Hash.ToLowerInvariant()
+              python = (
+                Get-FileHash -Algorithm SHA256 `
+                  (Join-Path $env:GITHUB_WORKSPACE "plugin/uv.lock")
+              ).Hash.ToLowerInvariant()
+            }
+            commands = @(
+              "npm ci --ignore-scripts",
+              "npm --prefix plugin ci --omit=dev --ignore-scripts",
+              "uv sync --project plugin --frozen --python 3.13",
+              "uv lock --check --offline --project plugin",
+              "uv run --project plugin --frozen --python 3.13 python -m pytest -p no:cacheprovider <test-files.txt> -q",
+              "uv run --project plugin --frozen --python 3.13 python -X pycache_prefix=<runner-temp> -m compileall -q src tools tests",
+              "uv run --project plugin --frozen --python 3.13 python -m tools.audit --project-root .",
+              "uv run --project plugin --frozen --python 3.13 python plugin/skills/document-xlsx/scripts/run.py run --request <operation-request.json>"
+            )
+            expected_provider_chain = @("core-python")
+            operations = [ordered]@{
+              create = "create-evidence.json"
+              read = "read-evidence.json"
+              inspect = "inspect-evidence.json"
+              edit = "edit-evidence.json"
+            }
+            tests = [ordered]@{
+              status = "pass"
+              mode = "explicit-core-only-deny-seam"
+              junit = "pytest.xml"
+              log = "pytest.log"
+            }
+            audits = [ordered]@{
+              release = [ordered]@{ status = "pass"; evidence = "release-audit.log" }
+            }
+            evidence_state = "acceptance-commands-observed-pass"
+          }
+          [IO.File]::WriteAllText(
+            (Join-Path $evidenceDir "evidence.json"),
+            (($record | ConvertTo-Json -Depth 20) + "`n"),
+            $utf8
+          )
+      - name: Upload Core XLSX platform evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xlsx-core-${{ runner.os }}-${{ github.sha }}
+          path: ${{ env.XLSX_EVIDENCE_DIR }}
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  docx-core:
+    name: DOCX Core (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    env:
+      DOCUMENT_SKILLS_PROVIDER_PROFILE: core-only
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.13"
+          enable-cache: true
+      - name: Install frozen Node dependencies
+        shell: bash
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix plugin --omit=dev --ignore-scripts
+      - name: Install frozen Python dependencies
+        shell: bash
+        run: |
+          uv lock --check --offline --project plugin
+          uv sync --project plugin --frozen
+      - name: Prepare DOCX Core evidence
+        shell: bash
+        run: |
+          mkdir -p .ci-evidence/docx-core
+          node -e 'const fs = require("node:fs"); fs.writeFileSync(".ci-evidence/docx-core/metadata.json", JSON.stringify({schema_version:"1.0", evidence_kind:"workflow-run", provider_profile:process.env.DOCUMENT_SKILLS_PROVIDER_PROFILE, platform:process.env.RUNNER_OS, revision:process.env.GITHUB_SHA, node:process.version, commands:["npm ci --ignore-scripts", "npm ci --prefix plugin --omit=dev --ignore-scripts", "uv lock --check --offline --project plugin", "uv sync --project plugin --frozen", "cd plugin && uv run --project . --frozen python -m pytest tests -k (docx or dotnet_provider or libreoffice_provider) and not dotnet_real and not legacy_public and not real_libreoffice and not real_openxml", "cd plugin && uv run --project . --frozen python -m compileall -q src tools tests", "cd plugin && uv run --project . --frozen python -m tools.audit --project-root .", "cd plugin && uv run --project . --frozen python -m tools.ci_docx_core_evidence ../.ci-evidence/docx-core"]}, null, 2) + "\n");'
+      - name: Run frozen DOCX Core acceptance suite
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -o pipefail
+          uv run --project . --frozen python -m pytest tests \
+            -k '(docx or dotnet_provider or libreoffice_provider) and not dotnet_real and not legacy_public and not real_libreoffice and not real_openxml' \
+            2>&1 | tee ../.ci-evidence/docx-core/pytest.log
+          uv run --project . --frozen python -m compileall -q src tools tests
+          uv run --project . --frozen python -m tools.audit --project-root . \
+            > ../.ci-evidence/docx-core/audit.json
+      - name: Prove every Core DOCX provider chain
+        shell: bash
+        working-directory: plugin
+        run: uv run --project . --frozen python -m tools.ci_docx_core_evidence ../.ci-evidence/docx-core
+      - name: Upload DOCX Core evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docx-core-${{ runner.os }}-${{ github.sha }}
+          path: .ci-evidence/docx-core
+          if-no-files-found: warn
+
+  docx-optional-providers:
+    name: DOCX Optional Providers (Ubuntu)
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: "0"
+      ELFTIA_REQUIRE_DOTNET_PROFILE: "1"
+      ELFTIA_REQUIRE_LIBREOFFICE_PROFILE: "1"
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.8.13"
+          enable-cache: true
+      - name: Install the real optional-provider profile
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libreoffice-writer
+          npm ci --ignore-scripts
+          npm ci --prefix plugin --omit=dev --ignore-scripts
+          uv lock --check --offline --project plugin
+          uv sync --project plugin --frozen
+          dotnet restore plugin/src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj \
+            --source https://api.nuget.org/v3/index.json \
+            --packages "$NUGET_PACKAGES" \
+            --property:BaseIntermediateOutputPath="$RUNNER_TEMP/docx-openxml-restore/"
+      - name: Execute every optional DOCX operation profile
+        shell: bash
+        working-directory: plugin
+        run: |
+          set -o pipefail
+          mkdir -p ../.ci-evidence/docx-optional
+          uv run --project . --frozen python -m pytest \
+            tests/test_docx_dotnet_real.py \
+            tests/test_docx_render_compare_public.py \
+            tests/test_docx_comparison_public.py \
+            tests/test_docx_legacy_public.py \
+            --junitxml ../.ci-evidence/docx-optional/junit.xml \
+            2>&1 | tee ../.ci-evidence/docx-optional/pytest.log
+          uv run --project . --frozen python -m tools.ci_docx_optional_evidence \
+            ../.ci-evidence/docx-optional
+      - name: Upload optional-provider evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docx-optional-providers-${{ runner.os }}-${{ github.sha }}
+          path: .ci-evidence/docx-optional
+          if-no-files-found: error

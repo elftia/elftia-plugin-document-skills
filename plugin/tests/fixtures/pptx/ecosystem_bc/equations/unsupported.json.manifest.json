@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.create,pptx.edit",
+  "fixture_id": "B-EQ-02",
+  "format": "json",
+  "invariants": [
+    "raw OMML and XML are never accepted",
+    "macros and external include commands fail closed",
+    "depth and length limits return DS_RESOURCE_LIMIT"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic math fixture.",
+  "path": "equations/unsupported.json",
+  "purpose": "Raw XML, macro, external include, unsupported command, and equation resource-limit cases.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 32768
+  },
+  "schemaVersion": 1,
+  "security_classification": "synthetic-adversarial-equations",
+  "sha256": "sha256:c73c2af3f24a9664eb88841bc72fe7052566e8015298a004ab230c377fe4d75f",
+  "sizeBytes": 12568
+}

@@ -11,16 +11,180 @@ from document_skills_core.formats.pptx.contracts import (
 )
 
 
-def test_pptx_operations_preserve_existing_four_and_add_html_conversion():
+def test_pptx_operations_preserve_existing_surface_and_add_validators():
     assert PPTX_OPERATIONS == frozenset(
         {
             "pptx.read",
             "pptx.inspect.structure",
+            "pptx.render",
+            "pptx.convert.pdf",
+            "pptx.convert.legacy",
+            "pptx.validate.schema",
+            "pptx.outline.create",
             "pptx.create",
+            "pptx.create.from-markdown",
             "pptx.edit",
             "pptx.create.from-html",
+            "pptx.create.from-svg",
+            "pptx.create.from-template",
+            "pptx.scene.export",
+            "pptx.template.sanitize",
+            "pptx.template.inspect",
         }
     )
+
+
+def test_parse_outline_and_markdown_content_entry(tmp_path: Path):
+    outline = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.outline.create",
+        "output": str(tmp_path / "plan.json"),
+        "arguments": {
+            "title": "Plan",
+            "slides": [{"title": "Opening", "bullets": ["Context"]}],
+        },
+    })
+    assert outline.input_path is None
+    assert outline.arguments["slides"][0]["title"] == "Opening"
+
+    markdown = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.create.from-markdown",
+        "input": str(tmp_path / "deck.markdown"),
+        "output": str(tmp_path / "deck.pptx"),
+        "arguments": {"metadata": {"title": "Deck"}},
+    })
+    assert markdown.arguments["metadata"]["title"] == "Deck"
+    assert markdown.arguments["template"] is None
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        {
+            "operation": "pptx.outline.create",
+            "output": "plan.pptx",
+            "arguments": {"title": "Plan", "slides": [{"title": "One"}]},
+        },
+        {
+            "operation": "pptx.create.from-markdown",
+            "input": "deck.txt",
+            "output": "deck.pptx",
+            "arguments": {},
+        },
+        {
+            "operation": "pptx.create.from-markdown",
+            "input": "deck.md",
+            "output": "deck.pptx",
+            "arguments": {"template": "base.potx", "theme": {}},
+        },
+    ],
+)
+def test_parse_content_entry_rejects_ambiguous_contracts(case):
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({"schema_version": "1.0", **case})
+
+
+def test_parse_schema_validation_is_read_only_and_bounded(tmp_path: Path):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.validate.schema",
+        "input": str(tmp_path / "deck.pptx"),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": "pptx.validate.schema",
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / "report.pptx"),
+            "arguments": {},
+        })
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_name"),
+    [
+        ("pptx.convert.pdf", "deck.pdf"),
+        ("pptx.render", "deck-render.zip"),
+    ],
+)
+def test_parse_libreoffice_outputs_are_distinct_and_bounded(
+    tmp_path: Path,
+    operation: str,
+    output_name: str,
+):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": operation,
+        "input": str(tmp_path / "deck.pptx"),
+        "output": str(tmp_path / output_name),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / output_name),
+            "arguments": {"unknown": True},
+        })
+
+
+def test_parse_legacy_conversion_requires_ppt_to_distinct_pptx(
+    tmp_path: Path,
+):
+    parsed = parse_pptx_request({
+        "schema_version": "1.0",
+        "operation": "pptx.convert.legacy",
+        "input": str(tmp_path / "legacy.ppt"),
+        "output": str(tmp_path / "converted.pptx"),
+        "arguments": {},
+    })
+    assert parsed.arguments == {}
+    assert parsed.input_path == tmp_path / "legacy.ppt"
+    assert parsed.output_path == tmp_path / "converted.pptx"
+
+    invalid_cases = [
+        {"input": "legacy.pptx", "output": "converted.pptx", "arguments": {}},
+        {"input": "legacy.ppt", "output": "converted.ppt", "arguments": {}},
+        {
+            "input": "legacy.ppt",
+            "output": "converted.pptx",
+            "arguments": {"unknown": True},
+        },
+    ]
+    for case in invalid_cases:
+        with pytest.raises(DocumentSkillsError):
+            parse_pptx_request({
+                "schema_version": "1.0",
+                "operation": "pptx.convert.legacy",
+                **case,
+            })
+
+
+@pytest.mark.parametrize(
+    ("operation", "bad_output"),
+    [
+        ("pptx.convert.pdf", "deck.pptx"),
+        ("pptx.render", "deck.pdf"),
+    ],
+)
+def test_parse_libreoffice_outputs_reject_wrong_extension(
+    tmp_path: Path,
+    operation: str,
+    bad_output: str,
+):
+    with pytest.raises(DocumentSkillsError):
+        parse_pptx_request({
+            "schema_version": "1.0",
+            "operation": operation,
+            "input": str(tmp_path / "deck.pptx"),
+            "output": str(tmp_path / bad_output),
+            "arguments": {},
+        })
 
 
 def test_parse_from_html_minimal_request_defaults(tmp_path: Path):

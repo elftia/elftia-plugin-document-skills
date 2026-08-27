@@ -11,10 +11,85 @@ from document_skills_core.formats.xlsx.contracts import (
 )
 
 
-def test_xlsx_operations_set_is_exactly_four():
+def test_xlsx_operations_set_is_complete():
     assert XLSX_OPERATIONS == frozenset(
-        {"xlsx.read", "xlsx.inspect.structure", "xlsx.create", "xlsx.edit"}
+        {
+            "xlsx.read",
+            "xlsx.inspect.structure",
+            "xlsx.create",
+            "xlsx.edit",
+            "xlsx.recalculate",
+            "xlsx.convert",
+            "xlsx.template.instantiate",
+            "xlsx.summary.aggregate",
+            "xlsx.pivot.create",
+            "xlsx.validate.schema",
+            "xlsx.render",
+        }
     )
+
+
+def test_parse_schema_validation_is_read_only_and_bounded():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.validate.schema",
+        "input": "test.xlsm",
+        "arguments": {"max_errors": 250},
+    })
+    assert parsed.input_path == Path("test.xlsm").resolve()
+    assert parsed.output_path is None
+    assert parsed.arguments == {"max_errors": 250}
+
+    for arguments in ({"max_errors": 0}, {"max_errors": 1_001}, {"extra": True}):
+        with pytest.raises(DocumentSkillsError):
+            parse_xlsx_request({
+                "schema_version": "1.0",
+                "operation": "xlsx.validate.schema",
+                "input": "test.xlsx",
+                "arguments": arguments,
+            })
+
+
+def test_parse_render_requires_distinct_xlsx_to_pdf_and_bounded_sampling():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.render",
+        "input": "test.xlsx",
+        "output": "rendered.pdf",
+        "arguments": {
+            "max_sheets": 4,
+            "max_cells_per_sheet": 500,
+            "max_findings": 25,
+        },
+    })
+    assert parsed.arguments == {
+        "max_sheets": 4,
+        "max_cells_per_sheet": 500,
+        "max_findings": 25,
+    }
+
+    invalid_requests = [
+        {"input": "test.xlsm", "output": "rendered.pdf", "arguments": {}},
+        {"input": "test.xlsx", "output": "rendered.xlsx", "arguments": {}},
+        {
+            "input": "test.xlsx",
+            "output": "rendered.pdf",
+            "arguments": {"max_sheets": 101},
+        },
+        {
+            "input": "test.xlsx",
+            "output": "rendered.pdf",
+            "arguments": {},
+            "options": {"in_place": True},
+        },
+    ]
+    for fields in invalid_requests:
+        with pytest.raises(DocumentSkillsError):
+            parse_xlsx_request({
+                "schema_version": "1.0",
+                "operation": "xlsx.render",
+                **fields,
+            })
 
 
 def test_parse_read_rejects_unknown_argument():
@@ -57,6 +132,50 @@ def test_parse_create_requires_output():
         })
 
 
+def test_parse_create_defaults_recalculation_to_auto():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.create",
+        "output": "out.xlsx",
+        "arguments": {
+            "workbook": {
+                "metadata": {},
+                "sheets": [{"name": "Sheet1", "rows": [], "number_formats": []}],
+                "defined_names": [],
+                "tables": [],
+            },
+        },
+    })
+    assert parsed.arguments["recalculation"] == "auto"
+
+
+def test_parse_edit_rejects_unknown_recalculation_policy():
+    with pytest.raises(DocumentSkillsError):
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "cell_value", "ref": "A1", "value": "x"}
+                ],
+                "recalculation": "sometimes",
+            },
+        })
+
+
+def test_parse_recalculate_requires_empty_arguments():
+    with pytest.raises(DocumentSkillsError):
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.recalculate",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {"recalculation": "auto"},
+        })
+
+
 def test_parse_edit_requires_distinct_paths():
     same = str(Path("same.xlsx").resolve())
     with pytest.raises(DocumentSkillsError) as exc:
@@ -92,6 +211,145 @@ def test_parse_edit_rejects_unknown_edit_type():
         })
 
 
+def test_parse_edit_accepts_cell_row_and_column_styles():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.edit",
+        "input": "in.xlsx",
+        "output": "out.xlsx",
+        "arguments": {
+            "edits": [
+                {
+                    "sheet": "Sheet1",
+                    "type": "cell_style",
+                    "ref": "A1",
+                    "style": {"font": {"bold": True}},
+                },
+                {
+                    "sheet": "Sheet1",
+                    "type": "row_style",
+                    "ref": "1:2",
+                    "style": {"fill": {"color": "#DDEEFF"}},
+                },
+                {
+                    "sheet": "Sheet1",
+                    "type": "column_style",
+                    "ref": "B:C",
+                    "style": {"number_format": {"code": "0.000"}},
+                },
+            ]
+        },
+    })
+
+    edits = parsed.arguments["edits"]
+    assert [edit["type"] for edit in edits] == [
+        "cell_style",
+        "row_style",
+        "column_style",
+    ]
+    assert edits[1]["style"]["fill"]["color"] == "FFDDEEFF"
+
+
+def test_parse_edit_style_primitive_requires_style():
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {
+                "edits": [
+                    {"sheet": "Sheet1", "type": "cell_style", "ref": "A1"},
+                ]
+            },
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
+def test_parse_edit_accepts_bounded_worksheet_and_sheet_primitives():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.edit",
+        "input": "in.xlsx",
+        "output": "out.xlsx",
+        "arguments": {
+            "edits": [
+                {"sheet": "Data", "type": "row_height", "ref": "2:4", "height": 27.5},
+                {"sheet": "Data", "type": "column_hidden", "ref": "B:C", "hidden": True},
+                {"sheet": "Data", "type": "range_clear", "ref": "A2:C9", "clear": "styles"},
+                {"sheet": "Data", "type": "freeze_panes", "ref": "C3"},
+                {"sheet": "Data", "type": "row_page_break", "ref": "20"},
+                {
+                    "sheet": "Data",
+                    "type": "defined_name_add",
+                    "name": "InputArea",
+                    "ref": "Data!$A$1:$C$3",
+                    "scope": "workbook",
+                },
+                {"sheet": "Archive", "type": "sheet_add", "position": 1},
+                {"sheet": "Data", "type": "sheet_copy", "name": "Data Copy", "position": 2},
+            ]
+        },
+    })
+
+    edits = parsed.arguments["edits"]
+    assert edits[0]["height"] == 27.5
+    assert edits[1]["hidden"] is True
+    assert edits[2]["clear"] == "styles"
+    assert edits[4]["enabled"] is True
+    assert edits[5]["scope"] == "workbook"
+    assert edits[7]["name"] == "Data Copy"
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"sheet": "Data", "type": "row_height", "ref": "2", "height": 410},
+        {"sheet": "Data", "type": "column_width", "ref": "A", "width": 256},
+        {"sheet": "Data", "type": "cells_merge", "ref": "C3:A1"},
+        {"sheet": "Bad/Name", "type": "sheet_add"},
+        {"sheet": "Data", "type": "sheet_copy", "name": "x" * 32},
+        {"sheet": "Data", "type": "row_insert", "ref": "1048576", "count": 2},
+    ],
+)
+def test_parse_edit_rejects_new_primitive_boundaries(edit: dict[str, object]):
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {"edits": [edit]},
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
+def test_parse_edit_rejects_conflicting_defined_name_writes():
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.edit",
+            "input": "in.xlsx",
+            "output": "out.xlsx",
+            "arguments": {
+                "edits": [
+                    {
+                        "sheet": "Data",
+                        "type": "defined_name_update",
+                        "name": "InputArea",
+                        "ref": "Data!$A$1",
+                    },
+                    {
+                        "sheet": "Data",
+                        "type": "defined_name_delete",
+                        "name": "InputArea",
+                    },
+                ]
+            },
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
 def test_parse_input_must_have_xlsx_extension():
     with pytest.raises(DocumentSkillsError):
         parse_xlsx_request({
@@ -122,3 +380,155 @@ def test_parse_read_defaults():
     })
     assert parsed.arguments["include_formulas"] is True
     assert parsed.arguments["max_rows"] == 5_000
+
+
+def test_parse_create_accepts_bounded_styles_and_number_formats():
+    parsed = parse_xlsx_request({
+        "schema_version": "1.0",
+        "operation": "xlsx.create",
+        "output": "styled.xlsx",
+        "arguments": {
+            "workbook": {
+                "metadata": {},
+                "sheets": [
+                    {
+                        "name": "Styled",
+                        "columns": [
+                            {
+                                "ref": "A:B",
+                                "width": 18.5,
+                                "hidden": False,
+                                "style": {"number_format": {"id": 165}},
+                            }
+                        ],
+                        "rows": [
+                            {
+                                "height": 24,
+                                "hidden": True,
+                                "style": {
+                                    "font": {
+                                        "name": "Aptos",
+                                        "size": 12,
+                                        "bold": True,
+                                        "italic": False,
+                                        "underline": "single",
+                                        "color": "#112233",
+                                    },
+                                    "fill": {"pattern": "solid", "color": "DDEEFF"},
+                                    "border": {
+                                        "bottom": {"style": "thin", "color": "#445566"}
+                                    },
+                                    "alignment": {
+                                        "horizontal": "center",
+                                        "vertical": "top",
+                                        "wrap": True,
+                                        "rotation": 45,
+                                    },
+                                    "protection": {"locked": False, "hidden": True},
+                                    "number_format": {"code": "yyyy-mm-dd"},
+                                },
+                                "cells": [
+                                    {
+                                        "ref": "A1",
+                                        "value": "45292",
+                                        "type": "n",
+                                        "style": {"font": {"italic": True}},
+                                    }
+                                ],
+                            }
+                        ],
+                        "number_formats": [{"id": 165, "code": "yyyy-mm-dd"}],
+                    }
+                ],
+                "defined_names": [],
+                "tables": [],
+                "chart_reference": None,
+                "page_setup": None,
+            }
+        },
+    })
+
+    sheet = parsed.arguments["workbook"]["sheets"][0]
+    assert sheet["columns"][0]["width"] == 18.5
+    assert sheet["rows"][0]["style"]["font"]["color"] == "FF112233"
+    assert sheet["rows"][0]["style"]["alignment"]["rotation"] == 45
+    assert sheet["number_formats"] == [{"id": 165, "code": "yyyy-mm-dd"}]
+
+
+@pytest.mark.parametrize(
+    "style",
+    [
+        {"font": {"color": "not-a-color"}},
+        {"font": {"unknown": True}},
+        {"alignment": {"horizontal": "diagonal"}},
+        {"alignment": {"rotation": 91}},
+        {"number_format": {"id": 165, "code": "0.00"}},
+    ],
+)
+def test_parse_create_rejects_invalid_style_boundaries(style: dict[str, object]):
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": "styled.xlsx",
+            "arguments": {
+                "workbook": {
+                    "metadata": {},
+                    "sheets": [
+                        {
+                            "name": "Styled",
+                            "rows": [
+                                {
+                                    "cells": [
+                                        {"ref": "A1", "value": "x", "type": "s", "style": style}
+                                    ]
+                                }
+                            ],
+                            "number_formats": [{"id": 165, "code": "0.00"}],
+                        }
+                    ],
+                    "defined_names": [],
+                    "tables": [],
+                    "chart_reference": None,
+                    "page_setup": None,
+                }
+            },
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"
+
+
+def test_parse_create_rejects_undeclared_custom_number_format_id():
+    with pytest.raises(DocumentSkillsError) as exc:
+        parse_xlsx_request({
+            "schema_version": "1.0",
+            "operation": "xlsx.create",
+            "output": "styled.xlsx",
+            "arguments": {
+                "workbook": {
+                    "metadata": {},
+                    "sheets": [
+                        {
+                            "name": "Styled",
+                            "rows": [
+                                {
+                                    "cells": [
+                                        {
+                                            "ref": "A1",
+                                            "value": "1",
+                                            "type": "n",
+                                            "style": {"number_format": {"id": 165}},
+                                        }
+                                    ]
+                                }
+                            ],
+                            "number_formats": [],
+                        }
+                    ],
+                    "defined_names": [],
+                    "tables": [],
+                    "chart_reference": None,
+                    "page_setup": None,
+                }
+            },
+        })
+    assert exc.value.code.value == "DS_REQUEST_INVALID"

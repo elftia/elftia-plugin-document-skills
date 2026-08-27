@@ -1186,3 +1186,67 @@ only because the reviewed test file is a release input. Attestation identity:
 `codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-15-0.5.5-2026-08-27`.
 This approval authorizes the single-attestation provenance rebind for the exact frozen snapshot;
 a fresh complete verify/build/release run remains mandatory delivery evidence.
+
+## Round 16 — Merged-main integration review
+
+### Scope and role separation
+
+Round 16 is a fresh native non-author review of the local merge that combines Producer PDF HEAD
+`af15dbafbe0f993248364ea5b744cac27f10e08a` with main integration commit
+`3bf90cbc7cbeea4afaa4fdba99dddca5b42aa374`. The reviewer inspected the conflict-resolved
+workflow, shared CLI/process/supervisor boundaries, provenance and SBOM generators, fixture
+manifest, DOCX public-test support, and supply-chain tests. The reviewer authored no production
+source, test, workflow, provenance, generated artifact, stage, or commit change; all three
+integration fixes below were made by the merge producer and then independently re-reviewed.
+
+### Findings and closure
+
+- **Blocker — invalid workflow mapping indentation:** the optional DOCX evidence upload step had
+  `path` and `if-no-files-found` indented one column beyond the sibling `name` field. The producer
+  aligned the fields and the reviewer confirmed the corrected workflow delta.
+- **Blocker — missing `Path` import after cross-hunk auto-merge:** `tests/test_strategy2.py`
+  retained PDF-parent `Path` annotations while main removed the import in a separate hunk. The
+  producer restored `from pathlib import Path`; Ruff passed and pytest collection found all 108
+  tests in the file.
+- **Minor — lost SBOM identity regression:** the merged supply-chain implementation retained the
+  dual-manifest `_plugin_identity()` check, but the PDF-parent test proving that the SBOM matches
+  both plugin manifests was absent. The producer restored the exact regression; it and the
+  deterministic lock/SBOM test passed, and Ruff passed for the edited test file.
+
+The reviewer found no remaining Blocker, Major, Minor, or Trivial integration issue after these
+closures. The combined runner retains the atomic executable lease, private workspace identity,
+fixed environment, and bounded process semantics. The combined supervisor retains fileless
+framed IPC, the canonical worker boundary, per-format timeouts, and output ceilings. CLI path
+rebasing, the PDF provider surface, DOCX/PPTX/XLSX additions, exact provenance classification,
+fixture hashes, and NuGet-aware SBOM generation remain composed rather than selecting one parent.
+
+### Independent verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Conflict-focused source/workflow/test review and post-fix rereview | PASS — all three integration findings closed |
+| Ruff over conflict-related Python and both producer-edited test files | PASS; main's intentional star-import thin-test structure was separately exercised by pytest and was not treated as a merge regression |
+| `pytest --collect-only tests/test_strategy2.py -q` | PASS — 108 tests collected |
+| Focused provenance/SBOM regression set | PASS — 11 passed; fixture audit count 101; checked-in SBOM audit passed |
+| Combined `test_strategy2.py` plus `test_supply_chain.py` attempt | INCONCLUSIVE — exceeded the 10-minute reviewer command ceiling with no failure output; the exact residual process was cleaned up and the run is not claimed as pass or fail |
+| Strict UTF-8/no-BOM/U+FFFD scan and `git diff --check` | PASS |
+| Regenerated CycloneDX SBOM | PASS — SHA-256 `197d8ef753b665b8d22810a476fd07de1bca9039476933b05206fd8465472b08` |
+| Two consecutive prospective mapping calculations over the frozen non-metadata release bytes | PASS — both returned `88efbf5ef9fd1bc51b708180d7808daf81ecc192ab728bc6c44d5c67fde4ca5a` |
+
+### Round-16 approval and remaining delivery gates
+
+`approval_claimed: true`; `status: clean`. Final independent merge-integration verdict:
+`CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0`. Round 16 extends the composite review only to the
+conflict-resolved main-to-PDF integration and the three closure edits above. The exact approved
+prospective mapping is:
+
+`88efbf5ef9fd1bc51b708180d7808daf81ecc192ab728bc6c44d5c67fde4ca5a`.
+
+Attestation identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-16-merged-main-integration-0.5.5-2026-08-28`.
+
+This approval authorizes the official two-stage reuse-review provenance rebind and generated audit
+receipt for this exact frozen integration snapshot. It does not claim that the reviewer reran the
+complete test suite. A fresh complete verify/build/release and reproducibility run, remote CI,
+native optional-provider/viewer coverage, Producer delivery, and live Host consumer receipt remain
+mandatory and unwaived delivery gates.

@@ -1,11 +1,12 @@
-"""Four-operation PPTX dispatch and shared transactional mutation."""
+"""PPTX dispatch and shared transactional mutation."""
 
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Any, Callable
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.contracts.models import make_error_result
+from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.paths import (
     assert_distinct_paths,
     assert_source_preserved,
@@ -13,29 +14,46 @@ from document_skills_core.core.io.paths import (
     file_record,
     merge_source_preservation_failure,
 )
-from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.io.temp_roots import OperationTempRoot
 
-from .contracts import ParsedPptxRequest, parse_pptx_request
+from .contracts import ParsedPptxRequest, parse_deck, parse_pptx_request
 from .create import create_pptx
-from .edit import edit_pptx
-from .inspect import inspect_pptx
-from .read import read_pptx
+from .edit_service import execute_pptx_edit
 from .html_capture import HtmlDeckCapture
+from .inspect import inspect_pptx
+from .markdown import parse_markdown_deck
+from .outline import outline_validation, write_outline
+from .read import read_pptx
 from .results import read_validation, success_result
 from .scene_emitter import emit_scene_pptx
+from .scene_export import export_scene_bundle
 from .scene_normalizer import normalize_scene
+from .schema_validation import validate_schema_gate, with_schema_gate
+from .svg_service import create_from_svg
+from .template_sanitize import (
+    build_template_sanitize_receipt,
+    sanitize_template,
+    validate_sanitized_template,
+)
+from .template_service import create_from_template, inspect_template_request
 from .transaction import promote_candidate, write_candidate_result
-from .validation import validate_created, validate_mutation, validate_reorder, validate_scene_created
+from .validation import validate_created, validate_mutation, validate_scene_created
 from .visual_validation import validate_scene_visuals, with_visual_gate
 
 
 class PptxService:
-    def __init__(self, project_root: Path, libreoffice=None, html_browser_detector=None) -> None:
+    def __init__(
+        self,
+        project_root: Path,
+        libreoffice=None,
+        html_browser_detector=None,
+        dotnet=None,
+    ) -> None:
         self.project_root = project_root.resolve()
         self.schemas = SchemaCatalog(self.project_root)
         self.libreoffice = libreoffice
         self.html_browser_detector = html_browser_detector
+        self.dotnet = dotnet
 
     def execute(self, operation: str, request: dict[str, Any]) -> dict[str, Any]:
         try:
@@ -65,9 +83,28 @@ class PptxService:
             return self._inspect(parsed)
         if operation == "pptx.create":
             return self._create(parsed)
+        if operation == "pptx.outline.create":
+            return self._create_outline(parsed)
+        if operation == "pptx.create.from-markdown":
+            return self._create_from_markdown(parsed)
         if operation == "pptx.create.from-html":
             return self._create_from_html(parsed)
-        return self._edit(parsed)
+        if operation == "pptx.create.from-svg":
+            return create_from_svg(
+                parsed,
+                schemas=self.schemas,
+                libreoffice=self.libreoffice,
+                dotnet=self.dotnet,
+            )
+        if operation == "pptx.scene.export":
+            return export_scene_bundle(parsed, schemas=self.schemas)
+        if operation == "pptx.template.inspect":
+            return self._inspect_template(parsed)
+        if operation == "pptx.create.from-template":
+            return self._create_from_template(parsed)
+        if operation == "pptx.template.sanitize":
+            return self._sanitize_template(parsed)
+        return execute_pptx_edit(parsed, self.schemas, self.dotnet)
 
     def _read(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.input_path is not None
@@ -98,11 +135,20 @@ class PptxService:
     def _create(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.output_path is not None
         deck = request.arguments["deck"]
+        template_path = request.arguments.get("template")
+        template_source = None
+        if template_path is not None:
+            assert_distinct_paths(template_path, request.output_path, in_place=False)
+            template_source = file_record(template_path, "input")
         destination = destination_snapshot(request.output_path)
         with OperationTempRoot() as private_root:
             staged = private_root / "created.pptx"
-            creation = create_pptx(staged, deck)
-            validation = validate_created(staged, deck)
+            creation = create_pptx(staged, deck, template=template_path)
+            validation = validate_created(staged, deck, creation)
+            validation = with_schema_gate(
+                validation,
+                validate_schema_gate(staged, self.dotnet),
+            )
             operation_result = {"creation": creation}
             result = write_candidate_result(
                 self.schemas,
@@ -110,6 +156,33 @@ class PptxService:
                 staged,
                 validation,
                 operation_result,
+                warnings=[],
+                source=template_source,
+            )
+            return promote_candidate(
+                request,
+                staged,
+                result,
+                source=template_source,
+                destination=destination,
+            )
+
+    def _create_outline(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        assert request.output_path is not None
+        destination = destination_snapshot(request.output_path)
+        with OperationTempRoot() as private_root:
+            staged = private_root / "outline.json"
+            plan = write_outline(staged, request.arguments)
+            result = write_candidate_result(
+                self.schemas,
+                request,
+                staged,
+                outline_validation(staged, plan),
+                {
+                    "artifact_type": "planning-json",
+                    "presentation_generated": False,
+                    "slides": len(plan["slides"]),
+                },
                 warnings=[],
                 source=None,
             )
@@ -121,54 +194,53 @@ class PptxService:
                 destination=destination,
             )
 
-    def _edit(self, request: ParsedPptxRequest) -> dict[str, Any]:
+    def _create_from_markdown(self, request: ParsedPptxRequest) -> dict[str, Any]:
         assert request.input_path is not None
         assert request.output_path is not None
-        assert_distinct_paths(
-            request.input_path,
-            request.output_path,
-            in_place=False,
-        )
-        source_record = file_record(request.input_path, "input")
+        source = file_record(request.input_path, "input")
         destination = destination_snapshot(request.output_path)
         try:
             with OperationTempRoot() as private_root:
-                staged = private_root / "edited.pptx"
-                operation_result, manifest = edit_pptx(
-                    request.input_path, staged, request.arguments
+                raw_deck, reconstruction = parse_markdown_deck(
+                    request.input_path,
+                    request.arguments,
                 )
-                has_reorder = "reorder" in operation_result
-                assertion = None
-                if has_reorder:
-                    def assertion(_candidate: Path) -> dict[str, Any]:
-                        return validate_reorder(staged, source=request.input_path)
-                validation = validate_mutation(
+                deck = parse_deck(raw_deck)
+                staged = private_root / "created-from-markdown.pptx"
+                creation = create_pptx(
                     staged,
-                    source=request.input_path,
-                    source_sha256=source_record.sha256,
-                    manifest=manifest,
-                    assertion=assertion,
+                    deck,
+                    template=request.arguments.get("template"),
+                )
+                validation = validate_created(staged, deck, creation)
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
                 )
                 result = write_candidate_result(
                     self.schemas,
                     request,
                     staged,
                     validation,
-                    operation_result,
-                    warnings=[],
-                    source=source_record,
+                    {
+                        "creation": creation,
+                        "reconstruction": reconstruction,
+                    },
+                    warnings=[{
+                        "code": "PPTX_MARKDOWN_SEMANTIC_RECONSTRUCTION",
+                        "message": "Markdown semantics were reconstructed; source visual styling was not preserved.",
+                    }],
+                    source=source,
                 )
                 return promote_candidate(
                     request,
                     staged,
                     result,
-                    source=source_record,
+                    source=source,
                     destination=destination,
                 )
         except Exception as error:
-            merge_source_preservation_failure(
-                error, source_record.path, source_record.sha256
-            )
+            merge_source_preservation_failure(error, source.path, source.sha256)
             raise
 
     def _create_from_html(self, request: ParsedPptxRequest) -> dict[str, Any]:
@@ -210,6 +282,10 @@ class PptxService:
                 emission_ms = int((time.monotonic() - emission_started) * 1000)
                 validation_started = time.monotonic()
                 validation = validate_scene_created(staged, normalized, emission)
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
                 visual_gate = validate_scene_visuals(
                     staged,
                     normalized,
@@ -303,9 +379,93 @@ class PptxService:
             merge_source_preservation_failure(error, source.path, source.sha256)
             raise
 
+    def _sanitize_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        assert request.input_path is not None
+        assert request.output_path is not None
+        assert_distinct_paths(request.input_path, request.output_path, in_place=False)
+        source = file_record(request.input_path, "input")
+        destination = destination_snapshot(request.output_path)
+        try:
+            with OperationTempRoot() as private_root:
+                staged = private_root / "sanitized-template.pptx"
+                sanitization = sanitize_template(
+                    request.input_path,
+                    staged,
+                    source_sha256=source.sha256,
+                    expected_sha256=request.arguments["expected_input_sha256"],
+                    policy=request.arguments["policy"],
+                )
+                operation_result = sanitization.operation_result
+                removed_relationships = operation_result["removed_relationships"]
+                removed_parts = {
+                    item["part"] for item in operation_result["removed_parts"]
+                }
+                validation = validate_mutation(
+                    staged,
+                    source=source.path,
+                    source_sha256=source.sha256,
+                    manifest=sanitization.preservation,
+                    assertion=lambda candidate: validate_sanitized_template(
+                        candidate,
+                        removed_relationships=removed_relationships,
+                        removed_parts=removed_parts,
+                    ),
+                    allow_removals=True,
+                )
+                validation = with_schema_gate(
+                    validation,
+                    validate_schema_gate(staged, self.dotnet),
+                )
+                schema_gate = next(
+                    gate for gate in validation["gates"] if gate["id"] == "schema.full"
+                )
+                operation_result["schema"] = {"status": schema_gate["outcome"]}
+                operation_result["delivery_receipt"] = build_template_sanitize_receipt(
+                    operation_result,
+                    source_sha256=source.sha256,
+                    candidate_path=staged,
+                )
+                result = write_candidate_result(
+                    self.schemas,
+                    request,
+                    staged,
+                    validation,
+                    operation_result,
+                    warnings=[],
+                    source=source,
+                )
+                return promote_candidate(
+                    request,
+                    staged,
+                    result,
+                    source=source,
+                    destination=destination,
+                )
+        except Exception as error:
+            merge_source_preservation_failure(error, source.path, source.sha256)
+            raise
 
-def build_pptx_service(project_root: Path, libreoffice=None) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
-    service = PptxService(project_root, libreoffice=libreoffice)
+    def _inspect_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        return inspect_template_request(
+            request,
+            schemas=self.schemas,
+            libreoffice=self.libreoffice,
+        )
+
+    def _create_from_template(self, request: ParsedPptxRequest) -> dict[str, Any]:
+        return create_from_template(
+            request,
+            schemas=self.schemas,
+            dotnet=self.dotnet,
+        )
+
+
+def build_pptx_service(
+    project_root: Path,
+    libreoffice=None,
+    dotnet=None,
+) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
+    service = PptxService(project_root, libreoffice=libreoffice, dotnet=dotnet)
     return service.execute
 
 
@@ -313,11 +473,13 @@ def build_html_pptx_service(
     project_root: Path,
     html_browser_detector: Any,
     libreoffice=None,
+    dotnet=None,
 ) -> Callable[[str, dict[str, Any]], dict[str, Any]]:
     service = PptxService(
         project_root,
         libreoffice=libreoffice,
         html_browser_detector=html_browser_detector,
+        dotnet=dotnet,
     )
     return service.execute
 

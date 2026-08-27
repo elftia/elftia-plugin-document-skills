@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
-from document_skills_core.formats.pptx.create import _PLACEHOLDER_PNG
 from document_skills_core.formats.pptx.scene import parse_scene_deck
 from document_skills_core.formats.pptx.scene_normalizer import normalize_scene
+from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 LIMITS = {
@@ -35,6 +35,7 @@ STYLE = {
     "color": "rgb(0, 0, 0)",
     "text_align": "left",
     "line_height": "normal",
+    "letter_spacing": "normal",
 }
 
 
@@ -59,6 +60,7 @@ def _item(source_id: str = "item", **overrides):
         "radius": 0,
         "text": "Hello",
         "text_style": STYLE,
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "paragraphs": [{
             "runs": [{"text": "Hello", "style": STYLE}],
             "alignment": "left",
@@ -132,16 +134,16 @@ def _raw(items, assets=None, blocked=None):
 
 
 def _asset(tmp_path: Path):
-    digest = hashlib.sha256(_PLACEHOLDER_PNG).hexdigest()
+    digest = hashlib.sha256(PNG_1X1).hexdigest()
     assets = tmp_path / "assets"
     assets.mkdir()
     filename = f"asset-{digest}.png"
-    (assets / filename).write_bytes(_PLACEHOLDER_PNG)
+    (assets / filename).write_bytes(PNG_1X1)
     return assets, {
         "id": digest,
         "filename": filename,
         "mime": "image/png",
-        "bytes": len(_PLACEHOLDER_PNG),
+        "bytes": len(PNG_1X1),
         "width": 1,
         "height": 1,
         "purpose": "element-fallback",
@@ -266,11 +268,102 @@ def test_normalizer_classifies_approximations_and_simple_pseudo(tmp_path: Path):
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(parse_scene_deck(_raw([item]), tmp_path, 1024))
-    assert [entry["outcome"] for entry in normalized.slides[0]] == ["native", "approximated"]
+    assert [entry["source_id"] for entry in normalized.slides[0]] == [
+        "item",
+        "item:before",
+        "item:content",
+    ]
+    assert [entry["outcome"] for entry in normalized.slides[0]] == [
+        "native",
+        "native",
+        "approximated",
+    ]
     assert normalized.diagnostics["unknown_hints"]["total"] == 1
+
+
+def test_normalizer_wraps_visible_box_and_pseudo_layers_in_an_explicit_group(
+    tmp_path: Path,
+):
+    item = _item(
+        "card",
+        kind="rectangle",
+        fill="rgb(255, 255, 255)",
+        border_width=2,
+        paint_order=10,
+        pseudo=[
+            {
+                "source_id": "card:before",
+                "content": "BEFORE",
+                "simple": True,
+                "reason": None,
+                "x": 20,
+                "y": 30,
+                "width": 100,
+                "height": 30,
+                "paint_slot": 2,
+                "paint_order": 11,
+                "opacity": 1,
+                "color": "rgb(0, 0, 0)",
+                "font_family": "Arial",
+                "font_size": 20,
+                "font_weight": "400",
+                "font_style": "normal",
+                "text_decoration": "none",
+                "text_align": "left",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+            },
+            {
+                "source_id": "card:after",
+                "content": "AFTER",
+                "simple": True,
+                "reason": None,
+                "x": 210,
+                "y": 75,
+                "width": 80,
+                "height": 20,
+                "paint_slot": 4,
+                "paint_order": 13,
+                "opacity": 1,
+                "color": "rgb(0, 0, 0)",
+                "font_family": "Arial",
+                "font_size": 18,
+                "font_weight": "400",
+                "font_style": "normal",
+                "text_decoration": "none",
+                "text_align": "left",
+                "line_height": "normal",
+                "letter_spacing": "normal",
+            },
+        ],
+    )
+
+    normalized = normalize_scene(parse_scene_deck(_raw([item]), tmp_path, 1024))
+    layers = normalized.slides[0]
+
+    assert [layer["source_id"] for layer in layers] == [
+        "card",
+        "card:box",
+        "card:before",
+        "card:content",
+        "card:after",
+    ]
+    assert [layer["kind"] for layer in layers] == [
+        "group",
+        "rectangle",
+        "text",
+        "text",
+        "text",
+    ]
+    assert layers[0]["parent_source_id"] is None
+    assert all(layer["parent_source_id"] == "card" for layer in layers[1:])
+    assert layers[1]["fill"] == "rgb(255, 255, 255)"
+    assert layers[1]["border_width"] == 2
+    assert layers[1]["text"] == ""
 
 
 def test_normalizer_suppresses_descendants_of_rasterized_parent(tmp_path: Path):
@@ -330,6 +423,7 @@ def test_normalizer_suppresses_subtrees_independent_of_paint_order_and_parent_ps
             "text_decoration": "none",
             "text_align": "left",
             "line_height": "normal",
+            "letter_spacing": "normal",
         }],
     )
     normalized = normalize_scene(

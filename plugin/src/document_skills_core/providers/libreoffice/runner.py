@@ -8,11 +8,14 @@ bounded timeout, output limit, cancellation, and process-tree cleanup.
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+from collections.abc import Callable
+import os
 from pathlib import Path
 from typing import Protocol
+import uuid
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
-from ...core.process import ProcessPolicy, ProcessRunner, ProcessResult
+from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
     FORBIDDEN_TOKENS,
@@ -20,8 +23,20 @@ from .constants import (
     OUTPUT_LIMIT,
     TIMEOUT_CONVERT,
     TIMEOUT_LEGACY,
-    TIMEOUT_RECALC,
+    TIMEOUT_RECALC_REQUIRED,
     TIMEOUT_RENDER,
+    USER_INSTALLATION_PREFIX,
+)
+from .output import (
+    assert_output_within_limit,
+    output_limit,
+    output_runtime_observer,
+    read_provider_output,
+)
+from .quota import (
+    HardQuotaBackend,
+    capture_directory_identity,
+    require_hard_quota_backend,
 )
 
 
@@ -37,6 +52,7 @@ class _ContainedRunner(Protocol):
         cwd: Path | None = ...,
         timeout_seconds: float = ...,
         output_limit: int = ...,
+        runtime_check: Callable[[], None] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -48,17 +64,31 @@ class LibreOfficeRunner:
         project_root: Path,
         executable: str | Path | None = None,
         runner: _ContainedRunner | None = None,
+        *,
+        policy: ProcessPolicy | None = None,
+        quota_backend: HardQuotaBackend | None = None,
     ) -> None:
         self.project_root = project_root.resolve()
-        self._executable = executable
+        self._executable: Path | None = None
+        self._quota_backend = quota_backend
         if runner is not None:
             self._runner = runner
+            if isinstance(runner, ProcessRunner):
+                if policy is not None and policy is not runner.policy:
+                    raise ValueError(
+                        "Injected ProcessRunner must use the injected ProcessPolicy."
+                    )
+                self._policy = runner.policy
+            else:
+                self._policy = policy or ProcessPolicy(self.project_root)
         else:
-            policy = ProcessPolicy(self.project_root)
-            self._runner = ProcessRunner(policy)
+            self._policy = policy or ProcessPolicy(self.project_root)
+            self._runner = ProcessRunner(self._policy)
+        if executable is not None:
+            self.set_executable(executable)
 
     def set_executable(self, executable: str | Path) -> None:
-        self._executable = executable
+        self._executable = self._policy.allow_executable("libreoffice", executable)
 
     def convert(
         self,
@@ -80,67 +110,139 @@ class LibreOfficeRunner:
             )
         if timeout_seconds is None:
             timeout_seconds = _timeout_for_format(target_format)
-        argv = _build_argv(
-            "--convert-to",
-            target_format,
-            "--outdir",
-            str(output_dir.resolve()),
-            str(input_path.resolve()),
-        )
-        self._runner.run(
-            "libreoffice",
-            self._executable,
-            argv,
-            cwd=self.project_root,
-            timeout_seconds=timeout_seconds,
-            output_limit=OUTPUT_LIMIT,
-        )
-        expected = output_dir.resolve() / (input_path.stem + "." + target_format)
-        if not expected.is_file():
+        artifact_limit = output_limit(target_format)
+        backend = require_hard_quota_backend(self._quota_backend)
+        output_root = output_dir.resolve(strict=True)
+        output_identity = capture_directory_identity(output_root)
+        expected_name = input_path.stem + "." + target_format
+        expected = output_root / expected_name
+        with backend.open(byte_limit=artifact_limit) as session:
+            provider_expected = session.output_dir / expected_name
+            runtime_check = output_runtime_observer(
+                session.output_dir,
+                provider_expected,
+                target_format,
+            )
+            argv = _build_argv(
+                session.profile_dir,
+                "--convert-to",
+                target_format,
+                "--outdir",
+                str(session.output_dir),
+                str(input_path.resolve(strict=True)),
+            )
+            result = self._runner.run(
+                "libreoffice",
+                self._executable,
+                argv,
+                cwd=self.project_root,
+                timeout_seconds=timeout_seconds,
+                output_limit=OUTPUT_LIMIT,
+                runtime_check=runtime_check,
+            )
+            if result.returncode != 0:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "LibreOffice conversion exited non-zero.",
+                    details={"returncode": result.returncode},
+                )
+            session.validate_final_tree(expected_name=expected_name)
+            payload = read_provider_output(provider_expected, target_format)
+        if capture_directory_identity(output_root) != output_identity:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
-                "LibreOffice conversion produced no output file.",
-                details={"expected": expected.name},
+                "LibreOffice destination directory identity changed.",
             )
+        _atomic_publish(payload, expected)
+        assert_output_within_limit(expected, target_format)
         return expected
 
 
-def _build_argv(*operation_args: str) -> list[str]:
+def _atomic_publish(payload: bytes, destination: Path) -> None:
+    """Publish one already-bounded provider artifact from trusted Python."""
+
+    temporary = destination.parent / (
+        f".{destination.name}.{uuid.uuid4().hex}.provider-output.tmp"
+    )
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, destination)
+    except OSError as error:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice output could not be published safely.",
+            details={"reason": type(error).__name__},
+        ) from error
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _build_argv(profile_root: Path, *operation_args: str) -> list[str]:
     """Build the full argv: headless prefix + operation args, validated."""
-    argv = [*HEADLESS_PREFIX, *operation_args]
+    profile_uri = profile_root.resolve().as_uri()
+    argv = [
+        *HEADLESS_PREFIX,
+        f"{USER_INSTALLATION_PREFIX}{profile_uri}",
+        *operation_args,
+    ]
     _validate_argv(argv)
     return argv
 
 
 def _validate_argv(argv: list[str]) -> None:
-    """Reject forbidden tokens and require an accepted subcommand prefix."""
-    joined = " ".join(argv)
+    """Require the fixed prefix, one private profile, and an accepted command."""
+    prefix_length = len(HEADLESS_PREFIX)
+    if argv[:prefix_length] != HEADLESS_PREFIX:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv does not begin with the required headless flags.",
+        )
+    profile_args = [
+        token for token in argv if token.startswith(USER_INSTALLATION_PREFIX)
+    ]
+    profile_index = prefix_length
+    expected_command_index = profile_index + 1
+    if (
+        len(profile_args) != 1
+        or len(argv) <= profile_index
+        or argv[profile_index] != profile_args[0]
+        or not profile_args[0][len(USER_INSTALLATION_PREFIX):].startswith("file:///")
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv requires one local file-URI user profile before the command.",
+        )
+    if (
+        len(argv) <= expected_command_index
+        or argv[expected_command_index] not in ACCEPTED_SUBCOMMANDS
+    ):
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED,
+            "LibreOffice argv does not begin with an accepted subcommand.",
+            details={
+                "argv": [tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS]
+            },
+        )
+    operation_argv = argv[expected_command_index:]
+    joined_operation = " ".join(operation_argv)
     for forbidden in FORBIDDEN_TOKENS:
-        if forbidden.lower() in joined.lower():
+        if forbidden.lower() in joined_operation.lower():
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
                 "LibreOffice argv contains a forbidden macro/DDE token.",
                 details={"token": forbidden},
             )
-    non_flag = next((tok for tok in argv if not tok.startswith("-")), None)
-    if non_flag is None:
-        first_sub = next(
-            (tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS), None
-        )
-    else:
-        first_sub = None
-    has_accepted = any(tok in ACCEPTED_SUBCOMMANDS for tok in argv)
-    if not has_accepted:
-        raise DocumentSkillsError(
-            ErrorCode.PROVIDER_FAILED,
-            "LibreOffice argv does not begin with an accepted subcommand.",
-            details={"argv": [tok for tok in argv if tok in ACCEPTED_SUBCOMMANDS]},
-        )
 
 
 def _timeout_for_format(target_format: str) -> float:
     if target_format == "xlsx":
-        return TIMEOUT_RECALC
+        return TIMEOUT_RECALC_REQUIRED
     if target_format == "pdf":
         return TIMEOUT_CONVERT
     if target_format == "png":

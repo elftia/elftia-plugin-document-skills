@@ -20,6 +20,7 @@ from .formats.pdf.validation import reopen_pdf
 from .formats.xlsx.contracts import XLSX_OPERATIONS, parse_xlsx_request
 from .formats.xlsx.validation import reopen_xlsx
 from .formats.pptx.contracts import PPTX_OPERATIONS, parse_pptx_request
+from .formats.pptx.deep_validation import validate_deep_package
 from .formats.pptx.validation import reopen_pptx
 from .providers import build_default_registry
 
@@ -140,18 +141,21 @@ def _dispatch(
         return payload
     if args.command == "validate":
         reopen = None
+        assertions = None
         if format_id == "docx":
             reopen = reopen_docx
         elif format_id == "xlsx":
             reopen = reopen_xlsx
         elif format_id == "pptx":
             reopen = reopen_pptx
+            assertions = [("pptx-deep-validation", validate_deep_package)]
         elif format_id == "pdf":
             reopen = reopen_pdf
         payload = validate_artifact(
             _resolve_user_path(args.input, base),
             expected_format=format_id,
             reopen=reopen,
+            assertions=assertions,
         )
         catalog.validate("validation-report", payload)
         return payload
@@ -204,24 +208,116 @@ def _resolve_request_artifact_paths(
         invocation_base,
     )
     report = resolved_arguments.get("report")
-    if type(report) is not dict:
-        resolved["arguments"] = resolved_arguments
-        return resolved
-    image = report.get("image")
-    if type(image) is not dict:
-        resolved["arguments"] = resolved_arguments
-        return resolved
+    if type(report) is dict:
+        resolved_report = dict(report)
+        image = report.get("image")
+        if type(image) is dict:
+            resolved_report["image"] = _resolve_local_image(image, invocation_base)
+        blocks = report.get("blocks")
+        if type(blocks) is list:
+            resolved_report["blocks"] = [
+                _resolve_local_image(block, invocation_base)
+                if type(block) is dict and block.get("type") == "image"
+                else block
+                for block in blocks
+            ]
+        resolved_arguments["report"] = resolved_report
+    edits = resolved_arguments.get("edits")
+    if type(edits) is list:
+        resolved_edits = []
+        for edit in edits:
+            if type(edit) is not dict or type(edit.get("image")) is not dict:
+                resolved_edits.append(edit)
+                continue
+            resolved_edits.append(
+                {
+                    **edit,
+                    "image": _resolve_local_image(edit["image"], invocation_base),
+                }
+            )
+        resolved_arguments["edits"] = resolved_edits
+    style_overlay = resolved_arguments.get("style_overlay")
+    if type(style_overlay) is dict and type(style_overlay.get("source")) is str:
+        resolved_arguments["style_overlay"] = {
+            **style_overlay,
+            "source": str(
+                _resolve_user_path(style_overlay["source"], invocation_base)
+            ),
+        }
+    sources = resolved_arguments.get("sources")
+    if type(sources) is list:
+        resolved_arguments["sources"] = [
+            {
+                **source,
+                "path": str(_resolve_user_path(source["path"], invocation_base)),
+            }
+            if type(source) is dict and type(source.get("path")) is str
+            else source
+            for source in sources
+        ]
+    descriptor = resolved_arguments.get("descriptor")
+    if type(descriptor) is dict:
+        resolved_descriptor = dict(descriptor)
+        contract_root = descriptor.get("contract_root")
+        if type(contract_root) is str and not _is_nonlocal_path(contract_root):
+            resolved_descriptor["contract_root"] = str(
+                _resolve_user_path(contract_root, invocation_base)
+            )
+        for field in ("deck_ir", "semantic_slots", "template_contract"):
+            reference = descriptor.get(field)
+            if type(reference) is not dict:
+                continue
+            reference_path = reference.get("path")
+            if type(reference_path) is str and not _is_nonlocal_path(reference_path):
+                resolved_descriptor[field] = {
+                    **reference,
+                    "path": str(_resolve_user_path(reference_path, invocation_base)),
+                }
+        resolved_arguments["descriptor"] = resolved_descriptor
+    pages = resolved_arguments.get("pages")
+    if type(pages) is list:
+        resolved_arguments["pages"] = [
+            _resolve_template_page_paths(page, invocation_base)
+            for page in pages
+        ]
+    resolved["arguments"] = resolved_arguments
+    return resolved
+
+
+def _resolve_local_image(
+    image: dict[str, Any],
+    invocation_base: Path,
+) -> dict[str, Any]:
     image_path = image.get("path")
     if type(image_path) is not str or _is_nonlocal_path(image_path):
-        resolved["arguments"] = resolved_arguments
-        return resolved
-    resolved_image = {
+        return image
+    return {
         **image,
         "path": str(_resolve_user_path(image_path, invocation_base)),
     }
-    resolved_report = {**report, "image": resolved_image}
-    resolved["arguments"] = {**resolved_arguments, "report": resolved_report}
-    return resolved
+
+
+def _resolve_template_page_paths(page: Any, invocation_base: Path) -> Any:
+    if type(page) is not dict or type(page.get("bindings")) is not list:
+        return page
+    resolved_bindings = []
+    for binding in page["bindings"]:
+        if type(binding) is not dict or type(binding.get("value")) is not dict:
+            resolved_bindings.append(binding)
+            continue
+        value = binding["value"]
+        image_path = value.get("path")
+        if (
+            value.get("type") == "image-ref"
+            and type(image_path) is str
+            and not _is_nonlocal_path(image_path)
+        ):
+            value = {
+                **value,
+                "path": str(_resolve_user_path(image_path, invocation_base)),
+            }
+        resolved_bindings.append({**binding, "value": value})
+    return {**page, "bindings": resolved_bindings}
 
 
 def _resolve_pdf_argument_paths(

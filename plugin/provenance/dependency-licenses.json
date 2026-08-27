@@ -1,5 +1,8 @@
 {
   "@xmldom/xmldom": "MIT",
+  "DocumentFormat.OpenXml": "MIT",
+  "DocumentFormat.OpenXml.Framework": "MIT",
+  "System.IO.Packaging": "MIT",
   "acorn": "MIT",
   "attrs": "MIT",
   "cffi": "MIT-0",

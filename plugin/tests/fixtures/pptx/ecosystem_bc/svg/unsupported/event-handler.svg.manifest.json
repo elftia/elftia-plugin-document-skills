@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-03",
+  "format": "svg",
+  "invariants": [
+    "unsafe or unsupported content never executes or dereferences",
+    "rejection publishes no PPTX output",
+    "element fallback never becomes a whole-slide raster"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/unsupported/event-handler.svg",
+  "purpose": "Closed-profile rejection fixture for event-handler.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 128000
+  },
+  "schemaVersion": 1,
+  "security_classification": "adversarial-svg-event",
+  "sha256": "sha256:11197eb9f8823abc1a6bfdb546a70c409283724b1008918ae5a3d20abd5449ec",
+  "sizeBytes": 392
+}

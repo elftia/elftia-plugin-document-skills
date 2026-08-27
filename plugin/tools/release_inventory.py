@@ -18,6 +18,24 @@ _LOCAL_GENERATED_ROOTS = {
     ".venv",
     "node_modules",
 }
+_LOCAL_GENERATED_PREFIXES = {
+    (
+        "src",
+        "document_skills_core",
+        "providers",
+        "dotnet",
+        "helper",
+        "bin",
+    ),
+    (
+        "src",
+        "document_skills_core",
+        "providers",
+        "dotnet",
+        "helper",
+        "obj",
+    ),
+}
 _LOCAL_GENERATED_NAMES = {"__pycache__"}
 _NON_RUNTIME_DIRECTORY_NAMES = {
     ".computer-use",
@@ -190,6 +208,10 @@ def _is_worktree_only(relative: Path) -> bool:
     # Portable aliases remain release candidates so the policy can reject them.
     return (
         relative.parts[0] in _LOCAL_GENERATED_ROOTS
+        or any(
+            relative.parts[: len(prefix)] == prefix
+            for prefix in _LOCAL_GENERATED_PREFIXES
+        )
         or bool(set(relative.parts).intersection(_LOCAL_GENERATED_NAMES))
         or bool(normalized_directories.intersection(_NON_RUNTIME_DIRECTORY_NAMES))
     )

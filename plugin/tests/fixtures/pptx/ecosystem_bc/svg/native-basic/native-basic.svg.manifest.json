@@ -1,0 +1,26 @@
+{
+  "expected_consumers": [
+    "document-skills"
+  ],
+  "expected_operation": "pptx.create.from-svg",
+  "fixture_id": "B-SVG-01",
+  "format": "svg",
+  "invariants": [
+    "every top-level and grouped object emits editable DrawingML",
+    "custom path geometry remains native and no whole-slide raster is present",
+    "source ids bind deterministically to emitted object ids"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored deterministic synthetic fixture.",
+  "path": "svg/native-basic/native-basic.svg",
+  "purpose": "Closed-profile native path, primitive, group, text, and transform fixture.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 128000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-svg",
+  "sha256": "sha256:4ae09823800b8a11f4052542ff8cdbb5fef5ead1befb3a30b64fb64a9ce56f07",
+  "sizeBytes": 961
+}

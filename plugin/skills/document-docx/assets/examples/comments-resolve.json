@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.comments.resolve",
+  "input": "<replied.docx>",
+  "output": "<resolved.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {"comment_id": "7", "resolved": true}
+}

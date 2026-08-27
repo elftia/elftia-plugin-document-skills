@@ -3,6 +3,7 @@
 Module provenance: original Elftia-authored clean-room implementation.
 """
 
+import re
 import sys
 
 # Headless argument prefix — always present for every LibreOffice invocation.
@@ -10,10 +11,12 @@ HEADLESS_PREFIX: list[str] = [
     "--headless",
     "--norestore",
     "--nofirststartwizard",
-    "--nolockcheck",
 ]
 
-# Accepted subcommand prefixes (the first non-flag token in the argv).
+# Every invocation supplies a unique private profile through this argument.
+USER_INSTALLATION_PREFIX: str = "-env:UserInstallation="
+
+# Accepted operation commands, placed immediately after the private-profile argument.
 # Anything else (e.g. --cmd, .bas/.xba paths, DDE args) is rejected.
 ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset({"--convert-to", "--cat", "--print-to-file"})
 
@@ -22,8 +25,10 @@ FORBIDDEN_TOKENS: frozenset[str] = frozenset({
     "--cmd", ".bas", ".xba", "--unaccept", "macro:", "DDE", "DDELINK",
 })
 
-# Default per-operation timeouts (seconds).
-TIMEOUT_RECALC: float = 60.0
+# Default per-operation timeouts (seconds).  Only optional/auto recalculation
+# uses the short budget needed to fall back inside the public worker deadline.
+TIMEOUT_RECALC_OPTIONAL: float = 3.0
+TIMEOUT_RECALC_REQUIRED: float = 30.0
 TIMEOUT_CONVERT: float = 30.0
 TIMEOUT_RENDER: float = 30.0
 TIMEOUT_LEGACY: float = 30.0
@@ -36,19 +41,25 @@ OUTPUT_LIMIT: int = 1_048_576
 VERSION_PROBE_OUTPUT_LIMIT: int = 16_384
 
 # Version regex — permissive; parses the dotted version after "LibreOffice".
-import re
-
 VERSION_REGEX = re.compile(r"LibreOffice\s+([0-9]+(?:\.[0-9]+)+)")
 
-# Executable names to probe on PATH.
-EXECUTABLE_NAMES: list[str] = ["soffice", "libreoffice"]
+# Executable names to probe on PATH.  The Windows console launcher is required
+# for a bounded ``--version`` probe because the GUI launcher does not reliably
+# keep captured stdout/stderr attached.
+EXECUTABLE_NAMES: list[str] = (
+    ["soffice.com", "soffice", "libreoffice"]
+    if sys.platform == "win32"
+    else ["soffice", "libreoffice"]
+)
 
 
 def platform_known_paths() -> list[str]:
     """Return platform-known soffice install locations."""
     if sys.platform == "win32":
         return [
+            r"C:\Program Files\LibreOffice\program\soffice.com",
             r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
             r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
         ]
     if sys.platform == "darwin":

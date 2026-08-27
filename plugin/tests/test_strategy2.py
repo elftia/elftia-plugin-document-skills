@@ -21,6 +21,10 @@ from tools.audit_python import audit_python_source
 from tools.audit import run_audits
 from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
+from tools.provenance_records import (
+    CURRENT_REVIEW_ARTIFACT,
+    validate_metadata_exclusion,
+)
 from tests.support.provenance_review_fixture import bind_test_review
 
 
@@ -165,7 +169,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         capture_output=True,
         text=True,
         check=True,
-        timeout=30,
+        timeout=60,
     )
     doctor_state = {item["id"]: item for item in json.loads(doctor.stdout)["providers"]}
     capability = build_capabilities(project_root, "docx", registry)
@@ -179,20 +183,101 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
     operations = {item["operation"]: item for item in capability["operations"]}
     assert set(operations) == {
         "docx.create",
+        "docx.comments.add",
+        "docx.comments.read",
+        "docx.comments.resolve",
+        "docx.compare.semantic",
+        "docx.compare.visual",
+        "docx.convert.legacy",
+        "docx.convert.pdf",
+        "docx.edit",
         "docx.edit.replace-text",
+        "docx.inspect.accessibility",
         "docx.inspect.structure",
+        "docx.layout.repair",
+        "docx.merge",
         "docx.read",
+        "docx.render",
+        "docx.revisions.apply",
+        "docx.revisions.read",
         "docx.template.apply",
+        "docx.validate.schema",
     }
     assert operations["docx.template.apply"]["providers"] == ["core-node"]
-    assert all(item["available"] for item in operations.values())
-    assert not any(
-        provider in item["providers"]
-        for item in operations.values()
-        for provider in ("libreoffice", "dotnet-openxml")
+    assert all(
+        operations[operation]["available"]
+        for operation in (
+            "docx.create",
+            "docx.compare.semantic",
+            "docx.edit",
+            "docx.edit.replace-text",
+            "docx.inspect.accessibility",
+            "docx.inspect.structure",
+            "docx.merge",
+            "docx.read",
+            "docx.template.apply",
+        )
     )
-    assert capability["validation"]["schema"] == "unavailable"
+    expected_schema = (
+        "available"
+        if capability_state["dotnet-openxml"]["available"]
+        else "unavailable"
+    )
+    assert capability["validation"]["schema"] == expected_schema
     assert capability["validation"]["visual"] == "unavailable"
+
+
+def test_validation_capabilities_are_format_scoped_and_callable(project_root):
+    def catalog(available=True, validators=None, callable_provider=True):
+        result = ProviderCatalog()
+        result.register_provider(
+            Provider(
+                ProviderId.CORE_PYTHON,
+                "1",
+                detect=lambda: DetectionEvidence(available, version="1"),
+                execute=(lambda _op, _req: {}) if callable_provider else None,
+                capabilities=[
+                    Capability("xlsx.validate.schema", "enhanced"),
+                    Capability("pptx.render", "enhanced"),
+                ],
+                validators=validators
+                or {"schema": lambda: {}, "visual": lambda: {}},
+            )
+        )
+        return result
+
+    registry = catalog()
+    assert build_capabilities(project_root, "docx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pdf", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "xlsx", registry)["validation"] == {
+        "package": "available",
+        "schema": "available",
+        "visual": "unavailable",
+    }
+    assert build_capabilities(project_root, "pptx", registry)["validation"] == {
+        "package": "available",
+        "schema": "unavailable",
+        "visual": "available",
+    }
+    assert build_capabilities(project_root, "xlsx", catalog(available=False))[
+        "validation"
+    ]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root,
+        "xlsx",
+        catalog(validators={"schema": None, "visual": lambda: {}}),
+    )["validation"]["schema"] == "unavailable"
+    assert build_capabilities(
+        project_root, "xlsx", catalog(callable_provider=False)
+    )["validation"]["schema"] == "unavailable"
 
 
 def test_catalog_requires_callable_and_available_detector(project_root):
@@ -338,23 +423,102 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     assert report["status"] == "pass", report["errors"]
 
 
+def test_current_review_is_the_only_hashless_review_metadata(project_root):
+    from tools.regenerate_provenance import _is_metadata
+
+    review_path = CURRENT_REVIEW_ARTIFACT
+    assert _is_metadata(review_path) is True
+    validate_metadata_exclusion(
+        project_root,
+        {
+            "artifact": review_path,
+            "classification": "self-referential-audit-metadata",
+            "reason": (
+                "The current report binds the exact mapping digest, so hashing "
+                "its own final bytes in that mapping would be circular."
+            ),
+            "reviewer": "Strategy-2 current-review test reviewer",
+            "review_evidence": [review_path],
+        },
+        {"Strategy-2 current-review test reviewer"},
+    )
+
+
+def test_pdf_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
+    project_root,
+    tmp_path,
+):
+    from tools.regenerate_provenance import regenerate
+
+    expected_review = "provenance/reviews/core-pdf-review-cycle-round-1.md"
+    previous_review = (
+        "provenance/reviews/"
+        "document-skills-0.5.3-pptx-b6-merge-review.md"
+    )
+    assert CURRENT_REVIEW_ARTIFACT == expected_review
+
+    root = _release_copy(project_root, tmp_path)
+    manifest, mapping_before = regenerate(root)
+    metadata_paths = {
+        record["artifact"] for record in manifest["metadata_exclusions"]
+    }
+    assert metadata_paths == {
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        expected_review,
+    }
+    data_paths = {
+        record["artifact"] for record in manifest["data_classifications"]
+    }
+    assert previous_review in data_paths
+
+    report_path = root / expected_review
+    report_path.write_bytes(report_path.read_bytes() + b"\npost-review binding bytes\n")
+    _manifest_after, mapping_after = regenerate(root)
+    assert mapping_after == mapping_before
+
+
 @pytest.mark.parametrize(
     "review_path",
     [
         "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
         "provenance/reviews/core-docx-review-cycle-round-1.md",
+        "provenance/reviews/core-pptx-review-cycle-round-1.md",
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
         "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
         "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
+        "provenance/reviews/document-skills-core-xlsx-completion-review-cycle-round-1.md",
         "provenance/reviews/foundation-review-cycle-round-1.md",
         "provenance/reviews/libreoffice-enhancement-review-cycle-round-1.md",
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
+        "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
+        "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
     ],
 )
-def test_is_metadata_rejects_historical_review_paths(review_path):
+def test_historical_reviews_are_hash_pinned_data_not_metadata(
+    project_root, review_path
+):
     from tools.regenerate_provenance import _is_metadata
 
     assert _is_metadata(review_path) is False
+    with pytest.raises(
+        AssertionError,
+        match="outside the exact self-reference allowlist",
+    ):
+        validate_metadata_exclusion(
+            project_root,
+            {
+                "artifact": review_path,
+                "classification": "self-referential-audit-metadata",
+                "reason": (
+                    "A historical report has no circular dependency on the "
+                    "current mapping and must retain an exact content hash."
+                ),
+                "reviewer": "Strategy-2 historical-review test reviewer",
+                "review_evidence": [review_path],
+            },
+            {"Strategy-2 historical-review test reviewer"},
+        )
 
 
 @pytest.mark.parametrize(

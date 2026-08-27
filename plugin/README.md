@@ -62,24 +62,68 @@ projection.
 
 Requests and results use `schema_version: "1.0"` and the checked-in schemas in `schemas/`.
 Unknown operations return `DS_OPERATION_UNKNOWN`. The shared provider registry exposes bounded
-DOCX, XLSX, PPTX, and PDF operations. The Core DOCX slice registers five callable operations:
+DOCX, XLSX, PPTX, and PDF operations. The Core DOCX slice registers nine callable operations:
 
 - `docx.read`
+- `docx.inspect.accessibility`
 - `docx.inspect.structure`
+- `docx.compare.semantic`
 - `docx.create`
+- `docx.edit`
 - `docx.edit.replace-text`
+- `docx.merge`
 - `docx.template.apply`
 
 The DOCX implementation lives in `src/document_skills_core/formats/docx/`. Read and inspection
-return bounded structured data. Create emits a styled report with a table, one local image,
-header/footer content, and at least two sections. Replacement is run-aware across the document
-and referenced header/footer stories. Scalar template substitution accepts only bounded
-ASCII/dot identifiers and uses the project-local Node backend privately through Python.
+return bounded structured data. Create accepts either the compatible report contract or a
+source-neutral versioned document spec with stable semantic ids, reusable style profiles, and
+optional domain profiles. Template Engine/physical `.docx|.dotx` bases, Document Spec, Style
+Profile, and Domain Profile are separate layers: `academic-paper` is the first domain application,
+while `technical-report` proves the generic emitter is reusable. Replacement is run-aware across
+the document and referenced header/footer stories. Scalar template substitution accepts only
+bounded ASCII/dot identifiers and uses the project-local Node backend privately through Python.
 `skills/document-docx/references/` contains the complete request/result and safety guidance.
+Mammoth 1.12.1 was evaluated as a lossy HTML adapter and not adopted; no Markdown/HTML placeholder
+operation or runtime dependency was added, and native OOXML remains the comparison/security source
+of truth.
 
-The PPTX surface adds browser-gated `pptx.create.from-html` to its existing read, inspect,
-typed-create, and edit operations. Python owns the public request, path policy, transaction,
-validation, and promotion. A private Node adapter uses exact `playwright-core@1.62.1` with a
+### XLSX
+
+The public Skill is `skills/document-xlsx/SKILL.md`; its entrypoint and detailed guidance live in
+`skills/document-xlsx/scripts/` and `skills/document-xlsx/references/`. The implementation is
+owned by `src/document_skills_core/formats/xlsx/`, with optional LibreOffice and .NET/OpenXML
+adapters isolated in `src/document_skills_core/providers/libreoffice/` and
+`src/document_skills_core/providers/dotnet/`.
+
+| Surface | Operations | Availability boundary |
+| --- | --- | --- |
+| Foundation Core | `xlsx.read`, `xlsx.inspect.structure`, `xlsx.create`, `xlsx.edit` | Callable through `core-python`; create/edit may honestly degrade when optional recalculation is unavailable. |
+| Additional Core | `xlsx.recalculate`, `xlsx.convert`, `xlsx.template.instantiate`, `xlsx.summary.aggregate`, `xlsx.pivot.create` | Registered through `core-python`; formula recalculation and the legacy `.xls` conversion branch still require callable LibreOffice. |
+| Provider-only | `xlsx.validate.schema`, `xlsx.render` | Schema validation requires callable .NET/OpenXML; rendering requires callable LibreOffice. Missing providers report `unavailable` and do not promote output. |
+
+Formula cells expose only `recalculated`, `stale`, `never_calculated`, or
+`recalculation_required`. A stored cache is never treated as proof of correctness, and
+`recalculated` requires an accepted recalculation-provider result. Without that result,
+read/create/edit preserve the honest outstanding state and report degradation where applicable;
+explicit recalculation of a formula workbook is unavailable and promotes no output. A workbook
+with no formulas completes that operation as `not_applicable` without calling LibreOffice.
+
+Optional-provider source belongs to separately scoped enhancement Changes and is not established
+by this Core XLSX delivery. Source presence alone does not make LibreOffice callable: executable
+identity and a validated aggregate hard-quota backend must both pass. The shipped default quota
+backend is fail-closed and reports unavailable; size polling or free-disk checks never substitute
+for that capability. `xlsx.convert` otherwise remains Core for XLSX/CSV/TSV/canonical-JSON
+conversion. `xlsx.validate.schema` is callable only with .NET 8, the locked project helper, and
+its exact OpenXML dependency; a Core reopen is not reported as full schema validation. This
+documentation records producer behavior only and makes no claim that a host seeded the artifact,
+that either optional provider ran live, or that remote CI was observed.
+
+The PPTX surface adds browser-gated `pptx.create.from-html` to its read, inspect, typed-create,
+and edit operations. Typed create embeds bounded local PNG/JPEG/static GIF bytes and emits
+editable bar/column, line, pie, and scatter DrawingML charts with literal caches; missing or
+invalid assets fail closed instead of becoming placeholders. Python owns the public request,
+path policy, transaction, validation, and promotion. A private Node adapter uses exact
+`playwright-core@1.62.1` with a
 closed detector for a supported system Chrome/Chromium/Edge executable. It serves only the
 fixed 1920x1080 `.slide` deck and canonical descendant assets from a tokenized loopback origin,
 retains the browser sandbox, disables scripts/service workers, and blocks other resources.
@@ -103,9 +147,11 @@ recoverable in-place replacement.
 ## Optional providers
 
 LibreOffice and `.NET 8 + DocumentFormat.OpenXml` are optional enhancements. `doctor --json`
-reports executable/runtime detection separately from accepted validator capability. LibreOffice
-being present does not make visual validation available until a registered visual validator has
-passed its artifact tests. The OpenXML enhancement is available only when .NET 8 and the
+reports executable/runtime detection separately from accepted callable capability. An accepted
+LibreOffice provider adds DOCX PDF conversion, PDF/PNG page evidence with deterministic layout
+findings, a bounded semantic-node layout repair loop, fixed-profile reference visual comparison,
+and legacy `.doc` conversion. A normal render does not imply reference visual comparison. The
+OpenXML enhancement is available only when .NET 8 and the
 project-local `OpenXmlProbe.dll` successfully load and identify the project-local
 `DocumentFormat.OpenXml` assembly; another .NET major or a bare dotnet executable is not enough.
 Their absence does not make Core unhealthy.
@@ -117,9 +163,11 @@ capability report always lists `pptx.create.from-html`, but marks it `available:
 the locked Node library, a supported system browser, and the bounded sandboxed launch probe all
 pass. Its absence returns `unavailable` and creates no output.
 
-The current DOCX slice does not implement either optional validator. Its validation report marks
-the visual and full-schema gates `unavailable`; detection alone never turns either gate into
-`pass`, changes achieved fidelity, or advertises a callable operation.
+The DOCX slice exposes `docx.compare.visual` only through the accepted LibreOffice provider and
+`docx.validate.schema` only through the accepted .NET/OpenXML provider. Ordinary Core mutations do
+not claim either result: their visual and full-schema gates remain `unavailable` unless the
+corresponding public operation actually runs. Detection alone never turns a gate into `pass`,
+changes achieved fidelity, or advertises a callable operation.
 
 ## Active-content policy
 

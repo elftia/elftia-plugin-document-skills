@@ -3,15 +3,16 @@
 import json
 from pathlib import Path
 
-from tools.provenance_records import CANONICAL_MAPPING_BOUND_REPORT
+from tools.provenance_records import CURRENT_REVIEW_ARTIFACT
 from tools.regenerate_provenance import regenerate
 
 
 def bind_test_review(
     root: Path,
     *,
-    report_name: str = CANONICAL_MAPPING_BOUND_REPORT.rsplit("/", 1)[-1],
+    report_name: str | None = None,
 ) -> None:
+    report_name = report_name or Path(CURRENT_REVIEW_ARTIFACT).name
     report_path = root / "provenance" / "reviews" / report_name
     if not report_path.exists():
         report_path.write_text("Pending deterministic test review.\n", encoding="utf-8")

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.layout.repair",
+  "input": "input.docx",
+  "output": "layout-repaired.docx",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {
+    "finding_codes": ["DOCX_LAYOUT_OBJECT_EXCEEDS_TEXT_WIDTH"],
+    "max_rounds": 2,
+    "max_pages": 20,
+    "max_total_bytes": 67108864,
+    "max_png_total_bytes": 16777216
+  }
+}

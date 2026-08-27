@@ -1,8 +1,12 @@
 import json
 from pathlib import Path
 import shutil
+import tomllib
+from xml.etree.ElementTree import fromstring
 
 import pytest
+
+from document_skills_core import __version__
 
 from tools.audit import (
     PUBLIC_SKILLS,
@@ -19,6 +23,49 @@ from tools.audit import (
 def test_exact_public_surface_and_manifest_parity(project_root):
     assert audit_skills(project_root)["names"] == PUBLIC_SKILLS
     assert audit_manifests(project_root)["skills_root"] == "skills"
+
+
+def test_release_version_is_one_source_value_across_runtime_manifests(project_root):
+    producer = json.loads((project_root.parent / "package.json").read_text(encoding="utf-8"))
+    plugin = json.loads(
+        (project_root / ".claude-plugin/plugin.json").read_text(encoding="utf-8")
+    )
+    python_package = tomllib.loads(
+        (project_root / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    python_lock = tomllib.loads(
+        (project_root / "uv.lock").read_text(encoding="utf-8")
+    )
+    node_runtime = json.loads(
+        (project_root / "package.json").read_text(encoding="utf-8")
+    )
+    node_lock = json.loads(
+        (project_root / "package-lock.json").read_text(encoding="utf-8")
+    )
+    sbom = json.loads((project_root / "sbom.cdx.json").read_text(encoding="utf-8"))
+    helper_project = fromstring(
+        (
+            project_root
+            / "src/document_skills_core/providers/dotnet/helper/OpenXmlHelper.csproj"
+        ).read_bytes()
+    )
+
+    assert {
+        producer["version"],
+        plugin["version"],
+        python_package["project"]["version"],
+        next(
+            package["version"]
+            for package in python_lock["package"]
+            if package["name"] == python_package["project"]["name"]
+        ),
+        node_runtime["version"],
+        node_lock["version"],
+        node_lock["packages"][""]["version"],
+        sbom["metadata"]["component"]["version"],
+        helper_project.findtext("./PropertyGroup/Version"),
+        __version__,
+    } == {"0.5.3"}
 
 
 def test_agent_commands_are_frozen_uv_only(project_root):
@@ -58,6 +105,8 @@ def test_source_and_staged_release_inventory(project_root):
         ".github/workflows/ci.yml",
         ".idea/workspace.xml",
         ".vscode/settings.json",
+        "src/document_skills_core/providers/dotnet/helper/bin/Release/helper.dll",
+        "src/document_skills_core/providers/dotnet/helper/obj/project.assets.json",
     ],
 )
 def test_release_inventory_excludes_non_runtime_developer_state(tmp_path, relative):
@@ -81,6 +130,23 @@ def test_release_inventory_keeps_regular_files_named_like_developer_dirs(
     (root / filename).write_text("runtime data\n", encoding="utf-8")
 
     assert filename in release_inventory(root)
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "src/document_skills_core/providers/dotnet/helper/binary/helper.dll",
+        "src/document_skills_core/providers/dotnet/helper/object/project.assets.json",
+        "src/document_skills_core/providers/dotnet/other/obj/project.assets.json",
+    ],
+)
+def test_release_inventory_keeps_helper_build_lookalikes(tmp_path, relative):
+    root = tmp_path / "project"
+    target = root / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("must remain in release scope\n", encoding="utf-8")
+
+    assert relative in release_inventory(root)
 
 
 def test_no_host_boot_or_legacy_boundary_change():

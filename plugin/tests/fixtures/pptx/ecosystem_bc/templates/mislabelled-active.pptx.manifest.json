@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.template.sanitize",
+  "fixture_id": "B-TPL-05",
+  "format": "pptx",
+  "invariants": [
+    "active content is rejected despite the .pptx extension",
+    "signed input is rejected instead of silently invalidated",
+    "no output is published"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/mislabelled-active.pptx",
+  "purpose": "Synthetic active-content and package-signature markers in a .pptx.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 2000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "synthetic-active-and-signed",
+  "sha256": "sha256:7a4ee04caed04962e4689a671e5c1f231261480e1db6dc8e1db4b8241d440091",
+  "sizeBytes": 14103
+}

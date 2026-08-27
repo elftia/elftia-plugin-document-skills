@@ -75,11 +75,9 @@ def normalize_scene(deck: SceneDeck) -> NormalizedScene:
             if reason:
                 fidelity_record["reasons"][reason] += 1
             if len(fidelity_record["samples"]) < _SAMPLE_LIMIT:
-                fidelity_record["samples"].append({
-                    "source_id": item["source_id"],
-                    "reason": reason,
-                    "area": area,
-                })
+                fidelity_record["samples"].append(
+                    _fidelity_sample(item, reason, area)
+                )
             if reason:
                 reasons[reason] += 1
             for unsupported in item["unsupported"]:
@@ -115,11 +113,9 @@ def normalize_scene(deck: SceneDeck) -> NormalizedScene:
                 fidelity["native"]["count"] += 1
                 fidelity["native"]["area"] += extra_area
                 if len(fidelity["native"]["samples"]) < _SAMPLE_LIMIT:
-                    fidelity["native"]["samples"].append({
-                        "source_id": extra["source_id"],
-                        "reason": None,
-                        "area": extra_area,
-                    })
+                    fidelity["native"]["samples"].append(
+                        _fidelity_sample(extra, None, extra_area)
+                    )
         emitted.sort(key=lambda entry: (entry["paint_order"], entry["dom_index"], entry["source_id"]))
         normalized_slides.append(tuple(emitted))
     observed_limits = {**deck.observed, "scene_bytes": deck.scene_bytes}
@@ -206,25 +202,49 @@ def _paint_records(parent: dict[str, Any]) -> list[dict[str, Any]]:
     before = [_pseudo_item(parent, pseudo) for pseudo in pseudos if pseudo["paint_slot"] == 2]
     after = [_pseudo_item(parent, pseudo) for pseudo in pseudos if pseudo["paint_slot"] == 4]
     has_box = parent["kind"] != "text" or parent["border_width"] > 0 or _visible_fill(parent["fill"])
-    records: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = [_paint_group(parent)]
     if has_box:
-        records.append({**parent, "text": "", "paragraphs": []})
-    records.extend(before)
-    if parent["text"]:
-        content_id = parent["source_id"] if not has_box else f"{parent['source_id'][:72]}:content"
         records.append({
             **parent,
-            "source_id": content_id,
-            "parent_source_id": parent["source_id"] if has_box else parent["parent_source_id"],
+            "source_id": f"{parent['source_id'][:76]}:box",
+            "parent_source_id": parent["source_id"],
+            "text": "",
+            "paragraphs": [],
+            "pseudo": [],
+        })
+    records.extend(before)
+    if parent["text"]:
+        records.append({
+            **parent,
+            "source_id": f"{parent['source_id'][:72]}:content",
+            "parent_source_id": parent["source_id"],
             "kind": "text",
             "fill": "rgba(0, 0, 0, 0)",
             "border_width": 0,
             "radius": 0,
             "paint_order": parent["paint_order"] + 2,
             "pseudo": [],
+            "outcome": "native" if has_box else parent["outcome"],
+            "outcome_reason": None if has_box else parent["outcome_reason"],
         })
     records.extend(after)
     return records
+
+
+def _paint_group(parent: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **parent,
+        "kind": "group",
+        "text": "",
+        "paragraphs": [],
+        "fill": "rgba(0, 0, 0, 0)",
+        "border_width": 0,
+        "radius": 0,
+        "asset_id": None,
+        "pseudo": [],
+        "outcome": "native",
+        "outcome_reason": None,
+    }
 
 
 def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, Any]:
@@ -237,6 +257,7 @@ def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, An
         "color": pseudo.get("color"),
         "text_align": pseudo.get("text_align", "left"),
         "line_height": pseudo.get("line_height", "normal"),
+        "letter_spacing": pseudo.get("letter_spacing", "normal"),
     }
     return {
         **parent,
@@ -257,6 +278,7 @@ def _pseudo_item(parent: dict[str, Any], pseudo: dict[str, Any]) -> dict[str, An
             "alignment": style["text_align"],
             "line_height": style["line_height"],
         }],
+        "text_insets": {"left": 0, "top": 0, "right": 0, "bottom": 0},
         "fill": "rgba(0, 0, 0, 0)",
         "border_width": 0,
         "asset_id": None,
@@ -296,4 +318,25 @@ def _fidelity_diagnostics(record: dict[str, Any]) -> dict[str, Any]:
         "by_reason": dict(sorted(record["reasons"].items())),
         "samples": samples,
         "truncated": max(0, count - len(samples)),
+    }
+
+
+def _fidelity_sample(
+    item: dict[str, Any],
+    reason: str | None,
+    area: float,
+) -> dict[str, Any]:
+    source_id = item["source_id"]
+    return {
+        "source_id": source_id,
+        "element_selector": f'[data-elftia-source-id="{source_id}"]',
+        "reason": reason,
+        "area": area,
+        "bbox": {
+            "x": item["x"],
+            "y": item["y"],
+            "width": item["width"],
+            "height": item["height"],
+        },
+        "asset_sha256": item.get("asset_id"),
     }

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.edit",
+  "input": "<input.docx>",
+  "output": "<notes.docx>",
+  "arguments": {
+    "edits": [
+      {
+        "type": "note_insert",
+        "target": {"story": "body", "paragraph_index": 2, "expected_text": "Total"},
+        "kind": "footnote",
+        "placement": "append",
+        "text": "Reviewed total"
+      }
+    ]
+  }
+}

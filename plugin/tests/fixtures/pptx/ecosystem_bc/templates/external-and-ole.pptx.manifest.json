@@ -1,0 +1,28 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "powerpoint",
+    "libreoffice"
+  ],
+  "expected_operation": "pptx.template.sanitize",
+  "fixture_id": "B-TPL-04",
+  "format": "pptx",
+  "invariants": [
+    "sanitizer never dereferences external targets",
+    "external and embedded relationships are removed with hash evidence",
+    "chart caches remain native literal data after workbook purge"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic OOXML fixture.",
+  "path": "templates/external-and-ole.pptx",
+  "purpose": "Synthetic external hyperlink/image plus an internal chart workbook.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 2000000
+  },
+  "schemaVersion": 1,
+  "security_classification": "synthetic-dangerous-external-and-embedded",
+  "sha256": "sha256:2a9a226ac23b86aa88f53485953e0588681f054730c9bfc4125ec43967771d25",
+  "sizeBytes": 14038
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.comments.add",
+  "input": "<input.docx>",
+  "output": "<commented.docx>",
+  "options": {"fidelity": "enhanced"},
+  "arguments": {
+    "author": "Reviewer",
+    "text": "Please verify this paragraph.",
+    "anchor": {
+      "story": "body",
+      "paragraph_index": 3,
+      "expected_text": "Quarterly total",
+      "range": "paragraph"
+    }
+  }
+}

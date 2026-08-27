@@ -9,20 +9,33 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.validation import validate_artifact
 
 from .constants import NS
+from .deep_validation import validate_deep_package
+from .design_validation import assert_typed_design
 from .mapping import map_slides
+from .macro_policy import open_presentation_package
 from .package import OpcPackage, PreservationManifest
 from .scene_emitter import EMU_PER_PIXEL, SLIDE_CX, SLIDE_CY
 from .scene_normalizer import NormalizedScene
 from .scene_opc_validation import generated_scene_opc_failures
+from .typed_validation import assert_typed_objects
 
 
 def validate_created(
     path: Path,
     deck: dict[str, Any],
+    creation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     assertions = [
         ("consumer-package-conformance", _assert_consumer_package),
         ("create-semantics", lambda candidate: _assert_created(candidate, deck)),
+        (
+            "native-object-correspondence",
+            lambda candidate: assert_typed_objects(OpcPackage.open(candidate), deck, creation),
+        ),
+        (
+            "typed-design-correspondence",
+            lambda candidate: assert_typed_design(candidate, deck, creation),
+        ),
     ]
     return _required_report(path, assertions=assertions)
 
@@ -49,9 +62,17 @@ def validate_mutation(
     source_sha256: str,
     manifest: PreservationManifest,
     assertion: Callable[[Path], dict[str, Any]] | None = None,
+    allow_removals: bool = False,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] = [
-        ("part-preservation", lambda _candidate: _assert_preservation(manifest))
+        (
+            "part-preservation",
+            lambda _candidate: _assert_preservation(
+                manifest,
+                allow_removals=allow_removals,
+            ),
+        )
     ]
     if assertion is not None:
         assertions.append(("mutation-semantics", assertion))
@@ -60,6 +81,7 @@ def validate_mutation(
         source=source,
         source_sha256=source_sha256,
         assertions=assertions,
+        allow_vba=allow_vba,
     )
 
 
@@ -67,6 +89,7 @@ def validate_reorder(
     path: Path,
     *,
     source: Path,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
     """Structure-equality-on-reorder gate.
 
@@ -76,8 +99,8 @@ def validate_reorder(
     connectors, notes content, notes reference, slide-layout reference, and
     slide-master reference match the input modulo order.
     """
-    input_pkg = OpcPackage.open(source)
-    candidate_pkg = OpcPackage.open(path)
+    input_pkg = open_presentation_package(source, allow_vba=allow_vba)
+    candidate_pkg = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     input_slides = map_slides(input_pkg)
     candidate_slides = map_slides(candidate_pkg)
 
@@ -134,9 +157,9 @@ def validate_reorder(
     return {"slides_checked": len(candidate_slides), "structure_equal": True}
 
 
-def reopen_pptx(path: Path) -> dict[str, Any]:
+def reopen_pptx(path: Path, *, allow_vba: bool = False) -> dict[str, Any]:
     """Reopen a PPTX package and verify its required structures."""
-    package = OpcPackage.open(path)
+    package = open_presentation_package(path, allow_vba=allow_vba, candidate=True)
     slides = map_slides(package)
     return {
         "parts": len(package.parts),
@@ -265,6 +288,7 @@ def _assert_scene_created(
                 "asset_sha256": item.get("asset_id"),
                 "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 "geometry": geometry,
+                "parent_source_id": item.get("parent_source_id"),
             })
     if len(mapped) != len(scene.slides):
         failures.append("slide-count")
@@ -293,30 +317,55 @@ def _assert_scene_created(
             item for item in expected_manifest_items
             if item["slide"] == slide_number
         ]
+        expected_leaf_scene_items = [
+            item for item in expected_scene_items if item.get("kind") != "group"
+        ]
+        expected_leaf_items = [
+            item for item in expected if item.get("kind") != "group"
+        ]
         actual = slide.get("shapes", [])
         actual_ids = [int(shape.get("id", 0)) for shape in actual]
-        if actual_ids != [item["shape_id"] for item in expected]:
+        if actual_ids != [item["shape_id"] for item in expected_leaf_items]:
             failures.append(f"slide-{slide_number}-ids-z-order")
         actual_names = [shape.get("name") for shape in actual]
-        if actual_names != [str(item["source_id"])[:80] for item in expected]:
+        if actual_names != [str(item["source_id"])[:80] for item in expected_leaf_items]:
             failures.append(f"slide-{slide_number}-source-ids")
         evidence = _slide_shape_evidence(package, slide.get("part"))
         if len(evidence) != len(expected):
             failures.append(f"slide-{slide_number}-object-count")
+        evidence_by_id = {item.get("id"): item for item in evidence}
+        for manifest_item in expected:
+            shape_id = manifest_item["shape_id"]
+            shape_evidence = evidence_by_id.get(str(shape_id))
+            expected_kind = "group" if manifest_item["kind"] == "group" else (
+                "picture" if manifest_item["kind"] == "image" else "shape"
+            )
+            if manifest_item["kind"] in {"chart", "table"}:
+                expected_kind = "graphic-frame"
+            if shape_evidence is None or shape_evidence.get("kind") != expected_kind:
+                failures.append(f"slide-{slide_number}-xml-kind-{shape_id}")
         relationships = {
             relationship.relationship_id: relationship
             for relationship in package.relationships
             if relationship.source_part == slide.get("part")
         }
         for shape, expected_item, manifest_item, shape_evidence in zip(
-            actual, expected_scene_items, expected, evidence
+            actual,
+            expected_leaf_scene_items,
+            expected_leaf_items,
+            [evidence_by_id.get(str(item["shape_id"]), {}) for item in expected_leaf_items],
         ):
             shape_id = manifest_item["shape_id"]
             expected_picture = (
                 expected_item.get("outcome") == "rasterized"
                 or expected_item.get("kind") == "image"
             )
-            if shape.get("type") != ("picture" if expected_picture else "shape"):
+            expected_type = (
+                "graphicFrame"
+                if expected_item.get("kind") in {"chart", "table"}
+                else "picture" if expected_picture else "shape"
+            )
+            if shape.get("type") != expected_type:
                 failures.append(f"slide-{slide_number}-kind-{shape_id}")
             if shape_evidence.get("id") != str(shape_id):
                 failures.append(f"slide-{slide_number}-xml-id-{shape_id}")
@@ -352,6 +401,18 @@ def _assert_scene_created(
                     failures.append(f"slide-{slide_number}-media-{shape_id}")
             elif embed_id is not None:
                 failures.append(f"slide-{slide_number}-unexpected-media-{shape_id}")
+            if expected_item.get("kind") == "table" and shape.get("table") is None:
+                failures.append(f"slide-{slide_number}-table-{shape_id}")
+            if expected_item.get("kind") == "chart":
+                chart_id = shape_evidence.get("chart_relationship_id")
+                relationship = relationships.get(chart_id)
+                if (
+                    shape.get("chart_ref") is None
+                    or relationship is None
+                    or not relationship.relationship_type.endswith("/chart")
+                    or relationship.resolved_target not in package.chart_parts()
+                ):
+                    failures.append(f"slide-{slide_number}-chart-{shape_id}")
     media_hashes = sorted(
         hashlib.sha256(package.parts[name]).hexdigest()
         for name in package.media_parts()
@@ -385,21 +446,52 @@ def _slide_shape_evidence(
     if tree is None:
         return []
     result: list[dict[str, Any]] = []
-    for element in tree:
-        if element.tag not in {f"{{{NS['p']}}}sp", f"{{{NS['p']}}}pic"}:
-            continue
+
+    def visit(element: Any) -> None:
+        kind = {
+            f"{{{NS['p']}}}graphicFrame": "graphic-frame",
+            f"{{{NS['p']}}}grpSp": "group",
+            f"{{{NS['p']}}}pic": "picture",
+            f"{{{NS['p']}}}sp": "shape",
+        }.get(element.tag)
+        if kind is None:
+            return
         non_visual = element.find(f".//{{{NS['p']}}}cNvPr")
-        properties = element.find(f"{{{NS['p']}}}spPr")
-        transform = properties.find(f"{{{NS['a']}}}xfrm") if properties is not None else None
+        properties = element.find(
+            f"{{{NS['p']}}}grpSpPr"
+            if kind == "group"
+            else f"{{{NS['p']}}}xfrm"
+            if kind == "graphic-frame"
+            else f"{{{NS['p']}}}spPr"
+        )
+        transform = (
+            properties
+            if kind == "graphic-frame"
+            else properties.find(f"{{{NS['a']}}}xfrm") if properties is not None else None
+        )
         offset = transform.find(f"{{{NS['a']}}}off") if transform is not None else None
         extent = transform.find(f"{{{NS['a']}}}ext") if transform is not None else None
         blip = element.find(f"{{{NS['p']}}}blipFill/{{{NS['a']}}}blip")
+        chart = next(
+            (node for node in element.iter() if node.tag.endswith("}chart")),
+            None,
+        )
         result.append({
             "id": non_visual.get("id", "") if non_visual is not None else "",
+            "kind": kind,
             "offset": dict(offset.attrib) if offset is not None else {},
             "extent": dict(extent.attrib) if extent is not None else {},
             "embed": blip.get(f"{{{NS['r']}}}embed") if blip is not None else None,
+            "chart_relationship_id": (
+                chart.get(f"{{{NS['r']}}}id") if chart is not None else None
+            ),
         })
+        if kind == "group":
+            for child in element:
+                visit(child)
+
+    for element in tree:
+        visit(element)
     return result
 
 
@@ -449,8 +541,12 @@ def _in_bounds_emu_geometry(offset: dict[str, str], extent: dict[str, str]) -> b
     )
 
 
-def _assert_preservation(manifest: PreservationManifest) -> dict[str, Any]:
-    if manifest.removed:
+def _assert_preservation(
+    manifest: PreservationManifest,
+    *,
+    allow_removals: bool = False,
+) -> dict[str, Any]:
+    if manifest.removed and not allow_removals:
         raise DocumentSkillsError(
             ErrorCode.VALIDATION_FAILED,
             "A PPTX mutation removed package parts.",
@@ -565,16 +661,25 @@ def _required_report(
     source: Path | None = None,
     source_sha256: str | None = None,
     assertions: list[tuple[str, Callable[[Path], dict[str, Any]]]] | None = None,
+    allow_vba: bool = False,
 ) -> dict[str, Any]:
+    deep_assertions = [
+        (
+            "pptx-deep-validation",
+            lambda candidate: validate_deep_package(candidate, allow_vba=allow_vba),
+        ),
+        *(assertions or []),
+    ]
     report = validate_artifact(
         path,
         expected_format="pptx",
         source_path=source,
         source_sha256=source_sha256,
-        reopen=reopen_pptx,
-        assertions=assertions,
+        reopen=lambda candidate: reopen_pptx(candidate, allow_vba=allow_vba),
+        assertions=deep_assertions,
         visual_available=False,
         schema_available=False,
+        allow_dangerous_inventory=allow_vba,
     )
     if report["status"] != "pass":
         failed = [

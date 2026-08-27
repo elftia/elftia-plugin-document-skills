@@ -1,0 +1,27 @@
+{
+  "expected_consumers": [
+    "document-skills",
+    "design-studio"
+  ],
+  "expected_operation": "pptx.template.inspect,pptx.create.from-template",
+  "fixture_id": "B-TPL-01",
+  "format": "json",
+  "invariants": [
+    "schema version remains pinned to the owner package",
+    "stable ids and slot bindings match the adjacent template",
+    "license status remains not_evaluated without Governance evidence"
+  ],
+  "license": "GPL-3.0",
+  "origin": "Elftia-authored synthetic A-Contract metadata.",
+  "path": "templates/semantic-neutral.deck-ir.json",
+  "purpose": "A-Contract deck_ir for semantic-neutral.pptx.",
+  "recipe": "uv run --project plugin --frozen python plugin/tests/fixtures/pptx/ecosystem_bc/generate.py <presentation-contract-root> --write",
+  "redistributable": true,
+  "resource_limits": {
+    "maxBytes": 256000
+  },
+  "schemaVersion": 1,
+  "security_classification": "benign-generated-metadata",
+  "sha256": "sha256:daba2cfc87b5a947fc37de7983dfe296f686f746274ef5f984f02cb2e4b31c21",
+  "sizeBytes": 9670
+}

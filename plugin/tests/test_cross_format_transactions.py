@@ -934,7 +934,7 @@ def test_parent_swap_inside_raw_anchored_rename_reports_displaced_residue(
         pytest.skip("anchored no-replace rename is unavailable")
     real_raw_rename = getattr(parent_anchor_module, raw_rename_name)
 
-    def swap_inside_raw_rename(*args: Any) -> None:
+    def swap_inside_raw_rename(*args: Any, **kwargs: Any) -> None:
         try:
             parent.rename(displaced)
         except PermissionError as error:  # pragma: no cover - platform policy
@@ -944,7 +944,7 @@ def test_parent_swap_inside_raw_anchored_rename_reports_displaced_residue(
         guard.mkdir()
         (guard / "sentinel.bin").write_bytes(b"replacement-tree")
         event["moved"] = True
-        real_raw_rename(*args)
+        real_raw_rename(*args, **kwargs)
 
     monkeypatch.setattr(
         parent_anchor_module,
