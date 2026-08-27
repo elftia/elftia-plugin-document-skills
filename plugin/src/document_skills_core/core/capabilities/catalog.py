@@ -10,6 +10,7 @@ class ProviderId(StrEnum):
     CORE_PYTHON = "core-python"
     CORE_NODE = "core-node"
     HTML_BROWSER = "html-browser"
+    OCR_VISION = "ocr-vision"
     LIBREOFFICE = "libreoffice"
     DOTNET_OPENXML = "dotnet-openxml"
 

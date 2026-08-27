@@ -37,6 +37,9 @@ from tests.support.pptx_ecosystem_fixture import (  # noqa: E402
     EcosystemFixtureWriter,
     FixtureMetadata,
 )
+from tests.support.pptx_reconstruction_fixture import (  # noqa: E402
+    write_reconstruction_fixtures,
+)
 from tests.support.pptx_template_fixture import build_semantic_template  # noqa: E402
 from tests.support.pptx_svg_fixture import write_svg_fixtures  # noqa: E402
 from tests.fixtures.recipes.docx_fixture_support import PNG_1X1  # noqa: E402
@@ -47,6 +50,7 @@ _REGISTRY_PREFIX = "pptx/ecosystem_bc/"
 _REGISTRY_RECIPE = "tests/fixtures/pptx/ecosystem_bc/generate.py"
 _REGISTRY_RECIPE_DEPENDENCIES = [
     "tests/support/pptx_ecosystem_fixture.py",
+    "tests/support/pptx_reconstruction_fixture.py",
     "tests/support/pptx_svg_fixture.py",
     "tests/support/pptx_template_fixture.py",
 ]
@@ -87,6 +91,7 @@ def generate(contract_root: Path, output_root: Path) -> dict[str, object]:
         + _write_template_fixtures(writer)
         + write_svg_fixtures(writer, contract_root)
         + _write_equation_fixtures(writer)
+        + write_reconstruction_fixtures(writer)
     )
     return {**summary, "fixtureCount": 1 + len(fixture_summary), "fixtures": fixture_summary}
 

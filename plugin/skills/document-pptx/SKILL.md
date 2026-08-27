@@ -1,6 +1,6 @@
 ---
 name: document-pptx
-description: Plan, read, inspect, create, edit, export scenes, render, convert, and validate PPTX presentations through the bundled document core.
+description: Plan, read, inspect, create, reconstruct layered slides, edit, export scenes, render, convert, and validate PPTX presentations through the bundled document core.
 ---
 
 # PPTX presentations
@@ -35,6 +35,7 @@ uv run --project "<project-root>" --frozen python "<skill-dir>/scripts/run.py" v
 | `pptx.create` | yes (distinct output) | Styled deck with native text/shapes/tables, editable Office Math, real local raster images, editable native charts, notes, typed themes, seven layout recipes, and `.pptx`/`.potx` template reuse |
 | `pptx.create.from-markdown` | yes (distinct output) | Bounded semantic reconstruction of local UTF-8 Markdown through the typed deck emitter |
 | `pptx.create.from-html` | yes (distinct output) | Fixed 1920x1080 `.slide` HTML deck to editable native text/shapes/images with explicit element fallback |
+| `pptx.reconstruct.from-image` | yes (distinct `.pptx` output) | Provider-gated bounded PNG/JPEG reconstruction into confident editable layers plus smallest-region raster fallback and an explicit audit-asset policy |
 | `pptx.create.from-svg` | yes (distinct `.pptx` output) | Closed-profile local SVG to editable DrawingML primitives/groups/text/table/chart/image objects; whole-slide raster is forbidden |
 | `pptx.scene.export` | yes (new distinct directory) | Inert PPTX to pinned A-Contract Deck IR, constrained per-slide SVG, hash-bound assets, and source mapping |
 | `pptx.template.sanitize` | yes (distinct `.pptx` output) | Inert fail-closed removal of external/OLE relationships plus unreachable-part purge and `.potx` identity downgrade |
@@ -53,6 +54,21 @@ state that no PPTX was created.
 The fixed-canvas/local-asset contract, exact request, safe fallback policy, and
 diagnostic interpretation are in
 `references/html-to-editable-pptx.md`.
+
+## Layered raster reconstruction
+
+Probe `capabilities --json` for `pptx.reconstruct.from-image` before promising
+reconstruction. The optional `ocr-vision` provider is intentionally unavailable
+on a normal installation until an audited adapter is explicitly configured;
+the operation then returns `unavailable`, creates no PPTX, and must not be
+replaced by a single full-slide image deck.
+
+When the operation is available, require the exact fail-closed provider policy,
+an explicit `retain` or `discard` audit-asset policy, and a distinct bounded
+local PNG/JPEG input. Confident text/shapes remain native; low-confidence
+elements use only their smallest source-region crop. Read
+`references/layered-reconstruction.md` for the exact request, receipt and
+coverage fields, audit lifecycle, and whole-slide prohibition.
 
 ## Constrained SVG and scene bundles
 
@@ -163,7 +179,7 @@ do not authorize playback, activation, execution, creation, or editing.
 
 ## Validation
 
-Every create/edit route, including HTML conversion, must pass the deep Core
+Every create/edit route, including HTML conversion and layered reconstruction, must pass the deep Core
 package gate before promotion. The standalone `validate --input ... --json`
 command exposes the same check as `operation.pptx-deep-validation`. Its graph,
 chart/workbook, inventory, and static-layout evidence is described in
@@ -237,6 +253,12 @@ provider is absent, but becomes a required promotion gate when it is callable.
 - **SVG fallback boundary:** Whole-slide or near-whole-slide raster fallback is
   forbidden. Native/approximated/rasterized coverage and every SVG-node-to-PPTX
   mapping remain explicit under `diagnostics.operation_result`.
+- **Reconstruction truth:** `pptx.reconstruct.from-image` requires the typed
+  `ocr-vision` provider and never falls back to a single-image presentation.
+  Editable coverage is computed independently by overlap-safe source-region
+  area and emitted object count. `retain` publishes a distinct hashed report
+  artifact; `discard` leaves no operation-owned source copy. Neither policy
+  modifies or deletes the caller-owned raster.
 - **Visual validation:** It reports `unavailable` without LibreOffice and never
   becomes `pass` from structural or DOM evidence alone. `pptx.render` passes a
   required visual gate only after every slide PNG and the full-deck PDF reopen
