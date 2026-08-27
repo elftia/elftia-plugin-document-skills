@@ -29,8 +29,10 @@ from tools.html_pptx_provenance import (
 )
 from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+    README_SYSTEM_REQUIREMENT,
     cross_format_capability_module_profile,
     pptx_openxml_module_profile,
+    readme_system_profile,
     regenerate,
     xlsx_data_profile,
     xlsx_module_profile,
@@ -38,6 +40,7 @@ from tools.regenerate_provenance import (
 
 _HTML_XLSX_REQUIREMENT = (
     "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+    "document-skills-readme-system + "
     "document-skills-core-xlsx + "
     "document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring"
 )
@@ -508,16 +511,22 @@ def test_html_readme_uses_the_complete_xlsx_profile(project_root):
     html_profile = html_pptx_data_profile("README.md")
     reconstruction_profile = reconstruction_b7_data_profile("README.md")
     xlsx_profile = xlsx_data_profile("README.md")
+    readme_profile = readme_system_profile("README.md")
     assert html_profile is not None
     assert reconstruction_profile is not None
     assert xlsx_profile is not None
+    assert readme_profile is not None
     assert record["requirement_source"] == _HTML_XLSX_REQUIREMENT
     assert record["modifications"] == (
-        f"{html_profile[0]} {reconstruction_profile[0]} {xlsx_profile[0]}"
+        f"{html_profile[0]} {reconstruction_profile[0]} {xlsx_profile[0]} "
+        f"{readme_profile[0]}"
     )
     assert record["artifact_tests"] == _merged_values(
-        _merged_values(html_profile[1], reconstruction_profile[1]),
-        xlsx_profile[1],
+        _merged_values(
+            _merged_values(html_profile[1], reconstruction_profile[1]),
+            xlsx_profile[1],
+        ),
+        readme_profile[1],
     )
 
 
@@ -574,6 +583,7 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             record["artifact"]
         )
         xlsx_profile = xlsx_data_profile(record["artifact"])
+        readme_profile = readme_system_profile(record["artifact"])
         expected_profile = _combined_profile(
             html_profile,
             template_profile,
@@ -582,6 +592,7 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             equation_b6_profile,
             reconstruction_b7_profile,
             xlsx_profile,
+            readme_profile,
         )
         assert expected_profile is not None
         if xlsx_profile:
@@ -605,6 +616,7 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
                     if reconstruction_b7_profile
                     else None
                 ),
+                README_SYSTEM_REQUIREMENT if readme_profile else None,
             )
         assert record["requirement_source"] == expected_requirement
         assert record["modifications"] == expected_profile[0]

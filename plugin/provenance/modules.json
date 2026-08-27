@@ -70,17 +70,19 @@
         "tests/test_xlsx_structural_refs.py",
         "tests/test_xlsx_table_create.py",
         "tests/test_xlsx_table_edit.py",
-        "tests/test_xlsx_worksheet_edit.py"
+        "tests/test_xlsx_worksheet_edit.py",
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py"
       ],
       "classification": "reviewed-data",
-      "modifications": "Capability-probed consumer guidance for bounded HTML-to-editable-PPTX conversion and truthful fidelity diagnostics. B7 layered-reconstruction guidance, deterministic fixtures, bounded provider and audit evidence, historical-review hash binding, exact runtime-source policy, and SBOM proof that no OCR dependency was added. Shared original Core, completion-operation, and advanced-authoring XLSX contracts, orchestration, validation, Skill facade, direct tests, or release evidence.",
-      "reason": "Capability-probed consumer guidance for bounded HTML-to-editable-PPTX conversion and truthful fidelity diagnostics. B7 layered-reconstruction guidance, deterministic fixtures, bounded provider and audit evidence, historical-review hash binding, exact runtime-source policy, and SBOM proof that no OCR dependency was added. Shared original Core, completion-operation, and advanced-authoring XLSX contracts, orchestration, validation, Skill facade, direct tests, or release evidence.",
-      "requirement_source": "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "modifications": "Capability-probed consumer guidance for bounded HTML-to-editable-PPTX conversion and truthful fidelity diagnostics. B7 layered-reconstruction guidance, deterministic fixtures, bounded provider and audit evidence, historical-review hash binding, exact runtime-source policy, and SBOM proof that no OCR dependency was added. Shared original Core, completion-operation, and advanced-authoring XLSX contracts, orchestration, validation, Skill facade, direct tests, or release evidence. Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Capability-probed consumer guidance for bounded HTML-to-editable-PPTX conversion and truthful fidelity diagnostics. B7 layered-reconstruction guidance, deterministic fixtures, bounded provider and audit evidence, historical-review hash binding, exact runtime-source policy, and SBOM proof that no OCR dependency was added. Shared original Core, completion-operation, and advanced-authoring XLSX contracts, orchestration, validation, Skill facade, direct tests, or release evidence. Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + document-skills-readme-system + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
       ],
       "reviewer": "/root/b7_release_review",
-      "sha256": "2e372ba3537c45574a63d8be396b0ee38a49f3a186ed506f588607039ab651ea"
+      "sha256": "0b31a706b0b1cc8dff439bce526f25181395b837c1a9c63575f57acca38d1536"
     },
     {
       "artifact": "THIRD_PARTY_NOTICES.md",
@@ -114,6 +116,23 @@
       ],
       "reviewer": "/root/b7_release_review",
       "sha256": "17601e840f1d8aff1106ddf7dcbf85e32697ee06a700556fe3433fb7bb4c5d98"
+    },
+    {
+      "artifact": "consumer_validation/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "7254ad0f382c497d912a4c54aa252ead4ce77dafd373158eabb9d576a3339972"
     },
     {
       "artifact": "elftia-plugin.json",
@@ -156,6 +175,23 @@
       ],
       "reviewer": "/root/b7_release_review",
       "sha256": "1cdeb1067d4becbcd1fff8967279f0ea583073d630a19e5f98b8fd62a161ac04"
+    },
+    {
+      "artifact": "provenance/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "ebd652736b8eff03e33f39ebaad43c0d2ffb414fa4ea5dd68b49c908b814b116"
     },
     {
       "artifact": "provenance/adoption-review-template.md",
@@ -719,6 +755,23 @@
       "sha256": "bca9da6a21d022c2bcd367e3249e54928646304a2800828b401ef0635aad7394"
     },
     {
+      "artifact": "schemas/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "450a78d9436133d0bf29e39457a1d42c95e37a46f342154e8c5515099a96337d"
+    },
+    {
       "artifact": "schemas/capability-report.schema.json",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -767,6 +820,23 @@
       ],
       "reviewer": "/root/b7_release_review",
       "sha256": "4960e755255c26d74d520547a3f3095edf4e0abf30a1d5e2b48ef0ce9f99c038"
+    },
+    {
+      "artifact": "skills/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "ad7c5a287215ea57f092f89f981b3aa46339b3eac09dfed4842ff0e96cdcc974"
     },
     {
       "artifact": "skills/document-docx/SKILL.md",
@@ -2029,6 +2099,108 @@
       "sha256": "8661151a9384b5de7b6995d8284f2f67dafa1b444559b29519e1b20c0f575b2a"
     },
     {
+      "artifact": "src/document_skills_core/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "52d748ed041e4364039de7f6dcd86d91db93b51c2df5d9ec53894ca4ad2aa8df"
+    },
+    {
+      "artifact": "src/document_skills_core/formats/docx/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "5d22c1954b9645406e05e39bc5161465858ddaec0cfc86a3f09e00ded6a39c61"
+    },
+    {
+      "artifact": "src/document_skills_core/formats/pdf/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "22bb6af3fbf018a265bec44fbb1b36ee93a68b929cbd222e41a4b4873474e46f"
+    },
+    {
+      "artifact": "src/document_skills_core/formats/pptx/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "46807497e144fc01eed56d1c263b9033af1f822bbacf0da99d13ee90f8219049"
+    },
+    {
+      "artifact": "src/document_skills_core/formats/xlsx/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "f9780f4444315d3cb0061fe44165f417c601b010126b0b0415e9b0f866732d75"
+    },
+    {
+      "artifact": "tests/README.md",
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "classification": "reviewed-data",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "reason": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "4011373f6dba469fab31e7e9c79f3ce0a1aa3ad3bdd7c2507b5ba9c06b977c4a"
+    },
+    {
       "artifact": "tests/fixtures/POLICY.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -2466,7 +2638,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
       ],
       "reviewer": "/root/b7_release_review",
-      "sha256": "7f5243daad19cb7a1dc6bfe7ab6f5a7c6241601f2da4d8b5e5c82c70b47f2d4b"
+      "sha256": "9ac9ea27b5095fd1dddd116194feb08ec0ea97adbaae3d2b9acdefbb48b96535"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/equations/supported.json",
@@ -4599,6 +4771,26 @@
       ],
       "reviewer": "/root/b7_release_review",
       "sha256": "4c3689d0d59a33c4ad9681a705d0c87815cbb3c4ed75ee5b2e737ccaf96bb64c",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "module": "runtime/node/README.md",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "13c1a4d25a48a4987fe49485ca937264aba51664326b78ad390fca4fc0cd76ce",
       "source_class": "original",
       "third_party_files": []
     },
@@ -14625,6 +14817,26 @@
     },
     {
       "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "module": "src/document_skills_core/providers/README.md",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "f3a129fddf874b83325808e99a57491b3aa0b765de2c1498cc3c3546be40d37b",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_runtime.py"
@@ -17734,7 +17946,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
       ],
       "reviewer": "/root/b7_release_review",
-      "sha256": "e64af2ae22687ce85c71ec3befaae4ccef59dae98a0434f8e2a02cb7d5ee4d93",
+      "sha256": "6cca60fb3f98e22ed26cb9983cee01ca9066db2231c15a06c4413b242888b78c",
       "source_class": "original",
       "third_party_files": []
     },
@@ -19311,6 +19523,26 @@
     },
     {
       "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "module": "tests/test_readme_provenance.py",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "22d9f6368a9a8ff2161a4f866df28b17e9d34559aa433d109a4a704068d5e1a2",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_pptx_contracts.py",
         "tests/test_html_pptx_public.py",
         "tests/test_runtime.py",
@@ -19607,7 +19839,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
       ],
       "reviewer": "/root/b7_release_review",
-      "sha256": "ff6a23b2a157bfeac26e9cfd3014de473c62caa89c994e7755bc2739cde7c145",
+      "sha256": "e94c48340b388c16a7030b2b2550b5bf032eb55c7a5efb3e6f7b5bc496f3ae3a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -20931,6 +21163,26 @@
     },
     {
       "artifact_tests": [
+        "tests/test_readme_provenance.py",
+        "tests/test_structure.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Layered producer README navigation, truthful capability and verification boundaries, executable-reference validation, or direct provenance evidence.",
+      "module": "tools/README.md",
+      "requirement_source": "Rasen document-skills-readme-system",
+      "review_evidence": [
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
+      ],
+      "reviewer": "/root/b7_release_review",
+      "sha256": "62f4b1e9cd2db1f1ac43fa2269caea4a44dad143adbf0c9f1538e38edb22bed4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_supply_chain.py"
@@ -21721,7 +21973,7 @@
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md"
       ],
       "reviewer": "/root/b7_release_review",
-      "sha256": "07de1085afd9b91f291835302d440ce870f4d66f38528899ebedc575591cabe7",
+      "sha256": "a3e8c4ab7d70aa9d651c58d765981299dc3ca900934a9c3b8812a2e46af2d5b8",
       "source_class": "original",
       "third_party_files": []
     },
@@ -21839,14 +22091,14 @@
   "review_attestations": [
     {
       "approval_claimed": true,
-      "id": "document-skills-0.5.3-pptx-b7-repaired-exact-mapping-review",
-      "identity": "codex-reviewer/document-skills-0.5.3-pptx-b7/repaired-release-review-2026-08-27",
+      "id": "document-skills-readme-system-release-review-2026-08-28",
+      "identity": "codex-reviewer/document-skills-readme-system/release-review-2026-08-28",
       "identity_assurance": "self-asserted",
-      "identity_limitations": "This session-local/process identity is self-asserted and is not cryptographically verified. It does not prove the backing model, service principal, human operator, maintainer approval, remote CI, PowerPoint, LibreOffice, production OCR/vision adapter execution, commit, push, pull request, or merge.",
+      "identity_limitations": "This runtime/process identity is self-asserted and is not cryptographically verified. It does not prove the backing model, service principal, human operator, maintainer approval, complete pytest, artifact build or validation, distribution E2E, release packaging, reproducibility, remote CI, live Office consumers, optional providers, commit, push, pull request, or merge.",
       "report_evidence": "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md",
       "report_name": "document-skills-0.5.3-pptx-b7-merge-review.md",
-      "report_sha256": "22115ebba07fc1682923a309cdb9f10f242ed3f06924087e54d42baad8356273",
-      "reviewed_mapping_sha256": "2503d0510b97349b2b1cb81309a84e10e5c81e62f300236e54bae1bc1bc1806d",
+      "report_sha256": "603a1f7d4146fb4d3fd9fe37ecced79599d20b7661339cece02b3c983fb80468",
+      "reviewed_mapping_sha256": "6bff123ee8f582bad41f5feb0f0a44c02ce518aa9f3fa163ccaae08149e5e940",
       "reviewer": "/root/b7_release_review",
       "role": "reviewer",
       "runtime": "codex",

@@ -637,6 +637,7 @@ def test_xlsx_data_provenance_respects_change_boundaries(project_root):
         ),
         "README.md": (
             "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b7 + "
+            "document-skills-readme-system + "
             "document-skills-core-xlsx + "
             "document-skills-xlsx-completion + "
             "document-skills-xlsx-advanced-authoring"
