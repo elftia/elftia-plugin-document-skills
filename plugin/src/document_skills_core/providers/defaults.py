@@ -21,6 +21,8 @@ from document_skills_core.providers.dotnet import build_dotnet_provider
 from document_skills_core.providers.libreoffice import build_libreoffice_provider
 from document_skills_core.providers.html_browser.provider import build_html_browser_provider
 from document_skills_core.providers.ocr_vision import build_ocr_vision_provider
+from document_skills_core.providers.pypdf import build_pypdf_provider
+from document_skills_core.providers.pdf_tools import build_pdf_tool_providers
 
 _XLSX_CORE_ONLY_ENV = "DOCUMENT_SKILLS_XLSX_CORE_ONLY"
 _PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
@@ -211,6 +213,8 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
                 Capability("pdf.create", "core", validation_strength=2),
                 Capability("pdf.edit", "core", validation_strength=2),
                 Capability("pdf.rewrite.apply", "core", validation_strength=2),
+                Capability("pdf.images.extract", "core", validation_strength=2),
+                Capability("pdf.table.extract", "core", validation_strength=1),
             ],
             required=True,
         )
@@ -232,4 +236,7 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
     registry.register_provider(dotnet_def)
     registry.register_provider(html_browser_provider)
     registry.register_provider(ocr_vision_provider)
+    registry.register_provider(build_pypdf_provider(project_root))
+    for pdf_tool_provider in build_pdf_tool_providers(project_root):
+        registry.register_provider(pdf_tool_provider)
     return registry

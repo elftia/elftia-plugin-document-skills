@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.create",
+  "output": "<created.pdf>",
+  "arguments": {
+    "document": {
+      "metadata": {
+        "title": "Minimal PDF",
+        "author": "Elftia Document Skills",
+        "subject": ""
+      },
+      "page_size": "A4",
+      "pages": [
+        {
+          "blocks": [
+            {
+              "type": "paragraph",
+              "text": "A reachable public PDF create request.",
+              "style": null,
+              "table": null,
+              "image": null,
+              "shape": null
+            }
+          ],
+          "metadata": null
+        }
+      ]
+    }
+  }
+}

@@ -41,6 +41,8 @@ Requests and results use `schema_version: "1.0"` and the checked-in [JSON Schema
 
 Semantic degradation requires caller authorization where the operation contract offers it. An optional validator that did not run is `unavailable` or `not_run`, never `pass`.
 
+Provider-gated operations remain visible but truthfully unavailable until their exact provider contract is satisfied. For example, `pptx.reconstruct.from-image` requires the explicitly configured `ocr-vision` adapter described by the [PPTX format module](src/document_skills_core/formats/pptx/README.md); no production OCR/vision adapter is configured in the shipped default.
+
 ### Managed Elftia lifecycle
 
 Official and Steam builds ship the same release inventory under `resources/plugins/agent-surface/document-skills`. A fresh profile installs it through the normal managed local-plugin installer. The native `elftia-plugin.json` and Claude-compatible `.claude-plugin/plugin.json` identify the same bundle and `skills/` directory; they do not create two installed copies.
@@ -49,11 +51,17 @@ The bundle contributes Skills only when the managed installation is enabled and 
 
 When active, the managed replacement suppresses only read-only legacy Skills named exactly `document` or `elftia-document`. Workspace, project, and personal Skills are not removed or rewritten.
 
+## Public protocol containment
+
+Each documented command starts a private, one-shot Python worker. The supervisor owns argument classification, cancellation, final schema validation, and the only public stdout write. It sends one bounded ASCII command envelope through worker stdin and accepts one bounded, canonical ASCII terminal frame; the public protocol creates no command or result files. Provider stdout and stderr are bounded and discarded as protocol data.
+
+The worker runs from an empty, identity-bound private workspace, which is lifecycle state rather than a result channel. HTML capture is separate: its provider-internal browser handoff binds private scene and asset files to its own command nonce and hard byte/time ceilings. Provider exceptions, `SystemExit`, provider-created interrupts, hangs, output overflow, `os._exit`, and worker crashes become schema-valid failures or unavailable reports. This is reliability and protocol containment, not OS privilege isolation; the worker still runs with the invoking user's filesystem permissions.
+
 ## Safety and failure semantics
 
 - Writes use private staging, required validation, atomic promotion, source-hash verification, and cleanup. In-place mutation is rejected unless an operation explicitly implements a tested recovery protocol; none currently do.
 - OOXML preflight inventories macros, XLM, ActiveX, OLE/embedded objects, templates, DDE, external relationships, and executable parts. Unsafe content returns `DS_ARCHIVE_UNSAFE` unless a narrowly documented inert copy-through policy applies.
-- Each command runs a one-shot supervised worker. Cancellation, exceptions, output overflow, provider exits, hangs, and crashes become bounded schema-valid results. A nonce-bound result file is the only worker protocol channel.
+- Each command runs a one-shot supervised worker. Cancellation, exceptions, output overflow, provider exits, hangs, and crashes become bounded schema-valid results. The supervisor accepts only the terminal nonce-bound frame on worker stdout; private workspace state is never a result channel.
 - This is protocol and transaction containment, not an OS privilege sandbox. Workers retain the invoking user's filesystem permissions.
 - Optional provider absence returns `unavailable` and publishes nothing for provider-required operations. See the [provider matrix](src/document_skills_core/providers/README.md).
 

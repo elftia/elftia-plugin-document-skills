@@ -6,11 +6,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
+from document_skills_core.core.contracts.serialization import render_json_bytes
+
 PROTOCOL_VERSION = "1.0"
 MAX_COMMAND_BYTES = 65_536
 MAX_WORKER_BYTES = 2_097_152
 MAX_INVOCATION_BASE_BYTES = 32_768
 COMMANDS = frozenset({"doctor", "capabilities", "run", "validate"})
+WORKER_FRAME_PREFIX = b"DOCUMENT_SKILLS_WORKER_FRAME_V1 "
 
 
 @dataclass(frozen=True)
@@ -56,7 +60,10 @@ def command_envelope(
     }
 
 
-def validate_command_envelope(value: Any, invocation_id: str) -> dict[str, Any]:
+def validate_command_envelope(
+    value: Any,
+    invocation_id: str | None = None,
+) -> dict[str, Any]:
     expected = {
         "protocol_version",
         "invocation_id",
@@ -69,17 +76,24 @@ def validate_command_envelope(value: Any, invocation_id: str) -> dict[str, Any]:
         raise ValueError("invalid command envelope fields")
     if value["protocol_version"] != PROTOCOL_VERSION:
         raise ValueError("unsupported private protocol")
-    if value["invocation_id"] != invocation_id:
+    private_id = value["invocation_id"]
+    if (
+        type(private_id) is not str
+        or not private_id
+        or len(private_id.encode("ascii", errors="strict")) > 128
+    ):
+        raise ValueError("invalid private nonce")
+    if invocation_id is not None and private_id != invocation_id:
         raise ValueError("private nonce mismatch")
     if value["command"] not in COMMANDS:
         raise ValueError("unknown private command")
     if value["format"] not in {"docx", "xlsx", "pptx", "pdf"}:
         raise ValueError("unknown private format")
-    if type(value["argv"]) is not list or any(type(item) is not str for item in value["argv"]):
+    if type(value["argv"]) is not list or any(
+        type(item) is not str for item in value["argv"]
+    ):
         raise TypeError("private argv must be a string list")
-    value["invocation_base"] = str(
-        validate_invocation_base(value["invocation_base"])
-    )
+    value["invocation_base"] = str(validate_invocation_base(value["invocation_base"]))
     return value
 
 
@@ -137,16 +151,61 @@ def validate_worker_envelope(
     return value
 
 
-def read_bounded_json(path: Path, ceiling: int) -> Any:
-    if path.is_symlink() or not path.is_file():
-        raise ValueError("private result is missing or a link")
-    size = path.stat().st_size
-    if size <= 0 or size > ceiling:
-        raise ValueError("private result exceeds its byte ceiling")
-    raw = path.read_bytes()
-    text = raw.decode("utf-8", errors="strict")
-    decoder = json.JSONDecoder()
-    value, end = decoder.raw_decode(text)
-    if text[end:].strip():
-        raise ValueError("private result contains multiple values")
-    return value
+def encode_worker_terminal_frame(value: Any, ceiling: int = MAX_WORKER_BYTES) -> bytes:
+    rendered = render_json_bytes(value)
+    if len(rendered) > ceiling:
+        raise ValueError("private worker result exceeds its ceiling")
+    return b"\n" + WORKER_FRAME_PREFIX + rendered
+
+
+def parse_worker_terminal_frame(
+    stdout: str,
+    ceiling: int,
+    invocation_id: str,
+    command: str,
+) -> dict[str, Any]:
+    marker = "\n" + WORKER_FRAME_PREFIX.decode("ascii")
+    start = stdout.rfind(marker)
+    if start < 0:
+        raise ValueError("private worker terminal frame is missing")
+    terminal = stdout[start + 1 :]
+    try:
+        encoded = terminal.encode("ascii", errors="strict")
+    except UnicodeError as error:
+        raise ValueError("private worker terminal frame is not ASCII") from error
+    if not encoded.startswith(WORKER_FRAME_PREFIX):
+        raise ValueError("private worker terminal frame marker is invalid")
+    rendered = encoded[len(WORKER_FRAME_PREFIX) :]
+    if len(rendered) <= 1 or len(rendered) > ceiling or not rendered.endswith(b"\n"):
+        raise ValueError("private worker terminal frame exceeds its byte ceiling")
+    try:
+        value = json.loads(rendered.decode("ascii", errors="strict"))
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError("private worker terminal frame is malformed") from error
+    if WORKER_FRAME_PREFIX + render_json_bytes(value) != encoded:
+        raise ValueError(
+            "private worker terminal frame is not canonical or has trailing data"
+        )
+    return validate_worker_envelope(value, invocation_id, command)
+
+
+def worker_failure_category(error: BaseException) -> str:
+    if isinstance(error, DocumentSkillsError):
+        reason_category = error.details.get("reason_category")
+        if reason_category in {"cancelled", "worker_exit"}:
+            return reason_category
+        if error.code == ErrorCode.PROCESS_TIMEOUT:
+            return "timeout"
+    text = str(error).casefold()
+    if "byte ceiling" in text or "output exceeded" in text:
+        return "overflow"
+    return "invalid_worker_result"
+
+
+def worker_schema(command: str) -> str:
+    return {
+        "doctor": "doctor-report",
+        "capabilities": "capability-report",
+        "run": "operation-result",
+        "validate": "validation-report",
+    }[command]

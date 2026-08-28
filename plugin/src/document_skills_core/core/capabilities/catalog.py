@@ -9,6 +9,9 @@ from typing import Any
 class ProviderId(StrEnum):
     CORE_PYTHON = "core-python"
     CORE_NODE = "core-node"
+    PYPDF = "pypdf"
+    POPPLER = "poppler"
+    TESSERACT_OCR = "tesseract-ocr"
     HTML_BROWSER = "html-browser"
     OCR_VISION = "ocr-vision"
     LIBREOFFICE = "libreoffice"

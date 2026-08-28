@@ -34,3 +34,7 @@ export function runUv(args, options = {}) {
   return runCommand(executable, args, options);
 }
 
+export function pythonCompileallArgs() {
+  const excludeFixtures = String.raw`(^|[\\/])tests[\\/]fixtures([\\/]|$)`;
+  return ['python', '-m', 'compileall', '-q', '-x', excludeFixtures, 'src', 'tools', 'tests'];
+}

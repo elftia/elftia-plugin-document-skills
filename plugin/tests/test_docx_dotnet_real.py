@@ -28,7 +28,7 @@ def _public(project_root: Path, *arguments: str) -> dict[str, object]:
         capture_output=True,
         text=False,
         check=False,
-        timeout=120,
+        timeout=300,
     )
     assert completed.stderr == b""
     payload = json.loads(completed.stdout.decode("utf-8", errors="strict"))

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.encrypt",
+  "input": "<source.pdf>",
+  "output": "<encrypted.pdf>",
+  "secrets": {
+    "user_password": "<user-password>",
+    "owner_password": "<distinct-owner-password>"
+  },
+  "arguments": {
+    "algorithm": "AES-256-R5",
+    "permissions": ["extract", "print"],
+    "encrypt_metadata": true
+  }
+}

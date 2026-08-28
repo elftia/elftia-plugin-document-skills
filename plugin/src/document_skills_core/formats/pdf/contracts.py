@@ -1,4 +1,4 @@
-"""Strict bounded argument contracts for the five Core PDF operations.
+"""Strict bounded argument contracts for accepted PDF operations.
 
 Module provenance: original Elftia-authored clean-room implementation.
 """
@@ -11,14 +11,29 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.io.paths import same_path
 
 from .constants import (
-    MAX_ARGUMENT_TEXT,
     MAX_BLOCKS_PER_PAGE,
     MAX_EDIT_PRIMITIVES,
     MAX_PAGES,
     MAX_REWRITE_BLOCKS,
-    MAX_TABLE_COLS,
-    MAX_TABLE_ROWS,
 )
+from .contract_utils import (
+    boolean as _boolean,
+    bounded_number as _bounded_number,
+    exact_keys as _exact_keys,
+    integer as _integer,
+    invalid as _invalid,
+    number as _number,
+    optional_path as _optional_path,
+    text as _text,
+)
+from .create_contracts import parse_block_style
+from .document_contracts import parse_document
+from .edit_contracts import parse_edit_primitive
+from .extract_contracts import parse_images_extract_arguments
+from .font_contracts import parse_font_assets, parse_sha256, require_unicode_font
+from .optional_provider_contracts import parse_optional_provider_arguments
+from .provider_contracts import parse_provider_arguments
+from .table_contracts import parse_table_extract_arguments
 
 PDF_OPERATIONS = frozenset(
     {
@@ -27,10 +42,30 @@ PDF_OPERATIONS = frozenset(
         "pdf.create",
         "pdf.edit",
         "pdf.rewrite.apply",
+        "pdf.images.extract",
+        "pdf.encrypt",
+        "pdf.decrypt",
+        "pdf.compress",
+        "pdf.render",
+        "pdf.ocr",
+        "pdf.table.extract",
     }
 )
 
-EDIT_PRIMITIVES = frozenset({"merge", "split", "rotate", "watermark", "form_fill"})
+EDIT_PRIMITIVES = frozenset({
+    "merge",
+    "split",
+    "rotate",
+    "watermark",
+    "form_fill",
+    "metadata_update",
+    "outline",
+    "annotation",
+    "page_insert",
+    "page_sequence",
+    "page_labels",
+    "redact_text",
+})
 
 
 @dataclass(frozen=True)
@@ -49,12 +84,16 @@ def parse_pdf_request(request: dict[str, Any]) -> ParsedPdfRequest:
     arguments = request.get("arguments", {})
     if type(arguments) is not dict:
         _invalid("PDF arguments must be an object.", field="arguments")
+    secrets = request.get("secrets", {})
+    if type(secrets) is not dict:
+        _invalid("PDF secrets must be an object.", field="secrets")
+    arguments = _bind_provider_secrets(operation, arguments, secrets)
     input_path = _optional_path(request.get("input"), "input")
     output_path = _optional_path(request.get("output"), "output")
     options = request.get("options", {})
     fidelity = options.get("fidelity", "core") if type(options) is dict else "core"
     in_place = options.get("in_place", False) if type(options) is dict else False
-    if operation in {"pdf.read", "pdf.inspect.structure"}:
+    if operation in {"pdf.read", "pdf.inspect.structure", "pdf.table.extract"}:
         if input_path is None:
             _invalid("This PDF operation requires an input path.", field="input")
         if output_path is not None:
@@ -68,10 +107,22 @@ def parse_pdf_request(request: dict[str, Any]) -> ParsedPdfRequest:
         _invalid("PDF mutation requires distinct input and output paths.")
     if input_path is not None and input_path.suffix.casefold() != ".pdf":
         _invalid("PDF input path must use the .pdf extension.", field="input")
-    if output_path is not None and output_path.suffix.casefold() != ".pdf":
-        _invalid("PDF output path must use the .pdf extension.", field="output")
-    if operation in {"pdf.edit", "pdf.rewrite.apply", "pdf.create"}:
-        if in_place or (input_path is not None and output_path is not None and same_path(input_path, output_path)):
+    expected_output_suffix = (
+        ".zip"
+        if operation in {"pdf.images.extract", "pdf.render", "pdf.ocr"}
+        else ".pdf"
+    )
+    if output_path is not None and output_path.suffix.casefold() != expected_output_suffix:
+        _invalid(
+            f"PDF operation output path must use the {expected_output_suffix} extension.",
+            field="output",
+        )
+    if operation in PDF_OPERATIONS - {"pdf.read", "pdf.inspect.structure"}:
+        if in_place or (
+            input_path is not None
+            and output_path is not None
+            and same_path(input_path, output_path)
+        ):
             raise DocumentSkillsError(
                 ErrorCode.OUTPUT_EQUALS_INPUT,
                 "Core PDF mutations require a distinct output and do not support in-place mode.",
@@ -85,23 +136,104 @@ def parse_pdf_request(request: dict[str, Any]) -> ParsedPdfRequest:
         "pdf.create": _parse_create,
         "pdf.edit": _parse_edit,
         "pdf.rewrite.apply": _parse_rewrite,
+        "pdf.images.extract": parse_images_extract_arguments,
+        "pdf.encrypt": lambda value: parse_provider_arguments("pdf.encrypt", value),
+        "pdf.decrypt": lambda value: parse_provider_arguments("pdf.decrypt", value),
+        "pdf.compress": lambda value: parse_provider_arguments("pdf.compress", value),
+        "pdf.render": lambda value: parse_optional_provider_arguments("pdf.render", value),
+        "pdf.ocr": lambda value: parse_optional_provider_arguments("pdf.ocr", value),
+        "pdf.table.extract": parse_table_extract_arguments,
     }[operation](arguments)
+    if operation == "pdf.edit" and input_path is not None:
+        for index, primitive in enumerate(parsed["primitives"]):
+            if primitive["type"] != "merge":
+                continue
+            primary = Path(primitive["inputs"][0]["input"])
+            if not same_path(input_path, primary):
+                _invalid(
+                    "The first merge input must match the top-level input path.",
+                    field=f"primitives.{index}.inputs.0.input",
+                )
     return ParsedPdfRequest(operation, input_path, output_path, parsed, fidelity)
+
+
+def _bind_provider_secrets(
+    operation: str,
+    arguments: dict[str, Any],
+    secrets: dict[str, Any],
+) -> dict[str, Any]:
+    expected = {
+        "pdf.encrypt": {"user_password", "owner_password"},
+        "pdf.decrypt": {"password"},
+    }.get(operation, set())
+    leaked = sorted(set(arguments) & {"user_password", "owner_password", "password"})
+    if leaked:
+        _invalid(
+            "PDF passwords must be supplied through the top-level secrets field.",
+            field="arguments",
+            unknown=leaked,
+        )
+    unknown = sorted(set(secrets) - expected)
+    if unknown:
+        _invalid("Unknown PDF secret field.", field="secrets", unknown=unknown)
+    if secrets and not expected:
+        _invalid("This PDF operation does not accept secrets.", field="secrets")
+    return {**arguments, **secrets}
 
 
 def _parse_read(value: dict[str, Any]) -> dict[str, Any]:
     _exact_keys(value, {
         "include_annotations", "include_forms", "include_embedded_files",
-        "max_pages", "max_blocks_per_page",
+        "max_pages", "max_blocks_per_page", "pages", "bbox",
+        "reading_order", "column_count",
     })
+    pages = value.get("pages")
+    if pages is not None:
+        if type(pages) is not list or not pages or len(pages) > MAX_PAGES:
+            _invalid("pages must be a non-empty bounded array.", field="pages")
+        pages = [_integer(page, 1, MAX_PAGES) for page in pages]
+        if len(set(pages)) != len(pages):
+            _invalid("pages must not contain duplicates.", field="pages")
+    bbox = value.get("bbox")
+    if bbox is not None:
+        if type(bbox) is not list or len(bbox) != 4:
+            _invalid("bbox must be [x0, y0, x1, y1].", field="bbox")
+        bbox = [
+            _bounded_number(item, f"bbox.{index}", -100_000.0, 100_000.0)
+            for index, item in enumerate(bbox)
+        ]
+        if bbox[0] >= bbox[2] or bbox[1] >= bbox[3]:
+            _invalid("bbox must have positive width and height.", field="bbox")
+    reading_order = value.get("reading_order", "content_stream")
+    if reading_order not in {"content_stream", "geometric", "columns"}:
+        _invalid(
+            "reading_order must be content_stream, geometric, or columns.",
+            field="reading_order",
+        )
+    column_count = value.get("column_count")
+    if column_count is not None:
+        column_count = _integer(column_count, 1, 8)
+    if reading_order == "columns" and column_count is None:
+        column_count = 2
+    if reading_order != "columns" and column_count is not None:
+        _invalid(
+            "column_count is only valid with columns reading order.",
+            field="column_count",
+        )
     return {
         "include_annotations": _boolean(value.get("include_annotations", True), "include_annotations"),
         "include_forms": _boolean(value.get("include_forms", True), "include_forms"),
         "include_embedded_files": _boolean(value.get("include_embedded_files", True), "include_embedded_files"),
         "max_pages": _integer(value.get("max_pages", MAX_PAGES), 1, MAX_PAGES),
         "max_blocks_per_page": _integer(
-            value.get("max_blocks_per_page", MAX_BLOCKS_PER_PAGE), 1, MAX_BLOCKS_PER_PAGE
+            value.get("max_blocks_per_page", MAX_BLOCKS_PER_PAGE),
+            1,
+            MAX_BLOCKS_PER_PAGE,
         ),
+        "pages": pages,
+        "bbox": bbox,
+        "reading_order": reading_order,
+        "column_count": column_count,
     }
 
 
@@ -119,7 +251,7 @@ def _parse_create(value: dict[str, Any]) -> dict[str, Any]:
     document = value.get("document")
     if type(document) is not dict:
         _invalid("create requires a document object.", field="document")
-    return {"document": _parse_document(document)}
+    return {"document": parse_document(document)}
 
 
 def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
@@ -134,7 +266,7 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
         prim_type = primitive.get("type")
         if prim_type not in EDIT_PRIMITIVES:
             _invalid("Unknown edit primitive type.", field=f"primitives.{index}.type")
-        parsed_primitives.append(_parse_primitive(primitive, prim_type, index))
+        parsed_primitives.append(parse_edit_primitive(primitive, prim_type, index))
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)
@@ -142,7 +274,15 @@ def _parse_edit(value: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_rewrite(value: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(value, {"blocks", "rewrites", "expected_edits"})
+    _exact_keys(
+        value,
+        {"blocks", "rewrites", "expected_edits", "fonts", "source_sha256"},
+    )
+    fonts = parse_font_assets(value.get("fonts"), "fonts")
+    font_ids = {font["id"] for font in fonts}
+    source_sha256 = parse_sha256(value.get("source_sha256"), "source_sha256")
+    if source_sha256 is None:
+        _invalid("source_sha256 is required for PDF rewrite.", field="source_sha256")
     blocks = value.get("blocks")
     if type(blocks) is not list or not blocks or len(blocks) > MAX_REWRITE_BLOCKS:
         _invalid("blocks must be a non-empty bounded array.", field="blocks")
@@ -161,7 +301,14 @@ def _parse_rewrite(value: dict[str, Any]) -> dict[str, Any]:
         color = block.get("color")
         if color is not None and type(color) is not list:
             _invalid("block.color must be an array.", field=f"blocks.{index}.color")
-        parsed_blocks.append({"page": page, "bbox": list(bbox), "text": text, "font": font, "size": size, "color": color})
+        parsed_blocks.append({
+            "page": page,
+            "bbox": list(bbox),
+            "text": text,
+            "font": font,
+            "size": size,
+            "color": color,
+        })
     rewrites = value.get("rewrites")
     if type(rewrites) is not list or len(rewrites) > len(blocks):
         _invalid("rewrites must be an array not longer than blocks.", field="rewrites")
@@ -169,315 +316,43 @@ def _parse_rewrite(value: dict[str, Any]) -> dict[str, Any]:
     for index, rewrite in enumerate(rewrites):
         if type(rewrite) is not dict:
             _invalid("Each rewrite must be an object.", field=f"rewrites.{index}")
-        _exact_keys(rewrite, {"block_index", "text"})
+        _exact_keys(rewrite, {"block_index", "text", "style"})
         block_index = _integer(rewrite.get("block_index"), 0, len(blocks) - 1)
         rewrite_text = _text(rewrite.get("text", ""), f"rewrites.{index}.text")
-        _require_lossless_text(
+        source_block = parsed_blocks[block_index]
+        requested_style = rewrite.get("style")
+        if requested_style is None:
+            style = None
+        else:
+            if type(requested_style) is not dict:
+                _invalid("rewrite.style must be an object.", field=f"rewrites.{index}.style")
+            inherited = {
+                "font_size": source_block["size"],
+                "color": source_block["color"] or [0.0, 0.0, 0.0],
+                **requested_style,
+            }
+            style = parse_block_style(
+                inherited,
+                f"rewrites.{index}.style",
+                font_ids=font_ids,
+            )
+        require_unicode_font(
             rewrite_text,
+            style,
             f"rewrites.{index}.text",
-            encoding="latin-1",
         )
-        parsed_rewrites.append({"block_index": block_index, "text": rewrite_text})
+        parsed_rewrites.append({
+            "block_index": block_index,
+            "text": rewrite_text,
+            "style": style,
+        })
     expected = value.get("expected_edits")
     if expected is not None:
         expected = _integer(expected, 0, 1_000_000)
-    return {"blocks": parsed_blocks, "rewrites": parsed_rewrites, "expected_edits": expected}
-
-
-def _parse_document(document: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(document, {"metadata", "page_size", "pages"})
-    metadata = document.get("metadata")
-    if type(metadata) is not dict:
-        _invalid("document.metadata must be an object.", field="metadata")
-    _exact_keys(metadata, {"title", "author", "subject"})
-    parsed_meta = {
-        "title": _text(metadata.get("title", "Elftia PDF"), "metadata.title"),
-        "author": _text(metadata.get("author", "Elftia Document Skills"), "metadata.author"),
-        "subject": _text(metadata.get("subject", ""), "metadata.subject"),
-    }
-    for field, text in parsed_meta.items():
-        _require_lossless_text(text, f"metadata.{field}", encoding="ascii")
-    page_size = document.get("page_size", "A4")
-    if type(page_size) is str:
-        if page_size not in {"A4", "Letter", "Legal"}:
-            _invalid("page_size must be one of: A4, Letter, Legal.", field="page_size")
-    elif type(page_size) is dict:
-        _exact_keys(page_size, {"width", "height"})
-        page_size = {
-            "width": _number(page_size.get("width", 595.276), "page_size.width"),
-            "height": _number(page_size.get("height", 841.89), "page_size.height"),
-        }
-    else:
-        _invalid("page_size must be a string or object.", field="page_size")
-    pages = document.get("pages")
-    if type(pages) is not list or len(pages) < 2 or len(pages) > MAX_PAGES:
-        _invalid("document.pages must contain at least 2 pages (bounded).", field="pages")
-    parsed_pages = []
-    for idx, page in enumerate(pages):
-        if type(page) is not dict:
-            _invalid(f"Page {idx} must be an object.", field=f"pages.{idx}")
-        _exact_keys(page, {"blocks", "metadata"})
-        page_blocks = page.get("blocks", [])
-        if type(page_blocks) is not list:
-            _invalid(f"Page {idx} blocks must be an array.", field=f"pages.{idx}.blocks")
-        parsed_page_blocks = []
-        for b_idx, block in enumerate(page_blocks):
-            if type(block) is not dict:
-                _invalid(f"Block must be an object.", field=f"pages.{idx}.blocks.{b_idx}")
-            _exact_keys(block, {"type", "text", "style", "table", "image", "shape"})
-            block_type = block.get("type")
-            if block_type not in {"heading", "paragraph", "table", "image", "vector_shape"}:
-                _invalid("Unknown block type.", field=f"pages.{idx}.blocks.{b_idx}.type")
-            block_text = _optional_text(block.get("text"), f"pages.{idx}.blocks.{b_idx}.text")
-            if block_text is not None:
-                _require_lossless_text(
-                    block_text,
-                    f"pages.{idx}.blocks.{b_idx}.text",
-                    encoding="latin-1",
-                )
-            style = block.get("style")
-            if style is not None and type(style) is not dict:
-                _invalid("Style must be an object.", field=f"pages.{idx}.blocks.{b_idx}.style")
-            if style is not None:
-                _enhancement(
-                    "PDF block styles and colors are not implemented.",
-                    field=f"pages.{idx}.blocks.{b_idx}.style",
-                    capability="pdf.block-style",
-                )
-            table = _parse_block_table(block.get("table"), f"pages.{idx}.blocks.{b_idx}") if block_type == "table" else None
-            image = _parse_block_image(block.get("image"), f"pages.{idx}.blocks.{b_idx}") if block_type == "image" else None
-            shape = _parse_block_shape(block.get("shape"), f"pages.{idx}.blocks.{b_idx}") if block_type == "vector_shape" else None
-            parsed_page_blocks.append({
-                "type": block_type, "text": block_text, "style": style,
-                "table": table, "image": image, "shape": shape,
-            })
-        page_metadata = page.get("metadata")
-        if page_metadata is not None and type(page_metadata) is not dict:
-            _invalid(f"Page {idx} metadata must be an object.", field=f"pages.{idx}.metadata")
-        parsed_pages.append({"blocks": parsed_page_blocks, "metadata": page_metadata})
-    return {"metadata": parsed_meta, "page_size": page_size, "pages": parsed_pages}
-
-
-def _parse_block_table(table: Any, field_prefix: str) -> dict[str, Any] | None:
-    if table is None:
-        return None
-    if type(table) is not dict:
-        _invalid("table must be an object.", field=f"{field_prefix}.table")
-    _exact_keys(table, {"rows"})
-    rows = table.get("rows", [])
-    if type(rows) is not list or not rows or len(rows) > MAX_TABLE_ROWS:
-        _invalid("table.rows must be a non-empty bounded array.", field=f"{field_prefix}.table.rows")
-    parsed_rows = []
-    for r_idx, row in enumerate(rows):
-        if type(row) is not dict:
-            _invalid("table row must be an object.", field=f"{field_prefix}.table.rows.{r_idx}")
-        _exact_keys(row, {"cells"})
-        cells = row.get("cells", [])
-        if type(cells) is not list or len(cells) > MAX_TABLE_COLS:
-            _invalid("row.cells must be a bounded array.", field=f"{field_prefix}.table.rows.{r_idx}.cells")
-        parsed_cells = [_optional_text(c, f"cells.{c_idx}") if c is not None else None for c_idx, c in enumerate(cells)]
-        for c_idx, cell in enumerate(parsed_cells):
-            if cell is not None:
-                _require_lossless_text(
-                    cell,
-                    f"{field_prefix}.table.rows.{r_idx}.cells.{c_idx}",
-                    encoding="latin-1",
-                )
-        parsed_rows.append({"cells": parsed_cells})
-    return {"rows": parsed_rows}
-
-
-def _parse_block_image(image: Any, field_prefix: str) -> dict[str, Any] | None:
-    if image is None:
-        _enhancement(
-            "Core PDF cannot embed requested image bytes and would emit a placeholder.",
-            field=f"{field_prefix}.image",
-            capability="pdf.real-image",
-        )
-    if type(image) is not dict:
-        _invalid("image must be an object.", field=f"{field_prefix}.image")
-    if not image:
-        _invalid(
-            "image must be a non-empty bounded request.",
-            field=f"{field_prefix}.image",
-        )
-    _exact_keys(image, {"filename", "content_type"})
-    if set(image) != {"filename", "content_type"}:
-        _invalid(
-            "image must include filename and content_type.",
-            field=f"{field_prefix}.image",
-        )
-    filename = _text(
-        image.get("filename"),
-        f"{field_prefix}.image.filename",
-        allow_empty=False,
-    )
-    content_type = _text(
-        image.get("content_type"),
-        f"{field_prefix}.image.content_type",
-        allow_empty=False,
-    )
-    _enhancement(
-        "Core PDF cannot embed requested image bytes and would emit a placeholder.",
-        field=f"{field_prefix}.image",
-        capability="pdf.real-image",
-    )
     return {
-        "filename": filename,
-        "content_type": content_type,
+        "blocks": parsed_blocks,
+        "rewrites": parsed_rewrites,
+        "expected_edits": expected,
+        "fonts": fonts,
+        "source_sha256": source_sha256,
     }
-
-
-def _parse_block_shape(shape: Any, field_prefix: str) -> dict[str, Any] | None:
-    if shape is None:
-        return None
-    if type(shape) is not dict:
-        _invalid("shape must be an object.", field=f"{field_prefix}.shape")
-    _exact_keys(shape, {"kind", "x", "y", "width", "height", "stroke", "fill"})
-    kind = shape.get("kind")
-    if kind not in {"line", "rectangle", "ellipse"}:
-        _invalid("shape.kind must be line, rectangle, or ellipse.", field=f"{field_prefix}.shape.kind")
-    if shape.get("stroke") is not None or shape.get("fill") is not None:
-        _enhancement(
-            "PDF vector stroke and fill colors are not implemented.",
-            field=f"{field_prefix}.shape",
-            capability="pdf.shape-color",
-        )
-    return {
-        "kind": kind,
-        "x": _number(shape.get("x", 0.0), f"{field_prefix}.shape.x"),
-        "y": _number(shape.get("y", 0.0), f"{field_prefix}.shape.y"),
-        "width": _number(shape.get("width", 100.0), f"{field_prefix}.shape.width"),
-        "height": _number(shape.get("height", 100.0), f"{field_prefix}.shape.height"),
-        "stroke": shape.get("stroke"),
-        "fill": shape.get("fill"),
-    }
-
-
-def _parse_primitive(primitive: dict[str, Any], prim_type: str, index: int) -> dict[str, Any]:
-    if prim_type == "merge":
-        _exact_keys(primitive, {"type", "inputs"})
-        inputs = primitive.get("inputs")
-        if type(inputs) is not list or len(inputs) < 2 or len(inputs) > 10:
-            _invalid("merge.inputs must be 2-10 paths.", field=f"primitives.{index}.inputs")
-        return {"type": "merge", "inputs": [_text(p, f"primitives.{index}.inputs") for p in inputs]}
-    if prim_type == "split":
-        _exact_keys(primitive, {"type", "page_ranges"})
-        ranges = primitive.get("page_ranges")
-        if type(ranges) is not list or not ranges:
-            _invalid("split.page_ranges must be a non-empty array.", field=f"primitives.{index}.page_ranges")
-        parsed_ranges = []
-        for r_idx, rng in enumerate(ranges):
-            if type(rng) is not list or len(rng) != 2:
-                _invalid("Each range must be [start, end].", field=f"primitives.{index}.page_ranges.{r_idx}")
-            parsed_ranges.append([_integer(rng[0], 1, MAX_PAGES), _integer(rng[1], 1, MAX_PAGES)])
-        return {"type": "split", "page_ranges": parsed_ranges}
-    if prim_type == "rotate":
-        _exact_keys(primitive, {"type", "pages", "degrees"})
-        pages = primitive.get("pages")
-        if type(pages) is not list or not pages:
-            _invalid("rotate.pages must be a non-empty array.", field=f"primitives.{index}.pages")
-        degrees = primitive.get("degrees")
-        if degrees not in {0, 90, 180, 270, 360}:
-            _invalid("rotate.degrees must be 0/90/180/270/360.", field=f"primitives.{index}.degrees")
-        return {"type": "rotate", "pages": [_integer(p, 1, MAX_PAGES) for p in pages], "degrees": degrees}
-    if prim_type == "watermark":
-        _exact_keys(primitive, {"type", "text", "pages", "opacity"})
-        text = _text(primitive.get("text", ""), f"primitives.{index}.text")
-        _require_lossless_text(
-            text,
-            f"primitives.{index}.text",
-            encoding="latin-1",
-        )
-        pages = primitive.get("pages")
-        if type(pages) is not list or not pages:
-            _invalid("watermark.pages must be a non-empty array.", field=f"primitives.{index}.pages")
-        opacity = primitive.get("opacity", 0.3)
-        opacity = _number(opacity, f"primitives.{index}.opacity")
-        return {"type": "watermark", "text": text, "pages": [_integer(p, 1, MAX_PAGES) for p in pages], "opacity": opacity}
-    # form_fill
-    _exact_keys(primitive, {"type", "fields"})
-    fields = primitive.get("fields")
-    if type(fields) is not dict or not fields:
-        _invalid("form_fill.fields must be a non-empty object.", field=f"primitives.{index}.fields")
-    parsed_fields = {k: _text(v, f"primitives.{index}.fields.{k}") for k, v in fields.items()}
-    return {"type": "form_fill", "fields": parsed_fields}
-
-
-def _exact_keys(value: dict[str, Any], allowed: set[str]) -> None:
-    unknown = sorted(set(value) - allowed)
-    if unknown:
-        _invalid("Unknown PDF operation argument.", unknown=unknown)
-
-
-def _optional_path(value: Any, field: str) -> Path | None:
-    if value is None:
-        return None
-    return Path(_text(value, field, allow_empty=False)).expanduser().resolve(strict=False)
-
-
-def _integer(value: Any, minimum: int, maximum: int) -> int:
-    if type(value) is not int or type(value) is bool or not minimum <= value <= maximum:
-        raise DocumentSkillsError(
-            ErrorCode.REQUEST_INVALID,
-            f"Integer must be between {minimum} and {maximum}.",
-            status="invalid_request",
-        )
-    return value
-
-
-def _number(value: Any, field: str) -> float:
-    if (type(value) is not int and type(value) is not float) or type(value) is bool:
-        _invalid("Value must be a number.", field=field)
-    return float(value)
-
-
-def _boolean(value: Any, field: str) -> bool:
-    if type(value) is not bool:
-        _invalid("Value must be boolean.", field=field)
-    return value
-
-
-def _optional_text(value: Any, field: str) -> str | None:
-    if value is None:
-        return None
-    return _text(value, field)
-
-
-def _text(value: Any, field: str, allow_empty: bool = True) -> str:
-    if type(value) is not str or (not allow_empty and not value):
-        _invalid("Value must be a string.", field=field)
-    if len(value.encode("utf-8", errors="strict")) > MAX_ARGUMENT_TEXT:
-        _invalid("Text exceeds the byte limit.", field=field)
-    return value
-
-
-def _invalid(message: str, **details: Any) -> None:
-    raise DocumentSkillsError(
-        ErrorCode.REQUEST_INVALID,
-        message,
-        status="invalid_request",
-        details=details,
-    )
-
-
-def _enhancement(message: str, **details: Any) -> None:
-    raise DocumentSkillsError(
-        ErrorCode.ENHANCEMENT_REQUIRED,
-        message,
-        status="enhancement_required",
-        details=details,
-    )
-
-
-def _require_lossless_text(text: str, field: str, *, encoding: str) -> None:
-    try:
-        text.encode(encoding, errors="strict")
-    except UnicodeEncodeError as error:
-        _enhancement(
-            "Requested PDF text is not representable by the active Core font path.",
-            field=field,
-            capability="pdf.lossless-text",
-            encoding=encoding,
-            codepoint=f"U+{ord(text[error.start]):04X}",
-        )

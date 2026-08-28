@@ -29,14 +29,16 @@ from document_skills_core.core.process import (
     ProcessResult,
     ProcessRunner,
 )
+from document_skills_core.public_cli.protocol import PublicCommand
+from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
 from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice.constants import platform_known_paths
 from document_skills_core.providers.libreoffice.quota import hard_quota_capability
 
 
-# Covers the bounded 132-second dotnet chain plus the other sequential detectors
-# and Windows process-startup overhead without inheriting their private constants.
-_CORE_REPORT_TIMEOUT_SECONDS = 210
+# Leaves process-startup and teardown headroom above the supervisor's bounded
+# aggregate provider-report budget.
+_CORE_REPORT_TIMEOUT_SECONDS = 300
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -48,6 +50,19 @@ def _detector_state(provider_id: str = "fixture-provider") -> dict:
         "required": False,
         "path": None,
     }
+
+
+def test_provider_reports_cover_the_bounded_serial_probe_chain(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    supervisor = PublicCommandSupervisor(project_root)
+
+    for command_name in ("doctor", "capabilities"):
+        assert supervisor._command_limits(
+            PublicCommand(command_name, (command_name, "--json")),
+            tmp_path,
+        ) == (210.0, 2_097_152)
 
 
 def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
@@ -102,6 +117,9 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "dotnet-openxml",
         "html-browser",
         "ocr-vision",
+        "pypdf",
+        "poppler",
+        "tesseract-ocr",
     } == set(registry.providers)
     ocr_vision = registry.providers["ocr-vision"]
     ocr_state = registry.detect(ocr_vision)
@@ -120,9 +138,11 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         "docx.template.apply",
         "pdf.create",
         "pdf.edit",
+        "pdf.images.extract",
         "pdf.inspect.structure",
         "pdf.read",
         "pdf.rewrite.apply",
+        "pdf.table.extract",
         "pptx.create",
         "pptx.create.from-markdown",
         "pptx.create.from-template",
@@ -145,11 +165,22 @@ def test_optional_descriptors_never_create_callable_operations(project_root):
         bindings = registry.operations.get(operation, [])
         assert all(
             str(binding.provider_id)
-            not in {"libreoffice", "dotnet-openxml", "html-browser"}
+            not in {"libreoffice", "dotnet-openxml", "html-browser", "ocr-vision"}
             for binding in bindings
         ), f"public operation {operation} is bound to an optional provider"
     html_bindings = registry.operations["pptx.create.from-html"]
     assert [str(binding.provider_id) for binding in html_bindings] == ["html-browser"]
+    expected_pdf_provider_bindings = {
+        "pdf.compress": ["pypdf"],
+        "pdf.decrypt": ["pypdf"],
+        "pdf.encrypt": ["pypdf"],
+        "pdf.ocr": ["tesseract-ocr"],
+        "pdf.render": ["poppler"],
+    }
+    assert {
+        operation: [str(binding.provider_id) for binding in registry.operations[operation]]
+        for operation in expected_pdf_provider_bindings
+    } == expected_pdf_provider_bindings
     # The libreoffice provider's internal operations use the libreoffice.* prefix
     # and are consulted enhancement identifiers, NOT public operation routes.
     libreoffice_ops = {
@@ -877,7 +908,7 @@ raise SystemExit(facade.main("docx", root, argv))
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=300,
     )
     assert completed.stdout.count(b"\n") == 1, completed
     assert completed.stderr == b""

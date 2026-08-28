@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -51,6 +52,9 @@ _PERSISTENT_ENVIRONMENT_GUARDS = {
     # HKCU\Environment on Windows. Apply the opt-out to every managed child so
     # direct probes and nested dotnet launches cannot mutate the user's PATH.
     "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
+    # Managed Python workers must not write bytecode into a verified install
+    # tree. This fixed guard is intentionally stricter than caller passthrough.
+    "PYTHONDONTWRITEBYTECODE": "1",
 }
 _FIXED_ENVIRONMENT = {
     "DOCUMENT_SKILLS_PROVIDER_PROFILE": "core-only",
@@ -142,6 +146,17 @@ class _RuntimeCheckWatcher:
             with self._lock:
                 self._error = error
             self._completed.set()
+
+
+_PUBLIC_WORKER_PROVIDER = "public-command-worker"
+_PUBLIC_WORKER_RELATIVE_PATH = Path("src/document_skills_core/worker/main.py")
+_WORKSPACE_FD_FLAG = "--workspace-fd"
+_WORKSPACE_DEVICE_FLAG = "--workspace-device"
+_WORKSPACE_INODE_FLAG = "--workspace-inode"
+
+
+def _path_unsafe(message: str) -> DocumentSkillsError:
+    return DocumentSkillsError(ErrorCode.PATH_UNSAFE, message)
 
 
 @dataclass
@@ -275,6 +290,7 @@ class ProcessRunner:
         private_environment: tuple[str, ...] = (),
         fixed_environment: dict[str, str] | None = None,
     ) -> ProcessResult:
+        executable_path = Path(executable).absolute()
         if script is not None:
             self._check_script(provider_id, script)
             if str(script.resolve()) not in args:
@@ -283,26 +299,93 @@ class ProcessRunner:
                     "Allowlisted provider script is not the script named by argv.",
                     details={"provider": provider_id},
                 )
-        isolated_cwd = (cwd or self.policy.project_root).resolve()
-        if not isolated_cwd.is_relative_to(self.policy.project_root.resolve()):
-            raise DocumentSkillsError(
-                ErrorCode.PATH_UNSAFE, "Process cwd must remain inside the project root."
-            )
-        command = [str(Path(executable).absolute()), *args]
-        creation_flags = (
-            subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
+        launch_cwd = self._contained_cwd(cwd)
+        return self._execute(
+            provider_id,
+            executable_path,
+            [str(executable_path), *args],
+            launch_cwd,
+            (),
+            stdin_json,
+            timeout_seconds,
+            output_limit,
+            runtime_check=runtime_check,
+            private_environment=private_environment,
+            fixed_environment=fixed_environment,
         )
+
+    def run_public_command_worker(
+        self,
+        provider_id: str,
+        executable: str | Path,
+        args: list[str],
+        *,
+        script: Path,
+        stdin_json: Any,
+        workspace_cwd: Path,
+        posix_workspace_fd: int | None,
+        posix_workspace_identity: tuple[int, int] | None,
+        timeout_seconds: float,
+        output_limit: int,
+        fixed_environment: dict[str, str] | None = None,
+    ) -> ProcessResult:
+        """Launch only the fixed public worker with its narrow cwd capability."""
+        if provider_id != _PUBLIC_WORKER_PROVIDER:
+            raise DocumentSkillsError(
+                ErrorCode.PATH_UNSAFE,
+                "The private workspace capability is restricted to the public worker.",
+                details={"provider": provider_id},
+            )
+        executable_path = Path(executable).absolute()
+        self._check_script(provider_id, script)
+        launch_cwd, pass_fds = self._prepare_public_worker_launch(
+            args,
+            script,
+            workspace_cwd,
+            posix_workspace_fd,
+            posix_workspace_identity,
+        )
+        return self._execute(
+            provider_id,
+            executable_path,
+            [str(executable_path), *args],
+            launch_cwd,
+            pass_fds,
+            stdin_json,
+            timeout_seconds,
+            output_limit,
+            fixed_environment=fixed_environment,
+        )
+
+    def _execute(
+        self,
+        provider_id: str,
+        executable: Path,
+        command: list[str],
+        launch_cwd: Path,
+        pass_fds: tuple[int, ...],
+        stdin_json: Any | None,
+        timeout_seconds: float,
+        output_limit: int,
+        *,
+        runtime_check: Callable[[], None] | None = None,
+        private_environment: tuple[str, ...] = (),
+        fixed_environment: dict[str, str] | None = None,
+    ) -> ProcessResult:
+        creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         started = time.monotonic()
         try:
             with self.policy.acquire_executable(provider_id, executable) as launch:
                 atomic_launch: dict[str, Any] = {
-                    "executable": launch.popen_executable
+                    "executable": launch.popen_executable,
+                    "close_fds": True,
                 }
-                if launch.pass_fds:
-                    atomic_launch["pass_fds"] = launch.pass_fds
+                inherited_fds = tuple(dict.fromkeys((*launch.pass_fds, *pass_fds)))
+                if inherited_fds:
+                    atomic_launch["pass_fds"] = inherited_fds
                 process = subprocess.Popen(
                     command,
-                    cwd=isolated_cwd,
+                    cwd=launch_cwd,
                     env=self._process_environment(
                         private_environment,
                         fixed_environment,
@@ -424,6 +507,76 @@ class ProcessRunner:
                 "Provider script is not allowlisted for this provider.",
                 details={"provider": provider_id, "script": resolved.name},
             )
+
+    def _contained_cwd(self, cwd: Path | None) -> Path:
+        project_root = self.policy.project_root.resolve()
+        isolated_cwd = (cwd or project_root).resolve()
+        if not isolated_cwd.is_relative_to(project_root):
+            raise _path_unsafe("Process cwd must remain inside the project root.")
+        return isolated_cwd
+
+    def _prepare_public_worker_launch(
+        self,
+        args: list[str],
+        script: Path,
+        workspace_cwd: Path,
+        posix_workspace_fd: int | None,
+        posix_workspace_identity: tuple[int, int] | None,
+    ) -> tuple[Path, tuple[int, ...]]:
+        project_root = self.policy.project_root.resolve()
+        expected_worker = (project_root / _PUBLIC_WORKER_RELATIVE_PATH).resolve()
+        resolved_script = script.resolve()
+        if (
+            resolved_script != expected_worker
+            or not args
+            or args[0] != str(expected_worker)
+        ):
+            raise _path_unsafe(
+                "The private workspace capability requires the fixed public worker first in argv."
+            )
+        isolated_cwd = self._contained_cwd(workspace_cwd)
+        if os.name == "nt":
+            if (
+                posix_workspace_fd is not None
+                or posix_workspace_identity is not None
+                or args != [str(expected_worker)]
+            ):
+                raise _path_unsafe(
+                    "Windows public workers cannot inherit POSIX workspace descriptors.",
+                )
+            return isolated_cwd, ()
+        if posix_workspace_fd is None or posix_workspace_identity is None:
+            raise _path_unsafe(
+                "A POSIX public worker requires one held workspace descriptor and identity.",
+            )
+        expected_args = [
+            str(expected_worker),
+            _WORKSPACE_FD_FLAG,
+            str(posix_workspace_fd),
+            _WORKSPACE_DEVICE_FLAG,
+            str(posix_workspace_identity[0]),
+            _WORKSPACE_INODE_FLAG,
+            str(posix_workspace_identity[1]),
+        ]
+        if args != expected_args:
+            raise _path_unsafe(
+                "The POSIX public worker bootstrap arguments are invalid.",
+            )
+        try:
+            held = os.fstat(posix_workspace_fd)
+            lexical = os.stat(isolated_cwd, follow_symlinks=False)
+        except OSError as error:
+            raise _path_unsafe("The bound POSIX cwd is unavailable.") from error
+        held_identity = (held.st_dev, held.st_ino)
+        lexical_identity = (lexical.st_dev, lexical.st_ino)
+        if (
+            not stat.S_ISDIR(held.st_mode)
+            or not stat.S_ISDIR(lexical.st_mode)
+            or held_identity != posix_workspace_identity
+            or lexical_identity != posix_workspace_identity
+        ):
+            raise _path_unsafe("The bound POSIX cwd identity changed before spawn.")
+        return project_root, (posix_workspace_fd,)
 
     @staticmethod
     def _minimal_environment() -> dict[str, str]:
@@ -663,4 +816,6 @@ class ProcessRunner:
 
     def _redact(self, stderr: str) -> str:
         redacted = _SECRET_PATTERN.sub(r"\1=<redacted>", stderr)
-        return redacted.replace(str(self.policy.project_root.resolve()), "<project-root>")
+        return redacted.replace(
+            str(self.policy.project_root.resolve()), "<project-root>"
+        )

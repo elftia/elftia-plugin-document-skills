@@ -8,12 +8,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 
-_ENOENT = 2
-_EACCES = 13
-_EEXIST = 17
-
-
-def open_windows_directory(path: Path) -> int:
+def open_windows_directory(path: Path, *, share_delete: bool = True) -> int:
     from ctypes import wintypes
 
     create_file = ctypes.windll.kernel32.CreateFileW
@@ -30,7 +25,7 @@ def open_windows_directory(path: Path) -> int:
     handle = create_file(
         str(path),
         0x1 | 0x2 | 0x4 | 0x20 | 0x80 | 0x00100000,
-        0x1 | 0x2 | 0x4,
+        0x1 | 0x2 | (0x4 if share_delete else 0),
         None,
         3,
         0x02000000 | 0x00200000,
@@ -40,6 +35,91 @@ def open_windows_directory(path: Path) -> int:
     if handle == invalid:
         raise ctypes.WinError()
     return int(handle)
+
+
+def open_windows_relative_directory(
+    parent_handle: int,
+    name: str,
+    *,
+    exist_ok: bool,
+    share_delete: bool,
+) -> int:
+    return _nt_create_relative(
+        parent_handle,
+        name,
+        access=0x1 | 0x2 | 0x4 | 0x20 | 0x80 | 0x00100000,
+        disposition=3 if exist_ok else 2,
+        share_delete=share_delete,
+        directory=True,
+    )
+
+
+def open_windows_relative_directory_for_delete(
+    parent_handle: int,
+    name: str,
+) -> int:
+    return _nt_create_relative(
+        parent_handle,
+        name,
+        access=0x00010000 | 0x80 | 0x00100000,
+        disposition=1,
+        share_delete=False,
+        directory=True,
+    )
+
+
+def windows_handle_metadata(handle: int) -> tuple[int, int]:
+    from ctypes import wintypes
+
+    class ByHandleFileInformation(ctypes.Structure):
+        _fields_ = [
+            ("FileAttributes", wintypes.DWORD),
+            ("CreationTime", wintypes.FILETIME),
+            ("LastAccessTime", wintypes.FILETIME),
+            ("LastWriteTime", wintypes.FILETIME),
+            ("VolumeSerialNumber", wintypes.DWORD),
+            ("FileSizeHigh", wintypes.DWORD),
+            ("FileSizeLow", wintypes.DWORD),
+            ("NumberOfLinks", wintypes.DWORD),
+            ("FileIndexHigh", wintypes.DWORD),
+            ("FileIndexLow", wintypes.DWORD),
+        ]
+
+    information = ByHandleFileInformation()
+    function = ctypes.windll.kernel32.GetFileInformationByHandle
+    function.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(ByHandleFileInformation),
+    ]
+    function.restype = wintypes.BOOL
+    if not function(wintypes.HANDLE(handle), ctypes.byref(information)):
+        raise ctypes.WinError()
+    identity = (information.FileIndexHigh << 32) | information.FileIndexLow
+    return identity, information.FileAttributes
+
+
+def mark_windows_directory_for_delete(handle: int) -> None:
+    from ctypes import wintypes
+
+    class FileDispositionInformation(ctypes.Structure):
+        _fields_ = [("DeleteFile", wintypes.BOOL)]
+
+    information = FileDispositionInformation(True)
+    function = ctypes.windll.kernel32.SetFileInformationByHandle
+    function.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+    ]
+    function.restype = wintypes.BOOL
+    if not function(
+        wintypes.HANDLE(handle),
+        4,
+        ctypes.byref(information),
+        ctypes.sizeof(information),
+    ):
+        raise ctypes.WinError()
 
 
 def windows_final_path(handle: int) -> Path:
@@ -75,11 +155,7 @@ def open_windows_relative_file(
     create: bool,
     writable: bool,
 ) -> BinaryIO:
-    access = (
-        (0x40000000 if writable else 0x80000000)
-        | 0x00000080
-        | 0x00100000
-    )
+    access = (0x40000000 if writable else 0x80000000) | 0x00000080 | 0x00100000
     handle = _nt_create_relative(
         parent_handle,
         name,
@@ -191,7 +267,8 @@ def _nt_create_relative(
     *,
     access: int,
     disposition: int,
-    directory: bool,
+    share_delete: bool = True,
+    directory: bool = False,
 ) -> int:
     from ctypes import wintypes
 
@@ -258,7 +335,7 @@ def _nt_create_relative(
         ctypes.byref(io_status),
         None,
         0x80,
-        0x1 | 0x2 | 0x4,
+        0x1 | 0x2 | (0x4 if share_delete else 0),
         disposition,
         0x20 | (0x1 if directory else 0x40) | 0x00200000,
         None,
@@ -277,13 +354,9 @@ def _raise_ntstatus(status: int, name: str) -> None:
 
 
 def _raise_windows_error(number: int, name: str) -> None:
-    if number in {2, 3}:
-        raise FileNotFoundError(_ENOENT, os.strerror(_ENOENT), name)
-    if number in {80, 183}:
-        raise FileExistsError(_EEXIST, os.strerror(_EEXIST), name)
-    if number in {5, 32, 33}:
-        raise PermissionError(_EACCES, os.strerror(_EACCES), name)
-    raise OSError(number, f"Windows filesystem error {number}", name)
+    error = ctypes.WinError(number)
+    error.filename = name
+    raise error
 
 
 def close_windows_handle(handle: int) -> None:

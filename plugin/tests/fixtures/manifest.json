@@ -1566,6 +1566,266 @@
       "redistribution_allowed": true,
       "security_classification": "oracle",
       "sha256": "0907bc27b0397302b56c01d112e99c6cc37026a5b99b05ef2dee7fd901581c8a"
+    },
+    {
+      "authorship": "modified-upstream",
+      "format": "ttf",
+      "license": "OFL-1.1",
+      "origin": "generated",
+      "path": "pdf-fonts/elftia-pdf-cjk-test.ttf",
+      "purpose": "Deterministic CJK TrueType subset for embedded-font PDF tests",
+      "recipe": "tests/fixtures/recipes/pdf_font_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "31f520448e10956259f09fbfb37deceb5ff3b913950bf8e663207b7e81e833cb"
+    },
+    {
+      "authorship": "modified-upstream",
+      "format": "ttf",
+      "license": "OFL-1.1",
+      "origin": "generated",
+      "path": "pdf-fonts/elftia-pdf-arabic-test.ttf",
+      "purpose": "Deterministic Arabic TrueType subset for shaping and RTL PDF tests",
+      "recipe": "tests/fixtures/recipes/pdf_font_fixtures.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "61dce7455938573ef1f88456efba810dcc8e21ba477428cfdb2569d960673417"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/emoji-success.pdf",
+      "purpose": "Embedded-font PDF mapping a CID to U+1F600",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "1b3d6e37aeca569c319affdb30d6a41d93d4723809b341af34ddffb1a408933d"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "ttf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/emoji-success.ttf",
+      "purpose": "Original minimal TrueType font containing U+1F600",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "ad52966a0fe2317faeadf7178003d629cccd79d24d3d1e1694163577ef1b0044"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "jpeg",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/exif-orientation-6.jpg",
+      "purpose": "JPEG EXIF orientation normalization input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "94054dd36e9c24ca5d06eb375966bbf6fd276bc5fe6c563f75b5a428bc1d5bb9"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-cjk-rtl.pdf",
+      "purpose": "Raster CJK and RTL-script OCR input without accuracy claims",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "e6a1eac1a2ae09fc95b80589e7748f2b9084e055c94302977f3cca26f0607eb2"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-low-quality.pdf",
+      "purpose": "Low-resolution low-contrast OCR failure/degradation input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "76469c57d846ef25563861938cf0b8caabdd906e71de37453beee0c9e1a9f704"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-mixed.pdf",
+      "purpose": "Mixed native-text and scanned-image OCR routing input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "9693eff6fa9cc130661dd5d1f9e40f998428a6e192c77351b540cb7e705d60d4"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-multi-column.pdf",
+      "purpose": "Two-column scanned reading-order OCR input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "316a17d2d20e9a5c3bf3d55550931bb02b825d729a7f153271329ab84dedf321"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-rotated.pdf",
+      "purpose": "Rotated scanned-page OCR normalization input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "b87b141b34e4627390b044a1e1ae900968fd47070c127613cad3ae8433c2cec2"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "pdf",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/ocr-scanned.pdf",
+      "purpose": "Image-only scanned-page OCR input with deterministic text oracle",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "benign",
+      "sha256": "e4d94c7e6a48f69446f3324ef51447da65ebbd09bf353541b06765fa957dc5e1"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "json",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/oracles.json",
+      "purpose": "Machine-readable expectations and no-provider-claim boundary",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "oracle",
+      "sha256": "136fec2c935c84ea5fbdf1d52d497c9fa2972f89cf921db53187cdc3ea3a83bb"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "bin",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/provider-malformed-binary.bin",
+      "purpose": "Non-UTF-8 provider output rejection input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "provider-negative",
+      "sha256": "1b0e2502148e46a77c88507e46134e052f2b98dd29aeefd92357d2ed5d3ee419"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "bin",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/provider-malformed-binding.bin",
+      "purpose": "Wrong nonce provider result envelope rejection input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "provider-negative",
+      "sha256": "612ae430548a32099df2645f77cb8c6efb05ee01183dd41fae042e6343d71cb5"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "bin",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-completion/provider-malformed-truncated.bin",
+      "purpose": "Truncated provider result envelope rejection input",
+      "recipe": "tests/fixtures/recipes/pdf_completion_fixtures.py",
+      "recipe_dependencies": [
+        "tests/fixtures/pdf-fonts/elftia-pdf-arabic-test.ttf",
+        "tests/fixtures/pdf-fonts/elftia-pdf-cjk-test.ttf"
+      ],
+      "redistribution_allowed": true,
+      "security_classification": "provider-negative",
+      "sha256": "5c105b645bdfae3f69bbdd5a25f4c924d49a631081ba5cd561f9aaf65d46d343"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "python",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-worker-failures/public_runner.py",
+      "purpose": "Public PDF supervisor harness for bounded pipe failures and identity-bound empty-workspace cleanup",
+      "recipe": "tests/fixtures/pdf-worker-failures/public_runner.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "security-negative",
+      "sha256": "acfefcae3886efccc48aa500bf7207a748170ce8a13324cbf115a92c84125b43"
+    },
+    {
+      "authorship": "original-elftia",
+      "format": "python",
+      "license": "GPL-3.0",
+      "origin": "generated",
+      "path": "pdf-worker-failures/worker.py",
+      "purpose": "Static PDF private-worker crash, timeout, malformed/noisy pipe, binding, and serialization failure fixture",
+      "recipe": "tests/fixtures/pdf-worker-failures/worker.py",
+      "recipe_dependencies": [],
+      "redistribution_allowed": true,
+      "security_classification": "security-negative",
+      "sha256": "5bd6b4d66a162e6f924d2609f7aac27cdd6d821d854fe78be15c23004cb96379"
     }
   ],
   "schema_version": "1.0"

@@ -31,6 +31,7 @@ from .constants import (
     PDF_HEADER_MAGIC,
     SUPPORTED_FILTERS,
 )
+from .trailer_preflight import trailer_has_encrypt
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,10 @@ def preflight_pdf(
     stream_count = _count_streams(raw, budget)
 
     # Check for encryption
-    encrypted = b"/Encrypt" in raw
+    encrypted = trailer_has_encrypt(
+        raw,
+        max_depth=budget.max_object_graph_depth,
+    )
 
     return PreflightResult(
         version_major=version_major,
@@ -197,23 +201,7 @@ def decode_stream(
 
 def _apply_filter(data: bytes, filter_name: str, budget: PdfByteLimits) -> bytes:
     if filter_name == "FlateDecode":
-        try:
-            result = zlib.decompress(data)
-        except zlib.error as error:
-            raise DocumentSkillsError(
-                ErrorCode.ARCHIVE_UNSAFE,
-                "FlateDecode decompression failed.",
-                details={"reason": str(error)[:128]},
-            ) from error
-        if len(data) > 0:
-            ratio = len(result) / len(data)
-            if ratio > budget.max_expansion_ratio:
-                raise DocumentSkillsError(
-                    ErrorCode.ARCHIVE_UNSAFE,
-                    "Decompression ratio exceeds the maximum (decompression bomb).",
-                    details={"ratio": ratio, "limit": budget.max_expansion_ratio},
-                )
-        return result
+        return _decode_flate(data, budget)
     if filter_name == "ASCIIHexDecode":
         return _decode_ascii_hex(data)
     if filter_name == "ASCII85Decode":
@@ -225,11 +213,64 @@ def _apply_filter(data: bytes, filter_name: str, budget: PdfByteLimits) -> bytes
             details={"filter": filter_name},
         )
     if filter_name == "RunLengthDecode":
-        return _decode_run_length(data)
+        return _decode_run_length(data, budget, _effective_output_cap(data, budget))
+    if filter_name == "DCTDecode":
+        # JPEG codestreams remain compressed. Their marker/dimension policy is
+        # validated before embedding; the PDF parser inventories the stream
+        # without treating a non-lossless codec as a text/content decoder.
+        return data
     raise DocumentSkillsError(
         ErrorCode.ARCHIVE_UNSAFE,
         f"Unsupported decode filter: {filter_name}",
         details={"filter": filter_name},
+    )
+
+
+def _decode_flate(data: bytes, budget: PdfByteLimits) -> bytes:
+    absolute_cap = max(0, budget.max_uncompressed_bytes)
+    ratio_cap = absolute_cap
+    if data:
+        candidate = len(data) * budget.max_expansion_ratio
+        if candidate < absolute_cap:
+            ratio_cap = max(0, int(candidate))
+    output_cap = min(absolute_cap, ratio_cap)
+    decoder = zlib.decompressobj()
+    try:
+        result = decoder.decompress(data, output_cap + 1)
+        if len(result) > output_cap:
+            _flate_limit_exceeded(data, budget, absolute_cap, ratio_cap)
+        if not decoder.eof and decoder.unconsumed_tail:
+            extra = decoder.decompress(decoder.unconsumed_tail, 1)
+            if extra:
+                _flate_limit_exceeded(data, budget, absolute_cap, ratio_cap)
+        if not decoder.eof:
+            raise DocumentSkillsError(
+                ErrorCode.ARCHIVE_UNSAFE,
+                "FlateDecode decompression failed.",
+                details={"reason": "compressed stream did not reach its end marker"},
+            )
+    except zlib.error as error:
+        raise DocumentSkillsError(
+            ErrorCode.ARCHIVE_UNSAFE,
+            "FlateDecode decompression failed.",
+            details={"reason": str(error)[:128]},
+        ) from error
+    return result
+
+
+def _flate_limit_exceeded(
+    data: bytes,
+    budget: PdfByteLimits,
+    absolute_cap: int,
+    ratio_cap: int,
+) -> None:
+    if absolute_cap <= ratio_cap:
+        _unsafe("uncompressed_bytes", absolute_cap + 1, budget.max_uncompressed_bytes)
+    observed_ratio = (ratio_cap + 1) / len(data) if data else float("inf")
+    raise DocumentSkillsError(
+        ErrorCode.ARCHIVE_UNSAFE,
+        "Decompression ratio exceeds the maximum (decompression bomb).",
+        details={"ratio": observed_ratio, "limit": budget.max_expansion_ratio},
     )
 
 
@@ -308,7 +349,18 @@ def _decode_ascii85(data: bytes) -> bytes:
     return bytes(result)
 
 
-def _decode_run_length(data: bytes) -> bytes:
+def _effective_output_cap(data: bytes, budget: PdfByteLimits) -> int:
+    output_cap = max(0, budget.max_uncompressed_bytes)
+    if data:
+        ratio_candidate = len(data) * budget.max_expansion_ratio
+        if ratio_candidate < output_cap:
+            output_cap = max(0, int(ratio_candidate))
+    return output_cap
+
+
+def _decode_run_length(
+    data: bytes, budget: PdfByteLimits, output_cap: int
+) -> bytes:
     result = bytearray()
     pos = 0
     while pos < len(data):
@@ -323,6 +375,7 @@ def _decode_run_length(data: bytes) -> bytes:
                     ErrorCode.ARCHIVE_UNSAFE,
                     "RunLengthDecode stream is truncated.",
                 )
+            _guard_run_length_allocation(result, count, data, budget, output_cap)
             result.extend(data[pos : pos + count])
             pos += count
         else:
@@ -332,9 +385,29 @@ def _decode_run_length(data: bytes) -> bytes:
                     ErrorCode.ARCHIVE_UNSAFE,
                     "RunLengthDecode stream is truncated.",
                 )
+            _guard_run_length_allocation(result, count, data, budget, output_cap)
             result.extend(bytes([data[pos]]) * count)
             pos += 1
     return bytes(result)
+
+
+def _guard_run_length_allocation(
+    result: bytearray,
+    count: int,
+    data: bytes,
+    budget: PdfByteLimits,
+    output_cap: int,
+) -> None:
+    prospective = len(result) + count
+    if prospective <= output_cap:
+        return
+    if output_cap == max(0, budget.max_uncompressed_bytes):
+        _unsafe("uncompressed_bytes", prospective, budget.max_uncompressed_bytes)
+    raise DocumentSkillsError(
+        ErrorCode.ARCHIVE_UNSAFE,
+        "Decompression ratio exceeds the maximum (decompression bomb).",
+        details={"ratio": prospective / len(data), "limit": budget.max_expansion_ratio},
+    )
 
 
 def _unsafe(metric: str, value: Any, limit: Any) -> None:

@@ -19,6 +19,11 @@
         "in_place": {"type": "boolean", "default": false}
       }
     },
+    "secrets": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "minLength": 1},
+      "default": {}
+    },
     "arguments": {"type": "object", "default": {}}
   },
   "examples": [
@@ -31,4 +36,3 @@
     }
   ]
 }
-

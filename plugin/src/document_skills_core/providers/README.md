@@ -22,6 +22,9 @@ Providers never own the public CLI, final stdout, destination promotion, or perm
 | `dotnet-openxml` | [`dotnet/`](dotnet/) | .NET 8, project-local locked helper, and exact `DocumentFormat.OpenXml` assembly |
 | `html-browser` | [`html_browser/`](html_browser/) | Locked `playwright-core`, supported system Chrome/Chromium/Edge, sandboxed launch/resource probe; no browser download |
 | `ocr-vision` | [`ocr_vision/`](ocr_vision/) | Typed audited adapter; shipped production detector is unavailable by default |
+| `pypdf` | [`pypdf/`](pypdf/) | Locked Python dependency, bounded private mutation service, and staged PDF reopen/semantic validation |
+| `poppler` | [`pdf_tools/`](pdf_tools/) | Accepted `pdftoppm` identity and bounded private raster archive/result validation |
+| `tesseract-ocr` | [`pdf_tools/`](pdf_tools/) | Accepted Tesseract identity and bounded OCR archive/result validation |
 
 The public `capabilities --json` report is the runtime authority for whether a provider-owned operation is callable.
 

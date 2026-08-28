@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.create",
+  "output": "<unicode-created.pdf>",
+  "arguments": {
+    "document": {
+      "metadata": {
+        "title": "Unicode 文档 العربية",
+        "author": "Elftia Document Skills",
+        "subject": "CJK and RTL shaping"
+      },
+      "page_size": "A4",
+      "fonts": [
+        {
+          "id": "cjk",
+          "filename": "<local-cjk-font.ttf>",
+          "sha256": "<64-hex-sha256>"
+        },
+        {
+          "id": "arabic",
+          "filename": "<local-arabic-font.ttf>",
+          "sha256": "<64-hex-sha256>"
+        }
+      ],
+      "pages": [
+        {
+          "blocks": [
+            {
+              "type": "heading",
+              "text": "中文标题",
+              "style": {
+                "font_family": "cjk",
+                "font_size": 18,
+                "font_weight": "normal",
+                "font_style": "normal",
+                "color": [0.1, 0.2, 0.3],
+                "line_height": 24,
+                "alignment": "left",
+                "fallback_fonts": [],
+                "direction": "ltr",
+                "language": "zh-Hans"
+              },
+              "table": null,
+              "image": null,
+              "shape": null
+            },
+            {
+              "type": "paragraph",
+              "text": "مرحبا بالعالم 123 PDF",
+              "style": {
+                "font_family": "arabic",
+                "font_size": 16,
+                "font_weight": "normal",
+                "font_style": "normal",
+                "color": [0.0, 0.0, 0.0],
+                "line_height": 24,
+                "alignment": "right",
+                "fallback_fonts": ["cjk"],
+                "direction": "rtl",
+                "language": "ar"
+              },
+              "table": null,
+              "image": null,
+              "shape": null
+            }
+          ],
+          "metadata": null
+        }
+      ]
+    }
+  }
+}

@@ -43,6 +43,9 @@ def test_release_version_is_one_source_value_across_runtime_manifests(project_ro
         (project_root / "package-lock.json").read_text(encoding="utf-8")
     )
     sbom = json.loads((project_root / "sbom.cdx.json").read_text(encoding="utf-8"))
+    doctor_schema = json.loads(
+        (project_root / "schemas/doctor-report.schema.json").read_text(encoding="utf-8")
+    )
     helper_project = fromstring(
         (
             project_root
@@ -63,13 +66,31 @@ def test_release_version_is_one_source_value_across_runtime_manifests(project_ro
         node_lock["version"],
         node_lock["packages"][""]["version"],
         sbom["metadata"]["component"]["version"],
+        doctor_schema["examples"][0]["project_version"],
         helper_project.findtext("./PropertyGroup/Version"),
         __version__,
-    } == {"0.5.3"}
+    } == {"0.5.5"}
 
 
 def test_agent_commands_are_frozen_uv_only(project_root):
     assert audit_commands(project_root)["command_count"] == 21
+
+
+def test_readme_documents_fileless_bounded_public_worker_protocol(project_root):
+    readme = (project_root / "README.md").read_text(encoding="utf-8")
+    _before, marker, remainder = readme.partition("## Public protocol containment")
+    assert marker
+    section = " ".join(remainder.partition("\n## ")[0].split())
+
+    assert "bounded ASCII command envelope through worker stdin" in section
+    assert "bounded, canonical ASCII terminal frame" in section
+    assert "public protocol creates no command or result files" in section
+    assert "identity-bound private workspace" in section
+    assert "nonce-bound atomic result file is the only worker channel" not in readme
+    assert (
+        "HTML capture is separate: its provider-internal browser handoff binds private "
+        "scene and asset files to its own command nonce"
+    ) in section
 
 
 def test_source_and_staged_release_inventory(project_root):

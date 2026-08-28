@@ -4,8 +4,6 @@ Module provenance: original Elftia-authored clean-room implementation.
 """
 
 from dataclasses import dataclass
-from typing import Any
-
 from .object_model import IndirectReference, PdfDict, PdfObjectModel
 
 
@@ -46,7 +44,9 @@ def inventory_fonts(model: PdfObjectModel, resources: PdfDict | None) -> list[Fo
     for name, font_val in font_dict.entries.items():
         if isinstance(font_val, IndirectReference):
             obj = model.get_object(font_val)
-            font_val = model.resolve(obj.value)
+            # Preserve nested stream references such as /ToUnicode and
+            # /FontFile2 so inventory can distinguish their presence.
+            font_val = obj.value
         if isinstance(font_val, PdfDict):
             fonts.append(_build_font_info(name, font_val, model))
     return fonts
@@ -69,21 +69,37 @@ def _build_font_info(name: str, d: PdfDict, model: PdfObjectModel) -> FontInfo:
             encoding = model.resolve(obj.value)
         except Exception:
             encoding = None
-    # Check for font descriptor (embedded flag)
-    descriptor = d.get("/FontDescriptor")
+    # Type0 descriptors live on the descendant CID font.
+    descriptor_source = d
+    if sub_type == "/Type0":
+        descendants = d.get("/DescendantFonts")
+        if isinstance(descendants, list) and descendants:
+            descendant = descendants[0]
+            if isinstance(descendant, IndirectReference):
+                try:
+                    descendant = model.get_object(descendant).value
+                except Exception:
+                    descendant = None
+            if isinstance(descendant, PdfDict):
+                descriptor_source = descendant
+    descriptor = descriptor_source.get("/FontDescriptor")
     embedded = False
     if isinstance(descriptor, IndirectReference):
         try:
             desc_obj = model.get_object(descriptor)
             desc_val = model.resolve(desc_obj.value)
-            if isinstance(desc_val, PdfDict):
-                embedded = (
-                    desc_val.get("/FontFile") is not None
-                    or desc_val.get("/FontFile2") is not None
-                    or desc_val.get("/FontFile3") is not None
-                )
         except Exception:
-            pass
+            desc_val = None
+    elif isinstance(descriptor, PdfDict):
+        desc_val = descriptor
+    else:
+        desc_val = None
+    if isinstance(desc_val, PdfDict):
+        embedded = (
+            desc_val.get("/FontFile") is not None
+            or desc_val.get("/FontFile2") is not None
+            or desc_val.get("/FontFile3") is not None
+        )
     # Subset detection (name prefix ABCDEF+)
     subset = False
     if isinstance(base_font, str):
@@ -123,7 +139,14 @@ def inventory_images(model: PdfObjectModel, resources: PdfDict | None) -> list[I
     for name, xobj_val in xobject.entries.items():
         if isinstance(xobj_val, IndirectReference):
             obj = model.get_object(xobj_val)
-            xobj_val = model.resolve(obj.value)
+            if (
+                obj.is_stream
+                and isinstance(obj.value, tuple)
+                and isinstance(obj.value[0], PdfDict)
+            ):
+                xobj_val = obj.value[0]
+            else:
+                xobj_val = model.resolve(obj.value)
         if isinstance(xobj_val, PdfDict):
             sub_type = xobj_val.get("/Subtype")
             if sub_type == "/Image":

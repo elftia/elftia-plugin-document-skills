@@ -78,7 +78,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=300,
     )
     if check:
         assert process.returncode == 0, (

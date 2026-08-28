@@ -68,11 +68,20 @@ def promote_candidate(
     *,
     source: ArtifactRecord | None,
     destination: DestinationSnapshot,
+    preserved_inputs: list[ArtifactRecord] | None = None,
 ) -> dict[str, Any]:
     assert request.output_path is not None
     identity = assert_promotable(result["status"], result["validation"], staged)
-    if source is not None:
-        assert_source_preserved(source.path, source.sha256)
+    expected = result["artifacts"][-1]
+    if identity.sha256 != expected["sha256"] or identity.bytes != expected["bytes"]:
+        raise DocumentSkillsError(
+            ErrorCode.VALIDATION_FAILED,
+            "PDF result artifact is not bound to the validated candidate.",
+            details={"candidate_identity_mismatch": True},
+        )
+    inputs = ([source] if source is not None else []) + (preserved_inputs or [])
+    for item in inputs:
+        assert_source_preserved(item.path, item.sha256)
     promoted = atomic_promote(
         staged,
         request.output_path,
@@ -80,18 +89,14 @@ def promote_candidate(
         expected_source_sha256=identity.sha256,
         expected_source_bytes=identity.bytes,
     )
-    expected = result["artifacts"][-1]
-    if promoted.sha256 != expected["sha256"] or promoted.bytes != expected["bytes"]:
-        raise DocumentSkillsError(
-            ErrorCode.VALIDATION_FAILED,
-            "Promoted PDF differs from the validated candidate.",
-        )
     source_error = None
-    if source is not None:
+    for item in inputs:
         try:
-            assert_source_preserved(source.path, source.sha256)
+            assert_source_preserved(item.path, item.sha256)
         except DocumentSkillsError as error:
+            error.details.setdefault("role", item.role)
             source_error = error
+            break
     return apply_committed_promotion(
         result,
         promoted,

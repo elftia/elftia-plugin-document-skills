@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import shutil
 import struct
 import zipfile
 import zlib
@@ -280,11 +281,17 @@ def test_reconstruction_supervisor_enforces_real_worker_limits_end_to_end(
         "_PPTX_RECONSTRUCTION_TIMEOUT_SECONDS",
         0.25 if mode == "hang" else 8.0,
     )
+    worker_root = tmp_path / "worker-project"
+    shutil.copytree(project_root / "src", worker_root / "src")
+    shutil.copytree(project_root / "schemas", worker_root / "schemas")
+    shutil.copy2(
+        project_root / "tests" / "support" / "command_worker_fixture.py",
+        worker_root / "src" / "document_skills_core" / "worker" / "main.py",
+    )
     nonce = f"fixture-{mode}"
-    private_root = project_root / ".document-skills-tmp" / f"invocation-{nonce}"
+    private_root = worker_root / ".document-skills-tmp" / f"invocation-{nonce}"
     supervisor = PublicCommandSupervisor(
-        project_root,
-        worker_script=project_root / "tests" / "support" / "command_worker_fixture.py",
+        worker_root,
         timeout_seconds=0.1,
         nonce_factory=lambda: nonce,
     )

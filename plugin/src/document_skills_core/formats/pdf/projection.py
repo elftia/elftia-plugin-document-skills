@@ -72,16 +72,25 @@ def project_info_dictionary(model: PdfObjectModel) -> dict[str, Any]:
 
 
 def project_xmp_presence(model: PdfObjectModel) -> bool:
-    """Check for XMP metadata stream presence."""
-    for obj in model.objects.values():
-        if isinstance(obj.value, PdfDict):
-            cat_type = obj.value.get("/Type")
-            if cat_type == "/Metadata":
-                return True
-            sub_type = obj.value.get("/Subtype")
-            if sub_type == "/XML":
-                return True
-    return False
+    """Report only a well-shaped XMP stream linked by the active Catalog."""
+    try:
+        catalog = model.get_object(model.catalog_ref).value
+        if not isinstance(catalog, PdfDict):
+            return False
+        reference = catalog.get("/Metadata")
+        if not isinstance(reference, IndirectReference):
+            return False
+        obj = model.get_object(reference)
+        if obj.gen_num != reference.gen_num or not isinstance(obj.value, tuple):
+            return False
+        dictionary, _stream = obj.value
+        return (
+            isinstance(dictionary, PdfDict)
+            and dictionary.get("/Type") == "/Metadata"
+            and dictionary.get("/Subtype") == "/XML"
+        )
+    except Exception:
+        return False
 
 
 def project_font_summary(fonts: list[FontInfo]) -> list[dict[str, Any]]:

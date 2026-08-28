@@ -22,7 +22,7 @@ from .html_pptx_provenance import (
     template_b4_data_profile,
     svg_b5_data_profile,
 )
-from .provenance_records import CURRENT_REVIEW_ARTIFACT, mapping_digest
+from .provenance_records import SELF_REFERENTIAL_METADATA_ALLOWLIST, mapping_digest
 from .release_inventory import release_artifacts
 
 PENDING_REVIEWER = "PENDING independent review"
@@ -32,6 +32,10 @@ CONSUMER_GATES_REQUIREMENT = (
 DOCX_CONSUMER_GATES_REQUIREMENT = (
     "Rasen document-skills-core-docx + "
     "document-skills-consumer-gates-and-truthful-contracts"
+)
+PDF_COMPLETION_REQUIREMENT = (
+    "Elftia docs/research/document-skills/tasks/pdf-completion-task.md "
+    "(2026-08-24)"
 )
 XLSX_REQUIREMENT = "Rasen document-skills-core-xlsx"
 XLSX_COMPLETION_REQUIREMENT = "Rasen document-skills-xlsx-completion"
@@ -659,6 +663,15 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "docx_" in artifact.path
         or "docx-" in artifact.path
     )
+    is_pdf_tools = "/pdf_tools/" in artifact.path
+    is_pdf = (
+        "/pdf/" in artifact.path
+        or "/pypdf/" in artifact.path
+        or "/pdf_tools/" in artifact.path
+        or "document-pdf" in artifact.path
+        or "pdf_" in artifact.path
+        or "pdf-" in artifact.path
+    )
     format_requirement = _compose_requirements(
         FOUNDATION_REQUIREMENT if pptx_openxml_profile else None,
         CROSS_FORMAT_CAPABILITY_REQUIREMENT
@@ -677,6 +690,8 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         if is_consumer_gate
         else "Rasen document-skills-core-docx"
         if is_docx
+        else PDF_COMPLETION_REQUIREMENT
+        if is_pdf
         else FOUNDATION_REQUIREMENT
     )
     requirement = (
@@ -698,7 +713,14 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     ) else xlsx_profile[1] if (
         xlsx_profile
     ) else (
-        ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
+        [
+            "tests/test_pdf_tools_provider.py",
+            "tests/test_pdf_render_diff.py",
+            "tests/test_pdf_public.py",
+            "tests/test_supply_chain.py",
+        ]
+        if is_pdf_tools
+        else ["tests/test_docx_fixtures.py", "tests/test_supply_chain.py"]
         if is_docx_consumer_gate
         else [
             "tests/test_consumer_validation.py",
@@ -713,6 +735,13 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             "tests/test_supply_chain.py",
         ]
         if is_docx
+        else [
+            "tests/test_pdf_contracts.py",
+            "tests/test_pdf_operations.py",
+            "tests/test_pdf_public.py",
+            "tests/test_supply_chain.py",
+        ]
+        if is_pdf
         else
         [
             "tests/test_strategy2.py",
@@ -766,6 +795,12 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 "validation, Skill guidance, tests, or release evidence."
             )
             if is_docx
+            else (
+                "PDF completion contracts, Core/provider implementations, atomic "
+                "validation, truthful capability reporting, Skill guidance, tests, "
+                "or release evidence."
+            )
+            if is_pdf
             else (
                 "Strategy-attempt-3 semantic loader/reflection, command discovery, "
                 "portable release inventory, tests, or release evidence."
@@ -1112,11 +1147,7 @@ def _merged_values(first: list[str], second: list[str]) -> list[str]:
 
 
 def _is_metadata(path: str) -> bool:
-    return path in {
-        "provenance/audit-report.json",
-        "provenance/modules.json",
-        CURRENT_REVIEW_ARTIFACT,
-    }
+    return path in SELF_REFERENTIAL_METADATA_ALLOWLIST
 
 
 def main() -> int:

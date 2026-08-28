@@ -202,8 +202,12 @@ def _resolve_request_artifact_paths(
     arguments = request.get("arguments")
     if type(arguments) is not dict:
         return resolved
-    resolved_arguments = dict(arguments)
-    report = arguments.get("report")
+    resolved_arguments = _resolve_pdf_argument_paths(
+        request.get("operation"),
+        arguments,
+        invocation_base,
+    )
+    report = resolved_arguments.get("report")
     if type(report) is dict:
         resolved_report = dict(report)
         image = report.get("image")
@@ -218,7 +222,7 @@ def _resolve_request_artifact_paths(
                 for block in blocks
             ]
         resolved_arguments["report"] = resolved_report
-    edits = arguments.get("edits")
+    edits = resolved_arguments.get("edits")
     if type(edits) is list:
         resolved_edits = []
         for edit in edits:
@@ -232,7 +236,7 @@ def _resolve_request_artifact_paths(
                 }
             )
         resolved_arguments["edits"] = resolved_edits
-    style_overlay = arguments.get("style_overlay")
+    style_overlay = resolved_arguments.get("style_overlay")
     if type(style_overlay) is dict and type(style_overlay.get("source")) is str:
         resolved_arguments["style_overlay"] = {
             **style_overlay,
@@ -240,7 +244,7 @@ def _resolve_request_artifact_paths(
                 _resolve_user_path(style_overlay["source"], invocation_base)
             ),
         }
-    sources = arguments.get("sources")
+    sources = resolved_arguments.get("sources")
     if type(sources) is list:
         resolved_arguments["sources"] = [
             {
@@ -251,7 +255,7 @@ def _resolve_request_artifact_paths(
             else source
             for source in sources
         ]
-    descriptor = arguments.get("descriptor")
+    descriptor = resolved_arguments.get("descriptor")
     if type(descriptor) is dict:
         resolved_descriptor = dict(descriptor)
         contract_root = descriptor.get("contract_root")
@@ -270,7 +274,7 @@ def _resolve_request_artifact_paths(
                     "path": str(_resolve_user_path(reference_path, invocation_base)),
                 }
         resolved_arguments["descriptor"] = resolved_descriptor
-    pages = arguments.get("pages")
+    pages = resolved_arguments.get("pages")
     if type(pages) is list:
         resolved_arguments["pages"] = [
             _resolve_template_page_paths(page, invocation_base)
@@ -314,6 +318,113 @@ def _resolve_template_page_paths(page: Any, invocation_base: Path) -> Any:
             }
         resolved_bindings.append({**binding, "value": value})
     return {**page, "bindings": resolved_bindings}
+
+
+def _resolve_pdf_argument_paths(
+    operation: Any,
+    arguments: dict[str, Any],
+    invocation_base: Path,
+) -> dict[str, Any]:
+    if type(operation) is not str or not operation.startswith("pdf."):
+        return arguments
+    resolved = dict(arguments)
+    document = arguments.get("document")
+    if type(document) is dict:
+        resolved["document"] = _resolve_pdf_document_paths(document, invocation_base)
+    fonts = arguments.get("fonts")
+    if type(fonts) is list:
+        resolved["fonts"] = [
+            _resolve_mapping_path(item, "filename", invocation_base)
+            for item in fonts
+        ]
+    primitives = arguments.get("primitives")
+    if type(primitives) is list:
+        resolved["primitives"] = [
+            _resolve_pdf_primitive_paths(item, invocation_base)
+            for item in primitives
+        ]
+    compare_to = arguments.get("compare_to")
+    if type(compare_to) is str and not _is_nonlocal_path(compare_to):
+        resolved["compare_to"] = str(_resolve_user_path(compare_to, invocation_base))
+    return resolved
+
+
+def _resolve_pdf_document_paths(
+    document: dict[str, Any],
+    invocation_base: Path,
+) -> dict[str, Any]:
+    resolved = dict(document)
+    fonts = document.get("fonts")
+    if type(fonts) is list:
+        resolved["fonts"] = [
+            _resolve_mapping_path(item, "filename", invocation_base)
+            for item in fonts
+        ]
+    pages = document.get("pages")
+    if type(pages) is list:
+        resolved["pages"] = [
+            _resolve_pdf_page_paths(page, invocation_base)
+            for page in pages
+        ]
+    return resolved
+
+
+def _resolve_pdf_page_paths(page: Any, invocation_base: Path) -> Any:
+    if type(page) is not dict:
+        return page
+    blocks = page.get("blocks")
+    if type(blocks) is not list:
+        return page
+    resolved_blocks = []
+    for block in blocks:
+        if type(block) is not dict or type(block.get("image")) is not dict:
+            resolved_blocks.append(block)
+            continue
+        resolved_blocks.append({
+            **block,
+            "image": _resolve_mapping_path(
+                block["image"],
+                "filename",
+                invocation_base,
+            ),
+        })
+    return {**page, "blocks": resolved_blocks}
+
+
+def _resolve_pdf_primitive_paths(primitive: Any, invocation_base: Path) -> Any:
+    if type(primitive) is not dict:
+        return primitive
+    resolved = dict(primitive)
+    if primitive.get("type") == "merge" and type(primitive.get("inputs")) is list:
+        resolved["inputs"] = [
+            _resolve_mapping_path(item, "input", invocation_base)
+            for item in primitive["inputs"]
+        ]
+    elif primitive.get("type") == "page_insert":
+        resolved = _resolve_mapping_path(resolved, "input", invocation_base)
+    if type(primitive.get("image")) is dict:
+        resolved["image"] = _resolve_mapping_path(
+            primitive["image"],
+            "filename",
+            invocation_base,
+        )
+    return resolved
+
+
+def _resolve_mapping_path(
+    value: Any,
+    field: str,
+    invocation_base: Path,
+) -> Any:
+    if type(value) is not dict:
+        return value
+    path_value = value.get(field)
+    if type(path_value) is not str or _is_nonlocal_path(path_value):
+        return value
+    return {
+        **value,
+        field: str(_resolve_user_path(path_value, invocation_base)),
+    }
 
 
 def _is_nonlocal_path(value: str) -> bool:

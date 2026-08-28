@@ -222,6 +222,7 @@ def test_lossy_pdf_rewrite_is_not_degraded_or_promoted(
             "input": str(source),
             "output": str(tmp_path / "rewritten.pdf"),
             "arguments": {
+                "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                 "blocks": [
                     {
                         "page": 1,

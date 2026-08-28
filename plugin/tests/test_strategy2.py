@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 import shutil
 import subprocess
 
@@ -43,6 +44,7 @@ from tests.support.provenance_review_fixture import bind_test_review
         "os-exit",
         "crash",
         "invalid-result",
+        "trailing-noise",
         "hostile",
         "huge-string",
         "huge-int",
@@ -50,9 +52,7 @@ from tests.support.provenance_review_fixture import bind_test_review
         "unicode",
     ],
 )
-def test_public_supervisor_is_one_json_protocol(
-    project_root, command, mode
-):
+def test_public_supervisor_is_one_json_protocol(project_root, command, mode):
     uv = shutil.which("uv")
     assert uv is not None
     completed = subprocess.run(
@@ -72,7 +72,7 @@ def test_public_supervisor_is_one_json_protocol(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=15,
+        timeout=300,
     )
     assert completed.stdout.count(b"\n") == 1
     assert completed.stderr == b""
@@ -97,6 +97,60 @@ def test_public_supervisor_is_one_json_protocol(
                 assert details["exception_class"] == "DocumentSkillsError"
 
 
+def test_public_supervisor_rejects_redirected_private_base_before_spawn(
+    project_root: Path,
+    tmp_path: Path,
+):
+    uv = shutil.which("uv")
+    assert uv is not None
+    sandbox = tmp_path / "project"
+    shutil.copytree(project_root / "src", sandbox / "src")
+    shutil.copytree(project_root / "schemas", sandbox / "schemas")
+    support = sandbox / "tests" / "support"
+    support.mkdir(parents=True)
+    shutil.copy2(
+        project_root / "tests" / "support" / "command_worker_fixture.py",
+        support / "command_worker_fixture.py",
+    )
+    redirected = sandbox / "redirected-private-base"
+    redirected.mkdir()
+    try:
+        (sandbox / ".document-skills-tmp").symlink_to(
+            redirected,
+            target_is_directory=True,
+        )
+    except OSError as error:
+        pytest.skip(f"directory symlink unavailable: {type(error).__name__}")
+
+    completed = subprocess.run(
+        [
+            uv,
+            "run",
+            "--project",
+            str(project_root),
+            "--frozen",
+            "python",
+            str(project_root / "tests" / "support" / "public_supervisor_fixture.py"),
+            "text-noise",
+            "run",
+            str(sandbox),
+        ],
+        cwd=project_root,
+        check=False,
+        capture_output=True,
+        text=False,
+        shell=False,
+        timeout=15,
+    )
+
+    assert completed.returncode == 2, completed.stdout.decode("utf-8", errors="replace")
+    assert completed.stdout.count(b"\n") == 1
+    assert completed.stderr == b""
+    assert list(redirected.iterdir()) == []
+    payload = json.loads(completed.stdout)
+    SchemaCatalog(sandbox).validate("operation-result", payload)
+
+
 def test_default_provider_identity_and_detection_only_capabilities(project_root):
     registry = build_default_registry(project_root)
     doctor = subprocess.run(
@@ -107,13 +161,7 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
             str(project_root),
             "--frozen",
             "python",
-            str(
-                project_root
-                / "skills"
-                / "document-docx"
-                / "scripts"
-                / "run.py"
-            ),
+            str(project_root / "skills" / "document-docx" / "scripts" / "run.py"),
             "doctor",
             "--json",
         ],
@@ -121,17 +169,17 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         capture_output=True,
         text=True,
         check=True,
-        timeout=60,
+        timeout=300,
     )
-    doctor_state = {
-        item["id"]: item for item in json.loads(doctor.stdout)["providers"]
-    }
+    doctor_state = {item["id"]: item for item in json.loads(doctor.stdout)["providers"]}
     capability = build_capabilities(project_root, "docx", registry)
     capability_state = {item["id"]: item for item in capability["providers"]}
     assert "core-node-protocol" not in doctor.stdout
     assert doctor_state["core-node"]["available"] is True
     assert capability_state["core-node"]["available"] is True
-    assert doctor_state["core-node"]["version"] == capability_state["core-node"]["version"]
+    assert (
+        doctor_state["core-node"]["version"] == capability_state["core-node"]["version"]
+    )
     operations = {item["operation"]: item for item in capability["operations"]}
     assert set(operations) == {
         "docx.create",
@@ -249,15 +297,22 @@ def test_catalog_requires_callable_and_available_detector(project_root):
 
     available = DetectionEvidence(True, version="1")
     unavailable = DetectionEvidence(False, reason="absent")
-    assert build_capabilities(
-        project_root, "docx", catalog(available, lambda _op, _req: {})
-    )["operations"][0]["available"] is True
-    assert build_capabilities(
-        project_root, "docx", catalog(unavailable, lambda _op, _req: {})
-    )["operations"][0]["available"] is False
-    assert build_capabilities(
-        project_root, "docx", catalog(available, None)
-    )["operations"] == []
+    assert (
+        build_capabilities(
+            project_root, "docx", catalog(available, lambda _op, _req: {})
+        )["operations"][0]["available"]
+        is True
+    )
+    assert (
+        build_capabilities(
+            project_root, "docx", catalog(unavailable, lambda _op, _req: {})
+        )["operations"][0]["available"]
+        is False
+    )
+    assert (
+        build_capabilities(project_root, "docx", catalog(available, None))["operations"]
+        == []
+    )
 
 
 @pytest.mark.parametrize(
@@ -364,10 +419,11 @@ def _release_copy(project_root, tmp_path):
 def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     root = _release_copy(project_root, tmp_path)
     bind_test_review(root)
-    assert run_audits(root)["status"] == "pass"
+    report = run_audits(root)
+    assert report["status"] == "pass", report["errors"]
 
 
-def test_current_review_is_the_only_hashless_review_metadata(project_root):
+def test_current_pdf_review_is_exact_hashless_review_metadata(project_root):
     from tools.regenerate_provenance import _is_metadata
 
     review_path = CURRENT_REVIEW_ARTIFACT
@@ -388,19 +444,16 @@ def test_current_review_is_the_only_hashless_review_metadata(project_root):
     )
 
 
-def test_b7_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
+def test_current_pdf_review_is_exact_metadata_and_mapping_stays_stable(
     project_root,
     tmp_path,
 ):
     from tools.regenerate_provenance import regenerate
 
-    expected_review = (
-        "provenance/reviews/"
-        "document-skills-0.5.3-pptx-b7-merge-review.md"
-    )
+    expected_review = "provenance/reviews/core-pdf-review-cycle-round-1.md"
     previous_review = (
         "provenance/reviews/"
-        "document-skills-0.5.3-pptx-b6-merge-review.md"
+        "document-skills-0.5.3-pptx-b7-merge-review.md"
     )
     assert CURRENT_REVIEW_ARTIFACT == expected_review
 
@@ -430,6 +483,7 @@ def test_b7_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
     [
         "provenance/reviews/clean-room-parity-and-hardening-review-cycle-round-1.md",
         "provenance/reviews/core-docx-review-cycle-round-1.md",
+        "provenance/reviews/core-pptx-review-cycle-round-1.md",
         "provenance/reviews/document-skills-0.5.1-consumer-gates-implementation-audit.md",
         "provenance/reviews/document-skills-0.5.2-ci-repair-and-version-bump-review.md",
         "provenance/reviews/document-skills-0.5.3-packaging-hygiene-review.md",
@@ -439,6 +493,8 @@ def test_b7_review_is_exact_self_referential_metadata_and_mapping_stays_stable(
         "provenance/reviews/openxml-dotnet-enhancement-review-cycle-round-1.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
+        "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md",
+        "provenance/reviews/document-skills-readme-system-review.md",
     ],
 )
 def test_historical_reviews_are_hash_pinned_data_not_metadata(
@@ -465,6 +521,20 @@ def test_historical_reviews_are_hash_pinned_data_not_metadata(
             },
             {"Strategy-2 historical-review test reviewer"},
         )
+
+
+@pytest.mark.parametrize(
+    "metadata_path",
+    [
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        "provenance/reviews/core-pdf-review-cycle-round-1.md",
+    ],
+)
+def test_is_metadata_accepts_only_digest_cycle_paths(metadata_path):
+    from tools.regenerate_provenance import _is_metadata
+
+    assert _is_metadata(metadata_path) is True
 
 
 @pytest.mark.parametrize(

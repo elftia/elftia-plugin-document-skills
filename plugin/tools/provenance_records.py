@@ -8,8 +8,15 @@ from typing import Any
 
 _REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
 CURRENT_REVIEW_ARTIFACT = (
-    "provenance/reviews/"
-    "document-skills-0.5.3-pptx-b7-merge-review.md"
+    "provenance/reviews/core-pdf-review-cycle-round-1.md"
+)
+CANONICAL_MAPPING_BOUND_REPORT = CURRENT_REVIEW_ARTIFACT
+SELF_REFERENTIAL_METADATA_ALLOWLIST = frozenset(
+    {
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        CURRENT_REVIEW_ARTIFACT,
+    }
 )
 
 
@@ -126,11 +133,7 @@ def validate_metadata_exclusion(
         f"Unsupported metadata exclusion: {artifact}",
     )
     _require(
-        artifact in {
-            "provenance/audit-report.json",
-            "provenance/modules.json",
-            CURRENT_REVIEW_ARTIFACT,
-        },
+        artifact in SELF_REFERENTIAL_METADATA_ALLOWLIST,
         f"Metadata exclusion is outside the exact self-reference allowlist: {artifact}",
     )
     _require(len(record["reason"].strip()) >= 40, f"Metadata exclusion reason is weak: {artifact}")

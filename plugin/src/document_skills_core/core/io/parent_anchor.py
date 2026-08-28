@@ -9,7 +9,18 @@ import stat
 import sys
 from typing import BinaryIO, Callable
 
-from .parent_anchor_types import FileIdentity, ParentSafetyError
+from .bound_child_directory import BoundDirectoryMixin
+from .parent_anchor_types import (
+    FileIdentity,
+    ParentSafetyError,
+    absolute_without_resolution as _absolute_without_resolution,
+    assert_plain_directory as _assert_plain_directory,
+    is_reparse as _is_reparse,
+    path_recovery_supported as _path_recovery_supported,
+    reject_redirected_components as _reject_redirected_components,
+    safe_leaf as _safe_leaf,
+    same_path as _same_path,
+)
 from .parent_anchor_posix import (
     darwin_descriptor_path as _darwin_descriptor_path,
     darwin_rename_no_replace as _darwin_rename_no_replace,
@@ -26,7 +37,7 @@ from .parent_anchor_windows import (
 
 
 @dataclass
-class DestinationParentAnchor:
+class DestinationParentAnchor(BoundDirectoryMixin):
     """An open identity for one physical destination directory."""
 
     original_path: Path
@@ -72,32 +83,43 @@ class DestinationParentAnchor:
                 identity=(metadata.st_dev, metadata.st_ino),
                 _windows_handle=handle,
             )
+        return cls._open_posix(parent)
+
+    @classmethod
+    def _open_posix(cls, parent: Path) -> DestinationParentAnchor:
         flags = os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
         descriptor = os.open(parent, flags)
-        metadata = os.fstat(descriptor)
-        if not stat.S_ISDIR(metadata.st_mode):
-            os.close(descriptor)
-            raise ParentSafetyError(
-                "destination_parent_not_directory",
-                phase="capture",
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise ParentSafetyError(
+                    "destination_parent_not_directory",
+                    phase="capture",
+                    original_path=parent,
+                )
+            if not _path_recovery_supported():
+                raise ParentSafetyError(
+                    "destination_parent_recovery_unavailable",
+                    phase="capture",
+                    original_path=parent,
+                )
+            return cls(
                 original_path=parent,
+                identity=(metadata.st_dev, metadata.st_ino),
+                _descriptor=descriptor,
             )
-        if not _path_recovery_supported():
+        except BaseException:
             os.close(descriptor)
-            raise ParentSafetyError(
-                "destination_parent_recovery_unavailable",
-                phase="capture",
-                original_path=parent,
-            )
-        return cls(
-            original_path=parent,
-            identity=(metadata.st_dev, metadata.st_ino),
-            _descriptor=descriptor,
-        )
+            raise
 
     @property
     def device(self) -> int:
         return self.identity[0]
+
+    def posix_descriptor(self) -> int | None:
+        """Borrow the held POSIX descriptor; the anchor retains ownership."""
+        self._assert_open()
+        return self._descriptor
 
     def __enter__(self) -> DestinationParentAnchor:
         return self
@@ -307,72 +329,3 @@ class DestinationParentAnchor:
                 phase="anchor",
                 original_path=self.original_path,
             )
-
-
-def _absolute_without_resolution(path: str | Path) -> Path:
-    return Path(os.path.abspath(os.fspath(Path(path).expanduser())))
-
-
-def _reject_redirected_components(parent: Path) -> None:
-    absolute = _absolute_without_resolution(parent)
-    current = Path(absolute.anchor)
-    for part in absolute.parts[1:]:
-        current /= part
-        try:
-            metadata = os.lstat(current)
-        except FileNotFoundError:
-            break
-        if stat.S_ISLNK(metadata.st_mode) or _is_reparse(metadata):
-            raise ParentSafetyError(
-                "destination_parent_redirected",
-                phase="preflight",
-                original_path=absolute,
-                current_path=current,
-            )
-        if not stat.S_ISDIR(metadata.st_mode):
-            raise ParentSafetyError(
-                "destination_parent_not_directory",
-                phase="preflight",
-                original_path=absolute,
-                current_path=current,
-            )
-
-
-def _assert_plain_directory(path: Path, *, phase: str) -> None:
-    metadata = os.lstat(path)
-    if (
-        not stat.S_ISDIR(metadata.st_mode)
-        or stat.S_ISLNK(metadata.st_mode)
-        or _is_reparse(metadata)
-    ):
-        raise ParentSafetyError(
-            "destination_parent_not_plain_directory",
-            phase=phase,
-            original_path=path,
-        )
-
-
-def _is_reparse(metadata: os.stat_result) -> bool:
-    if os.name != "nt":
-        return False
-    return bool(metadata.st_file_attributes & 0x400)
-
-
-def _safe_leaf(name: str) -> str:
-    if not name or name in {".", ".."} or Path(name).name != name:
-        raise ParentSafetyError(
-            "destination_path_escape",
-            phase="leaf",
-            original_path=Path(name),
-        )
-    return name
-
-
-def _same_path(first: Path, second: Path) -> bool:
-    if os.name == "nt":
-        return os.path.normcase(str(first)) == os.path.normcase(str(second))
-    return first == second
-
-
-def _path_recovery_supported() -> bool:
-    return sys.platform.startswith("linux") or sys.platform == "darwin"

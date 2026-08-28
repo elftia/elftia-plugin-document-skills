@@ -6,3 +6,6 @@ attributions are listed in THIRD_PARTY_NOTICES.md and provenance/modules.json.
 
 The Core DOCX scalar-template backend invokes exact locked upstream packages
 docxtemplater, pizzip, @xmldom/xmldom, and pako through original Elftia containment code.
+
+The PDF provider invokes the exact locked pypdf and cryptography production graph through
+original Elftia contracts, transactional publication, and semantic validation code.

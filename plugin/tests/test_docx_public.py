@@ -12,6 +12,7 @@ from tests.support.docx_public import (
     _table_values,
 )
 
+
 def test_docx_libreoffice_operations_have_a_private_worker_budget(
     project_root: Path,
     tmp_path: Path,

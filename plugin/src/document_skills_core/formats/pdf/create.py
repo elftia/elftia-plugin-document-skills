@@ -1,17 +1,16 @@
 """Styled PDF document construction via direct byte-level object assembly.
 
-Builds a new PDF with explicit header, minimal object set (Catalog, Pages,
-Page leaves, Content streams, Font resources, Image XObjects, vector-shape
-operators), classical xref table, trailer, and EOF marker.  At least two
-pages, one table, one image reference, one vector shape, and metadata.
+Builds a new PDF with an explicit header, Catalog, Pages tree, Page leaves,
+content streams, built-in Latin font resources, a classical xref table,
+trailer, and EOF marker. Documents may contain one or more pages and only
+the typed blocks requested by the caller.
 
 Module provenance: original Elftia-authored clean-room implementation.  No
 pypdf, fpdf2, reportlab, or pdf-lib is used.
 
-D12 adoption-gate: all required structures (≥2 pages, table, image, vector
-shape, metadata, font resources, content streams, classical xref) are emitted
-by direct PDF object construction.  No measured fidelity gap triggered the
-adoption gate.
+D12 adoption-gate: the Core text, table, vector-shape, metadata, image-resource,
+content-stream, and classical-xref path is emitted by direct PDF object
+construction.
 """
 
 from dataclasses import dataclass
@@ -19,7 +18,32 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
-from .constants import PAGE_SIZES
+from .create_layout import (
+    PageLayout,
+    build_text_block,
+    pdf_number,
+    resolve_page_layout,
+    shape_evidence,
+    shape_paint_operator,
+    shape_path,
+    shape_style_operators,
+)
+from .create_mapping import build_creation_mapping
+from .create_document import document_text, paginate_document_pages
+from .create_image_structure import (
+    finalize_image_structure,
+    page_struct_parent,
+    split_image_evidence,
+)
+from .create_images import build_created_image
+from .create_text_utils import needs_unicode_shaping, pdf_text_string
+from .design_tokens import default_design_tokens
+from .metadata_xmp import build_xmp
+from .font_assets import load_font_assets
+from .font_embedding import EmbeddedFontSet
+from .font_shaping import TextShaper
+from .table_layout import build_table_block
+from .unicode_text import build_shaped_text_block
 
 
 @dataclass
@@ -38,11 +62,26 @@ class _PdfWriter:
         self.next_obj += 1
         return obj_num
 
+    def reserve_object(self) -> int:
+        """Reserve a stable object number for deferred content."""
+        return self.add_object(b"")
+
+    def replace_object(self, obj_num: int, content: bytes) -> None:
+        """Fill a previously reserved object exactly once by number."""
+        for index, (number, generation, existing) in enumerate(self.objects):
+            if number != obj_num:
+                continue
+            if existing:
+                raise ValueError(f"PDF object {obj_num} is already populated")
+            self.objects[index] = (number, generation, content)
+            return
+        raise ValueError(f"PDF object {obj_num} was not reserved")
+
     def add_stream_object(self, dictionary: bytes, stream_data: bytes) -> int:
         content = dictionary + b"\nstream\n" + stream_data + b"\nendstream"
         return self.add_object(content)
 
-    def build(self, metadata: dict[str, str]) -> bytes:
+    def build(self, info_object: int) -> bytes:
         """Assemble the complete PDF bytes with classical xref table."""
         header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
         offsets: dict[int, int] = {}
@@ -64,7 +103,7 @@ class _PdfWriter:
             xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
         # Trailer
         xref.extend(
-            f"trailer\n<< /Size {max_obj + 1} /Root 1 0 R /Info {self.next_obj - 1} 0 R >>\n".encode("ascii")
+            f"trailer\n<< /Size {max_obj + 1} /Root 1 0 R /Info {info_object} 0 R >>\n".encode("ascii")
         )
         xref.extend(f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii"))
         return header + bytes(body) + bytes(xref)
@@ -77,30 +116,40 @@ def create_pdf(output: Path, document: dict[str, Any]) -> dict[str, Any]:
     """
     metadata = document["metadata"]
     page_size = document["page_size"]
-    pages_data = document["pages"]
+    requested_pages = document["pages"]
+    design_tokens = document.get("design_tokens") or default_design_tokens()
 
-    # Resolve page dimensions
-    if isinstance(page_size, str):
-        width, height = PAGE_SIZES[page_size]
-    else:
-        width = page_size["width"]
-        height = page_size["height"]
+    font_assets = load_font_assets(
+        document.get("fonts", []),
+        document_text(document),
+    )
+    text_shaper = TextShaper(font_assets)
+    pages_data = paginate_document_pages(
+        requested_pages,
+        page_size,
+        text_shaper,
+        design_tokens["spacing"],
+    )
 
     writer = _PdfWriter()
 
-    # Obj 1: Catalog (reserve, fill later with Pages ref)
-    catalog_obj = 1
-    writer.next_obj = 2
-    pages_obj = 2
-    writer.next_obj = 3
+    catalog_obj = writer.reserve_object()
+    pages_obj = writer.reserve_object()
 
-    # Build font objects (Helvetica + Helvetica-Bold)
+    # Built-in Helvetica family variants used by the typed Core style subset.
     font_regular = writer.add_object(
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"
     )
     font_bold = writer.add_object(
         b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"
     )
+    font_italic = writer.add_object(
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>"
+    )
+    font_bold_italic = writer.add_object(
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-BoldOblique /Encoding /WinAnsiEncoding >>"
+    )
+    embedded_fonts = EmbeddedFontSet(writer, font_assets)
 
     page_object_nums: list[int] = []
     content_stream_nums: list[int] = []
@@ -110,12 +159,37 @@ def create_pdf(output: Path, document: dict[str, Any]) -> dict[str, Any]:
         "image": False,
         "vector_shape": False,
         "metadata": True,
+        "embedded_font": bool(font_assets),
     }
+    created_images: list[dict[str, Any]] = []
+    created_shapes: list[dict[str, Any]] = []
+    created_text_blocks: list[dict[str, Any]] = []
+    created_tables: list[dict[str, Any]] = []
+    page_sizes: list[list[float]] = []
+    content_boxes: list[list[float]] = []
 
-    for _page_idx, page_data in enumerate(pages_data):
+    for page_idx, page_data in enumerate(pages_data):
+        layout = resolve_page_layout(page_size, page_data)
+        page_sizes.append([layout.width, layout.height])
+        content_boxes.append(layout.content_bbox)
+        struct_parent = page_struct_parent(page_data, page_idx)
         # Build content stream operators
-        operators = _build_page_operators(page_data, width, height, structures)
-        content_bytes = operators.encode("latin-1", errors="replace")
+        operators, xobjects, ext_gstates = _build_page_operators(
+            page_data,
+            layout,
+            structures,
+            writer,
+            page_idx + 1,
+            created_images,
+            created_shapes,
+            created_text_blocks,
+            text_shaper,
+            embedded_fonts,
+            created_tables,
+            design_tokens["spacing"],
+            struct_parent,
+        )
+        content_bytes = operators.encode("latin-1", errors="strict")
         # Content stream object
         content_num = writer.add_stream_object(
             b"<< /Length " + str(len(content_bytes)).encode("ascii") + b" >>",
@@ -123,13 +197,37 @@ def create_pdf(output: Path, document: dict[str, Any]) -> dict[str, Any]:
         )
         content_stream_nums.append(content_num)
         # Font dictionary
-        font_dict = f"<< /F1 {font_regular} 0 R /F2 {font_bold} 0 R >>".encode("ascii")
+        font_dict = (
+            f"<< /F1 {font_regular} 0 R /F2 {font_bold} 0 R "
+            f"/F3 {font_italic} 0 R /F4 {font_bold_italic} 0 R"
+            + (f" {embedded_fonts.page_resource_entries()}" if font_assets else "")
+            + " >>"
+        ).encode("ascii")
+        xobject_dict = b""
+        if xobjects:
+            entries = " ".join(
+                f"/{name} {obj_num} 0 R"
+                for name, obj_num in xobjects.items()
+            )
+            xobject_dict = f" /XObject << {entries} >>".encode("ascii")
+        ext_gstate_dict = b""
+        if ext_gstates:
+            entries = " ".join(
+                f"/{name} {obj_num} 0 R"
+                for name, obj_num in ext_gstates.items()
+            )
+            ext_gstate_dict = f" /ExtGState << {entries} >>".encode("ascii")
         # Page object
         page_num = writer.add_object(
             b"<< /Type /Page /Parent " + f"{pages_obj} 0 R".encode("ascii") + b" "
-            + f"/MediaBox [0 0 {width} {height}]".encode("ascii") + b" "
+            + f"/MediaBox [0 0 {pdf_number(layout.width)} {pdf_number(layout.height)}]".encode("ascii") + b" "
             + f"/Contents {content_num} 0 R".encode("ascii") + b" "
-            + b"/Resources << /Font " + font_dict + b" >> >>"
+            + (
+                f"/StructParents {struct_parent} ".encode("ascii")
+                if struct_parent is not None
+                else b""
+            )
+            + b"/Resources << /Font " + font_dict + xobject_dict + ext_gstate_dict + b" >> >>"
         )
         page_object_nums.append(page_num)
 
@@ -139,32 +237,85 @@ def create_pdf(output: Path, document: dict[str, Any]) -> dict[str, Any]:
         f"<< /Type /Pages /Kids [{kids}] /Count {len(page_object_nums)} >>"
     ).encode("ascii")
 
-    # Info dictionary
-    title = _escape_pdf_string(metadata.get("title", ""))
-    author = _escape_pdf_string(metadata.get("author", ""))
-    subject = _escape_pdf_string(metadata.get("subject", ""))
+    embedded_fonts.finalize(writer)
+    structure_root = finalize_image_structure(
+        writer,
+        created_images,
+        page_object_nums,
+    )
+
+    # Info dictionary. Unicode values use deterministic UTF-16BE hex strings.
+    title = pdf_text_string(metadata.get("title", ""))
+    author = pdf_text_string(metadata.get("author", ""))
+    subject = pdf_text_string(metadata.get("subject", ""))
     info_content = (
-        f"<< /Title ({title}) /Author ({author}) /Subject ({subject}) "
+        f"<< /Title {title} /Author {author} /Subject {subject} "
         f"/Creator (Elftia Document Skills) /Producer (Elftia PDF Core) "
         f"/CreationDate (D:20260101000000+00'00') >>"
     ).encode("ascii")
-    writer.add_object(info_content)
+    info_object = writer.add_object(info_content)
+    xmp_metadata = {
+        "title": metadata.get("title", ""),
+        "author": metadata.get("author", ""),
+        "subject": metadata.get("subject", ""),
+        "keywords": "",
+    }
+    xmp_bytes = build_xmp(xmp_metadata)
+    xmp_object = writer.add_stream_object(
+        (
+            f"<< /Type /Metadata /Subtype /XML /Length {len(xmp_bytes)} >>"
+        ).encode("ascii"),
+        xmp_bytes,
+    )
 
     # Now build the catalog + pages in the correct position
     # Rebuild objects with catalog at obj 1 and pages at obj 2
-    writer.objects.insert(0, (1, 0, b"<< /Type /Catalog /Pages 2 0 R >>"))
-    writer.objects.insert(1, (2, 0, pages_content))
+    writer.replace_object(
+        catalog_obj,
+        (
+            f"<< /Type /Catalog /Pages {pages_obj} 0 R "
+            f"/Metadata {xmp_object} 0 R"
+            + (
+                f" /MarkInfo << /Marked true >> /StructTreeRoot {structure_root} 0 R"
+                if structure_root is not None
+                else ""
+            )
+            + " >>"
+        ).encode("ascii"),
+    )
+    writer.replace_object(pages_obj, pages_content)
 
-    pdf_bytes = writer.build(metadata)
+    pdf_bytes = writer.build(info_object)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_bytes(pdf_bytes)
 
     sha256 = hashlib.sha256(pdf_bytes).hexdigest()
+    mapping = build_creation_mapping(
+        pages_data,
+        page_object_nums,
+        content_stream_nums,
+        page_sizes,
+        text_blocks=created_text_blocks,
+        images=created_images,
+        tables=created_tables,
+        shapes=created_shapes,
+    )
+    public_images, image_structure = split_image_evidence(created_images)
 
     return {
         "page_count": len(page_object_nums),
-        "page_size": [width, height],
+        "page_size": page_sizes[0],
+        "page_sizes": page_sizes,
+        "content_boxes": content_boxes,
         "structures": structures,
+        "images": public_images,
+        "image_structure": image_structure,
+        "fonts": embedded_fonts.evidence(),
+        "shapes": created_shapes,
+        "tables": created_tables,
+        "text_blocks": created_text_blocks,
+        "design_tokens": design_tokens,
+        "mapping": mapping,
         "output_sha256": sha256,
         "output_bytes": len(pdf_bytes),
     }
@@ -172,99 +323,121 @@ def create_pdf(output: Path, document: dict[str, Any]) -> dict[str, Any]:
 
 def _build_page_operators(
     page_data: dict[str, Any],
-    width: float,
-    height: float,
+    layout: PageLayout,
     structures: dict[str, bool],
-) -> str:
+    writer: _PdfWriter,
+    page_number: int,
+    created_images: list[dict[str, Any]],
+    created_shapes: list[dict[str, Any]],
+    created_text_blocks: list[dict[str, Any]],
+    text_shaper: TextShaper,
+    embedded_fonts: EmbeddedFontSet,
+    created_tables: list[dict[str, Any]],
+    spacing: dict[str, float],
+    struct_parent: int | None,
+) -> tuple[str, dict[str, int], dict[str, int]]:
     """Build content stream operators for a page."""
     ops: list[str] = ["q"]
-    y = height - 72.0  # Start 1 inch from top
+    xobjects: dict[str, int] = {}
+    ext_gstates: dict[str, int] = {}
+    next_mcid = 0
+    y = layout.height - layout.top
 
-    for block in page_data.get("blocks", []):
+    for block_index, block in enumerate(page_data.get("blocks", [])):
         block_type = block.get("type", "paragraph")
-        text = block.get("text", "") or ""
 
-        if block_type == "heading":
-            ops.append("BT")
-            ops.append(f"/F2 16 Tf")  # Helvetica-Bold 16pt
-            ops.append(f"1 0 0 1 72 {y} Tm")
-            ops.append(f"({ _escape_pdf_string(text)}) Tj")
-            ops.append("ET")
-            y -= 28.0
-
-        elif block_type == "paragraph":
-            ops.append("BT")
-            ops.append(f"/F1 12 Tf")  # Helvetica 12pt
-            ops.append(f"1 0 0 1 72 {y} Tm")
-            # Split into lines at ~80 chars
-            for line in text.split("\n"):
-                ops.append(f"({_escape_pdf_string(line)}) Tj")
-                y -= 14.0
-                ops.append(f"1 0 0 1 72 {y} Tm")
-            ops.append("ET")
-            y -= 8.0
+        if block_type in {"heading", "paragraph"}:
+            if needs_unicode_shaping(block):
+                text_ops, y, evidence = build_shaped_text_block(
+                    block,
+                    layout,
+                    y,
+                    page_number=page_number,
+                    block_index=block_index,
+                    shaper=text_shaper,
+                    fonts=embedded_fonts,
+                    spacing_after=spacing[f"{block_type}_gap"],
+                )
+            else:
+                text_ops, y, evidence = build_text_block(
+                    block,
+                    layout,
+                    y,
+                    page_number=page_number,
+                    block_index=block_index,
+                    escape_text=_escape_pdf_string,
+                    spacing_after=spacing[f"{block_type}_gap"],
+                )
+            ops.extend(text_ops)
+            created_text_blocks.extend(evidence)
 
         elif block_type == "table":
             structures["table"] = True
-            table = block.get("table")
-            if table and "rows" in table:
-                row_height = 20.0
-                col_width = (width - 144.0) / max(len(table["rows"][0]["cells"]), 1)
-                for r_idx, row in enumerate(table["rows"]):
-                    row_y = y - r_idx * row_height
-                    # Draw row borders
-                    ops.append(f"72 {row_y} m")
-                    ops.append(f"{72 + col_width * len(row['cells'])} {row_y} l")
-                    ops.append("S")
-                    for c_idx, cell in enumerate(row["cells"]):
-                        col_x = 72 + c_idx * col_width
-                        if cell is not None:
-                            ops.append("BT")
-                            ops.append(f"/F1 10 Tf")
-                            ops.append(f"1 0 0 1 {col_x + 2} {row_y - 12} Tm")
-                            ops.append(f"({_escape_pdf_string(str(cell))}) Tj")
-                            ops.append("ET")
-                y -= len(table["rows"]) * row_height + 10.0
+            table_ops, y, table_evidence = build_table_block(
+                block,
+                layout,
+                y,
+                page_number=page_number,
+                block_index=block_index,
+                shaper=text_shaper,
+                fonts=embedded_fonts,
+                spacing_after=spacing["table_gap"],
+            )
+            ops.extend(table_ops)
+            created_tables.append(table_evidence)
 
         elif block_type == "image":
             structures["image"] = True
-            # Reference image block — draws a placeholder rectangle
-            image = block.get("image", {})
-            ops.append(f"72 {y - 100} m")
-            ops.append(f"272 {y - 100} l")
-            ops.append(f"272 {y} l")
-            ops.append(f"72 {y} l")
-            ops.append("h S")
-            y -= 120.0
+            image = block["image"]
+            resource_name = f"Im{len(xobjects) + 1}"
+            alt = image.get("alt")
+            mcid = next_mcid if alt else None
+            if mcid is not None:
+                next_mcid += 1
+            image_ops, image_object, image_evidence = build_created_image(
+                writer,
+                image,
+                page_number=page_number,
+                block_index=block_index,
+                resource_name=resource_name,
+                left=layout.left,
+                top=y,
+                mcid=mcid,
+                struct_parent=struct_parent,
+            )
+            xobjects[resource_name] = image_object
+            ops.extend(image_ops)
+            created_images.append(image_evidence)
+            y -= image["height"] + spacing["image_gap"]
 
         elif block_type == "vector_shape":
             structures["vector_shape"] = True
-            shape = block.get("shape", {})
-            kind = shape.get("kind", "rectangle")
-            sx = shape.get("x", 72.0)
-            sy = y - shape.get("height", 50.0)
-            sw = shape.get("width", 100.0)
-            sh = shape.get("height", 50.0)
-            if kind == "rectangle":
-                ops.append(f"{sx} {sy} {sw} {sh} re S")
-            elif kind == "line":
-                ops.append(f"{sx} {sy} m {sx + sw} {sy + sh} l S")
-            elif kind == "ellipse":
-                # Approximate ellipse with 4 bezier curves
-                cx = sx + sw / 2
-                cy = sy + sh / 2
-                rx = sw / 2
-                ry = sh / 2
-                k = 0.5522847498307793
-                ops.append(f"{cx - rx} {cy} m")
-                ops.append(f"{cx - rx} {cy + ry * k} {cx - rx * k} {cy + ry} {cx} {cy + ry} c")
-                ops.append(f"{cx + rx * k} {cy + ry} {cx + rx} {cy + ry * k} {cx + rx} {cy} c")
-                ops.append(f"{cx + rx} {cy - ry * k} {cx + rx * k} {cy - ry} {cx} {cy - ry} c")
-                ops.append(f"{cx - rx * k} {cy - ry} {cx - rx} {cy - ry * k} {cx - rx} {cy} c S")
-            y -= max(sh, 20.0) + 10.0
+            ops.append("%DS-BLOCK:vector_shape")
+            shape = {
+                **block["shape"],
+                "opacity": block["shape"].get("opacity", 1.0),
+                "dash": block["shape"].get("dash", []),
+            }
+            graphics_name = f"GS{len(ext_gstates) + 1}"
+            ext_gstates[graphics_name] = writer.add_object(
+                (
+                    f"<< /Type /ExtGState /ca {pdf_number(shape['opacity'])} "
+                    f"/CA {pdf_number(shape['opacity'])} >>"
+                ).encode("ascii")
+            )
+            ops.extend(shape_style_operators(shape, graphics_name))
+            ops.extend(shape_path(shape))
+            ops.extend([shape_paint_operator(shape), "Q"])
+            created_shapes.append(
+                shape_evidence(
+                    shape,
+                    page_number=page_number,
+                    block_index=block_index,
+                )
+            )
 
     ops.append("Q")
-    return "\n".join(ops)
+    return "\n".join(ops), xobjects, ext_gstates
 
 
 def _escape_pdf_string(text: str) -> str:

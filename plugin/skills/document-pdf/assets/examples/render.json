@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "operation": "pdf.render",
+  "input": "<source.pdf>",
+  "output": "<rendered-pages.zip>",
+  "arguments": {
+    "pages": [1],
+    "dpi": 144,
+    "format": "png",
+    "max_pixels": 40000000,
+    "max_total_bytes": 67108864
+  }
+}

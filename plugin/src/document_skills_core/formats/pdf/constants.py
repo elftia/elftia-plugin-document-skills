@@ -53,6 +53,7 @@ SUPPORTED_FILTERS = frozenset({
     "ASCII85Decode",
     "LZWDecode",
     "RunLengthDecode",
+    "DCTDecode",
 })
 
 # Font type names

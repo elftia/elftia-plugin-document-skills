@@ -1,7 +1,7 @@
 """PDF functional operation tests — create, read, inspect, edit, rewrite, validate.
 
 Covers per-operation behavior, preservation manifests, page-layout-preservation-
-on-rewrite reopen gate, CJK/RTL glyph-degradation reporting, inert action
+on-rewrite reopen gate, CJK/RTL fail-closed behavior, inert action
 classification, and malicious-fixture fail-closed behavior.
 
 Module provenance: original Elftia-authored test suite.
@@ -15,7 +15,7 @@ import zlib
 import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
-from document_skills_core.formats.pdf.byte_preflight import decode_stream
+from document_skills_core.formats.pdf.byte_preflight import PdfByteLimits, decode_stream
 from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.edit import edit_pdf
 from document_skills_core.formats.pdf.inspect import inspect_pdf
@@ -50,11 +50,32 @@ def _document() -> dict[str, Any]:
             {
                 "blocks": [
                     {"type": "heading", "text": "Page Two", "style": None, "table": None, "image": None, "shape": None},
-                    {"type": "image", "text": None, "style": None, "table": None, "image": {"filename": "logo.png", "content_type": "image/png"}, "shape": None},
                     {"type": "vector_shape", "text": None, "style": None, "table": None, "image": None, "shape": {"kind": "rectangle", "x": 72, "y": 72, "width": 200, "height": 100, "stroke": None, "fill": None}},
                 ],
                 "metadata": None,
             },
+        ],
+    }
+
+
+def _minimal_text_document(text: str) -> dict[str, Any]:
+    return {
+        "metadata": {"title": "Minimal", "author": "Elftia", "subject": ""},
+        "page_size": "A4",
+        "pages": [
+            {
+                "blocks": [
+                    {
+                        "type": "paragraph",
+                        "text": text,
+                        "style": None,
+                        "table": None,
+                        "image": None,
+                        "shape": None,
+                    }
+                ],
+                "metadata": None,
+            }
         ],
     }
 
@@ -70,6 +91,63 @@ def _source_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _merge_inputs(*paths: Path) -> list[dict[str, str]]:
+    return [
+        {"input": str(path), "source_sha256": _source_hash(path)}
+        for path in paths
+    ]
+
+
+def _write_pdf_fixture(path: Path, objects: list[bytes]) -> Path:
+    header = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
+    body = bytearray()
+    offsets: list[int] = []
+    for number, payload in enumerate(objects, start=1):
+        offsets.append(len(header) + len(body))
+        body.extend(f"{number} 0 obj\n".encode("ascii"))
+        body.extend(payload)
+        body.extend(b"\nendobj\n")
+    xref_offset = len(header) + len(body)
+    xref = bytearray(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    xref.extend(b"0000000000 65535 f\r\n")
+    for offset in offsets:
+        xref.extend(f"{offset:010d} 00000 n\r\n".encode("ascii"))
+    xref.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("ascii")
+    )
+    path.write_bytes(header + bytes(body) + bytes(xref))
+    return path
+
+
+def _cidfont_without_tounicode_pdf(path: Path) -> Path:
+    content = b"BT /FCID 12 Tf 72 720 Td <0001> Tj ET"
+    return _write_pdf_fixture(
+        path,
+        [
+            b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            (
+                b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                b"/Resources << /Font << /FCID 5 0 R >> >> /Contents 4 0 R >>"
+            ),
+            b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+            + content + b"\nendstream",
+            (
+                b"<< /Type /Font /Subtype /Type0 /BaseFont /MissingMap "
+                b"/Encoding /Identity-H /DescendantFonts [6 0 R] >>"
+            ),
+            (
+                b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /MissingMap "
+                b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) "
+                b"/Supplement 0 >> >>"
+            ),
+        ],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Create
 # ---------------------------------------------------------------------------
@@ -82,7 +160,7 @@ class TestCreate:
         assert destination.stat().st_size > 0
         assert result["page_count"] == 2
         assert result["structures"]["table"] is True
-        assert result["structures"]["image"] is True
+        assert result["structures"]["image"] is False
         assert result["structures"]["vector_shape"] is True
         assert result["structures"]["metadata"] is True
 
@@ -91,6 +169,50 @@ class TestCreate:
         create_pdf(destination, _document())
         report = validate_created(destination, _document())
         assert report["status"] == "pass"
+
+    def test_create_validation_rejects_missing_requested_text(self, tmp_path: Path):
+        destination = tmp_path / "test.pdf"
+        create_pdf(destination, _minimal_text_document("Created text"))
+
+        with pytest.raises(DocumentSkillsError) as exc:
+            validate_created(
+                destination,
+                _minimal_text_document("Different requested text"),
+            )
+
+        assert exc.value.code is ErrorCode.VALIDATION_FAILED
+
+    def test_create_validation_rejects_missing_requested_vector_shape(
+        self,
+        tmp_path: Path,
+    ):
+        destination = tmp_path / "test.pdf"
+        actual_document = _minimal_text_document("Created text")
+        expected_document = _minimal_text_document("Created text")
+        expected_document["pages"][0]["blocks"].append(
+            {
+                "type": "vector_shape",
+                "text": None,
+                "style": None,
+                "table": None,
+                "image": None,
+                "shape": {
+                    "kind": "rectangle",
+                    "x": 72,
+                    "y": 72,
+                    "width": 100,
+                    "height": 50,
+                    "stroke": None,
+                    "fill": None,
+                },
+            }
+        )
+        create_pdf(destination, actual_document)
+
+        with pytest.raises(DocumentSkillsError) as exc:
+            validate_created(destination, expected_document)
+
+        assert exc.value.code is ErrorCode.VALIDATION_FAILED
 
     def test_created_pdf_reopens(self, created_pdf: Path):
         result = reopen_pdf(created_pdf)
@@ -136,6 +258,142 @@ class TestRead:
         assert "Page One" in text_page["text"]
         assert text_page["text_extraction"] == "embedded"
 
+    def test_read_does_not_fabricate_cidfont_text_without_semantic_mapping(
+        self,
+        tmp_path: Path,
+    ):
+        source = _cidfont_without_tounicode_pdf(tmp_path / "missing-map.pdf")
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert operation_result["text_blocks"] == []
+        assert operation_result["text_by_page"] == [
+            {
+                "page": 1,
+                "text": "",
+                "block_count": 0,
+                "text_extraction": "text_extraction_unavailable",
+            }
+        ]
+        assert warnings == [
+            {
+                "code": "DS_PDF_TEXT_EXTRACTION_UNAVAILABLE",
+                "message": "Text blocks without a proven semantic mapping were omitted.",
+                "details": {"affected": "text_blocks", "omitted": 1, "pages": [1]},
+            }
+        ]
+
+    def test_read_reports_caller_selected_block_truncation(self, created_pdf: Path):
+        operation_result, warnings = read_pdf(
+            created_pdf,
+            {"max_blocks_per_page": 1},
+        )
+
+        assert sum(
+            block["page"] == 1 for block in operation_result["text_blocks"]
+        ) == 1
+        assert {
+            "code": "DS_PDF_READ_TRUNCATED",
+            "message": "Text blocks exceeded the caller-selected per-page limit.",
+            "details": {
+                "affected": "text_blocks",
+                "limit": 1,
+                "pages": [1],
+            },
+        } in warnings
+
+    def test_read_reports_default_block_truncation_at_internal_ceiling(
+        self,
+        tmp_path: Path,
+    ):
+        content = b"BT /F1 12 Tf " + (b"(x) Tj " * 5_001) + b"ET"
+        source = _write_pdf_fixture(
+            tmp_path / "over-block-limit.pdf",
+            [
+                b"<< /Type /Catalog /Pages 2 0 R >>",
+                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                (
+                    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                    b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"
+                ),
+                b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+                + content + b"\nendstream",
+                b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            ],
+        )
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert len(operation_result["text_blocks"]) == 5_000
+        assert {
+            "code": "DS_PDF_READ_TRUNCATED",
+            "message": "Text blocks exceeded the caller-selected per-page limit.",
+            "details": {
+                "affected": "text_blocks",
+                "limit": 5_000,
+                "pages": [1],
+            },
+        } in warnings
+
+    def test_read_filters_unmapped_cid_blocks_before_projection_limit(
+        self,
+        tmp_path: Path,
+    ):
+        content = (
+            b"BT /FCID 12 Tf "
+            + (b"<0001> Tj " * 5_001)
+            + b"/F1 12 Tf (SAFE) Tj ET"
+        )
+        source = _write_pdf_fixture(
+            tmp_path / "cid-before-readable-text.pdf",
+            [
+                b"<< /Type /Catalog /Pages 2 0 R >>",
+                b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                (
+                    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+                    b"/Resources << /Font << /FCID 5 0 R /F1 7 0 R >> >> "
+                    b"/Contents 4 0 R >>"
+                ),
+                b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n"
+                + content + b"\nendstream",
+                (
+                    b"<< /Type /Font /Subtype /Type0 /BaseFont /MissingMap "
+                    b"/Encoding /Identity-H /DescendantFonts [6 0 R] >>"
+                ),
+                (
+                    b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /MissingMap "
+                    b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) "
+                    b"/Supplement 0 >> >>"
+                ),
+                b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            ],
+        )
+
+        operation_result, warnings = read_pdf(source, {})
+
+        assert [block["text"] for block in operation_result["text_blocks"]] == [
+            "SAFE"
+        ]
+        assert operation_result["text_by_page"] == [
+            {
+                "page": 1,
+                "text": "SAFE",
+                "block_count": 1,
+                "text_extraction": "embedded",
+            }
+        ]
+        assert warnings == [
+            {
+                "code": "DS_PDF_TEXT_EXTRACTION_UNAVAILABLE",
+                "message": "Text blocks without a proven semantic mapping were omitted.",
+                "details": {
+                    "affected": "text_blocks",
+                    "omitted": 5_001,
+                    "pages": [1],
+                },
+            }
+        ]
+
 
 # ---------------------------------------------------------------------------
 # Inspect
@@ -172,7 +430,7 @@ class TestEditMerge:
         out = tmp_path / "merged.pdf"
         operation_result, manifest = edit_pdf(
             p1, out,
-            {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]},
+            {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]},
         )
         assert operation_result["primitive"] == "merge"
         assert operation_result["input_count"] == 2
@@ -184,7 +442,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         reopened = reopen_pdf(out)
         assert reopened["pages"] == 4
 
@@ -194,7 +452,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         # Walk the merged pages and verify they all have MediaBox + Contents
         merged_model = parse_pdf(out)
         pages = walk_pages(merged_model)
@@ -211,7 +469,7 @@ class TestEditMerge:
         h1 = _source_hash(p1)
         h2 = _source_hash(p2)
         out = tmp_path / "merged.pdf"
-        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]})
+        edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]})
         assert _source_hash(p1) == h1
         assert _source_hash(p2) == h2
 
@@ -222,7 +480,7 @@ class TestEditMerge:
         create_pdf(p2, _document())
         out = tmp_path / "merged.pdf"
         _op_result, manifest = edit_pdf(
-            p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1), str(p2)]}]},
+            p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1, p2)}]},
         )
         # All input objects in the transitive closure should be preserved
         assert len(manifest["preserved_objects"]) > 0
@@ -233,7 +491,7 @@ class TestEditMerge:
         create_pdf(p1, _document())
         out = tmp_path / "merged.pdf"
         with pytest.raises(DocumentSkillsError):
-            edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": [str(p1)]}]})
+            edit_pdf(p1, out, {"primitives": [{"type": "merge", "inputs": _merge_inputs(p1)}]})
 
 
 # ---------------------------------------------------------------------------
@@ -402,7 +660,7 @@ class TestRewrite:
         operation_result, manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Page Modified"}],
             },
         )
@@ -419,7 +677,7 @@ class TestRewrite:
         operation_result, _manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Page Modified"}],
             },
         )
@@ -435,26 +693,26 @@ class TestRewrite:
         rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "New Text"}],
             },
         )
         assert _source_hash(src) == h
 
-    def test_rewrite_cjk_reports_glyph_degradation(self, tmp_path: Path):
+    def test_rewrite_cjk_without_font_fails_before_artifact(self, tmp_path: Path):
         src = tmp_path / "src.pdf"
         create_pdf(src, _document())
         out = tmp_path / "cjk_rewritten.pdf"
-        operation_result, _manifest = rewrite_apply_pdf(
-            src, out,
-            {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
-                "rewrites": [{"block_index": 0, "text": "日本語テスト"}],
-            },
-        )
-        glyph_degradation = operation_result["rewrite"]["glyph_degradation"]
-        assert len(glyph_degradation) > 0
-        assert operation_result.get("status") == "degraded"
+        with pytest.raises(DocumentSkillsError) as captured:
+            rewrite_apply_pdf(
+                src, out,
+                {
+                    "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                    "rewrites": [{"block_index": 0, "text": "日本語テスト"}],
+                },
+            )
+        assert captured.value.code is ErrorCode.ENHANCEMENT_REQUIRED
+        assert not out.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -507,7 +765,7 @@ class TestPageLayoutPreservation:
         operation_result, manifest = rewrite_apply_pdf(
             src, out,
             {
-                "blocks": [{"page": 1, "bbox": [72, 754, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
+                "blocks": [{"page": 1, "bbox": [72, 753, 300, 770], "text": "Page One", "font": "F2", "size": 16.0, "color": None}],
                 "rewrites": [{"block_index": 0, "text": "Valid New Text"}],
             },
         )
@@ -657,6 +915,19 @@ def _build_embedded_executable_pdf(path: Path) -> Path:
 
 
 class TestSecurityFailClosed:
+    def test_flate_decode_stops_at_uncompressed_budget(self):
+        compressed = zlib.compress(b"A" * 4096)
+        limits = PdfByteLimits(
+            max_uncompressed_bytes=64,
+            max_expansion_ratio=100_000,
+        )
+
+        with pytest.raises(DocumentSkillsError) as captured:
+            decode_stream(compressed, ["/FlateDecode"], limits)
+
+        assert captured.value.code == ErrorCode.ARCHIVE_UNSAFE
+        assert captured.value.details == {"uncompressed_bytes": 65, "limit": 64}
+
     def test_malformed_header_rejected(self, tmp_path: Path):
         bad = tmp_path / "bad.pdf"
         bad.write_bytes(b"NOTPDF-1.7\n%%EOF\n")

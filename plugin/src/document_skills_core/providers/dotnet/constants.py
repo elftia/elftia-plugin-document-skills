@@ -22,6 +22,7 @@ ACCEPTED_SUBCOMMANDS: frozenset[str] = frozenset(
         "--revisions-reject",
         "--comments-read",
         "--comments-add",
+        "--comments-resolve",
         "--template-apply",
         "--schema-validate",
         "--xlsx-schema-validate",
