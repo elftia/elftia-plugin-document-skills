@@ -27,4 +27,3 @@ storeMemberships:
 store:
   uid: a9da9342-9665-49d7-b7bc-5ef020844acb
   id: elftia-store
-  remote: https://github.com/elftia/eltia-store.git
