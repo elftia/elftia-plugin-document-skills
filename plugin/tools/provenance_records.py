@@ -7,9 +7,6 @@ from typing import Any
 
 
 _REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
-README_SYSTEM_REVIEW_ARTIFACT = (
-    "provenance/reviews/document-skills-readme-system-review.md"
-)
 CURRENT_REVIEW_ARTIFACT = (
     "provenance/reviews/core-pdf-review-cycle-round-1.md"
 )
@@ -19,7 +16,6 @@ SELF_REFERENTIAL_METADATA_ALLOWLIST = frozenset(
         "provenance/audit-report.json",
         "provenance/modules.json",
         CURRENT_REVIEW_ARTIFACT,
-        README_SYSTEM_REVIEW_ARTIFACT,
     }
 )
 

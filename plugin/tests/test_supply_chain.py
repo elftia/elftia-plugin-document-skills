@@ -222,21 +222,34 @@ def test_current_review_metadata_binding_uses_an_exact_allowlist(
         validate_metadata_exclusion(root, unexpected, reviewers)
 
 
-def test_metadata_exclusion_boundary_matches_exact_allowlist(project_root, tmp_path):
+def test_metadata_exclusion_boundary_is_exactly_three_paths(project_root, tmp_path):
     root = _copy_audit_project(project_root, tmp_path / "metadata-boundary")
     manifest, _digest = regenerate(root)
 
+    expected = {
+        "provenance/audit-report.json",
+        "provenance/modules.json",
+        CURRENT_REVIEW_ARTIFACT,
+    }
+    assert SELF_REFERENTIAL_METADATA_ALLOWLIST == expected
     assert {
         record["artifact"] for record in manifest["metadata_exclusions"]
-    } == SELF_REFERENTIAL_METADATA_ALLOWLIST
+    } == expected
 
 
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "provenance/reviews/core-docx-review-cycle-round-1.md",
+        "provenance/reviews/document-skills-readme-system-review.md",
+    ],
+)
 def test_historical_review_report_drift_changes_mapping_digest(
     project_root,
     tmp_path,
+    relative,
 ):
     root = _copy_audit_project(project_root, tmp_path / "historical-mapping")
-    relative = "provenance/reviews/core-docx-review-cycle-round-1.md"
     report_path = root / relative
     before, before_digest = regenerate(root)
     before_record = next(

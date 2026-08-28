@@ -2,13 +2,8 @@
 
 import hashlib
 
-from tools.provenance_records import (
-    README_SYSTEM_REVIEW_ARTIFACT,
-    validate_metadata_exclusion,
-)
 from tools.regenerate_provenance import (
     README_SYSTEM_REQUIREMENT,
-    readme_system_review_metadata_profile,
     readme_system_profile,
     regenerate,
 )
@@ -45,13 +40,7 @@ def test_readme_profile_is_exact_and_excludes_unrelated_fixture_readme():
     assert readme_system_profile("tests/fixtures/pptx/ecosystem_bc/README.md") is None
 
 
-def test_readme_review_metadata_profile_is_exact():
-    assert README_SYSTEM_REVIEW_ARTIFACT == README_REVIEW
-    assert readme_system_review_metadata_profile(README_REVIEW) is True
-    assert readme_system_review_metadata_profile(PPTX_B7_REVIEW) is False
-
-
-def test_readme_review_is_metadata_and_pptx_b7_history_remains_hash_pinned(
+def test_readme_and_pptx_b7_reviews_are_hash_pinned_history(
     project_root,
 ):
     manifest, _digest = regenerate(project_root)
@@ -64,18 +53,12 @@ def test_readme_review_is_metadata_and_pptx_b7_history_remains_hash_pinned(
         for record in manifest["data_classifications"]
     }
 
-    assert README_REVIEW in metadata_records
-    assert README_REVIEW not in data_records
-    assert PPTX_B7_REVIEW not in metadata_records
-    assert data_records[PPTX_B7_REVIEW]["sha256"] == hashlib.sha256(
-        (project_root / PPTX_B7_REVIEW).read_bytes()
-    ).hexdigest()
-    readme_review_record = metadata_records[README_REVIEW]
-    validate_metadata_exclusion(
-        project_root,
-        readme_review_record,
-        {readme_review_record["reviewer"]},
-    )
+    for review_path in (README_REVIEW, PPTX_B7_REVIEW):
+        assert review_path not in metadata_records
+        assert data_records[review_path]["classification"] == "reviewed-data"
+        assert data_records[review_path]["sha256"] == hashlib.sha256(
+            (project_root / review_path).read_bytes()
+        ).hexdigest()
 
 
 def test_generated_records_bind_new_readmes_to_the_readme_change(project_root):

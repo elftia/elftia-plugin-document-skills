@@ -23,7 +23,6 @@ from tools.command_discovery import CommandDiscovery
 from tools.frozen_uv import FrozenUvGrammar
 from tools.provenance_records import (
     CURRENT_REVIEW_ARTIFACT,
-    README_SYSTEM_REVIEW_ARTIFACT,
     validate_metadata_exclusion,
 )
 from tests.support.provenance_review_fixture import bind_test_review
@@ -445,7 +444,7 @@ def test_current_pdf_review_is_exact_hashless_review_metadata(project_root):
     )
 
 
-def test_self_referential_reviews_are_exact_metadata_and_mapping_stays_stable(
+def test_current_pdf_review_is_exact_metadata_and_mapping_stays_stable(
     project_root,
     tmp_path,
 ):
@@ -467,20 +466,16 @@ def test_self_referential_reviews_are_exact_metadata_and_mapping_stays_stable(
         "provenance/audit-report.json",
         "provenance/modules.json",
         expected_review,
-        README_SYSTEM_REVIEW_ARTIFACT,
     }
     data_paths = {
         record["artifact"] for record in manifest["data_classifications"]
     }
     assert previous_review in data_paths
 
-    for review_path in (expected_review, README_SYSTEM_REVIEW_ARTIFACT):
-        report_path = root / review_path
-        report_path.write_bytes(
-            report_path.read_bytes() + b"\npost-review binding bytes\n"
-        )
-        _manifest_after, mapping_after = regenerate(root)
-        assert mapping_after == mapping_before
+    report_path = root / expected_review
+    report_path.write_bytes(report_path.read_bytes() + b"\npost-review binding bytes\n")
+    _manifest_after, mapping_after = regenerate(root)
+    assert mapping_after == mapping_before
 
 
 @pytest.mark.parametrize(
@@ -499,6 +494,7 @@ def test_self_referential_reviews_are_exact_metadata_and_mapping_stays_stable(
         "provenance/reviews/document-skills-0.5.3-pptx-b5-merge-review.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b6-merge-review.md",
         "provenance/reviews/document-skills-0.5.3-pptx-b7-merge-review.md",
+        "provenance/reviews/document-skills-readme-system-review.md",
     ],
 )
 def test_historical_reviews_are_hash_pinned_data_not_metadata(
