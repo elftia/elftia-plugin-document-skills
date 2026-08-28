@@ -1812,7 +1812,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "security-negative",
-      "sha256": "2eb76665e88bfc240dab1e50828bd0e1e22da6d7a1fc90157dc236d5dd04663e"
+      "sha256": "acfefcae3886efccc48aa500bf7207a748170ce8a13324cbf115a92c84125b43"
     },
     {
       "authorship": "original-elftia",
