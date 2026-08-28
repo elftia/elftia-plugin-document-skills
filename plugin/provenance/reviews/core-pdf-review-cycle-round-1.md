@@ -1329,3 +1329,162 @@ does not independently re-review every historical DOCX/XLSX/PPTX/PDF source file
 claim the corrected complete verify, reproducibility build, release ZIP, remote CI, native optional
 provider/viewer coverage, Producer delivery, or live Host consumer receipt. Those gates remain
 mandatory and unwaived after the provenance rebind and local commit.
+
+## Round 18 — Final main/PPTX/README/provider-budget integration review
+
+### Scope, reviewer identity, and role separation
+
+Round 18 is a fresh native non-author review of the final main/PPTX/README/provider-budget
+integration through frozen HEAD `f7bdc07c169003038694e3c6899d3de3b6b51d3d`. It covers the
+post-Round-17 integration state, the four final closure areas described below, and the
+historical-review hash-pinning correction in `f7bdc07c169003038694e3c6899d3de3b6b51d3d`.
+
+Reviewer: `Codex native non-author reviewer /root/producer_round18_review`.
+Reviewer identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-18-final-main-integration-0.5.5-2026-08-28`.
+Identity assurance: `self-asserted`; runtime: `codex`; role: `reviewer`; scope:
+`all-release-artifacts`. The reviewer authored no production source, test, manifest, fixture,
+generated provenance, SBOM, stage, commit, push, or rebind change. After reaching a clean
+verdict, the reviewer wrote only this authorized canonical Round-18 section and the external
+single-attestation handoff JSON.
+
+### Findings and closure
+
+- The Windows permanent-lock fixture no longer has a ten-second automatic release that could
+  silently turn the permanent case into a transient one under startup contention. The lock now
+  remains held until the harness explicitly releases it after supervisor return. The product
+  path retains the eight-second supervisor timeout, while the measured regression allows four
+  seconds of cleanup/contention headroom. The complete worker-failure file passed 14/14 and a
+  four-way permanent-lock stress run passed 4/4 on the reviewed fixture bytes. A fresh current-HEAD
+  permanent-lock selection also passed.
+- POSIX inherited-workspace ownership now places strict project-root resolution inside the same
+  `try/finally` that closes the inherited descriptor. The regression injects project-root
+  resolution failure through the imported worker entry point and proves one close plus fail-closed
+  exit 70; it passed again at the frozen HEAD.
+- The 299-line PPTX B7 report is restored byte-for-byte to the `8bdff5f` blob
+  `45f2c850383721431b0976292bea8ba160614ff8`. The README-system review has its own historical
+  report path. This reviewer initially found a Major because that historical README report was
+  exempted as self-referential metadata, allowing its bytes to drift without changing the mapping.
+  The producer removed the constant, metadata profile, and allowlist entry. The metadata SSOT is
+  again exactly `provenance/audit-report.json`, `provenance/modules.json`, and this current
+  canonical PDF review. Both the README and PPTX B7 historical reports are now `reviewed-data`
+  with exact SHA-256 records, and an explicit README-report byte drift changes the mapping.
+- The doctor schema example reports project version `0.5.5`, and the one-source release-version
+  regression binds it to the plugin manifests, Python and Node metadata, lockfiles, SBOM, helper
+  project, and runtime version. The restored README `Public protocol containment` section again
+  documents the bounded stdin/stdout worker protocol, private-workspace lifecycle, provider-output
+  discard boundary, and non-privilege-isolation limitation.
+
+### Independent verification receipts
+
+| Command or check | Result |
+| --- | --- |
+| Full PDF public-worker failure regression on the final worker-fixture bytes | PASS — 14 passed |
+| Four concurrent permanent-lock selections | PASS — 4/4; each retained the internal supervisor deadline assertion |
+| Fresh current-HEAD permanent-lock selection | PASS — 1 passed |
+| Fresh README/strategy historical-review classification matrix | PASS — 22 passed |
+| Fresh metadata exact-boundary plus historical drift-to-mapping regressions | PASS — 3 passed; README report drift changed the mapping |
+| Fresh fd-close, version-SSOT, and public-protocol documentation regressions | PASS — 3 passed |
+| `npm run verify:docs` | PASS — 39 tests; 18 READMEs, 17 required READMEs, 60 operations, 246 local links, and 3 package commands |
+| B7 historical report comparison against `8bdff5f` | PASS — exact 299-line blob match |
+| Two consecutive prospective mapping calculations | PASS — both returned `69c6910b945618699ff41f675f79c61ff97dd30225088b9b58ba49494818cf7a` |
+| Stage-1 `tools.audit` | Expected pre-bind FAIL — sole error `Independent review attestation is missing`; all other checks passed with 1,065 release files, 813 risky/module records, and 109 fixtures |
+| Checked-in CycloneDX SBOM | PASS — SHA-256 `17b44f28892482a8938e0c95dd0820fa956db49e8edd5a54033a7d37f0f8911d` |
+| Release-diff encoding and delivery hygiene | PASS — 283 text files strictly decoded as UTF-8 with no BOM or U+FFFD; no exact conflict markers; committed, worktree, and index `git diff --check` passed; changed JSON parsed |
+
+One combined 31-node provenance command and a later nine-node supply-chain subset exceeded the
+review command envelopes while their child processes were still completing; neither timed run is
+claimed as passing evidence. The closure-critical nodes were rerun in smaller groups and are the
+25 passing provenance nodes recorded above. No complete pytest/verify/build/reproducibility or
+release-ZIP run was performed in Round 18.
+
+### Round-18 approval and boundaries
+
+`approval_claimed: true`; `status: clean`. The exact approved prospective mapping is:
+
+`69c6910b945618699ff41f675f79c61ff97dd30225088b9b58ba49494818cf7a`.
+
+Final independent verdict: `CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0`.
+
+This approval binds only the exact frozen release mapping and HEAD stated above. The self-asserted
+reviewer identity cannot prove remote CI execution, native optional-provider behavior, or UI
+end-to-end coverage, and does not claim complete build/reproducibility, release packaging, live
+Office/PDF viewer behavior, Producer delivery, or Host consumer evidence. Those remain separate,
+unwaived delivery gates.
+
+## Round 19 — Managed-worker bytecode final integration review
+
+### Scope, reviewer identity, and role separation
+
+Round 19 is a fresh native non-author review of the final managed-worker bytecode integration at
+frozen HEAD `b5683a7b36a2b261614d4e70338fe22e98ecc79a`, parent
+`f7bdc07c169003038694e3c6899d3de3b6b51d3d`, and tree
+`6b98de6641265b04f56bd0674f5a3d82cb5fce4a`. The complete delta is seven added lines in exactly
+two release inputs: `src/document_skills_core/core/process/runner.py` and
+`tests/test_dotnet_provider.py`.
+
+Reviewer: `Codex native non-author reviewer /root/producer_round18_review`.
+Reviewer identity:
+`codex-reviewer/document-skills-core-pdf/native-pdf-independent-review-rounds-1-19-managed-worker-bytecode-final-integration-0.5.5-2026-08-28`.
+Identity assurance: `self-asserted`; runtime: `codex`; role: `reviewer`; scope:
+`all-release-artifacts`. The reviewer authored no production source, test, manifest, fixture,
+generated provenance, SBOM, stage, commit, push, cleanup, or rebind change. After reaching a clean
+verdict, the reviewer wrote only this authorized canonical Round-19 section and its external
+single-attestation handoff JSON.
+
+### Independent delta review and findings
+
+The producer added fixed `PYTHONDONTWRITEBYTECODE=1` to
+`_PERSISTENT_ENVIRONMENT_GUARDS` and a regression assertion for the minimal managed-child
+environment. `_minimal_environment()` applies persistent guards after ambient allowlist copying,
+and every `ProcessRunner` spawn receives `_process_environment()`. The only supported
+`fixed_environment` key is the exact core-only provider profile, while private environment names
+are separately closed over fixed project-scoped paths; neither channel can override the bytecode
+guard. Python interprets the nonempty value as disabling `.pyc` writes, and non-Python providers
+ignore the inert variable. The change does not relax a process, supervisor, provider, cleanup,
+framing, or output deadline.
+
+The reviewer found no actionable Blocker, Major, Minor, or Trivial issue. The added direct guard
+assertion passed. A companion pre-existing real-child containment selection exceeded its original
+two-second process budget during the loaded reviewer run; that selection was not changed by this
+delta and is not claimed as a pass. The code path and later lower-concurrency receipts below
+support the inheritance behavior without reclassifying that timeout as a product correctness
+failure.
+
+### Verification and release receipts
+
+| Command or check | Result |
+| --- | --- |
+| Exact `f7bdc07..b5683a7` delta review | PASS — two files, seven additions; final verdict `CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0` |
+| Added minimal-environment regression | PASS — `PYTHONDONTWRITEBYTECODE` resolved to exact value `1` |
+| Companion real-child containment selection in the loaded reviewer run | INCONCLUSIVE — the unchanged two-second process budget expired; not claimed as pass or as a delta regression |
+| Fresh XLSX distribution E2E after the bytecode change | PASS — 5 passed |
+| Post-E2E release inventory and release execution | PASS — all 1,065 inventory entries remained unchanged and release completed successfully |
+| Concurrent three-shard pytest execution | TRIAGED — 2,545 passed, 21 skipped, 17 failed; the run is not claimed as a complete pass |
+| Lower-concurrency replay of the 16 runtime/resource failures | PASS — 15 passed, one expected skip, zero failed |
+| Residual concurrent-shard failure | EXPECTED STALE — only the checked-in audit report remained stale after the new release-input commit and before the authorized provenance rebind |
+| `git diff --check` plus strict UTF-8 decoding of both changed files | PASS |
+| Two consecutive read-only prospective mapping calculations | PASS — both returned `3ac60f51120a257bbc8d96987ddb9e2f17cbc1424b25e1fcfb1c5f9d64a4d5be` |
+| In-memory prospective Round-19 attestation validation | PASS — exact report hash, mapping, one unique reviewer, and 1,065 release records validated |
+| Validator against the not-yet-rebound checked-in manifest | Expected pre-rebind FAIL — `modules.json` still contains Round 18 and reports `Review report hash does not match canonical bytes` after this authorized Round-19 append |
+
+The fresh XLSX distribution, inventory, release, concurrent-shard, and lower-concurrency replay
+receipts were produced by the Producer verification run and incorporated as handed-off evidence;
+the reviewer did not independently rerun those expensive gates. The concurrent run's 17 initial
+failures remain recorded rather than being presented as a green full-suite run. The sole residual
+audit-report mismatch is the expected consequence of reviewing a new release-input commit before
+the single-attestation rebind.
+
+### Round-19 approval and boundaries
+
+`approval_claimed: true`; `status: clean`. The exact approved prospective mapping is:
+
+`3ac60f51120a257bbc8d96987ddb9e2f17cbc1424b25e1fcfb1c5f9d64a4d5be`.
+
+Final independent verdict: `CLEAN — Blocker:0 Major:0 Minor:0 Trivial:0`.
+
+This approval authorizes the official single-attestation provenance rebind and regenerated audit
+receipt for only the frozen HEAD, tree, report bytes, and mapping above. It does not claim a green
+untriaged complete pytest run, remote CI, native optional-provider/viewer coverage, live Office/PDF
+viewer behavior, Producer delivery, or Host consumer evidence. Those remain separate, unwaived
+delivery gates.
