@@ -52,6 +52,9 @@ _PERSISTENT_ENVIRONMENT_GUARDS = {
     # HKCU\Environment on Windows. Apply the opt-out to every managed child so
     # direct probes and nested dotnet launches cannot mutate the user's PATH.
     "DOTNET_ADD_GLOBAL_TOOLS_TO_PATH": "0",
+    # Managed Python workers must not write bytecode into a verified install
+    # tree. This fixed guard is intentionally stricter than caller passthrough.
+    "PYTHONDONTWRITEBYTECODE": "1",
 }
 _FIXED_ENVIRONMENT = {
     "DOCUMENT_SKILLS_PROVIDER_PROFILE": "core-only",

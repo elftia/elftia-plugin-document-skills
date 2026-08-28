@@ -673,6 +673,10 @@ class TestRunnerContainment:
             ]
             == "0"
         )
+        assert (
+            ProcessRunner._minimal_environment()["PYTHONDONTWRITEBYTECODE"]
+            == "1"
+        )
 
 
 # ---------------------------------------------------------------------------
