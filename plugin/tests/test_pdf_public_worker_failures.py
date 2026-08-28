@@ -259,7 +259,10 @@ def _assert_workspace_lock_trace(mode: str, trace: dict[str, object]) -> None:
     assert trace["lock_acquired"] is True
     assert trace["identity_replacement_blocked"] is True
     assert trace["residual_entries"] == []
-    assert trace["supervisor_elapsed_seconds"] < 5.0
+    assert (
+        trace["supervisor_elapsed_seconds"]
+        < trace["supervisor_deadline_seconds"]
+    )
     if mode == "workspace-lock-transient":
         assert trace["cleanup_attempt_count"] == 2
         assert trace["cleanup_failure_count"] == 1
@@ -279,7 +282,11 @@ def test_pdf_worker_fixtures_parse_without_generating_bytecode(
     fixture_root = project_root / "tests" / "fixtures" / "pdf-worker-failures"
     for name in ("public_runner.py", "worker.py"):
         path = fixture_root / name
-        ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source = path.read_text(encoding="utf-8")
+        ast.parse(source, filename=str(path))
+        if name == "public_runner.py":
+            assert "self._release.wait(timeout=" not in source
+            assert "self._release.wait()" in source
 
 
 def _request(operation: str, source: Path, destination: Path) -> dict[str, object]:

@@ -22,7 +22,11 @@ from .html_pptx_provenance import (
     template_b4_data_profile,
     svg_b5_data_profile,
 )
-from .provenance_records import SELF_REFERENTIAL_METADATA_ALLOWLIST, mapping_digest
+from .provenance_records import (
+    README_SYSTEM_REVIEW_ARTIFACT,
+    SELF_REFERENTIAL_METADATA_ALLOWLIST,
+    mapping_digest,
+)
 from .release_inventory import release_artifacts
 
 PENDING_REVIEWER = "PENDING independent review"
@@ -940,6 +944,11 @@ def readme_system_profile(path: str) -> tuple[str, list[str]] | None:
     return None
 
 
+def readme_system_review_metadata_profile(path: str) -> bool:
+    """Return whether a path is the exact self-referential README review."""
+    return path == README_SYSTEM_REVIEW_ARTIFACT
+
+
 def xlsx_data_profile(path: str) -> tuple[str, list[str]] | None:
     """Return direct evidence only for explicitly enumerated XLSX data artifacts."""
     if path in _XLSX_CORE_DATA_ARTIFACTS:
@@ -1147,7 +1156,10 @@ def _merged_values(first: list[str], second: list[str]) -> list[str]:
 
 
 def _is_metadata(path: str) -> bool:
-    return path in SELF_REFERENTIAL_METADATA_ALLOWLIST
+    return (
+        readme_system_review_metadata_profile(path)
+        or path in SELF_REFERENTIAL_METADATA_ALLOWLIST
+    )
 
 
 def main() -> int:

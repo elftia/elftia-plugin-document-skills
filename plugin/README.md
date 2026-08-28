@@ -51,6 +51,12 @@ The bundle contributes Skills only when the managed installation is enabled and 
 
 When active, the managed replacement suppresses only read-only legacy Skills named exactly `document` or `elftia-document`. Workspace, project, and personal Skills are not removed or rewritten.
 
+## Public protocol containment
+
+Each documented command starts a private, one-shot Python worker. The supervisor owns argument classification, cancellation, final schema validation, and the only public stdout write. It sends one bounded ASCII command envelope through worker stdin and accepts one bounded, canonical ASCII terminal frame; the public protocol creates no command or result files. Provider stdout and stderr are bounded and discarded as protocol data.
+
+The worker runs from an empty, identity-bound private workspace, which is lifecycle state rather than a result channel. HTML capture is separate: its provider-internal browser handoff binds private scene and asset files to its own command nonce and hard byte/time ceilings. Provider exceptions, `SystemExit`, provider-created interrupts, hangs, output overflow, `os._exit`, and worker crashes become schema-valid failures or unavailable reports. This is reliability and protocol containment, not OS privilege isolation; the worker still runs with the invoking user's filesystem permissions.
+
 ## Safety and failure semantics
 
 - Writes use private staging, required validation, atomic promotion, source-hash verification, and cleanup. In-place mutation is rejected unless an operation explicitly implements a tested recovery protocol; none currently do.

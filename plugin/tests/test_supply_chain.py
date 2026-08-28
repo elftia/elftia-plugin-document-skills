@@ -222,7 +222,7 @@ def test_current_review_metadata_binding_uses_an_exact_allowlist(
         validate_metadata_exclusion(root, unexpected, reviewers)
 
 
-def test_metadata_exclusion_boundary_is_exactly_three_paths(project_root, tmp_path):
+def test_metadata_exclusion_boundary_matches_exact_allowlist(project_root, tmp_path):
     root = _copy_audit_project(project_root, tmp_path / "metadata-boundary")
     manifest, _digest = regenerate(root)
 

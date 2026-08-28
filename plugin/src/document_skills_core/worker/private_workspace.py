@@ -133,8 +133,8 @@ def bind_inherited_workspace(
     if descriptor < 3 or device < 0 or inode < 0:
         raise ValueError("private worker bootstrap values are out of range")
     expected = (device, inode)
-    trusted_project_root = project_root.resolve(strict=True)
     try:
+        trusted_project_root = project_root.resolve(strict=True)
         held = os.fstat(descriptor)
         if not stat.S_ISDIR(held.st_mode) or (held.st_dev, held.st_ino) != expected:
             raise ValueError("inherited private workspace identity is invalid")

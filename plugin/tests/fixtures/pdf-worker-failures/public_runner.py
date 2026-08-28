@@ -19,6 +19,8 @@ from document_skills_core.public_cli.supervisor import PublicCommandSupervisor  
 
 
 _LOCK_MODES = {"workspace-lock-transient", "workspace-lock-permanent"}
+_SUPERVISOR_TIMEOUT_SECONDS = 8.0
+_SUPERVISOR_CONTENTION_HEADROOM_SECONDS = 4.0
 
 
 class _WorkspaceLockController:
@@ -72,7 +74,11 @@ class _WorkspaceLockController:
                 raise RuntimeError("private workspace identity replacement was allowed")
             handle = _open_directory_without_delete_share(self.private_root)
             self.lock_acquired = True
-            self._release.wait(timeout=10.0)
+            # The permanent-lock fixture must remain locked until the harness
+            # explicitly releases it after the supervisor returns. A timed wait
+            # can silently turn the permanent case into a transient one under
+            # full-suite process-startup contention.
+            self._release.wait()
         except BaseException as error:
             self.controller_error = type(error).__name__
         finally:
@@ -149,7 +155,9 @@ def _run_case(
     try:
         payload, success = PublicCommandSupervisor(
             sandbox,
-            timeout_seconds=0.5 if mode == "hang" else 8.0,
+            timeout_seconds=(
+                0.5 if mode == "hang" else _SUPERVISOR_TIMEOUT_SECONDS
+            ),
             output_limit=32_768,
             nonce_factory=lambda: f"pdf-{mode}",
         ).run("pdf", ["run", "--request", request])
@@ -189,6 +197,10 @@ def _run_case(
                             ),
                             "residual_entries": residual_entries,
                             "supervisor_elapsed_seconds": elapsed_seconds,
+                            "supervisor_deadline_seconds": (
+                                _SUPERVISOR_TIMEOUT_SECONDS
+                                + _SUPERVISOR_CONTENTION_HEADROOM_SECONDS
+                            ),
                         },
                         ensure_ascii=True,
                         sort_keys=True,

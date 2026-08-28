@@ -158,6 +158,48 @@ def test_inherited_worker_fd_closes_when_fchdir_fails(
     assert closed == [descriptor]
 
 
+def test_imported_worker_run_closes_fd_when_project_root_resolve_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    descriptor = 225
+    closed: list[int] = []
+    injected = OSError("injected project-root resolve failure")
+    if os.name == "nt":
+        monkeypatch.setattr(workspace_module.os, "name", "posix")
+
+    def fail_project_root_resolve(
+        path: Path,
+        *,
+        strict: bool = False,
+    ) -> Path:
+        assert path == project_root
+        assert strict is True
+        raise injected
+
+    monkeypatch.setattr(workspace_module.Path, "resolve", fail_project_root_resolve)
+    monkeypatch.setattr(workspace_module.os, "close", closed.append)
+    monkeypatch.setattr(worker_main_module, "PROJECT_ROOT", project_root)
+    monkeypatch.setattr(
+        worker_main_module.sys,
+        "argv",
+        [
+            "worker.py",
+            "--workspace-fd",
+            str(descriptor),
+            "--workspace-device",
+            "5",
+            "--workspace-inode",
+            "6",
+        ],
+    )
+
+    assert worker_main_module.run() == 70
+    assert closed == [descriptor]
+
+
 def test_inherited_worker_fd_rejects_cwd_outside_project_and_closes_once(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

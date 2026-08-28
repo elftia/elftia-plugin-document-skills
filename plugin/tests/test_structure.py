@@ -43,6 +43,9 @@ def test_release_version_is_one_source_value_across_runtime_manifests(project_ro
         (project_root / "package-lock.json").read_text(encoding="utf-8")
     )
     sbom = json.loads((project_root / "sbom.cdx.json").read_text(encoding="utf-8"))
+    doctor_schema = json.loads(
+        (project_root / "schemas/doctor-report.schema.json").read_text(encoding="utf-8")
+    )
     helper_project = fromstring(
         (
             project_root
@@ -63,6 +66,7 @@ def test_release_version_is_one_source_value_across_runtime_manifests(project_ro
         node_lock["version"],
         node_lock["packages"][""]["version"],
         sbom["metadata"]["component"]["version"],
+        doctor_schema["examples"][0]["project_version"],
         helper_project.findtext("./PropertyGroup/Version"),
         __version__,
     } == {"0.5.5"}
