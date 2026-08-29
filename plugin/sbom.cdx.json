@@ -595,11 +595,11 @@
     "properties": [
       {
         "name": "elftia:lock-sha256",
-        "value": "fe56ce5d07f936ba8163d523da9acd0cf1ac8af40c7923b2b2f7a5c0d71cc7d6"
+        "value": "f026fc0add68fe5333aa4f6a15efdb5cdad2f8cfe5170a2eba6b555f321913a2"
       }
     ]
   },
-  "serialNumber": "urn:uuid:fe56ce5d-07f9-36ba-8163-d523da9acd0c",
+  "serialNumber": "urn:uuid:f026fc0a-dd68-fe53-33aa-4f6a15efdb5c",
   "specVersion": "1.5",
   "version": 1
 }
