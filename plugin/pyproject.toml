@@ -20,6 +20,7 @@ dev = [
   "openpyxl==3.1.5",
   "pymupdf==1.27.2.2",
   "pytest==8.4.1",
+  "pytest-xdist==3.7.0",
   "python-docx==1.2.0",
   "python-pptx==1.0.2",
 ]
@@ -30,6 +31,9 @@ pythonpath = ["src", "."]
 testpaths = ["tests"]
 tmp_path_retention_count = 1
 tmp_path_retention_policy = "failed"
+markers = [
+  "slow: exercises a real external provider (LibreOffice, dotnet helper, PDF rendering); excluded by npm run test:fast",
+]
 
 [tool.uv]
 package = false

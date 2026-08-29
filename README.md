@@ -48,7 +48,8 @@ Active content, external relationships, unsafe package graphs, ambiguous selecto
 The verification layers are deliberately separate:
 
 - `npm run verify:docs` checks documentation structure, UTF-8, links, package commands, and registered-operation coverage.
-- `npm run verify` runs deterministic producer tests, supply-chain audit, artifact validation, plugin verification, and release packaging.
+- `npm run verify` runs deterministic producer tests, supply-chain audit, artifact validation, plugin verification, and release packaging. The pytest layer runs in two phases: everything except `slow` in parallel (`-n auto --dist loadscope`, whole modules per worker), then the `slow` tier (real external providers) serially — the dotnet helper is a shared on-disk build target that deadlocks under parallel workers. `DS_PYTEST_SERIAL=1` runs one serial process. Serial-only execution measured ~2h47m on the packaging machine.
+- `npm run test:fast` is the iteration tier: the same suite minus the `slow` mark (tests that drive a real external provider — LibreOffice install, dotnet helper build, PDF rendering). The pin gate (`npm run verify`) always runs the full set, including slow.
 - `npm run verify:repro` proves repeated builds have identical inventories and hashes.
 - [`e2e/README.md`](e2e/README.md) documents distribution-level E2E owned by this repository. Real Office-consumer evidence is recorded separately and must name the consumer and run outcome.
 
