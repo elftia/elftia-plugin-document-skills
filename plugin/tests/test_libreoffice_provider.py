@@ -492,6 +492,7 @@ class TestDetector:
         sys.platform != "win32",
         reason="Windows standard-install LibreOffice recalculation integration",
     )
+    @pytest.mark.slow
     def test_real_libreoffice_recalculation_mechanism_updates_stale_xlsx_cache(
         self,
         project_root,
@@ -593,6 +594,7 @@ class TestDetector:
         sys.platform != "win32",
         reason="Windows standard-install LibreOffice XLSX render integration",
     )
+    @pytest.mark.slow
     def test_real_libreoffice_xlsx_render_provider_operation_reopens_pdf(
         self,
         project_root,
@@ -668,6 +670,7 @@ class TestDetector:
         sys.platform != "win32",
         reason="Windows standard-install LibreOffice legacy XLS integration",
     )
+    @pytest.mark.slow
     def test_real_libreoffice_legacy_xls_conversion_mechanism(
         self,
         project_root,
