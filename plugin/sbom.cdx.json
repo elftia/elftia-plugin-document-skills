@@ -590,7 +590,7 @@
       "bom-ref": "application:document-skills",
       "name": "document-skills",
       "type": "application",
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     "properties": [
       {
