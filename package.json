@@ -22,7 +22,7 @@
     "test:fast": "cd plugin && uv run --frozen python -m pytest -m \"not slow\" -n auto --dist loadscope"
   },
   "devDependencies": {
-    "@elftia/plugin-kit": "^0.1.2",
+    "@elftia/plugin-kit": "^0.2.0",
     "markdown-it": "14.2.0"
   }
 }
