@@ -69,7 +69,7 @@ def test_release_version_is_one_source_value_across_runtime_manifests(project_ro
         doctor_schema["examples"][0]["project_version"],
         helper_project.findtext("./PropertyGroup/Version"),
         __version__,
-    } == {"0.5.5"}
+    } == {"0.5.6"}
 
 
 def test_agent_commands_are_frozen_uv_only(project_root):
