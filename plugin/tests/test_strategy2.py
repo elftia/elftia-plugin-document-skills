@@ -428,7 +428,7 @@ def test_complete_rebound_audit_baseline_passes(project_root, tmp_path):
     assert report["status"] == "pass", report["errors"]
 
 
-def test_current_pdf_review_is_exact_hashless_review_metadata(project_root):
+def test_current_review_is_exact_hashless_review_metadata(project_root):
     from tools.regenerate_provenance import _is_metadata
 
     review_path = CURRENT_REVIEW_ARTIFACT
@@ -449,19 +449,17 @@ def test_current_pdf_review_is_exact_hashless_review_metadata(project_root):
     )
 
 
-def test_current_pdf_review_is_exact_metadata_and_mapping_stays_stable(
+def test_current_review_is_exact_metadata_and_mapping_stays_stable(
     project_root,
     tmp_path,
 ):
     from tools.regenerate_provenance import regenerate
 
-    expected_review = "provenance/reviews/core-pdf-review-cycle-round-1.md"
+    expected_review = CURRENT_REVIEW_ARTIFACT
     previous_review = (
         "provenance/reviews/"
         "document-skills-0.5.3-pptx-b7-merge-review.md"
     )
-    assert CURRENT_REVIEW_ARTIFACT == expected_review
-
     root = _release_copy(project_root, tmp_path)
     manifest, mapping_before = regenerate(root)
     metadata_paths = {
@@ -533,7 +531,7 @@ def test_historical_reviews_are_hash_pinned_data_not_metadata(
     [
         "provenance/audit-report.json",
         "provenance/modules.json",
-        "provenance/reviews/core-pdf-review-cycle-round-1.md",
+        CURRENT_REVIEW_ARTIFACT,
     ],
 )
 def test_is_metadata_accepts_only_digest_cycle_paths(metadata_path):

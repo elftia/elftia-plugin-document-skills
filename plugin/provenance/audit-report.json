@@ -12,7 +12,7 @@
       "status": "pass"
     },
     "execution_boundary": {
-      "classified_release_files": 1090,
+      "classified_release_files": 1093,
       "dependency_manifests": 6,
       "executable_artifacts": 826,
       "registration_manifests": 2,
@@ -24,8 +24,8 @@
       "status": "pass"
     },
     "inventory": {
-      "classified_count": 1090,
-      "file_count": 1090,
+      "classified_count": 1093,
+      "file_count": 1093,
       "risky_count": 826,
       "status": "pass"
     },
@@ -47,7 +47,7 @@
       "status": "pass"
     },
     "sbom": {
-      "sha256": "42ad79668aac839d878b1f6c77499960f70d04d2431fbffa5f8c4b997bf44257",
+      "sha256": "7ed8baf0c38a2be1261c617317abce1942b45960f047b8ecba66205f468b626a",
       "status": "pass"
     }
   },

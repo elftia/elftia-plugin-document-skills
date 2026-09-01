@@ -9,6 +9,8 @@ import time
 
 import pytest
 
+pytestmark = [pytest.mark.slow]
+
 from document_skills_core.core.io.paths import sha256_file
 from document_skills_core.formats.docx.validation import reopen_docx
 

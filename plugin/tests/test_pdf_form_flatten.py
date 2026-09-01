@@ -9,6 +9,8 @@ import zlib
 from pypdf import PdfReader
 import pytest
 
+pytestmark = [pytest.mark.slow]
+
 
 def _public(project_root: Path, request: Path) -> dict[str, object]:
     process = subprocess.run(

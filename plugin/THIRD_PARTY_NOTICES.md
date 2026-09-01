@@ -105,8 +105,9 @@ none of these packages is distributed or imported by production runtime sources:
 - `python-docx` 1.2.0 — MIT; `lxml` 6.1.1 — BSD-3-Clause.
 - `python-pptx` 1.0.2 — MIT; `XlsxWriter` 3.2.9 — BSD-2-Clause.
 - `pytest` 8.4.1 — MIT; `colorama` 0.4.6 — BSD-3-Clause; `iniconfig` 2.3.0 — MIT;
-  `packaging` 26.2 — Apache-2.0 or BSD-2-Clause; `pluggy` 1.6.0 — MIT; and
-  `Pygments` 2.20.0 — BSD-2-Clause.
+  `packaging` 26.2 — Apache-2.0 or BSD-2-Clause; `pluggy` 1.6.0 — MIT;
+  `Pygments` 2.20.0 — BSD-2-Clause; `pytest-xdist` 3.7.0 — MIT; and
+  `execnet` 2.1.2 — MIT.
 
 Development-only dependencies are not distributed as production runtime components. Adopted
 Adopted source is not present in this release; later additions must update this file and

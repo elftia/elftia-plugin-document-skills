@@ -590,16 +590,16 @@
       "bom-ref": "application:document-skills",
       "name": "document-skills",
       "type": "application",
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     "properties": [
       {
         "name": "elftia:lock-sha256",
-        "value": "fe56ce5d07f936ba8163d523da9acd0cf1ac8af40c7923b2b2f7a5c0d71cc7d6"
+        "value": "beb7a760390c913308822a27dc4c08fa2d40dfb36c5e8524f33a3f496778e89f"
       }
     ]
   },
-  "serialNumber": "urn:uuid:fe56ce5d-07f9-36ba-8163-d523da9acd0c",
+  "serialNumber": "urn:uuid:beb7a760-390c-9133-0882-2a27dc4c08fa",
   "specVersion": "1.5",
   "version": 1
 }

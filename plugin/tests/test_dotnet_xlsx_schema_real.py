@@ -11,6 +11,8 @@ import zipfile
 
 import pytest
 
+pytestmark = [pytest.mark.slow]
+
 from document_skills_core.core.capabilities import ProviderCatalog
 from document_skills_core.formats.xlsx.service import XlsxService
 from document_skills_core.providers import build_default_registry
