@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import time
 
 import pytest
 
@@ -53,10 +54,114 @@ def _run(
     payload: dict[str, object],
 ) -> dict[str, object]:
     request = _request(tmp_path, name, payload)
+    operation_started = time.perf_counter()
     result = _public(project_root, "run", "--request", str(request))
-    assert result["status"] == "success", result
+    operation_elapsed_seconds = time.perf_counter() - operation_started
+    if result["status"] != "success":
+        detection_started = time.perf_counter()
+        post_failure_detection = _capture_post_failure_detection(project_root)
+        detection_elapsed_seconds = time.perf_counter() - detection_started
+        pytest.fail(
+            "DOCX .NET public operation returned non-success:\n"
+            + _format_operation_failure(
+                result,
+                operation_elapsed_seconds=operation_elapsed_seconds,
+                post_failure_detection=post_failure_detection,
+                post_failure_detection_elapsed_seconds=(
+                    detection_elapsed_seconds
+                ),
+            ),
+            pytrace=False,
+        )
     assert result["provider_chain"] == ["dotnet-openxml"]
     return result
+
+
+def _capture_post_failure_detection(project_root: Path) -> dict[str, object]:
+    try:
+        capabilities = _public(project_root, "capabilities", "--json")
+        provider = next(
+            item
+            for item in capabilities["providers"]
+            if item["id"] == "dotnet-openxml"
+        )
+    except Exception as error:
+        return {
+            "capture_status": "failed",
+            "exception_type": type(error).__name__,
+            "message": str(error),
+        }
+    return {
+        "capture_status": "success",
+        "dotnet_openxml": provider,
+    }
+
+
+def _format_operation_failure(
+    operation_result: dict[str, object],
+    *,
+    operation_elapsed_seconds: float,
+    post_failure_detection: dict[str, object],
+    post_failure_detection_elapsed_seconds: float,
+) -> str:
+    return json.dumps(
+        {
+            "operation_result": operation_result,
+            "post_failure_detection": post_failure_detection,
+            "timings_seconds": {
+                "operation": round(operation_elapsed_seconds, 6),
+                "post_failure_detection": round(
+                    post_failure_detection_elapsed_seconds,
+                    6,
+                ),
+            },
+        },
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    )
+
+
+def test_real_dotnet_failure_diagnostic_preserves_complete_result() -> None:
+    operation_result = {
+        "status": "unavailable",
+        "provider_chain": ["dotnet-openxml"],
+        "errors": [
+            {
+                "code": "DS_PROVIDER_UNAVAILABLE",
+                "message": "dotnet-openxml is not callable.",
+                "details": {
+                    "phase": "no-restore-build",
+                    "reason": "恢复超时",
+                },
+            }
+        ],
+        "diagnostics": {"detector": {"available": False}},
+    }
+    post_failure_detection = {
+        "capture_status": "success",
+        "dotnet_openxml": {
+            "available": False,
+            "reason": "no-restore helper build failed: timeout",
+        },
+    }
+
+    serialized = _format_operation_failure(
+        operation_result,
+        operation_elapsed_seconds=121.25,
+        post_failure_detection=post_failure_detection,
+        post_failure_detection_elapsed_seconds=60.5,
+    )
+
+    assert "恢复超时" in serialized
+    assert json.loads(serialized) == {
+        "operation_result": operation_result,
+        "post_failure_detection": post_failure_detection,
+        "timings_seconds": {
+            "operation": 121.25,
+            "post_failure_detection": 60.5,
+        },
+    }
 
 
 def _require_dotnet_profile(project_root: Path) -> None:

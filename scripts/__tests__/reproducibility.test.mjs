@@ -60,8 +60,25 @@ test('artifact construction preserves every reviewed binary payload byte-for-byt
   const paths = releasePaths();
   await buildArtifact();
   const binaryPaths = paths.filter(isReviewedBinaryReleasePath);
-  assert.equal(binaryPaths.length, 29);
+  assert.equal(binaryPaths.length, 30);
+  assert.ok(
+    binaryPaths.includes(
+      'skills/document-docx/assets/template-packs/general-academic-paper/1.0.0/template.docx',
+    ),
+  );
   for (const relative of binaryPaths) {
+    const source = await readFile(path.join(pluginRoot, ...relative.split('/')));
+    const artifact = await readFile(path.join(artifactRoot, ...relative.split('/')));
+    assert.deepEqual(artifact, source, relative);
+  }
+});
+
+test('artifact construction preserves the complete DOCX template-pack tree byte-for-byte', async () => {
+  const prefix = 'skills/document-docx/assets/template-packs/';
+  const packPaths = releasePaths().filter((relative) => relative.startsWith(prefix));
+  assert.equal(packPaths.length, 6);
+  await buildArtifact();
+  for (const relative of packPaths) {
     const source = await readFile(path.join(pluginRoot, ...relative.split('/')));
     const artifact = await readFile(path.join(artifactRoot, ...relative.split('/')));
     assert.deepEqual(artifact, source, relative);

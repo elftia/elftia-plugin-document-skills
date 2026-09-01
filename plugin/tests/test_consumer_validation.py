@@ -799,7 +799,9 @@ def test_installed_office_real_safe_open_is_mandatory(
         artifact=artifact,
         expectations=expectations,
         office_policy="auto",
-        timeout_seconds=30,
+        # Cold Word DCOM activation plus bounded teardown measured 62.794s on
+        # the loaded Windows gate host; mocked 0.01s tests keep timeout failure bounded.
+        timeout_seconds=90,
     )
 
     assert report["office"]["outcome"] == "pass", report["office"]

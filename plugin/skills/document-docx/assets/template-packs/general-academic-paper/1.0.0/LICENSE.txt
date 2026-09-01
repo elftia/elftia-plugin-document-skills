@@ -1,0 +1,4 @@
+Elftia general-academic-paper template pack
+Copyright (C) 2026 Elftia contributors
+SPDX-License-Identifier: GPL-3.0-only
+This repository-owned generated pack is redistributable under GPL-3.0-only.

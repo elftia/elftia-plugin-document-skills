@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import fromstring, SubElement, tostring
 import zipfile
 
@@ -257,7 +258,7 @@ def _public(project_root: Path, request: Path) -> dict[str, object]:
         capture_output=True,
         text=False,
         check=False,
-        timeout=120,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert completed.stderr == b""
     payload = json.loads(completed.stdout.decode("utf-8", errors="strict"))

@@ -12,7 +12,6 @@ NS = {
     "xsi": "http://www.w3.org/2001/XMLSchema-instance",
     "main": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
-    "r14": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "x14": "http://schemas.openxmlformats.org/spreadsheetml/2006/9/main",
     "xm": "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "xr": "http://schemas.microsoft.com/office/spreadsheetml/2014/revision",

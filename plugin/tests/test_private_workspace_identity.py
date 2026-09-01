@@ -22,10 +22,14 @@ import document_skills_core.worker.main as worker_main_module
 import document_skills_core.worker.private_workspace as workspace_module
 from document_skills_core.core.io.bound_child_directory import BoundDirectoryMixin
 from document_skills_core.core.io.parent_anchor import DestinationParentAnchor
+from document_skills_core.core.io.temp_roots import bind_supervised_operation_root
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.process import ProcessPolicy, ProcessRunner
 from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
-from document_skills_core.worker.private_workspace import PrivateWorkspace
+from document_skills_core.worker.private_workspace import (
+    PrivateOperationRoot,
+    PrivateWorkspace,
+)
 
 
 class _FaultingAnchor(BoundDirectoryMixin):
@@ -545,6 +549,200 @@ def test_generic_runner_has_no_fd_capability_branch(
     assert result.stdout.strip() == "generic"
     assert "pass_fds" not in observed
     assert observed["cwd"] == project_root.resolve()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires identity-held Windows cleanup")
+def test_timed_out_worker_removes_only_its_owned_operation_root(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sandbox = tmp_path / "sandbox"
+    shutil.copytree(project_root / "src", sandbox / "src")
+    shutil.copytree(project_root / "schemas", sandbox / "schemas")
+    worker = sandbox / "src" / "document_skills_core" / "worker" / "main.py"
+    shutil.copy2(
+        project_root / "tests" / "support" / "command_worker_fixture.py",
+        worker,
+    )
+    invocation_base = tmp_path / "invocation-base"
+    invocation_base.mkdir()
+    (invocation_base / "fixture-request.json").write_text(
+        json.dumps({"operation": "docx.fixture"}),
+        encoding="utf-8",
+    )
+    operation_base = (
+        sandbox / ".document-skills-tmp" / "document-skills-operations"
+    )
+    operation_base.mkdir(parents=True)
+    concurrent_root = operation_base / "operation-concurrent"
+    concurrent_root.mkdir()
+    concurrent_sentinel = concurrent_root / "sentinel.bin"
+    concurrent_sentinel.write_bytes(b"concurrent")
+    monkeypatch.chdir(invocation_base)
+
+    payload, success = PublicCommandSupervisor(
+        sandbox,
+        timeout_seconds=2.0,
+        nonce_factory=lambda: "fixture-hang",
+    ).run("docx", ["run", "--request", "fixture-request.json"])
+
+    owned_root = Path(
+        (invocation_base / "owned-operation-root.txt").read_text(encoding="utf-8")
+    )
+    assert success is False
+    assert payload["errors"][0]["code"] == ErrorCode.PROCESS_TIMEOUT.value
+    assert not owned_root.exists()
+    assert concurrent_sentinel.read_bytes() == b"concurrent"
+
+
+def test_process_runner_reuses_only_the_identity_bound_supervised_root(
+    tmp_path: Path,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    owned = PrivateOperationRoot.create(project, "bound-runner")
+    owned_path = owned.path
+    runner = ProcessRunner(ProcessPolicy(project))
+    try:
+        with bind_supervised_operation_root(
+            project,
+            "bound-runner",
+            owned.path,
+            owned.identity,
+        ):
+            private_home = runner.private_environment_directory("DOTNET_CLI_HOME")
+            assert private_home.parent == owned.path
+            runner.close()
+            assert owned.path == owned_path
+    finally:
+        assert owned.close() is True
+
+
+def test_supervised_operation_root_rejects_identity_mismatch(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    owned = PrivateOperationRoot.create(project, "identity-mismatch")
+    wrong_identity = (owned.identity[0], owned.identity[1] + 1)
+    try:
+        with pytest.raises(DocumentSkillsError) as captured:
+            with bind_supervised_operation_root(
+                project,
+                "identity-mismatch",
+                owned.path,
+                wrong_identity,
+            ):
+                pytest.fail("mismatched operation-root identity was accepted")
+        assert captured.value.code == ErrorCode.PATH_UNSAFE
+    finally:
+        assert owned.close() is True
+
+
+def test_worker_rejects_envelope_operation_root_identity_before_dispatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    invocation_id = "worker-envelope-mismatch"
+    owned = PrivateOperationRoot.create(project, invocation_id)
+    wrong_identity = (owned.identity[0], owned.identity[1] + 1)
+    dispatched: list[dict[str, object]] = []
+    frames: list[dict[str, object]] = []
+    envelope = {
+        "invocation_id": invocation_id,
+        "command": "run",
+        "operation_root": str(owned.path),
+        "operation_root_identity": list(wrong_identity),
+    }
+    monkeypatch.setattr(worker_main_module, "PROJECT_ROOT", project)
+    monkeypatch.setattr(worker_main_module.sys, "argv", ["worker.py"])
+    monkeypatch.setattr(
+        worker_main_module,
+        "bind_inherited_workspace",
+        lambda _argv, _project_root: None,
+    )
+    monkeypatch.setattr(worker_main_module, "_read_command", lambda: envelope)
+    monkeypatch.setattr(
+        worker_main_module,
+        "_dispatch_command",
+        lambda value: dispatched.append(value),
+    )
+    monkeypatch.setattr(
+        worker_main_module,
+        "encode_worker_terminal_frame",
+        lambda value: frames.append(value) or b"",
+    )
+    try:
+        assert worker_main_module.run() == 0
+        assert dispatched == []
+        assert len(frames) == 1
+        assert frames[0]["outcome"] == "runtime_failure"
+        assert frames[0]["failure"]["exception_class"] == "DocumentSkillsError"
+    finally:
+        assert owned.close() is True
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires Windows reparse semantics")
+def test_operation_root_cleanup_never_follows_directory_links(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "sentinel.bin"
+    sentinel.write_bytes(b"outside")
+    owned = PrivateOperationRoot.create(project, "no-follow")
+    redirect = owned.path / "redirect"
+    try:
+        redirect.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        owned.close()
+        pytest.skip(f"directory symlink unavailable: {type(error).__name__}")
+
+    assert owned.close() is True
+    assert sentinel.read_bytes() == b"outside"
+
+
+def test_supervisor_reports_operation_root_cleanup_failure(
+    project_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sandbox = tmp_path / "sandbox"
+    shutil.copytree(project_root / "src", sandbox / "src")
+    shutil.copytree(project_root / "schemas", sandbox / "schemas")
+    worker = sandbox / "src" / "document_skills_core" / "worker" / "main.py"
+    shutil.copy2(
+        project_root / "tests" / "support" / "command_worker_fixture.py",
+        worker,
+    )
+    invocation_base = tmp_path / "invocation-base"
+    invocation_base.mkdir()
+    (invocation_base / "fixture-request.json").write_text(
+        json.dumps({"operation": "docx.fixture"}),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(invocation_base)
+    real_close = PrivateOperationRoot.close
+
+    def close_but_report_failure(root: PrivateOperationRoot) -> bool:
+        assert real_close(root) is True
+        return False
+
+    monkeypatch.setattr(PrivateOperationRoot, "close", close_but_report_failure)
+
+    payload, success = PublicCommandSupervisor(
+        sandbox,
+        timeout_seconds=4.0,
+        nonce_factory=lambda: "fixture-text-noise",
+    ).run("docx", ["run", "--request", "fixture-request.json"])
+
+    assert success is False
+    assert payload["errors"][0]["code"] == ErrorCode.PROVIDER_FAILED.value
+    assert (
+        payload["errors"][0]["details"]["reason_category"]
+        == "cleanup_failed"
+    )
 
 
 @pytest.mark.skipif(

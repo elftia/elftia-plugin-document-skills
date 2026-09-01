@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.import.inspect",
+  "input": "../template-packs/general-academic-paper/1.0.0/template.docx",
+  "arguments": {
+    "expected_source_sha256": "5f33300754761eeb6172bc3277cc4da0509d5c492aa5a0c5448c582e643ddcc0"
+  }
+}

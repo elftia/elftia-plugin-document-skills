@@ -15,6 +15,7 @@ from typing import Any, Protocol
 
 from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 from ...core.process import ProcessPolicy, ProcessResult, ProcessRunner
+from ...core.process.runner import ExecutableBinding
 from .constants import (
     ACCEPTED_SUBCOMMANDS,
     DOTNET_PRIVATE_ENVIRONMENT,
@@ -47,7 +48,7 @@ class _ContainedRunner(Protocol):
     def run(
         self,
         provider_id: str,
-        executable: str | Path,
+        executable: str | Path | ExecutableBinding,
         args: list[str],
         *,
         cwd: Path | None = ...,
@@ -56,6 +57,34 @@ class _ContainedRunner(Protocol):
         stdin_json: object | None = ...,
         private_environment: tuple[str, ...] = ...,
     ) -> ProcessResult: ...
+
+
+class DotnetOpenXmlLaunch:
+    """One operation-local helper façade with immutable launch authority."""
+
+    def __init__(
+        self,
+        runner: "DotnetOpenXmlRunner",
+        executable: ExecutableBinding,
+    ) -> None:
+        self._runner = runner
+        self.executable = executable
+
+    def run(
+        self,
+        subcommand: str,
+        *,
+        stdin_payload: dict[str, Any] | None = None,
+        timeout_seconds: float | None = None,
+        output_limit: int | None = None,
+    ) -> ProcessResult:
+        return self._runner.run(
+            subcommand,
+            executable=self.executable,
+            stdin_payload=stdin_payload,
+            timeout_seconds=timeout_seconds,
+            output_limit=output_limit,
+        )
 
 
 class DotnetOpenXmlRunner:
@@ -74,7 +103,7 @@ class DotnetOpenXmlRunner:
             self._helper_dir = helper_dir.resolve()
         else:
             self._helper_dir = Path(__file__).resolve().parent / HELPER_DIR_NAME
-        self._executable: str | Path | None = None
+        self._constructor_executable: ExecutableBinding | None = None
         if runner is not None:
             self._runner = runner
             if isinstance(runner, ProcessRunner):
@@ -95,25 +124,36 @@ class DotnetOpenXmlRunner:
             self._runner
         )
         if executable is not None:
-            self.set_executable(executable)
+            self._constructor_executable = self.set_executable(executable)
 
-    def set_executable(self, executable: str | Path) -> None:
-        self._executable = self._policy.allow_executable(
+    def set_executable(self, executable: str | Path) -> ExecutableBinding:
+        """Authorize a standalone binding without mutating command authority."""
+
+        return self._policy.allow_executable_binding(
             "dotnet-openxml", executable
         )
 
-    def bind_authorized_executable(self, executable: str | Path) -> None:
+    def bind_authorized_executable(
+        self,
+        executable: str | Path,
+    ) -> ExecutableBinding:
         """Bind the exact executable record already proven by the detector."""
 
-        self._executable = self._policy.require_executable(
+        return self._policy.require_executable_binding(
             "dotnet-openxml",
             executable,
         )
+
+    def bind(self, executable: ExecutableBinding) -> DotnetOpenXmlLaunch:
+        """Project an immutable executable binding into the helper interface."""
+
+        return DotnetOpenXmlLaunch(self, executable)
 
     def run(
         self,
         subcommand: str,
         *,
+        executable: ExecutableBinding | None = None,
         stdin_payload: dict[str, Any] | None = None,
         timeout_seconds: float | None = None,
         output_limit: int | None = None,
@@ -125,7 +165,8 @@ class DotnetOpenXmlRunner:
                 f"Unknown dotnet helper subcommand: {subcommand}",
                 details={"subcommand": subcommand},
             )
-        if self._executable is None:
+        authorized = executable or self._constructor_executable
+        if authorized is None:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_UNAVAILABLE,
                 "dotnet executable is not resolved.",
@@ -145,7 +186,7 @@ class DotnetOpenXmlRunner:
         resolved_limit = output_limit or OUTPUT_LIMIT
         return self._runner.run(
             "dotnet-openxml",
-            self._executable,
+            authorized,
             argv,
             cwd=self.project_root,
             timeout_seconds=resolved_timeout,

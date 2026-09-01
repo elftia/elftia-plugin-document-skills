@@ -62,7 +62,7 @@ def test_provider_reports_cover_the_bounded_serial_probe_chain(
         assert supervisor._command_limits(
             PublicCommand(command_name, (command_name, "--json")),
             tmp_path,
-        ) == (210.0, 2_097_152)
+        ) == (270.0, 2_097_152)
 
 
 def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
@@ -329,7 +329,11 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(
     dotnet = optional[str(ProviderId.DOTNET_OPENXML)]
     assert dotnet["required"] is False
     for field in ("available", "version", "path", "reason"):
-        assert dotnet[field] == expected_dotnet[field]
+        assert dotnet[field] == expected_dotnet[field], {
+            "field": field,
+            "actual": dotnet,
+            "expected": expected_dotnet,
+        }
     if command[0] == "doctor":
         assert report["status"] == "healthy"
     elif skill == "document-xlsx":

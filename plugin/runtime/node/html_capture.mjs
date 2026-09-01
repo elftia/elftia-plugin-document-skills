@@ -19,6 +19,12 @@ import {
 const PROTOCOL_VERSION = '1.0';
 const MAX_STDIN_BYTES = 64 * 1024;
 const MAX_HTML_BYTES = 8 * 1024 * 1024;
+const PROFILE_REMOVE_OPTIONS = Object.freeze({
+  recursive: true,
+  force: true,
+  maxRetries: 5,
+  retryDelay: 100,
+});
 
 async function readRequest() {
   const chunks = [];
@@ -125,7 +131,7 @@ async function probe(request) {
     };
   } finally {
     if (context) await context.close().catch(() => undefined);
-    await fs.rm(profile, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(profile, PROFILE_REMOVE_OPTIONS).catch(() => undefined);
   }
 }
 
@@ -198,7 +204,7 @@ async function capture(request) {
   } finally {
     if (context) await context.close().catch(() => undefined);
     await server.close().catch(() => undefined);
-    await fs.rm(request.profile_root, { recursive: true, force: true }).catch(() => undefined);
+    await fs.rm(request.profile_root, PROFILE_REMOVE_OPTIONS).catch(() => undefined);
   }
 }
 

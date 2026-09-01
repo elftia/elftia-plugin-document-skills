@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 from document_skills_core.formats.pptx.package import OpcPackage
 from document_skills_core.formats.pptx.service import PptxService
 from document_skills_core.formats.pptx.template_content_analysis import (
@@ -39,7 +41,7 @@ def _public_run(project_root: Path, request_path: Path) -> dict[str, object]:
         check=False,
         capture_output=True,
         shell=False,
-        timeout=75,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode in {0, 2}, process.stderr.decode("utf-8", errors="replace")
     assert process.stderr == b""

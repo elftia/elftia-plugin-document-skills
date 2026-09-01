@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.pack.instantiate",
+  "output": "academic-paper-zh-cn.docx",
+  "arguments": {
+    "pack": {"kind": "builtin", "id": "general-academic-paper", "version": "1.0.0"},
+    "mode": "document-spec",
+    "verification": "core",
+    "document_spec": {
+      "version": "1.0",
+      "domain_profile": {"id": "academic-paper", "version": "1.0", "locale": "zh-CN", "citation_style": "author-year"},
+      "metadata": {"title": "可复用的学术样式"},
+      "header": "Elftia 研究",
+      "footer": {"paragraphs": [{"alignment": "center", "runs": [{"text": "第 "}, {"field": "PAGE"}, {"text": " / "}, {"field": "NUMPAGES"}, {"text": " 页"}]}]},
+      "nodes": [
+        {"id": "title", "type": "title", "text": "可复用的学术样式"},
+        {"id": "authors", "type": "authors", "items": ["艾达·洛夫莱斯"]},
+        {"id": "abstract", "type": "abstract", "text": "模板包提供样式，全部文字由调用方提供。"},
+        {"id": "keywords", "type": "keywords", "items": ["DOCX", "模板包"]},
+        {"id": "introduction", "type": "heading", "level": 1, "text": "引言"},
+        {"id": "body", "type": "paragraph", "text": "这些文字不会被翻译，并复用模板包拥有的样式。"},
+        {"id": "results", "type": "table", "rows": [["验证门", "结果"], ["语义验证", "通过"]]},
+        {"id": "results_caption", "type": "table_caption", "target": "results", "text": "验证证据"},
+        {"id": "equation", "type": "equation", "linear": "E = mc²"},
+        {"id": "equation_caption", "type": "equation_caption", "target": "equation", "text": "质能等价"},
+        {"id": "citation", "type": "citation", "keys": ["lovelace1843"]},
+        {"id": "references", "type": "bibliography"},
+        {"id": "lovelace", "type": "bibliography_entry", "key": "lovelace1843", "authors": ["Ada Lovelace"], "year": 1843, "title": "笔记", "container": "科学回忆录"}
+      ]
+    }
+  }
+}

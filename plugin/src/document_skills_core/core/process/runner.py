@@ -15,7 +15,11 @@ from typing import Any
 
 from ..contracts.errors import DocumentSkillsError, ErrorCode
 from ..io.portable_paths import PORTABLE_PATH_POLICY
-from ..io.temp_roots import OperationTempRoot, cleanup_stale_roots
+from ..io.temp_roots import (
+    OperationTempRoot,
+    cleanup_stale_roots,
+    current_supervised_operation_root,
+)
 from .executable import (
     ExecutableIdentity,
     ExecutableLaunchLease,
@@ -159,6 +163,21 @@ def _path_unsafe(message: str) -> DocumentSkillsError:
     return DocumentSkillsError(ErrorCode.PATH_UNSAFE, message)
 
 
+@dataclass(frozen=True)
+class ExecutableBinding:
+    """One immutable provider/path/object authorization for later launches."""
+
+    provider_id: str
+    path: Path
+    identity: ExecutableIdentity
+
+
+def _executable_path(executable: str | Path | ExecutableBinding) -> Path:
+    if isinstance(executable, ExecutableBinding):
+        return executable.path.absolute()
+    return Path(executable).absolute()
+
+
 @dataclass
 class ProcessPolicy:
     project_root: Path
@@ -203,13 +222,62 @@ class ProcessPolicy:
         with acquire_executable_lease(expected, require_native=False):
             return launch_path
 
-    def acquire_executable(
+    def allow_executable_binding(
         self,
         provider_id: str,
         executable: str | Path,
+    ) -> ExecutableBinding:
+        """Authorize and return the exact immutable launch identity."""
+
+        launch_path = self.allow_executable(provider_id, executable)
+        return ExecutableBinding(
+            provider_id=provider_id,
+            path=launch_path,
+            identity=self._approved_executable(provider_id, launch_path),
+        )
+
+    def require_executable_binding(
+        self,
+        provider_id: str,
+        executable: str | Path,
+    ) -> ExecutableBinding:
+        """Reopen a prior authorization and return its unchanged identity."""
+
+        launch_path = self.require_executable(provider_id, executable)
+        return ExecutableBinding(
+            provider_id=provider_id,
+            path=launch_path,
+            identity=self._approved_executable(provider_id, launch_path),
+        )
+
+    def acquire_executable(
+        self,
+        provider_id: str,
+        executable: str | Path | ExecutableBinding,
     ) -> ExecutableLaunchLease:
-        launch_path = Path(executable).absolute()
-        expected = self._approved_executable(provider_id, launch_path)
+        if isinstance(executable, ExecutableBinding):
+            if executable.provider_id != provider_id:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Executable binding belongs to a different provider.",
+                    details={"provider": provider_id},
+                )
+            launch_path = executable.path.absolute()
+            approved = self._approved_executable(provider_id, launch_path)
+            if approved != executable.identity:
+                raise DocumentSkillsError(
+                    ErrorCode.PROVIDER_FAILED,
+                    "Executable binding differs from the authorized identity.",
+                    details={
+                        "provider": provider_id,
+                        "executable": launch_path.name,
+                        "reason_category": "executable_binding_changed",
+                    },
+                )
+            expected = executable.identity
+        else:
+            launch_path = Path(executable).absolute()
+            expected = self._approved_executable(provider_id, launch_path)
         return acquire_executable_lease(expected, require_native=True)
 
     def _approved_executable(
@@ -278,7 +346,7 @@ class ProcessRunner:
     def run(
         self,
         provider_id: str,
-        executable: str | Path,
+        executable: str | Path | ExecutableBinding,
         args: list[str],
         *,
         script: Path | None = None,
@@ -290,7 +358,7 @@ class ProcessRunner:
         private_environment: tuple[str, ...] = (),
         fixed_environment: dict[str, str] | None = None,
     ) -> ProcessResult:
-        executable_path = Path(executable).absolute()
+        executable_path = _executable_path(executable)
         if script is not None:
             self._check_script(provider_id, script)
             if str(script.resolve()) not in args:
@@ -302,7 +370,7 @@ class ProcessRunner:
         launch_cwd = self._contained_cwd(cwd)
         return self._execute(
             provider_id,
-            executable_path,
+            executable,
             [str(executable_path), *args],
             launch_cwd,
             (),
@@ -360,7 +428,7 @@ class ProcessRunner:
     def _execute(
         self,
         provider_id: str,
-        executable: Path,
+        executable: Path | ExecutableBinding,
         command: list[str],
         launch_cwd: Path,
         pass_fds: tuple[int, ...],
@@ -657,6 +725,10 @@ class ProcessRunner:
         with self._private_environment_lock:
             if self._private_environment_root is not None:
                 return self._private_environment_root
+            supervised = current_supervised_operation_root(self.policy.project_root)
+            if supervised is not None:
+                self._private_environment_root = supervised
+                return supervised
             base = (
                 self.policy.project_root
                 / ".document-skills-tmp"

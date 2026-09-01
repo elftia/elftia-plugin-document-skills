@@ -29,8 +29,10 @@ from tools.html_pptx_provenance import (
 )
 from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+    DOCX_TEMPLATE_PACK_REQUIREMENT,
     README_SYSTEM_REQUIREMENT,
     cross_format_capability_module_profile,
+    docx_template_pack_module_profile,
     pptx_openxml_module_profile,
     readme_system_profile,
     regenerate,
@@ -545,10 +547,12 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
         )
         pptx_openxml_profile = pptx_openxml_module_profile(record["module"])
         xlsx_profile = xlsx_module_profile(record["module"])
+        template_pack_profile = docx_template_pack_module_profile(record["module"])
         expected_profile = _combined_profile(
             cross_format_profile,
             (pptx_profile[0], pptx_profile[1]),
             pptx_openxml_profile,
+            template_pack_profile,
             xlsx_profile,
         )
         assert expected_profile is not None
@@ -557,6 +561,7 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             CROSS_FORMAT_CAPABILITY_REQUIREMENT if cross_format_profile else None,
             pptx_profile[2],
             _OPENXML_REQUIREMENT if pptx_openxml_profile else None,
+            DOCX_TEMPLATE_PACK_REQUIREMENT if template_pack_profile else None,
         )
         if xlsx_profile:
             expected_requirement = _with_all_xlsx_requirements(base_requirement)

@@ -434,7 +434,7 @@ def test_public_worker_grants_provider_operations_bounded_time(
         )
     assert observed == {
         "xlsx.render": (45.0, 2_097_152),
-        "xlsx.validate.schema": (45.0, 2_097_152),
+        "xlsx.validate.schema": (240.0, 2_097_152),
     }
 
 

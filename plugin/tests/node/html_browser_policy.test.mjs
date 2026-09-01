@@ -21,6 +21,7 @@ test('browser policy retains sandbox and cannot be weakened by caller options', 
   assert.equal(options.serviceWorkers, 'block');
   assert.equal(options.headless, true);
   assert.deepEqual(options.viewport, { width: 1920, height: 1080 });
+  assert.ok(options.args.includes('--disable-background-mode'));
   assert.ok(options.args.includes('--disable-background-networking'));
   assert.ok(options.args.includes('--disable-extensions'));
   assert.ok(!options.args.some((argument) => argument.includes('no-sandbox')));

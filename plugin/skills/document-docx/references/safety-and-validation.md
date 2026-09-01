@@ -99,6 +99,37 @@ slice does not claim arbitrary CSL or journal-style coverage.
 The output ZIP hash normally differs from the input ZIP hash. Preservation claims refer to
 untargeted part payloads, not whole-container byte identity.
 
+## Template-pack integrity and reference import
+
+A template pack is an immutable plain directory rooted by canonical UTF-8 `manifest.json`. The
+catalog or local request independently binds that manifest SHA-256; the manifest binds every other
+member by portable relative path, size, media type, role, and SHA-256. Resolution rejects missing
+or undeclared files, case/Unicode/portable aliases, traversal, symlinks, junctions/reparse points,
+special files, unsupported schema versions, and mutation observed during the two inventories.
+Built-ins resolve only through the checked-in catalog. Local packs require an explicit path and
+digest; no home-directory or marketplace scan occurs.
+
+Reference inspection uses the same bounded OOXML preflight as normal safe DOCX work, with only the
+standard inert DOTX main content type admitted. It never strips active content into an apparently
+safe pack. Semantic candidates are explainable suggestions, not approved mappings. Import repeats
+inspection against the same source digest, validates style ids/types/dependencies with the existing
+`template-mapped` restrictions, copies the source bytes unchanged, writes a private canonical
+candidate, validates it through the normal pack resolver, and publishes through identity-bound
+atomic no-replace directory promotion. Cleanup is limited to the operation-owned private stage;
+an existing or racing destination is never replaced, merged, or deleted.
+
+Provenance records the original filename/source digest, importer identity/version, caller-supplied
+time, license status/evidence, and redistribution decision. Network fields only attest a previous
+trusted download and must bind the same digest; the producer never follows URLs or infers a license
+from one. Imported user packs remain outside producer release/provenance/SBOM inventory.
+
+Document-spec instantiation requires caller `style_profile` to be absent, checks exact document
+spec/domain compatibility, and injects the pack-owned hash-bound mapping before the existing parser
+and creation transaction. Template instantiation validates all requested variables/regions against
+the manifest before calling the existing planner/backend. Neither path promises arbitrary
+pixel-perfect reference cloning. Semantic validation is required; optional provider/font/render
+evidence remains truthful when unavailable.
+
 ## Fail-closed package policy
 
 Normal read and every mutation except the explicit keep-VBA `.docm` path reject:

@@ -22,6 +22,7 @@ def test_docx_parity_matrix_distinguishes_shipped_and_deferred_capabilities(
         "Styles/numbering/theme inspection": "`PRESENT`",
         "Direct-formatting normalization report": "`PRESENT`",
         "Declarative template regions/style overlay": "`PRESENT`",
+        "Template pack catalog/import/instantiate": "`PRESENT`",
         "Bounded high-fidelity graph merge": "`PRESENT`",
         ".dotx/.docm/legacy .doc handling": "`PRESENT`",
         "Comments threads/replies/resolution": "`PRESENT`",

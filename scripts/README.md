@@ -21,12 +21,14 @@ Exact Python and Node dependency installation occurs only in verification/build 
 | [`build-artifact.mjs`](build-artifact.mjs) | Build CLI for `dist/document-skills/` |
 | [`validate-artifact.mjs`](validate-artifact.mjs) | Validate the emitted artifact independently |
 | [`verify-reproducible-build.mjs`](verify-reproducible-build.mjs) | Compare repeated clean builds |
+| [`run-docx-template-pack-dist-e2e.mjs`](run-docx-template-pack-dist-e2e.mjs) | Build and exercise DOCX template-pack catalog/import/instantiation through the distribution artifact |
 | [`run-xlsx-dist-e2e.mjs`](run-xlsx-dist-e2e.mjs) | Build and exercise XLSX through the distribution artifact |
 
 Use package scripts rather than invoking orchestration internals by hand:
 
 ```text
 npm run verify:docs
+npm run test:docx:dist-e2e
 npm test
 npm run build
 npm run validate:artifact

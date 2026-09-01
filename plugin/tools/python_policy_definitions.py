@@ -55,6 +55,7 @@ ALLOWED_STDLIB = {
     "builtins",
     "collections",
     "contextlib",
+    "contextvars",
     "copy",
     "csv",
     "ctypes",

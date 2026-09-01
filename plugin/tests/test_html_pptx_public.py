@@ -85,6 +85,8 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     for name, operation in (
         ("create", "pptx.create"),
         ("markdown", "pptx.create.from-markdown"),
+        ("svg", "pptx.create.from-svg"),
+        ("template", "pptx.create.from-template"),
         ("edit", "pptx.edit"),
         ("sanitize", "pptx.template.sanitize"),
     ):
@@ -117,16 +119,16 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(html_request))),
         tmp_path,
-    ) == (60.0, 1_048_576)
+    ) == (120.0, 1_048_576)
     for request in mutation_requests:
         assert supervisor._command_limits(
             PublicCommand("run", ("run", "--request", str(request))),
             tmp_path,
-        ) == (45.0, 2_097_152)
+        ) == (240.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(schema_request))),
         tmp_path,
-    ) == (45.0, 2_097_152)
+    ) == (240.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(convert_request))),
         tmp_path,

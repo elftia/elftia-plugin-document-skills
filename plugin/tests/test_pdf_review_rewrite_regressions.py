@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 import pytest
 from pypdf import PdfReader
 
@@ -33,7 +35,7 @@ def _public(project_root: Path, request: Path) -> dict[str, object]:
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.stderr == b""
     return json.loads(process.stdout.decode("utf-8", errors="strict"))

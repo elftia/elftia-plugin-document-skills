@@ -200,9 +200,14 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         "docx.render",
         "docx.revisions.apply",
         "docx.revisions.read",
-        "docx.template.apply",
-        "docx.validate.schema",
-    }
+            "docx.template.apply",
+            "docx.template.import.create",
+            "docx.template.import.inspect",
+            "docx.template.pack.instantiate",
+            "docx.template.pack.list",
+            "docx.template.pack.read",
+            "docx.validate.schema",
+        }
     assert operations["docx.template.apply"]["providers"] == ["core-node"]
     assert all(
         operations[operation]["available"]

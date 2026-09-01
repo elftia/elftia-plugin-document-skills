@@ -12,6 +12,9 @@ if str(SOURCE_ROOT) not in sys.path:
 
 from document_skills_core.cli import _dispatch, parse_command  # noqa: E402
 from document_skills_core.core.contracts.schemas import SchemaCatalog  # noqa: E402
+from document_skills_core.core.io.temp_roots import (  # noqa: E402
+    bind_supervised_operation_root,
+)
 from document_skills_core.public_cli.protocol import (  # noqa: E402
     MAX_COMMAND_BYTES,
     PROTOCOL_VERSION,
@@ -100,12 +103,19 @@ def run() -> int:
     invocation_id = envelope["invocation_id"]
     command_name = envelope["command"]
     try:
+        with bind_supervised_operation_root(
+            PROJECT_ROOT,
+            invocation_id,
+            envelope["operation_root"],
+            tuple(envelope["operation_root_identity"]),
+        ):
+            payload = _dispatch_command(envelope)
         worker = {
             "protocol_version": PROTOCOL_VERSION,
             "invocation_id": invocation_id,
             "command": command_name,
             "outcome": "ok",
-            "payload": _dispatch_command(envelope),
+            "payload": payload,
             "failure": None,
         }
     except BaseException as error:

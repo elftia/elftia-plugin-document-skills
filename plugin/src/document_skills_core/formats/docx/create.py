@@ -33,6 +33,7 @@ from .constants import (
     REL_STYLES,
     qn,
 )
+from .authoring_validation import assert_authoring_parts
 from .drawing import image_paragraph
 from .document_manifest import render_document_manifest
 from .equations import equation_paragraph
@@ -42,6 +43,7 @@ from .package import write_deterministic_zip
 from .references import attach_reference_bookmark, reference_paragraph
 from .semantic_nodes import attach_semantic_node_marker
 from .style_profiles import public_style_profile, render_style_profile
+from .story_contract import render_story
 from .table import table_element
 from .xml_utils import paragraph, text_run, xml_bytes
 
@@ -86,11 +88,12 @@ def create_docx(path: Path, report: dict[str, Any]) -> dict[str, Any]:
     if manifest_payload is not None:
         parts["docProps/custom.xml"] = manifest_payload
     if footer is not None:
-        parts["word/footer1.xml"] = _story("ftr", footer)
+        parts["word/footer1.xml"] = render_story("ftr", footer)
     if header is not None:
-        parts["word/header1.xml"] = _story("hdr", header)
+        parts["word/header1.xml"] = render_story("hdr", header)
     for image in images:
         parts[image["part"]] = image["bytes"]
+    assert_authoring_parts(parts)
     write_deterministic_zip(path, parts)
     # This is the immutable oracle the required validation gate checks against.
     # It must NOT re-read the caller's source paths: those can change between
@@ -268,17 +271,11 @@ def _section_properties(
     return properties
 
 
-def _story(kind: str, text: str) -> bytes:
-    root = Element(qn("w", kind))
-    root.append(paragraph(text))
-    return xml_bytes(root)
-
-
 def _content_types(
     images: list[dict[str, Any]],
     *,
-    header: str | None,
-    footer: str | None,
+    header: str | dict[str, Any] | None,
+    footer: str | dict[str, Any] | None,
     manifest: bool,
     settings: bool,
 ) -> bytes:
@@ -343,8 +340,8 @@ def _package_relationships(*, manifest: bool) -> bytes:
 def _document_relationships(
     images: list[dict[str, Any]],
     *,
-    header: str | None,
-    footer: str | None,
+    header: str | dict[str, Any] | None,
+    footer: str | dict[str, Any] | None,
     settings: bool,
 ) -> bytes:
     entries: list[tuple[str, str, str]] = []

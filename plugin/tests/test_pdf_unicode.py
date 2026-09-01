@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 from pypdf import PdfReader, PdfWriter
 
 from document_skills_core.formats.pdf.contracts import parse_pdf_request
@@ -178,7 +180,7 @@ def _public(project_root: Path, *arguments: str, check: bool = True) -> dict[str
         check=False,
         capture_output=True,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     if check:
         assert completed.returncode == 0, completed.stdout.decode("utf-8", errors="replace")

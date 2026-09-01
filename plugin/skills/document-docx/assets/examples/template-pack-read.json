@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.pack.read",
+  "arguments": {
+    "pack": {
+      "kind": "builtin",
+      "id": "general-academic-paper",
+      "version": "1.0.0"
+    }
+  }
+}

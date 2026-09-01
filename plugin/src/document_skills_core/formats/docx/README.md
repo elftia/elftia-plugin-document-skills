@@ -27,6 +27,11 @@ Use the shared Skill façade and check capabilities before optional operations. 
 | `docx.edit.replace-text` | Core Python | Exact run-aware replacement across supported document stories |
 | `docx.merge` | Core Python | Deterministic high-fidelity OOXML graph merge with bounded advanced-object support |
 | `docx.template.apply` | Core Node behind Python | Bounded scalar and declarative paragraph-region substitution over `.docx` or inert `.dotx` |
+| `docx.template.pack.list` | Core Python | Deterministic built-ins plus only explicit hash-bound local packs |
+| `docx.template.pack.read` | Core Python | Exact built-in/local manifest, compatibility, provenance, capability, and evidence summary |
+| `docx.template.import.inspect` | Core Python | Read-only safe DOCX/inert DOTX style/control inventory and advisory role candidates |
+| `docx.template.import.create` | Core Python | Canonical byte-preserving local pack import with atomic no-replace directory publication |
+| `docx.template.pack.instantiate` | Core Node behind Python | Declared template or document-spec adapter with pack-owned mappings and transactional DOCX output |
 | `docx.convert.legacy` | LibreOffice | Explicit bounded `.doc` to `.docx` conversion |
 | `docx.convert.pdf` | LibreOffice | Explicit DOCX to PDF conversion |
 | `docx.render` | LibreOffice | PDF and optional page-image evidence plus bounded layout findings |

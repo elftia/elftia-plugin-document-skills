@@ -19,6 +19,7 @@ def test_all_schema_examples_and_fingerprints_are_stable(project_root):
     assert set(first) == {
         "capability-report",
         "doctor-report",
+        "docx-template-pack",
         "operation-request",
         "operation-result",
         "validation-report",

@@ -14,7 +14,7 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from document_skills_core.core.process import ProcessPolicy, ProcessRunner
 
 PLAYWRIGHT_CORE_VERSION = "1.62.1"
-_PROBE_TIMEOUT_SECONDS = 20.0
+_PROBE_TIMEOUT_SECONDS = 30.0
 _PROBE_OUTPUT_BYTES = 16_384
 _BROWSER_VERSION = re.compile(r"^\d+(?:\.\d+){1,3}$")
 
@@ -111,7 +111,11 @@ class HtmlBrowserDetector:
         private_base = self.project_root / ".document-skills-tmp"
         private_base.mkdir(mode=0o700, exist_ok=True)
         try:
-            with TemporaryDirectory(prefix="browser-probe-", dir=private_base) as root:
+            with TemporaryDirectory(
+                prefix="browser-probe-",
+                dir=private_base,
+                ignore_cleanup_errors=True,
+            ) as root:
                 result = self.runner.run(
                     "html-browser",
                     executable,

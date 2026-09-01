@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import SubElement
 
 import pytest
@@ -136,7 +137,7 @@ def _public(project_root: Path, request_path: Path) -> dict[str, object]:
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
     assert process.stderr == b""

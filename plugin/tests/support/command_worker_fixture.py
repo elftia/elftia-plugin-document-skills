@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from document_skills_core import __version__  # noqa: E402
 from document_skills_core.core.contracts import DocumentSkillsError, ErrorCode  # noqa: E402
 from document_skills_core.core.contracts.serialization import render_json_bytes  # noqa: E402
+from document_skills_core.core.io.temp_roots import OperationTempRoot  # noqa: E402
 from document_skills_core.public_cli.protocol import validate_command_envelope  # noqa: E402
 from document_skills_core.worker.invoke import (  # noqa: E402
     ProviderInvocationFailure,
@@ -140,6 +141,22 @@ def main():
     mode = command_data["invocation_id"].removeprefix("fixture-")
     _record_provider_dispatch(mode, command_data)
     if mode == "hang":
+        operation_context = None
+        operation_root_value = command_data.get("operation_root")
+        if operation_root_value is None:
+            operation_context = OperationTempRoot(
+                PROJECT_ROOT
+                / ".document-skills-tmp"
+                / "document-skills-operations"
+            )
+            operation_root = operation_context.__enter__()
+        else:
+            operation_root = Path(operation_root_value)
+        (operation_root / "worker-owned.bin").write_bytes(b"owned")
+        (Path(command_data["invocation_base"]) / "owned-operation-root.txt").write_text(
+            str(operation_root),
+            encoding="utf-8",
+        )
         time.sleep(30)
     if mode == "overflow":
         os.write(1, b"x" * 3_000_000)

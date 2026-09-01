@@ -16,6 +16,7 @@ SCHEMA_FILES = {
     "doctor-report": "doctor-report.schema.json",
     "capability-report": "capability-report.schema.json",
     "validation-report": "validation-report.schema.json",
+    "docx-template-pack": "docx-template-pack.schema.json",
 }
 
 
@@ -60,4 +61,3 @@ class SchemaCatalog:
         for name, schema in self._schemas.items():
             for example in schema.get("examples", []):
                 self.validate(name, example)
-

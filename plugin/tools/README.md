@@ -18,6 +18,8 @@ Evidence capture utilities do not turn a consumer run into a general support cla
 - [`supply_chain.py`](supply_chain.py) validates dependency/SBOM/notice evidence.
 - `python_policy_*` and [`node_policy.mjs`](node_policy.mjs) own bounded static execution/value-flow checks.
 - `capture_*` and `prepare_*` utilities create explicit local PPTX consumer evidence.
+- [`build_docx_template_pack.py`](build_docx_template_pack.py) deterministically regenerates or
+  checks the repository-owned `general-academic-paper` pack and externally bound catalog digest.
 
 Use `--help` through the frozen plugin environment before any write-capable evidence command.
 

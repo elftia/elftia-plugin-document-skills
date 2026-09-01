@@ -16,7 +16,14 @@ from document_skills_core.core.contracts.models import (
 from document_skills_core.core.contracts.schemas import SchemaCatalog
 from document_skills_core.core.contracts.serialization import render_json_bytes
 from document_skills_core.core.process import ProcessPolicy, ProcessRunner
-from document_skills_core.worker.private_workspace import PrivateWorkspace
+from document_skills_core.providers.dotnet.constants import (
+    TIMEOUT_COLD_DETECTION,
+    TIMEOUT_SCHEMA_VALIDATE,
+)
+from document_skills_core.worker.private_workspace import (
+    PrivateOperationRoot,
+    PrivateWorkspace,
+)
 
 from .protocol import (
     MAX_COMMAND_BYTES,
@@ -30,7 +37,11 @@ from .protocol import (
 )
 
 _HTML_OPERATION = "pptx.create.from-html"
-_HTML_WORKER_TIMEOUT_SECONDS = 60.0
+# Browser detection and capture have independent 30-second and 45-second hard
+# bounds. Emission, package validation, worker startup, and teardown happen
+# outside those subprocess windows, so the aggregate public boundary must
+# contain their serial path while remaining finite.
+_HTML_WORKER_TIMEOUT_SECONDS = 120.0
 _HTML_WORKER_RESULT_BYTES = 1_048_576
 _PDF_WORKER_TIMEOUT_SECONDS = 30.0
 _PPTX_RECONSTRUCTION_OPERATION = "pptx.reconstruct.from-image"
@@ -56,7 +67,26 @@ _DOCX_DOTNET_OPERATIONS = frozenset(
         "docx.validate.schema",
     }
 )
-_DOCX_DOTNET_WORKER_TIMEOUT_SECONDS = 90.0
+# Keep every cold OpenXML public route derived from the provider's bounded
+# detection chain. The remaining terms are one schema/operation call and finite
+# worker startup/teardown headroom.
+_DOTNET_WORKER_STARTUP_TEARDOWN_HEADROOM_SECONDS = 18.0
+_DOTNET_COLD_OPERATION_TIMEOUT_SECONDS = (
+    TIMEOUT_COLD_DETECTION
+    + TIMEOUT_SCHEMA_VALIDATE
+    + _DOTNET_WORKER_STARTUP_TEARDOWN_HEADROOM_SECONDS
+)
+_DOCX_DOTNET_WORKER_TIMEOUT_SECONDS = _DOTNET_COLD_OPERATION_TIMEOUT_SECONDS
+_DOCX_TEMPLATE_PACK_OPERATIONS = frozenset(
+    {
+        "docx.template.pack.list",
+        "docx.template.pack.read",
+        "docx.template.pack.instantiate",
+        "docx.template.import.inspect",
+        "docx.template.import.create",
+    }
+)
+_DOCX_TEMPLATE_PACK_WORKER_TIMEOUT_SECONDS = 90.0
 _PPTX_MUTATION_OPERATIONS = {
     "pptx.create",
     "pptx.create.from-markdown",
@@ -65,7 +95,9 @@ _PPTX_MUTATION_OPERATIONS = {
     "pptx.edit",
     "pptx.template.sanitize",
 }
-_PPTX_MUTATION_WORKER_TIMEOUT_SECONDS = 45.0
+# A PPTX mutation can finish with one authorized OpenXML schema gate, so it uses
+# the same single-detection aggregate as direct DOCX/XLSX/PPTX schema routes.
+_PPTX_MUTATION_WORKER_TIMEOUT_SECONDS = _DOTNET_COLD_OPERATION_TIMEOUT_SECONDS
 _PPTX_TEMPLATE_INSPECT_TIMEOUT_SECONDS = 150.0
 _PROVIDER_OPERATION_TIMEOUTS = {
     "pptx.scene.export": 90.0,
@@ -73,7 +105,6 @@ _PROVIDER_OPERATION_TIMEOUTS = {
     "xlsx.convert": 45.0,
     "xlsx.recalculate": 90.0,
     "xlsx.render": 45.0,
-    "xlsx.validate.schema": 45.0,
 }
 _RECALCULATION_POLICY_OPERATIONS = {"xlsx.create", "xlsx.edit"}
 _REQUIRED_RECALCULATION_TIMEOUT_SECONDS = 90.0
@@ -82,13 +113,22 @@ _LIBREOFFICE_CONVERT_TIMEOUT_SECONDS = 60.0
 _LIBREOFFICE_LEGACY_OPERATION = "pptx.convert.legacy"
 _LIBREOFFICE_RENDER_OPERATION = "pptx.render"
 _LIBREOFFICE_RENDER_TIMEOUT_SECONDS = 150.0
-# Provider reports probe independent runtimes serially.  The bounded .NET
-# restore/build/probe chain alone can consume 132 seconds, so this aggregate
-# ceiling also leaves room for Node, LibreOffice, browser, and PDF-tool probes.
-_PROVIDER_PROBE_TIMEOUT_SECONDS = 210.0
-_SCHEMA_OPERATION = "pptx.validate.schema"
-_SCHEMA_WORKER_TIMEOUT_SECONDS = 45.0
-_WORKER_TIMEOUT_SECONDS = 15.0
+# Provider reports probe independent runtimes serially. Preserve the existing
+# finite 78-second allowance for the non-.NET probes around the shared cold
+# detection bound.
+_PROVIDER_PROBE_OTHER_HEADROOM_SECONDS = 78.0
+_PROVIDER_PROBE_TIMEOUT_SECONDS = (
+    TIMEOUT_COLD_DETECTION + _PROVIDER_PROBE_OTHER_HEADROOM_SECONDS
+)
+_DOTNET_SCHEMA_OPERATIONS = frozenset(
+    {"pptx.validate.schema", "xlsx.validate.schema"}
+)
+_SCHEMA_WORKER_TIMEOUT_SECONDS = _DOTNET_COLD_OPERATION_TIMEOUT_SECONDS
+# Ordinary public requests measured 8-10 seconds in isolation on the loaded
+# Windows gate host and crossed the former 15-second ceiling under sustained
+# development load.  Thirty seconds remains a hard fail-closed bound while
+# avoiding false timeouts for otherwise valid cold worker starts.
+_WORKER_TIMEOUT_SECONDS = 30.0
 _PROVIDER_PROFILE_ENV = "DOCUMENT_SKILLS_PROVIDER_PROFILE"
 _CORE_ONLY_PROFILE = "core-only"
 
@@ -121,6 +161,9 @@ class PublicCommandSupervisor:
     ) -> tuple[dict[str, Any], bool]:
         command = parse_public_command(argv)
         workspace: PrivateWorkspace | None = None
+        operation_root: PrivateOperationRoot | None = None
+        outcome: tuple[dict[str, Any], bool] | None = None
+        cleanup_failed = False
         try:
             invocation_base = Path.cwd().resolve(strict=True)
             if not invocation_base.is_dir():
@@ -137,6 +180,10 @@ class PublicCommandSupervisor:
             ):
                 raise ValueError("private invocation nonce is invalid")
             workspace = PrivateWorkspace.create(self.project_root, invocation_id)
+            operation_root = PrivateOperationRoot.create(
+                self.project_root,
+                invocation_id,
+            )
             timeout_seconds, result_limit = self._command_limits(
                 command, invocation_base
             )
@@ -145,6 +192,8 @@ class PublicCommandSupervisor:
                 command,
                 format_id,
                 invocation_base,
+                operation_root.path,
+                operation_root.identity,
             )
             encoded = json.dumps(
                 envelope,
@@ -176,16 +225,18 @@ class PublicCommandSupervisor:
                 command.name,
             )
             if envelope["outcome"] != "ok":
-                return self._safe_failure(
-                    command, format_id, envelope["failure"]
-                ), False
-            payload = envelope["payload"]
-            SchemaCatalog(self.project_root).validate(
-                worker_schema(command.name), payload
-            )
-            return payload, True
+                outcome = (
+                    self._safe_failure(command, format_id, envelope["failure"]),
+                    False,
+                )
+            else:
+                payload = envelope["payload"]
+                SchemaCatalog(self.project_root).validate(
+                    worker_schema(command.name), payload
+                )
+                outcome = (payload, True)
         except KeyboardInterrupt:
-            return (
+            outcome = (
                 self._safe_failure(
                     command,
                     format_id,
@@ -205,7 +256,7 @@ class PublicCommandSupervisor:
                 and error.details.get("reason_category") == "worker_exit"
             ):
                 details = error.details
-            return (
+            outcome = (
                 self._safe_failure(
                     command,
                     format_id,
@@ -219,8 +270,30 @@ class PublicCommandSupervisor:
                 False,
             )
         finally:
+            if operation_root is not None:
+                try:
+                    cleanup_failed = not operation_root.close()
+                except BaseException:
+                    cleanup_failed = True
             if workspace is not None:
                 workspace.close()
+        if cleanup_failed:
+            return (
+                self._safe_failure(
+                    command,
+                    format_id,
+                    {
+                        "category": "cleanup_failed",
+                        "phase": "supervisor_cleanup",
+                        "provider": None,
+                        "exception_class": "OSError",
+                    },
+                ),
+                False,
+            )
+        if outcome is None:
+            raise RuntimeError("public command completed without an outcome")
+        return outcome
 
     def _launch(
         self,
@@ -310,6 +383,14 @@ class PublicCommandSupervisor:
                     max(self.timeout_seconds, _DOCX_DOTNET_WORKER_TIMEOUT_SECONDS),
                     MAX_WORKER_BYTES,
                 )
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOCX_TEMPLATE_PACK_OPERATIONS
+            ):
+                return (
+                    max(self.timeout_seconds, _DOCX_TEMPLATE_PACK_WORKER_TIMEOUT_SECONDS),
+                    MAX_WORKER_BYTES,
+                )
             if type(value) is dict and value.get("operation") in _PPTX_MUTATION_OPERATIONS:
                 return (
                     max(self.timeout_seconds, _PPTX_MUTATION_WORKER_TIMEOUT_SECONDS),
@@ -331,7 +412,10 @@ class PublicCommandSupervisor:
                     self.timeout_seconds,
                     _REQUIRED_RECALCULATION_TIMEOUT_SECONDS,
                 ), MAX_WORKER_BYTES
-            if type(value) is dict and value.get("operation") == _SCHEMA_OPERATION:
+            if (
+                type(value) is dict
+                and value.get("operation") in _DOTNET_SCHEMA_OPERATIONS
+            ):
                 return max(self.timeout_seconds, _SCHEMA_WORKER_TIMEOUT_SECONDS), MAX_WORKER_BYTES
             if (
                 type(value) is dict

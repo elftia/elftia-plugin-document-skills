@@ -7,7 +7,7 @@ from document_skills_core.core.contracts.models import gate_record
 
 
 def validate_schema_gate(path: Path, provider: Any) -> dict[str, Any]:
-    evidence = _detection_evidence(provider)
+    evidence, result = _schema_validation(provider, path)
     version = _evidence_version(evidence)
     if evidence is None or evidence.available is not True:
         return gate_record(
@@ -19,7 +19,6 @@ def validate_schema_gate(path: Path, provider: Any) -> dict[str, Any]:
             evidence={"reason": _unavailable_reason(evidence)},
             warnings=["Optional OpenXML SDK schema validation is unavailable."],
         )
-    result = provider.try_validate_schema(path)
     if type(result) is not dict:
         return gate_record(
             "schema.full",
@@ -64,13 +63,25 @@ def with_schema_gate(
     }
 
 
-def _detection_evidence(provider: Any) -> Any:
+def _schema_validation(provider: Any, path: Path) -> tuple[Any, Any]:
     if provider is None:
-        return None
+        return None, None
     try:
-        return provider.detect()
+        combined = provider.try_validate_schema_with_evidence
+    except AttributeError:
+        combined = None
+    if combined is not None:
+        value = combined(path)
+        if type(value) is tuple and len(value) == 2:
+            return value
+        return None, None
+    try:
+        evidence = provider.detect()
     except Exception:
-        return None
+        return None, None
+    if evidence is None or evidence.available is not True:
+        return evidence, None
+    return evidence, provider.try_validate_schema(path)
 
 
 def _evidence_version(evidence: Any) -> str | None:

@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 from document_skills_core.core.io.paths import sha256_file
 from document_skills_core.formats.docx.validation import reopen_docx
 from document_skills_core.formats.pdf.validation import reopen_pdf
@@ -30,7 +32,7 @@ def _public(
         capture_output=True,
         text=True,
         check=check,
-        timeout=120,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     return json.loads(completed.stdout)
 

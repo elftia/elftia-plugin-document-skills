@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 import sys
 from typing import Any
 
@@ -71,7 +72,7 @@ def _public_run(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=30,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert completed.stderr == b""
     payload = json.loads(completed.stdout.decode("utf-8", errors="strict"))
