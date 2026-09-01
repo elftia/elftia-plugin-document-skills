@@ -32,7 +32,7 @@ testpaths = ["tests"]
 tmp_path_retention_count = 1
 tmp_path_retention_policy = "failed"
 markers = [
-  "slow: exercises a real external provider (LibreOffice, dotnet helper, PDF rendering); excluded by npm run test:fast",
+  "slow: exercises a real external provider or deliberately long-lived subprocess (browser, LibreOffice, dotnet helper, PDF rendering, timeout cleanup); excluded by npm run test:fast",
 ]
 
 [tool.uv]

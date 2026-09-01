@@ -1,5 +1,7 @@
 """DOCX public-boundary tests split by operation family."""
 
+import pytest
+
 from tests.support.docx_public import *  # noqa: F401,F403
 from tests.support.docx_public import (
     _GIF,
@@ -151,6 +153,7 @@ def test_public_semantic_compare_covers_spec_and_before_after(
     assert sha256_file(baseline) == baseline_sha256
 
 
+@pytest.mark.slow
 def test_public_reference_visual_compare_uses_explicit_fixed_page_pairing(
     project_root: Path,
     tmp_path: Path,

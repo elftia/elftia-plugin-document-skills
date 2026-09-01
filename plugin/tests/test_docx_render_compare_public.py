@@ -1,5 +1,7 @@
 """DOCX public-boundary tests split by operation family."""
 
+import pytest
+
 from tests.support.docx_public import *  # noqa: F401,F403
 from tests.support.docx_public import (
     _GIF,
@@ -13,6 +15,7 @@ from tests.support.docx_public import (
     _table_values,
 )
 
+@pytest.mark.slow
 def test_public_create_output_converts_through_real_libreoffice(
     project_root: Path,
     public_created: Path,
@@ -56,6 +59,7 @@ def test_public_create_output_converts_through_real_libreoffice(
     assert sha256_file(public_created) == source_sha256
 
 
+@pytest.mark.slow
 def test_public_render_output_through_real_libreoffice(
     project_root: Path,
     public_created: Path,
@@ -109,6 +113,7 @@ def test_public_render_output_through_real_libreoffice(
     assert sha256_file(public_created) == source_sha256
 
 
+@pytest.mark.slow
 def test_public_render_returns_bounded_png_and_layout_evidence(
     project_root: Path,
     public_created: Path,
@@ -184,6 +189,7 @@ def test_public_render_returns_bounded_png_and_layout_evidence(
     assert sha256_file(public_created) == source_sha256
 
 
+@pytest.mark.slow
 def test_public_layout_repair_runs_bounded_improvement_loop(
     project_root: Path,
     tmp_path: Path,

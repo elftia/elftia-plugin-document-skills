@@ -3,6 +3,8 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 
 from document_skills_core.core.io.paths import sha256_file
@@ -78,6 +80,7 @@ def _create_legacy_doc(project_root: Path, tmp_path: Path) -> Path:
     return provider.runner.convert(modern, "doc", output_dir)
 
 
+@pytest.mark.slow
 def test_public_legacy_doc_conversion_is_explicit_and_provider_gated(
     project_root: Path,
     tmp_path: Path,

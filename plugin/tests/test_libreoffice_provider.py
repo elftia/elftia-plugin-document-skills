@@ -65,6 +65,7 @@ from document_skills_core.providers.libreoffice.recalc import (
 from document_skills_core.providers.libreoffice.runner import (
     LibreOfficeRunner,
     _build_argv,
+    _forbidden_operation_token,
     _validate_argv,
 )
 from tools.audit_python import audit_python_source
@@ -1298,6 +1299,72 @@ class TestRunnerContainment:
                 "DDE:link",
             ])
         assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_ddelink_token_rejected(self):
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                "DDELINK:link",
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_macro_uri_token_rejected(self):
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                "macro:///Standard.Module1.Recalc",
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_unaccept_token_rejected(self):
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--unaccept",
+                "socket,host=127.0.0.1;urp;StarOffice.ComponentContext",
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+
+    def test_path_values_with_forbidden_words_are_accepted(self):
+        safe_path = (
+            "C:/workspace/operation-b26eddec36f4dea8a057800cd04380e/"
+            "macro-dde-ddelink/test.xlsx"
+        )
+        _validate_argv([
+            *HEADLESS_PREFIX,
+            f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+            "--convert-to",
+            "xlsx",
+            "--outdir",
+            safe_path,
+            safe_path,
+        ])
+
+    @pytest.mark.parametrize("token", sorted(FORBIDDEN_TOKENS))
+    def test_every_forbidden_token_is_rejected_as_bare_argument(self, token):
+        with pytest.raises(DocumentSkillsError) as exc:
+            _validate_argv([
+                *HEADLESS_PREFIX,
+                f"{USER_INSTALLATION_PREFIX}file:///private/profile",
+                "--convert-to",
+                token,
+            ])
+        assert exc.value.code == ErrorCode.PROVIDER_FAILED
+        assert exc.value.details == {"token": token}
+
+    def test_unknown_forbidden_token_shape_fails_closed(self, monkeypatch):
+        monkeypatch.setattr(
+            "document_skills_core.providers.libreoffice.runner.FORBIDDEN_TOKENS",
+            frozenset({"--cmd", "newshape"}),
+        )
+        assert _forbidden_operation_token("file-newshape-1.xlsx") == "newshape"
+        assert _forbidden_operation_token("--cmd=x") == "--cmd"
+        assert _forbidden_operation_token("file-cmd-1.xlsx") is None
 
     def test_no_accepted_subcommand_rejected(self):
         with pytest.raises(DocumentSkillsError) as exc:

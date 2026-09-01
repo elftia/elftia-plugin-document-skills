@@ -635,6 +635,7 @@ def test_every_capped_format_inventory_reports_limit_plus_one_overflow(
     assert compatibility["document-spec"]["status"] == "incompatible"
 
 
+@pytest.mark.slow
 def test_academic_pack_emits_strict_geometry_typography_layout_and_fields(
     project_root: Path,
     tmp_path: Path,

@@ -35,6 +35,7 @@ def _powerpoint_registered() -> bool:
     or not _powerpoint_registered(),
     reason="real PowerPoint consumer test is opt-in and requires PowerPoint",
 )
+@pytest.mark.slow
 def test_powerpoint_recognizes_every_generated_equation_as_editable_math_zone(
     tmp_path: Path,
 ) -> None:

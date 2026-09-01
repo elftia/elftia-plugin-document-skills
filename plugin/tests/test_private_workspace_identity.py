@@ -552,6 +552,7 @@ def test_generic_runner_has_no_fd_capability_branch(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="requires identity-held Windows cleanup")
+@pytest.mark.slow
 def test_timed_out_worker_removes_only_its_owned_operation_root(
     project_root: Path,
     tmp_path: Path,

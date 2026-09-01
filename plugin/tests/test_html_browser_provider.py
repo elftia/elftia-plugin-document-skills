@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.process import ProcessResult
 from document_skills_core.providers.html_browser import HtmlBrowserDetector
@@ -179,6 +181,7 @@ def test_detector_preserves_timeout_when_windows_profile_cleanup_is_denied(
     assert evidence.reason == "Browser launch probe timed out."
 
 
+@pytest.mark.slow
 def test_real_detector_is_truthful_and_bounded(project_root: Path):
     evidence = HtmlBrowserDetector(project_root).detect()
     assert type(evidence.available) is bool

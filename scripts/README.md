@@ -16,6 +16,7 @@ Exact Python and Node dependency installation occurs only in verification/build 
 | --- | --- |
 | [`verify-readmes.mjs`](verify-readmes.mjs) | README inventory, UTF-8, local links, package commands, and registered-operation coverage |
 | [`run-plugin-checks.mjs`](run-plugin-checks.mjs) | Frozen Node/Python preparation, Python suite, compile check, and plugin audit |
+| [`run-plugin-fast-checks.mjs`](run-plugin-fast-checks.mjs) | Fast non-`slow` pytest iteration tier with bounded xdist parallelism |
 | [`verify.mjs`](verify.mjs) | Documentation/repro tests, plugin checks, artifact build, and artifact revalidation |
 | [`artifact.mjs`](artifact.mjs) | Selected release tree build/validation orchestration |
 | [`build-artifact.mjs`](build-artifact.mjs) | Build CLI for `dist/document-skills/` |
@@ -35,6 +36,8 @@ npm run validate:artifact
 npm run verify
 npm run verify:repro
 ```
+
+The parallel pytest phase uses four xdist workers by default. Set `DS_PYTEST_WORKERS=N` to choose another positive worker count, or `DS_PYTEST_SERIAL=1` to disable xdist and run serially.
 
 ## Safety and failure semantics
 

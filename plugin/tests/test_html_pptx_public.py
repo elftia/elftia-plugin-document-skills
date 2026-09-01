@@ -169,6 +169,7 @@ def test_private_capture_status_is_exact_and_nonce_bound():
         _capture_status({**status, "extra": True}, nonce)
 
 
+@pytest.mark.slow
 def test_public_html_conversion_creates_native_editable_shapes(project_root: Path, tmp_path: Path):
     capabilities = _public(project_root, tmp_path, "capabilities", "--json")
     operation = next(item for item in capabilities["operations"] if item["operation"] == "pptx.create.from-html")
@@ -205,6 +206,7 @@ def test_public_html_conversion_creates_native_editable_shapes(project_root: Pat
     assert source.is_file()
 
 
+@pytest.mark.slow
 def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
     project_root: Path,
     tmp_path: Path,
@@ -268,6 +270,7 @@ def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
     )
 
 
+@pytest.mark.slow
 def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
     project_root: Path,
     tmp_path: Path,
