@@ -1,6 +1,6 @@
 {
   "name": "elftia-plugin-document-skills",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "private": true,
   "description": "Standalone producer for Elftia Document Skills",
   "license": "GPL-3.0",
@@ -22,7 +22,7 @@
     "test:fast": "cd plugin && uv run --frozen python -m pytest -m \"not slow\" -n auto --dist loadscope"
   },
   "devDependencies": {
-    "@elftia/plugin-kit": "^0.2.0",
+    "@elftia/plugin-kit": "^0.2.1",
     "markdown-it": "14.2.0"
   }
 }
