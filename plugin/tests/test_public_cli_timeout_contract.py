@@ -126,6 +126,9 @@ _REAL_PROVIDER_TESTS = {
     "test_private_workspace_identity.py": {
         "test_timed_out_worker_removes_only_its_owned_operation_root",
     },
+    "test_strategy2.py": {
+        "test_public_supervisor_is_one_json_protocol",
+    },
 }
 _REAL_PROVIDER_MODULES = {
     "test_docx_dotnet_real.py",

@@ -52,6 +52,13 @@ from tests.support.provenance_review_fixture import bind_test_review
         "unicode",
     ],
 )
+# Slow tier: every node spawns a real uv/python public process that copies
+# and cold-imports the source tree, and the assertion is the supervisor's
+# timeout classification under deliberately tight budgets. Worker spawn
+# latency under parallel test load turns that into a false
+# DS_PROCESS_TIMEOUT, so it runs serially with the other subprocess-budget
+# tests.
+@pytest.mark.slow
 def test_public_supervisor_is_one_json_protocol(project_root, command, mode):
     uv = shutil.which("uv")
     assert uv is not None
