@@ -52,4 +52,9 @@ try {
   process.stdout.write(`DOCX template-pack dist e2e passed for artifact ${artifact.sha256}\n`);
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
+  // `npm ci` installs the artifact's runtime dependencies in place, which
+  // dirties the staged artifact and would make a subsequent
+  // `validate:artifact` fail on the node_modules it created. Restore the
+  // staged artifact so the e2e leaves the dist tree exactly as built.
+  rmSync(path.join(artifactRoot, 'node_modules'), { recursive: true, force: true });
 }
