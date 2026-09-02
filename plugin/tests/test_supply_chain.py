@@ -23,7 +23,11 @@ from tools.provenance_records import (
     mapping_digest,
     validate_metadata_exclusion,
 )
-from tools.regenerate_provenance import regenerate
+from tools.regenerate_provenance import (
+    DOCX_TEMPLATE_PACK_REQUIREMENT,
+    PENDING_REVIEWER,
+    regenerate,
+)
 from tools.supply_chain import build_sbom, canonical_json
 from tests.support.provenance_review_fixture import bind_test_review
 
@@ -67,6 +71,43 @@ def test_provenance_covers_implementation_modules(project_root, tmp_path):
         == report["release_file_count"]
     )
     assert len(report["mapping_sha256"]) == 64
+
+
+def test_docx_template_pack_provenance_is_change_specific_and_pending(
+    project_root,
+):
+    manifest, _digest = regenerate(project_root)
+    records = [
+        *manifest["modules"],
+        *manifest["data_classifications"],
+    ]
+    pack_records = [
+        record
+        for record in records
+        if DOCX_TEMPLATE_PACK_REQUIREMENT
+        in record.get("requirement_source", "")
+    ]
+    paths = {
+        record.get("module", record.get("artifact")) for record in pack_records
+    }
+
+    assert (
+        "skills/document-docx/assets/template-packs/"
+        "general-academic-paper/1.0.0/template.docx"
+    ) in paths
+    assert "schemas/docx-template-pack.schema.json" in paths
+    assert "src/document_skills_core/formats/docx/template_pack.py" in paths
+    assert "tests/test_docx_template_pack_remediation.py" in paths
+    assert "tools/build_docx_template_pack.py" in paths
+    assert manifest["review_attestations"] == []
+    for record in pack_records:
+        assert record["reviewer"] == PENDING_REVIEWER
+        assert record["review_evidence"] == ["PROVENANCE.md"]
+        evidence = [
+            *record.get("review_evidence", []),
+            *record.get("artifact_tests", []),
+        ]
+        assert all("pdf" not in item.casefold() for item in evidence)
 
 
 def _semantic_mapping_fixture():

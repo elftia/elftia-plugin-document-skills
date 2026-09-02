@@ -1,5 +1,6 @@
 """Typed provider catalog and fidelity-aware selection."""
 
+from contextlib import ExitStack
 from typing import Any
 
 from document_skills_core.worker.invoke import (
@@ -121,6 +122,13 @@ class ProviderRegistry:
         )
 
     def execute(self, request: dict[str, Any]) -> dict[str, Any]:
+        with ExitStack() as leases:
+            for provider in self.providers.values():
+                if provider.operation_lease is not None:
+                    leases.enter_context(provider.operation_lease())
+            return self._execute_with_leases(request)
+
+    def _execute_with_leases(self, request: dict[str, Any]) -> dict[str, Any]:
         registration = self.select(request["operation"], request)
         provider = self.providers[str(registration.provider_id)]
         if provider.execute is None:

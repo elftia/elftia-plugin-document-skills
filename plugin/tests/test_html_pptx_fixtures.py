@@ -175,6 +175,7 @@ def test_fallback_and_adversarial_fixture_matrix_is_explicit(project_root: Path)
     assert "AAAAA===" in html
 
 
+@pytest.mark.slow
 def test_real_browser_classifies_repository_fallback_fixture(
     project_root: Path,
 ):
@@ -218,6 +219,7 @@ def test_real_browser_classifies_repository_fallback_fixture(
         }
 
 
+@pytest.mark.slow
 def test_real_browser_keeps_uniform_styled_image_native(project_root: Path):
     detector = HtmlBrowserDetector(project_root)
     evidence = detector.detect()
@@ -245,6 +247,7 @@ def test_real_browser_keeps_uniform_styled_image_native(project_root: Path):
         assert image["radius"] == 20
 
 
+@pytest.mark.slow
 def test_real_browser_keeps_adversarial_fixture_static_and_blocks_resources(
     project_root: Path,
 ):

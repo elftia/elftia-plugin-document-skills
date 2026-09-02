@@ -216,6 +216,17 @@ document really wants a trailing figure. A header or footer creates the correspo
 and section reference; omitting it creates neither. `sections` defaults to a single portrait
 section and accepts 1–32.
 
+Header/footer strings retain the original one-plain-paragraph behavior. The additive structured
+form contains 1–16 paragraphs with `left|center|right` alignment and 1–64 ordered runs. Each run
+contains exactly `{"text":"..."}` or an allowlisted `{"field":"PAGE|NUMPAGES"}`; raw field
+instructions and every other field are rejected before creation.
+
+Legacy row-only tables receive deterministic positive fixed widths. A structured table may add
+`width_twips`, one positive `column_widths_twips` value per logical column, and bounded `borders`
+at `top|left|bottom|right|inside_h|inside_v|header_bottom`. Column widths must sum exactly to the
+table width. The academic pack supplies explicit top/header-bottom/bottom rules and suppresses
+side, vertical, and other inner rules.
+
 Every image — block or trailing — must be a bounded local PNG, JPEG, or GIF between 0.25 and
 10 inches wide. Remote assets and raw OOXML are not accepted.
 
@@ -598,6 +609,87 @@ bindings or relationship attributes return `enhancement_required` until graph-aw
   }
 }
 ```
+
+## Template-pack catalog, reference import, and instantiation
+
+List built-ins and only the explicitly supplied local references; no ambient directory is scanned:
+
+```json
+{"schema_version":"1.0","operation":"docx.template.pack.list","arguments":{"local_packs":[]}}
+```
+
+Read exactly one built-in id/version or one local directory bound by its manifest digest:
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.pack.read",
+  "arguments": {"pack": {"kind":"builtin","id":"general-academic-paper","version":"1.0.0"}}
+}
+```
+
+`docx.template.import.inspect` requires a local `.docx/.dotx` plus
+`expected_source_sha256`. It writes nothing and returns package safety, paragraph/table styles and
+dependencies, direct Chinese/Latin run formatting, paragraph alignment/indent/spacing, table
+grid/width/cell-width/borders, story alignment/fields, recognized scalar variables, executable
+direct-body region candidates, advisory role candidates, independent per-mode compatibility, and
+stable unsupported-feature diagnostics. Scalar variables may be inventoried in nested stories,
+but only direct `w:body/w:p` paragraphs are advertised as executable regions. Macro-enabled content, external or
+attached-template relationships, embeddings/active parts, malformed/aliased archives, and quota
+violations fail closed.
+
+`docx.template.import.create` adds an absent directory `output`, repeats the same inspection and
+digest check, and accepts `manifest` metadata plus `provenance`. `manifest.modes` is a subset of
+`template|document-spec`; template variables/regions must exactly bind inspected controls, while
+document-spec mode requires explicit `role_styles`, `document_spec_versions:["1.0"]`, a declared
+domain profile, and `style_profile_versions:["template-mapped/1.0"]`. The payload is copied
+byte-for-byte and the manifest binds every member. Missing local license evidence becomes
+`unknown` with `redistributable:false`.
+
+When inspection reports document-spec compatibility as `degraded` because material direct run or
+paragraph formatting, table geometry/borders, or story fields require an explicit authoring map,
+creation fails closed unless `manifest.authoring_format` is supplied. Version `1.0` maps one or
+more declared semantic roles to bounded Latin/East Asian fonts, half-point sizes, emphasis, and
+paragraph layout; it also declares the structured default footer and the fixed table width and
+borders. Every value must match the inspection evidence exactly and all material formatting must
+be consumed uniformly. An absent profile returns
+`DS_DOCX_TEMPLATE_AUTHORING_FORMAT_REQUIRED`; an invented, conflicting, nonuniform,
+unrepresentable, or otherwise lossy profile returns `DS_DOCX_TEMPLATE_AUTHORING_FORMAT_LOSSY`.
+On success the canonical manifest stores the profile under `capabilities.authoring_format` and
+records document-spec compatibility as `compatible` with
+`mapped_by:"explicit-authoring-format/v1"`. See the complete executable request in
+`assets/examples/template-import-create.json`; do not infer its values from candidate role names.
+
+Network-origin provenance describes a prior download only. It requires `original_url`,
+`retrieved_url`, `retrieved_at`, downloader id/version, `downloaded_sha256` equal to the local
+source digest, declared/reviewed license identifier and evidence, and an explicit redistribution
+decision. URLs are rejected as document inputs; the producer performs no HTTP request.
+
+Instantiate one mode declared by the pack:
+
+```json
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.pack.instantiate",
+  "output": "paper.docx",
+  "arguments": {
+    "pack": {"kind":"builtin","id":"general-academic-paper","version":"1.0.0"},
+    "mode": "document-spec",
+    "verification": "core",
+    "document_spec": {"version":"1.0","domain_profile":{"id":"academic-paper","version":"1.0","locale":"en-US"},"nodes":[]}
+  }
+}
+```
+
+The illustrative empty `nodes` above must be replaced with a valid non-empty academic spec; the
+complete executable English and Simplified Chinese requests are
+`assets/examples/template-pack-instantiate-academic-en.json` and
+`template-pack-instantiate-academic-zh-cn.json`. A caller `style_profile` is always ambiguous and
+rejected before creation. `verification:"enhanced"` records bounded LibreOffice PDF evidence when
+the provider is callable and optional page/layout evidence when its raster seam is callable. A
+missing/failed provider remains explicitly unavailable/failed, and the absence of a comparable
+pack baseline never becomes visual-comparison success; the semantic/schema transaction remains
+mandatory.
 
 ## Compatible high-fidelity merge
 

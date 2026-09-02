@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from typing import Any
 
 
@@ -25,7 +26,7 @@ def _public(project_root: Path, request: Path) -> dict[str, Any]:
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode == 0, process.stdout.decode("utf-8", errors="replace")
     assert process.stderr == b""

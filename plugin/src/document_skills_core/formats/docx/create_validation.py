@@ -169,7 +169,7 @@ def _assert_created(
     if kinds != {"body", *expected_references}:
         failures.append("header-footer")
     elif any(
-        _story_text(story_map[kind]) != requested
+        _story_text(story_map[kind]) != _requested_story_text(requested)
         for kind, requested in (
             ("header", report["header"]),
             ("footer", report["footer"]),
@@ -289,6 +289,15 @@ def _story_text(story: Any) -> str:
     return "\n".join(
         "".join(group.text for group in map_paragraph(paragraph).groups)
         for paragraph in iter_paragraphs(story.root)
+    )
+
+
+def _requested_story_text(story: str | dict[str, Any]) -> str:
+    if type(story) is str:
+        return story
+    return "\n".join(
+        "".join(run.get("text", "1") for run in paragraph["runs"])
+        for paragraph in story["paragraphs"]
     )
 
 

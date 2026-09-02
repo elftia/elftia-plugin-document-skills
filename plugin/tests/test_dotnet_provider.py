@@ -27,6 +27,7 @@ from document_skills_core.providers.dotnet.constants import (
     OUTPUT_LIMIT,
     RUNTIME_PREFIX,
     STDIN_CEILING,
+    TIMEOUT_LOCKED_RESTORE,
     TIMEOUT_PROBE,
     TIMEOUT_RUNTIME_PROBE,
     platform_known_paths,
@@ -295,6 +296,64 @@ class TestConstants:
 # ---------------------------------------------------------------------------
 
 class TestDetector:
+    def test_locked_restore_budget_accepts_controlled_cold_restore_without_sleep(
+        self,
+        project_root,
+        monkeypatch,
+    ):
+        monkeypatch.setattr("shutil.which", lambda name: "/fake/dotnet")
+
+        class ControlledColdRestoreRunner:
+            restore_timeout = None
+
+            def run(
+                self,
+                provider_id,
+                executable,
+                args,
+                *,
+                timeout_seconds,
+                **_kwargs,
+            ):
+                if "--list-runtimes" in args:
+                    return ProcessResult(
+                        0,
+                        "Microsoft.NETCore.App 8.0.5 [/fake/runtime]\n",
+                        "",
+                        1,
+                    )
+                if args[0] == "restore":
+                    self.restore_timeout = timeout_seconds
+                    if timeout_seconds < 90.0:
+                        raise DocumentSkillsError(
+                            ErrorCode.PROCESS_TIMEOUT,
+                            "controlled cold locked restore exceeded the old budget",
+                        )
+                    return ProcessResult(0, "", "", 90_000)
+                if args[0] == "build":
+                    return ProcessResult(0, "", "", 1)
+                if "--probe-json" in args:
+                    return ProcessResult(
+                        0,
+                        json.dumps(
+                            {
+                                "protocol_version": "1.0",
+                                "runtime_major": 8,
+                                "assembly_loaded": True,
+                                "openxml_version": "3.0.1",
+                            }
+                        ),
+                        "",
+                        1,
+                    )
+                return ProcessResult(1, "", "unexpected command", 1)
+
+        runner = ControlledColdRestoreRunner()
+        evidence = DotnetOpenXmlDetector(project_root, runner=runner).detect()
+
+        assert evidence.available is True, evidence
+        assert runner.restore_timeout == TIMEOUT_LOCKED_RESTORE == 120.0
+
     def test_real_process_runner_policy_covers_runtime_and_provider_probes(
         self, project_root, monkeypatch
     ):
@@ -652,9 +711,9 @@ class TestRunnerContainment:
 
     def test_set_executable_binds_real_process_runner_policy(self, project_root):
         runner = DotnetOpenXmlRunner(project_root)
-        runner.set_executable(sys.executable)
+        executable = runner.set_executable(sys.executable)
 
-        result = runner.run("--probe-json")
+        result = runner.run("--probe-json", executable=executable)
 
         assert result.returncode != 0
 

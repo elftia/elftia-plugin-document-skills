@@ -203,7 +203,7 @@ def test_word_positive_and_negative_fixture_names_are_truthful(project_root: Pat
     prior_rich = fixture_root / "docx-rich.docx"
 
     assert hashlib.sha256(negative.read_bytes()).hexdigest() == (
-        "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+        "c29c055f0d4554ec3e464ab7c72479989e2c5c45ded7dd2f950aa67aaa7a3f10"
     )
     assert negative.read_bytes() != prior_rich.read_bytes()
     assert positive.read_bytes() != negative.read_bytes()

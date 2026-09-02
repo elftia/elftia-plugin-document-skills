@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import SubElement, tostring
 
 from defusedxml.ElementTree import fromstring
@@ -169,7 +170,7 @@ def test_public_strict_export_rejects_unprojected_chart_semantics(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=100,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     result = json.loads(process.stdout.decode("utf-8", errors="strict"))
 

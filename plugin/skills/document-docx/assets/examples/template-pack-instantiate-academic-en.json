@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.pack.instantiate",
+  "output": "academic-paper-en.docx",
+  "arguments": {
+    "pack": {"kind": "builtin", "id": "general-academic-paper", "version": "1.0.0"},
+    "mode": "document-spec",
+    "verification": "core",
+    "document_spec": {
+      "version": "1.0",
+      "domain_profile": {"id": "academic-paper", "version": "1.0", "locale": "en-US", "citation_style": "author-year"},
+      "metadata": {"title": "Reusable Academic Styles"},
+      "header": "Elftia Research",
+      "footer": {"paragraphs": [{"alignment": "center", "runs": [{"text": "Page "}, {"field": "PAGE"}, {"text": " / "}, {"field": "NUMPAGES"}]}]},
+      "nodes": [
+        {"id": "title", "type": "title", "text": "Reusable Academic Styles"},
+        {"id": "authors", "type": "authors", "items": ["Ada Lovelace"]},
+        {"id": "abstract", "type": "abstract", "text": "The pack supplies styles while the caller supplies every word."},
+        {"id": "keywords", "type": "keywords", "items": ["DOCX", "template packs"]},
+        {"id": "introduction", "type": "heading", "level": 1, "text": "Introduction"},
+        {"id": "body", "type": "paragraph", "text": "This text is preserved without translation and reuses pack-owned styles."},
+        {"id": "results", "type": "table", "rows": [["Gate", "Result"], ["Semantic", "Pass"]]},
+        {"id": "results_caption", "type": "table_caption", "target": "results", "text": "Validation evidence"},
+        {"id": "equation", "type": "equation", "linear": "E = mc²"},
+        {"id": "equation_caption", "type": "equation_caption", "target": "equation", "text": "Mass-energy equivalence"},
+        {"id": "citation", "type": "citation", "keys": ["lovelace1843"]},
+        {"id": "references", "type": "bibliography"},
+        {"id": "lovelace", "type": "bibliography_entry", "key": "lovelace1843", "authors": ["Ada Lovelace"], "year": 1843, "title": "Notes", "container": "Scientific Memoirs"}
+      ]
+    }
+  }
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import ctypes
 import hashlib
 import json
 import os
@@ -21,6 +22,23 @@ import consumer_validation.pdf as pdf_module
 
 
 Mutation = Callable[[], None]
+
+
+def _office_observation(
+    *,
+    raw: set[int] | frozenset[int] = frozenset(),
+    matching: set[int] | frozenset[int] = frozenset(),
+    unresolved: set[int] | frozenset[int] = frozenset(),
+) -> office_module._OfficeProcessObservation:
+    raw_ids = frozenset(raw)
+    matching_ids = frozenset(matching)
+    unresolved_ids = frozenset(unresolved)
+    return office_module._OfficeProcessObservation(
+        raw_process_ids=raw_ids,
+        matching_process_ids=matching_ids,
+        nonmatching_process_ids=raw_ids - matching_ids - unresolved_ids,
+        unresolved_process_ids=unresolved_ids,
+    )
 
 
 class _TrackedReader:
@@ -47,6 +65,91 @@ class _TrackedReader:
             self._mutated = True
             self._mutation()
         return payload
+
+
+class _HeldOfficeProcess:
+    def __init__(
+        self,
+        *,
+        process_id: int = 5150,
+        creation_filetime: int = 123,
+        image_name: str = "WINWORD.EXE",
+        running: bool | None = True,
+    ) -> None:
+        self.process_id = process_id
+        self.creation_filetime = creation_filetime
+        self.image_name = image_name
+        self.running = running
+        self.closed = False
+        self.close_calls = 0
+        self.terminate_calls = 0
+        self.wait_calls = 0
+
+    def __enter__(self) -> "_HeldOfficeProcess":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self.close_calls += 1
+        self.closed = True
+
+    def is_running(self) -> bool | None:
+        return self.running
+
+    def terminate(self) -> bool:
+        self.terminate_calls += 1
+        if self.running is not True:
+            return False
+        self.running = False
+        return True
+
+    def wait(self, _timeout_ms: int) -> bool | None:
+        self.wait_calls += 1
+        if self.running is None:
+            return None
+        return not self.running
+
+
+class _WinApiFunction:
+    def __init__(self, callback: Callable[..., int]) -> None:
+        self._callback = callback
+        self.argtypes: list[object] = []
+        self.restype: object | None = None
+
+    def __call__(self, *args: object) -> int:
+        return self._callback(*args)
+
+
+class _FakeUser32:
+    def __init__(
+        self,
+        *,
+        enum_result: int,
+        invoke_callback: bool,
+        owner_lookup_succeeds: bool = True,
+        owner: int = 5150,
+        visible: bool = False,
+        last_error: int = 0,
+    ) -> None:
+        def enum_windows(callback: Callable[[int, int], bool], _parameter: int) -> int:
+            if invoke_callback:
+                callback(700, 0)
+            ctypes.set_last_error(last_error)
+            return enum_result
+
+        def get_owner(_window: int, owner_pointer: object) -> int:
+            if not owner_lookup_succeeds:
+                return 0
+            owner_pointer._obj.value = owner  # type: ignore[attr-defined]
+            return 1
+
+        self.EnumWindows = _WinApiFunction(enum_windows)
+        self.GetWindowThreadProcessId = _WinApiFunction(get_owner)
+        self.IsWindowVisible = _WinApiFunction(
+            lambda _window: int(visible)
+        )
 
 
 def test_pdf_second_evidence_growth_returns_strict_resource_failure(
@@ -495,6 +598,1218 @@ def test_timeout_report_uses_trusted_detection_identity_only(
     assert report["office"]["evidence"]["version_status"] == "trusted-detection"
     for value in forbidden:
         assert value not in serialized
+
+
+@pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")
+def test_timeout_cleans_bound_dcom_server_outside_worker_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "owned-dcom.docx"
+    _write_docx(artifact, "Owned DCOM cleanup")
+    child_output = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+
+    class UnresponsiveProcess:
+        pid = 4242
+        returncode = None
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def communicate(self, timeout: float) -> tuple[bytes, bytes]:
+            self.calls += 1
+            if self.calls == 1:
+                raise subprocess.TimeoutExpired(
+                    cmd="powershell.exe",
+                    timeout=timeout,
+                    output=child_output,
+                    stderr=b"",
+                )
+            return child_output, b""
+
+    terminated: list[int] = []
+    trusted = {"available": True, "application": "word", "version": "16.0"}
+    monkeypatch.setattr(office_module.subprocess, "Popen", lambda *args, **kwargs: UnresponsiveProcess())
+    monkeypatch.setattr(office_module, "detect_office", lambda _application: trusted)
+    process_snapshots = iter(
+        (
+            _office_observation(raw={77}, matching={77}),
+            _office_observation(raw={77, 5150}, matching={77, 5150}),
+            _office_observation(raw={77, 5150}, matching={77, 5150}),
+            _office_observation(raw={77}, matching={77}),
+        )
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(process_snapshots),
+    )
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+
+    held = _HeldOfficeProcess()
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda _process_id: held,
+    )
+
+    def terminate(
+        process_id: int,
+        *,
+        target: _HeldOfficeProcess | None = None,
+    ) -> dict[str, Any]:
+        terminated.append(process_id)
+        if target is not None:
+            assert target is held
+            assert target.terminate() is True
+            assert target.wait(5_000) is True
+            return {
+                "descendants_cleaned": True,
+                "cleanup_category": "handle-tree-complete",
+                "target_terminated": True,
+                "target_exited": True,
+            }
+        return {
+            "descendants_cleaned": True,
+            "cleanup_category": "taskkill-complete",
+        }
+
+    monkeypatch.setattr(office_module, "_terminate_tree", terminate)
+
+    evidence = office_module.open_with_office("word", artifact, 0.01)
+
+    assert evidence["outcome"] == "fail"
+    assert evidence["category"] == "timeout"
+    assert terminated == [4242, 5150]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_never_infers_ownership_from_fresh_headless_pid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0"}\n'
+    )
+    terminated: list[int] = []
+    waited: list[frozenset[int]] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_wait_for_unbound_office_processes_exit",
+        lambda _application, process_ids, _baseline: (
+            waited.append(process_ids) or False
+        ),
+    )
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: (
+            terminated.append(process_id)
+            or {
+                "descendants_cleaned": True,
+                "cleanup_category": "taskkill-complete",
+            }
+        ),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert waited == [frozenset({5150})]
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_accepts_unbound_word_after_observed_natural_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":0,"window_handle":0,"process_start_filetime":0}\n'
+        b'{"outcome":"pass","application":"word","version":"16.0"}\n'
+    )
+    terminated: list[int] = []
+    observations = iter(
+        (
+            _office_observation(raw={5150}, matching={5150}),
+            _office_observation(),
+        )
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(observations),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is True
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_rejects_additional_unbound_candidate_during_exit_wait(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":0,"window_handle":0,"process_start_filetime":0}\n'
+        b'{"outcome":"pass","application":"word","version":"16.0"}\n'
+    )
+    terminated: list[int] = []
+    observations = iter(
+        (
+            _office_observation(raw={5150}, matching={5150}),
+            _office_observation(raw={5151}, matching={5151}),
+        )
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(observations),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_unbound_office_exit_wait_is_bounded_for_persistent_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._wait_for_unbound_office_processes_exit(
+        "word",
+        frozenset({5150}),
+        _office_observation(),
+        timeout_seconds=0,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize(
+    "exit_observation",
+    [
+        pytest.param(None, id="enumeration-unknown"),
+        pytest.param(
+            _office_observation(raw={5150}),
+            id="candidate-image-drift",
+        ),
+        pytest.param(
+            _office_observation(raw={5150}, unresolved={5150}),
+            id="candidate-image-unresolved",
+        ),
+    ],
+)
+def test_office_cleanup_rejects_unbound_candidate_when_exit_observation_is_untrusted(
+    monkeypatch: pytest.MonkeyPatch,
+    exit_observation: office_module._OfficeProcessObservation | None,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":0,"window_handle":0,"process_start_filetime":0}\n'
+        b'{"outcome":"pass","application":"word","version":"16.0"}\n'
+    )
+    terminated: list[int] = []
+    observations = iter(
+        (
+            _office_observation(raw={5150}, matching={5150}),
+            exit_observation,
+        )
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(observations),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_accepts_owned_process_natural_exit_without_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: True)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is True
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_rejects_unverifiable_window_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: None)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: (
+            terminated.append(process_id)
+            or {
+                "descendants_cleaned": True,
+                "cleanup_category": "taskkill-complete",
+            }
+        ),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_fails_closed_when_baseline_enumeration_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        None,
+        b"",
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_open_does_not_launch_when_baseline_observation_is_unknown(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "baseline-unknown.docx"
+    _write_docx(artifact, "Baseline unknown")
+    trusted = {"available": True, "application": "word", "version": "16.0"}
+    monkeypatch.setattr(office_module, "detect_office", lambda _application: trusted)
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: None,
+    )
+
+    def reject_launch(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("Office worker must not launch without a trusted baseline")
+
+    monkeypatch.setattr(office_module.subprocess, "Popen", reject_launch)
+
+    evidence = office_module.open_with_office("word", artifact, 0.01)
+
+    assert evidence == {
+        **trusted,
+        "outcome": "fail",
+        "category": "office-process-observation-unavailable",
+    }
+
+
+def test_office_process_observation_preserves_enumeration_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(office_module, "_enumerate_process_ids", lambda: None)
+
+    assert office_module._office_process_ids("word") is None
+
+
+def test_office_process_observation_uses_independent_snapshot_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(office_module, "_enumerate_process_ids", lambda: [5150])
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: None)
+    monkeypatch.setattr(
+        office_module,
+        "_snapshot_processes",
+        lambda: {5150: (77, "WINWORD.EXE")},
+    )
+
+    observation = office_module._office_process_ids("word")
+
+    assert observation is not None
+    assert observation.raw_process_ids == {5150}
+    assert observation.matching_process_ids == {5150}
+    assert observation.unresolved_process_ids == set()
+
+
+def test_office_process_observation_resolves_bound_candidate_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lookups: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_enumerate_process_ids",
+        lambda: [77, 5150, 88],
+    )
+
+    def image_name(process_id: int) -> str:
+        lookups.append(process_id)
+        return "WINWORD.EXE" if process_id == 5150 else "OTHER.EXE"
+
+    monkeypatch.setattr(office_module, "_process_image_name", image_name)
+
+    observation = office_module._office_process_ids(
+        "word",
+        priority_process_id=5150,
+    )
+
+    assert observation is not None
+    assert lookups[0] == 5150
+    assert observation.matching_process_ids == {5150}
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_fails_closed_when_current_enumeration_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        b"",
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_fails_closed_when_pretermination_recheck_failed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    observations = iter(
+        (_office_observation(raw={5150}, matching={5150}), None)
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(observations),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: (
+            terminated.append(process_id)
+            or {
+                "descendants_cleaned": True,
+                "cleanup_category": "taskkill-complete",
+            }
+        ),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize("baseline_lookup", ["none", "exception"])
+def test_office_cleanup_preserves_unresolved_baseline_pid(
+    monkeypatch: pytest.MonkeyPatch,
+    baseline_lookup: str,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    state = {"lookup_count": 0, "terminated": False}
+
+    def enumerate_processes() -> list[int]:
+        return [] if state["terminated"] else [5150]
+
+    def image_name(_process_id: int) -> str | None:
+        state["lookup_count"] += 1
+        if state["lookup_count"] == 1:
+            if baseline_lookup == "exception":
+                raise OSError("baseline image lookup unavailable")
+            return None
+        return "WINWORD.EXE"
+
+    monkeypatch.setattr(office_module, "_enumerate_process_ids", enumerate_processes)
+    monkeypatch.setattr(office_module, "_process_image_name", image_name)
+    monkeypatch.setattr(office_module, "_snapshot_processes", lambda: {})
+    baseline = office_module._office_process_ids("word")
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+
+    def terminate(process_id: int) -> dict[str, Any]:
+        terminated.append(process_id)
+        state["terminated"] = True
+        return {
+            "descendants_cleaned": True,
+            "cleanup_category": "taskkill-complete",
+        }
+
+    monkeypatch.setattr(office_module, "_terminate_tree", terminate)
+
+    cleaned = office_module._cleanup_owned_office_process("word", baseline, payload)
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize("current_lookup", ["none", "exception"])
+def test_office_cleanup_fails_closed_on_current_candidate_image_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+    current_lookup: str,
+) -> None:
+    terminated: list[int] = []
+
+    observation_count = 0
+
+    def enumerate_processes() -> list[int]:
+        nonlocal observation_count
+        observation_count += 1
+        return [] if observation_count == 1 else [5150]
+
+    monkeypatch.setattr(
+        office_module,
+        "_enumerate_process_ids",
+        enumerate_processes,
+    )
+
+    def image_name(_process_id: int) -> str | None:
+        if current_lookup == "exception":
+            raise OSError("current image lookup unavailable")
+        return None
+
+    monkeypatch.setattr(office_module, "_process_image_name", image_name)
+    monkeypatch.setattr(office_module, "_snapshot_processes", lambda: {})
+    baseline = office_module._office_process_ids("word")
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        baseline,
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+        ),
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_accepts_candidate_exiting_during_image_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observations = iter(([], [5150], [], []))
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_enumerate_process_ids",
+        lambda: next(observations),
+    )
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _process_id: None)
+    monkeypatch.setattr(office_module, "_snapshot_processes", lambda: {})
+    baseline = office_module._office_process_ids("word")
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        baseline,
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+        ),
+    )
+
+    assert cleaned is True
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_bound_office_exit_wait_accepts_transient_unresolved_then_absent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observations = iter(
+        (
+            _office_observation(raw={5150}, unresolved={5150}),
+            _office_observation(),
+        )
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: next(observations),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    exited = office_module._wait_for_office_process_exit(
+        "powerpoint",
+        5150,
+        timeout_seconds=1,
+    )
+
+    assert exited is True
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize("recheck_lookup", ["none", "exception"])
+def test_office_cleanup_fails_closed_on_pretermination_candidate_image_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+    recheck_lookup: str,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    observations = iter(([], [5150], [5150]))
+    monkeypatch.setattr(
+        office_module,
+        "_enumerate_process_ids",
+        lambda: next(observations),
+    )
+    lookup_count = 0
+
+    def image_name(_process_id: int) -> str | None:
+        nonlocal lookup_count
+        lookup_count += 1
+        if lookup_count >= 3:
+            if recheck_lookup == "exception":
+                raise OSError("pretermination image lookup unavailable")
+            return None
+        return "WINWORD.EXE"
+
+    monkeypatch.setattr(office_module, "_process_image_name", image_name)
+    monkeypatch.setattr(office_module, "_snapshot_processes", lambda: {})
+    baseline = office_module._office_process_ids("word")
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process("word", baseline, payload)
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_terminates_fully_bound_fresh_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[tuple[int, _HeldOfficeProcess]] = []
+    observations = iter(([], [5150], [5150]))
+    monkeypatch.setattr(
+        office_module,
+        "_enumerate_process_ids",
+        lambda: next(observations),
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_process_image_name",
+        lambda _process_id: "WINWORD.EXE",
+    )
+    baseline = office_module._office_process_ids("word")
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    held = _HeldOfficeProcess()
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda _process_id: held,
+        raising=False,
+    )
+
+    def terminate(
+        process_id: int,
+        *,
+        target: _HeldOfficeProcess,
+    ) -> dict[str, Any]:
+        terminated.append((process_id, target))
+        assert target.terminate() is True
+        assert target.wait(5_000) is True
+        return {
+            "descendants_cleaned": True,
+            "cleanup_category": "handle-tree-complete",
+            "target_terminated": True,
+            "target_exited": True,
+        }
+
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        terminate,
+    )
+
+    cleaned = office_module._cleanup_owned_office_process("word", baseline, payload)
+
+    assert cleaned is True
+    assert terminated == [(5150, held)]
+    assert held.wait_calls == 1
+    assert held.closed is True
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_rejects_process_object_swap_after_initial_identity_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    swapped = _HeldOfficeProcess(creation_filetime=456)
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda _process_id: swapped,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id, **_kwargs: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+    assert swapped.closed is True
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_accepts_target_exit_before_exact_handle_termination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    exited = _HeldOfficeProcess(running=False)
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda _process_id: exited,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id, **_kwargs: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is True
+    assert terminated == []
+    assert exited.closed is True
+
+
+def test_bound_office_tree_terminates_parent_before_held_descendants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[tuple[str, int | bool]] = []
+
+    class OrderedHeld(_HeldOfficeProcess):
+        def terminate(self) -> bool:
+            events.append(("terminate", self.process_id))
+            return super().terminate()
+
+        def wait(self, timeout_ms: int) -> bool | None:
+            events.append(("wait", self.process_id))
+            return super().wait(timeout_ms)
+
+    target = OrderedHeld()
+    descendant = OrderedHeld(process_id=6001, image_name="CHILD.EXE")
+    snapshot = {
+        5150: (4242, "WINWORD.EXE"),
+        6001: (5150, "CHILD.EXE"),
+    }
+
+    def processes() -> dict[int, tuple[int, str]]:
+        events.append(("snapshot-parent-running", target.running is True))
+        return snapshot
+
+    monkeypatch.setattr(office_module, "_snapshot_processes", processes)
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda process_id: descendant if process_id == 6001 else None,
+    )
+
+    result = office_module._terminate_tree(5150, target=target)
+
+    assert result == {
+        "descendants_cleaned": True,
+        "cleanup_category": "handle-tree-complete",
+        "target_terminated": True,
+        "target_exited": True,
+    }
+    assert events.count(("snapshot-parent-running", True)) == 2
+    assert events.index(("terminate", 5150)) < events.index(("terminate", 6001))
+    assert target.wait_calls == 1
+    assert descendant.wait_calls == 1
+    assert descendant.close_calls == 1
+
+
+def test_bound_office_tree_closes_every_open_handle_before_failed_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target = _HeldOfficeProcess()
+    opened = _HeldOfficeProcess(process_id=6001, image_name="FIRST.EXE")
+    snapshot = {
+        5150: (4242, "WINWORD.EXE"),
+        6001: (5150, "FIRST.EXE"),
+        6002: (5150, "SECOND.EXE"),
+    }
+    monkeypatch.setattr(office_module, "_snapshot_processes", lambda: snapshot)
+    monkeypatch.setattr(
+        office_module,
+        "_open_held_office_process",
+        lambda process_id: opened if process_id == 6001 else None,
+    )
+
+    with target:
+        result = office_module._terminate_tree(5150, target=target)
+
+    assert result == {
+        "descendants_cleaned": False,
+        "cleanup_category": "handle-tree-incomplete",
+        "target_terminated": False,
+        "target_exited": False,
+    }
+    assert target.terminate_calls == 0
+    assert opened.terminate_calls == 0
+    assert opened.close_calls == 1
+    assert target.close_calls == 1
+
+
+@pytest.mark.skipif(os.name != "nt", reason="visible-window checks are Windows-only")
+@pytest.mark.parametrize(
+    ("user32", "expected"),
+    [
+        (
+            _FakeUser32(
+                enum_result=0,
+                invoke_callback=False,
+                last_error=5,
+            ),
+            None,
+        ),
+        (
+            _FakeUser32(
+                enum_result=0,
+                invoke_callback=True,
+                owner_lookup_succeeds=False,
+            ),
+            None,
+        ),
+        (
+            _FakeUser32(
+                enum_result=0,
+                invoke_callback=True,
+                visible=True,
+            ),
+            True,
+        ),
+        (
+            _FakeUser32(
+                enum_result=1,
+                invoke_callback=True,
+                owner=777,
+            ),
+            False,
+        ),
+    ],
+)
+def test_visible_window_observation_is_explicitly_tristate(
+    monkeypatch: pytest.MonkeyPatch,
+    user32: _FakeUser32,
+    expected: bool | None,
+) -> None:
+    monkeypatch.setattr(
+        ctypes,
+        "WinDLL",
+        lambda _name, **_kwargs: user32,
+    )
+
+    assert office_module._has_visible_window(5150) is expected
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+def test_office_cleanup_rejects_failed_visible_window_enumeration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    user32 = _FakeUser32(
+        enum_result=0,
+        invoke_callback=False,
+        last_error=5,
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(ctypes, "WinDLL", lambda _name, **_kwargs: user32)
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id, **_kwargs: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize(
+    ("payload", "window_owner", "image_name"),
+    [
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150}\n',
+            5150,
+            "WINWORD.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"excel","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n',
+            5150,
+            "WINWORD.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5151,"window_handle":701,"process_start_filetime":124}\n',
+            5150,
+            "WINWORD.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n',
+            5151,
+            "WINWORD.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n',
+            5150,
+            "POWERPNT.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+            b'{"outcome":"pass","application":"word","version":"17.0"}\n',
+            5150,
+            "WINWORD.EXE",
+        ),
+        (
+            b'{"event":"identity","application":"word","version":"16.0",'
+            b'"process_id":5150,"window_handle":700,"process_start_filetime":124}\n',
+            5150,
+            "WINWORD.EXE",
+        ),
+    ],
+)
+def test_office_cleanup_rejects_incomplete_ambiguous_or_inconsistent_identity(
+    monkeypatch: pytest.MonkeyPatch,
+    payload: bytes,
+    window_owner: int,
+    image_name: str,
+) -> None:
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: False)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: window_owner)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: image_name)
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(),
+        payload,
+    )
+
+    assert cleaned is False
+    assert terminated == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Office process ownership is Windows-only")
+@pytest.mark.parametrize(
+    ("baseline", "visible", "expected_clean"),
+    [({5150}, False, True), (set(), True, False)],
+)
+def test_owned_office_cleanup_never_terminates_preexisting_or_visible_process(
+    monkeypatch: pytest.MonkeyPatch,
+    baseline: set[int],
+    visible: bool,
+    expected_clean: bool,
+) -> None:
+    payload = (
+        b'{"event":"identity","application":"word","version":"16.0",'
+        b'"process_id":5150,"window_handle":700,"process_start_filetime":123}\n'
+    )
+    terminated: list[int] = []
+    monkeypatch.setattr(
+        office_module,
+        "_office_process_ids",
+        lambda _application, **_kwargs: _office_observation(
+            raw={5150}, matching={5150}
+        ),
+    )
+    monkeypatch.setattr(office_module, "_has_visible_window", lambda _pid: visible)
+    monkeypatch.setattr(office_module, "_window_process_id", lambda _handle: 5150)
+    monkeypatch.setattr(office_module, "_process_image_name", lambda _pid: "WINWORD.EXE")
+    monkeypatch.setattr(office_module, "_process_start_filetime", lambda _pid: 123)
+    monkeypatch.setattr(office_module, "_wait_for_office_process_exit", lambda *_args: False)
+    monkeypatch.setattr(
+        office_module,
+        "_terminate_tree",
+        lambda process_id: terminated.append(process_id),
+    )
+
+    cleaned = office_module._cleanup_owned_office_process(
+        "word",
+        _office_observation(raw=baseline, matching=baseline),
+        payload,
+    )
+
+    assert cleaned is expected_clean
+    assert terminated == []
 
 
 @pytest.mark.skipif(os.name != "nt", reason="mocked COM process timeout is Windows-only")

@@ -1,4 +1,4 @@
-"""Twenty-operation DOCX dispatch and shared transactional mutation."""
+"""DOCX dispatch and shared transactional mutation."""
 
 from pathlib import Path
 from typing import Any, Callable
@@ -52,6 +52,12 @@ from .template import (
     apply_template_with_node,
 )
 from .template_operation import template_operation
+from .template_import import create_import_operation, inspect_reference_operation
+from .template_pack_operation import (
+    instantiate_pack_operation,
+    list_pack_operation,
+    read_pack_operation,
+)
 from .transaction import promote_candidate, write_candidate_result
 from .validation import (
     assert_replacement_text,
@@ -96,6 +102,30 @@ class DocxService:
             return inspect_accessibility_operation(parsed)
         if operation == "docx.inspect.structure":
             return self._inspect(parsed)
+        if operation == "docx.template.pack.list":
+            return list_pack_operation(
+                parsed,
+                project_root=self.project_root,
+                schemas=self.schemas,
+            )
+        if operation == "docx.template.pack.read":
+            return read_pack_operation(
+                parsed,
+                project_root=self.project_root,
+                schemas=self.schemas,
+            )
+        if operation == "docx.template.import.inspect":
+            return inspect_reference_operation(parsed)
+        if operation == "docx.template.import.create":
+            return create_import_operation(parsed, schemas=self.schemas)
+        if operation == "docx.template.pack.instantiate":
+            return instantiate_pack_operation(
+                parsed,
+                project_root=self.project_root,
+                schemas=self.schemas,
+                apply_backend=apply_template_with_node,
+                libreoffice=self.libreoffice,
+            )
         if operation == "docx.compare.semantic":
             return semantic_compare_operation(parsed)
         if operation == "docx.compare.visual":

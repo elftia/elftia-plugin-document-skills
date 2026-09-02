@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 
 def test_runtime_sync_and_public_command_exclude_consumer_dev_dependencies(
     project_root: Path,
@@ -193,7 +195,7 @@ def _run_public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     diagnostic = process.stdout.decode("utf-8", errors="replace")
     assert process.returncode == 0, diagnostic or "public stdout was empty"

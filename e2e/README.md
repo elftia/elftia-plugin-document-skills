@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This directory owns end-to-end checks that execute the built `dist/document-skills/` artifact instead of importing producer source directly. The current checked-in slice covers the XLSX distribution surface.
+This directory owns end-to-end checks that execute the built `dist/document-skills/` artifact instead of importing producer source directly. The current checked-in slices cover the DOCX template-pack and XLSX distribution surfaces.
 
 ## Ownership and boundaries
 
@@ -12,9 +12,10 @@ Real PowerPoint/LibreOffice/browser/OCR runs belong in explicit evidence reports
 
 ## Entry points
 
-[`xlsx_dist/`](xlsx_dist/) contains the current feature manifest, support helpers, and public distribution tests. Run it from the producer root:
+[`docx_template_pack_dist/`](docx_template_pack_dist/) exercises bundled catalog/read, local import/read, and document-spec instantiation from the built artifact. [`xlsx_dist/`](xlsx_dist/) contains the XLSX feature manifest, support helpers, and public distribution tests. Run them from the producer root:
 
 ```text
+npm run test:docx:dist-e2e
 npm run test:xlsx:dist-e2e
 ```
 
@@ -32,6 +33,7 @@ Run the distribution slice after deterministic documentation and producer checks
 
 ```text
 npm run verify:docs
+npm run test:docx:dist-e2e
 npm run test:xlsx:dist-e2e
 ```
 

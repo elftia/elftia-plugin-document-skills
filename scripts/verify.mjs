@@ -5,6 +5,7 @@ runCommand(process.execPath, [
   '--test',
   'scripts/__tests__/readmes.test.mjs',
   'scripts/__tests__/readmes-negative.test.mjs',
+  'scripts/__tests__/pytest-options.test.mjs',
 ]);
 runCommand(process.execPath, ['scripts/verify-readmes.mjs']);
 runCommand(process.execPath, ['--test', 'scripts/__tests__/reproducibility.test.mjs']);

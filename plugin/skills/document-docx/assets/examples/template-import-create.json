@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "operation": "docx.template.import.create",
+  "input": "reference.docx",
+  "output": "imported-reference-pack",
+  "arguments": {
+    "expected_source_sha256": "5f33300754761eeb6172bc3277cc4da0509d5c492aa5a0c5448c582e643ddcc0",
+    "manifest": {
+      "id": "my-academic-reference",
+      "version": "1.0.0",
+      "display_name": "My Academic Reference",
+      "description": "A private reusable pack imported from a verified local Word reference.",
+      "modes": ["document-spec"],
+      "variables": [],
+      "regions": [],
+      "role_styles": {
+        "abstract": "ElftiaAbstract",
+        "authors": "ElftiaAuthors",
+        "bibliography": "ElftiaBibliography",
+        "bibliography_heading": "ElftiaHeading1",
+        "caption": "ElftiaCaption",
+        "citation": "ElftiaCitation",
+        "equation": "ElftiaEquation",
+        "heading.1": "ElftiaHeading1",
+        "keywords": "ElftiaKeywords",
+        "paragraph": "ElftiaBody",
+        "table": "ElftiaTable",
+        "title": "ElftiaTitle"
+      },
+      "authoring_format": {
+        "version": "1.0",
+        "role_formats": {
+          "paragraph": {
+            "latin_font": "Times New Roman",
+            "east_asia_font": "SimSun",
+            "size_half_points": 22,
+            "alignment": "both",
+            "first_line_chars": 200,
+            "space_after_twips": 120,
+            "line_twips": 276
+          },
+          "bibliography": {
+            "latin_font": "Times New Roman",
+            "east_asia_font": "SimSun",
+            "size_half_points": 20,
+            "hanging_twips": 360,
+            "left_twips": 360,
+            "space_after_twips": 80
+          }
+        },
+        "default_footer": {
+          "paragraphs": [
+            {
+              "alignment": "center",
+              "runs": [
+                {"field": "PAGE"},
+                {"text": " / "},
+                {"field": "NUMPAGES"}
+              ]
+            }
+          ]
+        },
+        "table": {
+          "width_twips": 9360,
+          "borders": {
+            "top": {"style": "single", "size_eighth_points": 8, "color": "000000"},
+            "header_bottom": {"style": "single", "size_eighth_points": 8, "color": "000000"},
+            "bottom": {"style": "single", "size_eighth_points": 8, "color": "000000"}
+          }
+        }
+      },
+      "compatibility": {
+        "document_spec_versions": ["1.0"],
+        "domain_profiles": [{"id": "academic-paper", "version": "1.0"}],
+        "template_engine_versions": [],
+        "style_profile_versions": ["template-mapped/1.0"]
+      },
+      "language_policy": {
+        "layout": "language-neutral",
+        "content": "caller-owned",
+        "translation": "none",
+        "examples": ["en-US", "zh-CN"]
+      }
+    },
+    "provenance": {
+      "source_kind": "local",
+      "imported_at": "2026-08-29T00:00:00Z",
+      "redistributable": false
+    }
+  }
+}

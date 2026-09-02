@@ -25,6 +25,7 @@ from document_skills_core.formats.pdf.create import create_pdf
 from document_skills_core.formats.pdf.validation import reopen_pdf
 from document_skills_core.public_cli.protocol import PublicCommand
 from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
@@ -65,9 +66,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        # LibreOffice conversion owns a 90-second aggregate worker budget;
-        # leave startup/teardown headroom around that operation-specific limit.
-        timeout=120,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     if check:
         diagnostic = process.stdout.decode("utf-8", errors="replace")

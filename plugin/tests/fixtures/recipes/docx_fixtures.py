@@ -18,9 +18,11 @@ from typing import Any, Callable
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 SOURCE_ROOT = PROJECT_ROOT / "src"
 RECIPE_ROOT = Path(__file__).resolve().parent
-for import_root in (SOURCE_ROOT, RECIPE_ROOT):
+for import_root in (PROJECT_ROOT, SOURCE_ROOT, RECIPE_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
+
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS  # noqa: E402
 
 from document_skills_core.core.io import DangerousContentPolicy, inspect_ooxml
 from document_skills_core.formats.docx.create import create_docx
@@ -338,7 +340,7 @@ def _create_public_bounded_fixture(destination: Path) -> None:
             capture_output=True,
             text=False,
             shell=False,
-            timeout=60,
+            timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
         )
         if process.returncode != 0 or process.stderr:
             raise RuntimeError(

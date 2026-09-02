@@ -6,6 +6,7 @@ IR and never conjure content the caller did not request.
 """
 
 from pathlib import Path
+import re
 from typing import Any
 
 from .constants import MAX_HEADING_LEVEL
@@ -16,6 +17,7 @@ from .contracts import (
     _optional_text,
     _text,
 )
+from .story_contract import parse_story
 
 MAX_CREATE_CELLS = 8_192
 MAX_CREATE_IMAGES = 32
@@ -158,7 +160,17 @@ def _parse_blocks(value: Any) -> list[dict[str, Any]]:
 
 
 def _parse_table(block: dict[str, Any]) -> dict[str, Any]:
-    _exact_keys(block, {"rows", "style", "type"})
+    _exact_keys(
+        block,
+        {
+            "borders",
+            "column_widths_twips",
+            "rows",
+            "style",
+            "type",
+            "width_twips",
+        },
+    )
     style = _optional_text(block.get("style"), "table.style") or "TableGrid"
     if style != "TableGrid":
         _invalid("Core DOCX supports only the TableGrid table style.")
@@ -175,11 +187,75 @@ def _parse_table(block: dict[str, Any]) -> dict[str, Any]:
         if len(cells) != width:
             _invalid("All table rows must have the same cell count.")
         normalized_rows.append(cells)
+    raw_width = block.get("width_twips")
+    raw_columns = block.get("column_widths_twips")
+    if raw_width is None:
+        table_width = 9_360 if raw_columns is None else sum(_table_widths(raw_columns, width))
+    else:
+        table_width = _integer(raw_width, 720, 31_680)
+    column_widths = (
+        _distributed_widths(table_width, width)
+        if raw_columns is None
+        else _table_widths(raw_columns, width)
+    )
+    if sum(column_widths) != table_width:
+        _invalid(
+            "Table column widths must sum exactly to width_twips.",
+            field="table.column_widths_twips",
+        )
     return {
         "type": "table",
         "rows": normalized_rows,
         "style": style,
+        "width_twips": table_width,
+        "column_widths_twips": column_widths,
+        "borders": _table_borders(block.get("borders")),
     }
+
+
+def _distributed_widths(total: int, count: int) -> list[int]:
+    quotient, remainder = divmod(total, count)
+    return [quotient + (1 if index < remainder else 0) for index in range(count)]
+
+
+def _table_widths(value: Any, count: int) -> list[int]:
+    if type(value) is not list or len(value) != count:
+        _invalid(
+            "column_widths_twips must contain one width per logical column.",
+            field="table.column_widths_twips",
+        )
+    return [
+        _integer(item, 120, 31_680)
+        for item in value
+    ]
+
+
+def _table_borders(value: Any) -> dict[str, dict[str, Any]] | None:
+    if value is None:
+        return None
+    if type(value) is not dict:
+        _invalid("table.borders must be an object.", field="table.borders")
+    allowed = {"bottom", "header_bottom", "inside_h", "inside_v", "left", "right", "top"}
+    if not set(value).issubset(allowed):
+        _invalid("table.borders contains an unsupported position.", field="table.borders")
+    parsed = {}
+    for position, border in value.items():
+        field = f"table.borders.{position}"
+        if type(border) is not dict:
+            _invalid("Each table border must be an object.", field=field)
+        _exact_keys(border, {"color", "size_eighth_points", "style"})
+        style = border.get("style")
+        if style not in {"double", "single"}:
+            _invalid("Table border style must be single or double.", field=f"{field}.style")
+        color = border.get("color", "000000")
+        if type(color) is not str or re.fullmatch(r"[0-9A-Fa-f]{6}", color) is None:
+            _invalid("Table border color must be six hexadecimal digits.", field=f"{field}.color")
+        parsed[position] = {
+            "style": style,
+            "size_eighth_points": _integer(border.get("size_eighth_points", 8), 2, 96),
+            "color": color.upper(),
+        }
+    return parsed
 
 
 def _parse_image(value: Any, field: str) -> dict[str, Any] | None:
@@ -213,11 +289,10 @@ def _image_payload(value: dict[str, Any], field: str) -> dict[str, Any]:
     }
 
 
-def _story_text(value: Any, field: str) -> str | None:
-    """Parse an optional header/footer story; ``None`` means no such part."""
-    if value is None:
-        return None
-    return _text(value, field) or None
+def _story_text(value: Any, field: str) -> str | dict[str, Any] | None:
+    """Parse legacy text or an additive structured header/footer story."""
+
+    return parse_story(value, field)
 
 
 def _parse_sections(value: Any) -> list[dict[str, Any]]:

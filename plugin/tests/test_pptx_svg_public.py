@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 import subprocess
 
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
+
 import pytest
 
 from document_skills_core.formats.pptx.presentation_contracts import (
@@ -35,7 +37,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=100,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode in {0, 2}, process.stderr.decode(
         "utf-8", errors="replace"

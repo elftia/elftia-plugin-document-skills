@@ -16,6 +16,11 @@ Python dispatches direct Core implementations and private project-local Node or 
 
 The runtime does not silently install dependencies or optional providers during a document request. It does not treat provider detection as successful execution, and it does not expose provider stdout as protocol data.
 
+DOCX template-pack operations ship one repository-owned `general-academic-paper` baseline and
+accept explicit hash-bound local packs. Reference import is local-only: network-aware callers may
+supply prior retrieval/license/digest metadata, but the runtime never downloads a template, scans a
+mutable global catalog, or edits the Host's synchronized consumer tree.
+
 ## Entry points
 
 Replace `<project-root>` and `<skill-dir>` with absolute paths supplied by the Agent Skills host:

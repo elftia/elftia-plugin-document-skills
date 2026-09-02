@@ -778,6 +778,7 @@ def test_consumer_cli_emits_schema_valid_machine_report(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Microsoft Office COM is Windows-only")
+@pytest.mark.slow
 @pytest.mark.parametrize(
     ("format_id", "application"),
     [("docx", "word"), ("xlsx", "excel"), ("pptx", "powerpoint")],
@@ -799,7 +800,9 @@ def test_installed_office_real_safe_open_is_mandatory(
         artifact=artifact,
         expectations=expectations,
         office_policy="auto",
-        timeout_seconds=30,
+        # Cold Word DCOM activation plus bounded teardown measured 62.794s on
+        # the loaded Windows gate host; mocked 0.01s tests keep timeout failure bounded.
+        timeout_seconds=90,
     )
 
     assert report["office"]["outcome"] == "pass", report["office"]
@@ -811,6 +814,7 @@ def test_installed_office_real_safe_open_is_mandatory(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="bounded process-tree cleanup is Windows-only")
+@pytest.mark.slow
 def test_real_consumer_timeout_kills_descendant_and_preserves_file(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

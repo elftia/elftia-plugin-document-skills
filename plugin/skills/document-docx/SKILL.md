@@ -39,6 +39,18 @@ keep-VBA editing, and provider-backed legacy `.doc` conversion. Core operations 
   top-level body paragraph regions support explicit item repetition and literal-boolean inclusion;
   they do not add loop markers, expressions, raw XML, or caller code. An optional explicit style
   overlay imports only named styles with `keep-base|replace-existing`; output is always `.docx`.
+- `docx.template.pack.list` / `docx.template.pack.read` — deterministic built-in catalog and
+  exact hash-bound local pack inspection. The runtime never scans user directories or selects a
+  different/latest version implicitly.
+- `docx.template.import.inspect` / `docx.template.import.create` — read-only safety/style/control
+  inspection followed by explicit, canonical, immutable local pack creation. Imports preserve the
+  safe `.docx/.dotx` payload byte-for-byte, require explicit semantic mappings, record provenance
+  and license status, and publish an absent directory atomically. A degraded `document-spec`
+  inspection with material formatting requires a source-matching `authoring_format`; missing,
+  invented, conflicting, nonuniform, or lossy mappings fail closed before publication.
+- `docx.template.pack.instantiate` — one declared `template` or `document-spec` mode. Template mode
+  reuses the existing scalar/region engine; document-spec mode rejects caller `style_profile` and
+  injects the pack-owned hash-bound `template-mapped` role mapping.
 - `docx.merge` — compatible high-fidelity `.docx` graph merge. It copies body XML, tables,
   sections, referenced headers/footers, and media without text extraction or reconstruction,
   deterministically remaps relationship/drawing/part ids, bookmarks, internal links, styles, and
@@ -125,6 +137,20 @@ backend selected by Python; do not invoke it or any provider directly.
    parser code are rejected. Style overlays require an exact source hash and named style ids, preserve every
    unselected base style, and reject graph-dependent numbering or relationship-bound style XML.
    The promoted output is a `.docx`.
+   For reusable reference formatting, list/read a built-in pack or inspect a hash-bound local
+   `.docx/.dotx` before import. Candidate role mappings are advisory until supplied explicitly to
+   `docx.template.import.create`. If document-spec inspection reports material direct formatting,
+   table geometry/borders, or story fields as degraded, also supply an explicit, uniform,
+   representable `manifest.authoring_format` that matches the inspection evidence exactly. Missing
+   mappings return `DS_DOCX_TEMPLATE_AUTHORING_FORMAT_REQUIRED`; invented, conflicting,
+   nonuniform, or lossy mappings return `DS_DOCX_TEMPLATE_AUTHORING_FORMAT_LOSSY`. Local
+   unknown-license imports remain non-redistributable. A
+   network-aware caller must download separately and supply the verified local file, original and
+   retrieved URLs, retrieval time, downloader identity/version, matching downloaded digest,
+   license evidence, and redistribution decision; these operations never open a socket. The
+   bundled `general-academic-paper` pack is language-neutral at the layout/style layer, preserves
+   English, Simplified Chinese, or other caller text without translation, and supports only
+   `document-spec` mode.
 6. For merge, bind each local `.docx` source to its exact SHA-256. The base, sources, and output
    must be distinct after portable path normalization. Styles support
    `require-identical|rename-source`; numbering supports `require-identical|remap-source`.

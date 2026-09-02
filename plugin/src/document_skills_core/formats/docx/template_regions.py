@@ -30,6 +30,21 @@ class TemplateRegionPlan:
         }
 
 
+def executable_body_paragraphs(document: Any) -> tuple[tuple[int, Any], ...]:
+    """Return executor-valid direct body paragraphs with global paragraph indexes."""
+
+    body = document.find(qn("w", "body"))
+    if body is None:
+        return ()
+    body_paragraphs = {id(item) for item in body.findall(qn("w", "p"))}
+    return tuple(
+        (index, paragraph)
+        for index, paragraph in enumerate(iter_paragraphs(document))
+        if id(paragraph) in body_paragraphs
+        and paragraph.find(f"./{qn('w', 'pPr')}/{qn('w', 'sectPr')}") is None
+    )
+
+
 def plan_template_regions(
     package: OpcPackage,
     regions: list[dict[str, Any]],
@@ -41,7 +56,7 @@ def plan_template_regions(
     if body is None:
         _failed("body-missing")
     paragraphs = list(iter_paragraphs(document))
-    body_paragraphs = {id(item) for item in body.findall(qn("w", "p"))}
+    eligible = {index: paragraph for index, paragraph in executable_body_paragraphs(document)}
     selected: list[tuple[dict[str, Any], Any]] = []
     diagnostics: list[dict[str, Any]] = []
     emitted = 0
@@ -52,10 +67,8 @@ def plan_template_regions(
         if index >= len(paragraphs):
             _failed("paragraph-index", paragraph_index=index)
         paragraph = paragraphs[index]
-        if id(paragraph) not in body_paragraphs:
+        if eligible.get(index) is not paragraph:
             _failed("not-a-top-level-body-paragraph", paragraph_index=index)
-        if paragraph.find(f"./{qn('w', 'pPr')}/{qn('w', 'sectPr')}") is not None:
-            _failed("section-boundary", paragraph_index=index)
         mapped = map_paragraph(paragraph)
         if mapped.full_text != target["expected_text"]:
             _failed(
@@ -145,3 +158,6 @@ def _failed(reason: str, **details: Any) -> None:
         "Template region selector did not match the immutable input.",
         details={"reason": reason, **details},
     )
+
+
+__all__ = ["TemplateRegionPlan", "executable_body_paragraphs", "plan_template_regions"]
