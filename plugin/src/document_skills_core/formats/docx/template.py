@@ -25,6 +25,7 @@ from .package import OpcPackage, PreservationManifest
 TOKEN_PATTERN = re.compile(
     r"\{([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\}"
 )
+_TEMPLATE_BACKEND_TIMEOUT_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -213,7 +214,7 @@ def apply_template_with_node(
             "approved_tokens": list(plan.used),
         },
         cwd=project_root,
-        timeout_seconds=6.0,
+        timeout_seconds=_TEMPLATE_BACKEND_TIMEOUT_SECONDS,
         output_limit=65_536,
     )
     if result.returncode != 0:

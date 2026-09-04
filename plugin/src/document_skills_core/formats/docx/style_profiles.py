@@ -1,6 +1,6 @@
 """Built-in, versioned style profiles for semantic DOCX roles."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -19,6 +19,7 @@ from .package import OpcPackage
 from .xml_utils import xml_bytes
 
 PROFESSIONAL_GENERIC = {"id": "professional-generic", "version": "1.0"}
+ACADEMIC_PACK = {"id": "academic-pack", "version": "1.0"}
 _SHA256 = re.compile(r"^[0-9A-Fa-f]{64}$")
 _STYLE_ID = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]{0,127}$")
 _ROLE_KEYS = frozenset(
@@ -58,6 +59,11 @@ class StyleDefinition:
     space_after_twips: int | None = None
     line_twips: int | None = None
     outline_level: int | None = None
+    latin_font: str = "Arial"
+    east_asia_font: str = "Microsoft YaHei"
+    first_line_chars: int | None = None
+    hanging_twips: int | None = None
+    left_twips: int | None = None
 
 
 def parse_style_profile(value: Any) -> dict[str, Any] | None:
@@ -169,11 +175,16 @@ def style_id_for(
 def render_style_profile(profile: dict[str, Any]) -> bytes:
     if profile.get("id") == "template-mapped":
         return _template_style_payload(profile)
-    if profile != PROFESSIONAL_GENERIC:
+    if profile != PROFESSIONAL_GENERIC and profile != ACADEMIC_PACK:
         raise ValueError("Unknown style profile.")
     root = Element(qn("w", "styles"))
     _append_defaults(root)
-    for definition in _professional_definitions():
+    definitions = (
+        _academic_definitions()
+        if profile == ACADEMIC_PACK
+        else _professional_definitions()
+    )
+    for definition in definitions:
         _append_style(root, definition)
     return xml_bytes(root)
 
@@ -249,7 +260,90 @@ def _template_style_payload(profile: dict[str, Any]) -> bytes:
                 style_id=style_id,
                 dependencies=missing,
             )
+    for role, role_format in profile.get("role_formats", {}).items():
+        _apply_role_format(style_map[profile["role_styles"][role]], role_format)
+    if profile.get("role_formats"):
+        return xml_bytes(styles)
     return package.parts["word/styles.xml"]
+
+
+def _apply_role_format(style: Element, role_format: dict[str, Any]) -> None:
+    run = style.find(qn("w", "rPr"))
+    if run is None:
+        run = SubElement(style, qn("w", "rPr"))
+    _remove_children(run, "rFonts")
+    SubElement(
+        run,
+        qn("w", "rFonts"),
+        {
+            qn("w", "ascii"): role_format["latin_font"],
+            qn("w", "hAnsi"): role_format["latin_font"],
+            qn("w", "eastAsia"): role_format["east_asia_font"],
+            qn("w", "cs"): role_format["latin_font"],
+        },
+    )
+    size = str(role_format["size_half_points"])
+    for name in ("sz", "szCs"):
+        _remove_children(run, name)
+        SubElement(run, qn("w", name), {qn("w", "val"): size})
+    if "bold" in role_format:
+        _remove_children(run, "b")
+        if role_format["bold"]:
+            SubElement(run, qn("w", "b"))
+    paragraph_keys = {
+        "alignment",
+        "first_line_chars",
+        "hanging_twips",
+        "left_twips",
+        "space_before_twips",
+        "space_after_twips",
+        "line_twips",
+    }
+    if not paragraph_keys.intersection(role_format):
+        return
+    paragraph = style.find(qn("w", "pPr"))
+    if paragraph is None:
+        paragraph = Element(qn("w", "pPr"))
+        run_index = list(style).index(run)
+        style.insert(run_index, paragraph)
+    if "alignment" in role_format:
+        _remove_children(paragraph, "jc")
+        SubElement(
+            paragraph,
+            qn("w", "jc"),
+            {qn("w", "val"): role_format["alignment"]},
+        )
+    indentation_values = {
+        "firstLineChars": role_format.get("first_line_chars"),
+        "hanging": role_format.get("hanging_twips"),
+        "left": role_format.get("left_twips"),
+    }
+    if any(value is not None for value in indentation_values.values()):
+        indentation = paragraph.find(qn("w", "ind"))
+        if indentation is None:
+            indentation = SubElement(paragraph, qn("w", "ind"))
+        for name, value in indentation_values.items():
+            if value is not None:
+                indentation.attrib[qn("w", name)] = str(value)
+    spacing_values = {
+        "before": role_format.get("space_before_twips"),
+        "after": role_format.get("space_after_twips"),
+        "line": role_format.get("line_twips"),
+    }
+    if any(value is not None for value in spacing_values.values()):
+        spacing = paragraph.find(qn("w", "spacing"))
+        if spacing is None:
+            spacing = SubElement(paragraph, qn("w", "spacing"))
+        for name, value in spacing_values.items():
+            if value is not None:
+                spacing.attrib[qn("w", name)] = str(value)
+        if spacing_values["line"] is not None:
+            spacing.attrib[qn("w", "lineRule")] = "auto"
+
+
+def _remove_children(parent: Element, name: str) -> None:
+    for child in list(parent.findall(qn("w", name))):
+        parent.remove(child)
 
 
 def _profile_precondition(reason: str, **details: Any) -> None:
@@ -410,11 +504,34 @@ def _professional_definitions() -> tuple[StyleDefinition, ...]:
     )
 
 
+def _academic_definitions() -> tuple[StyleDefinition, ...]:
+    definitions = []
+    for definition in _professional_definitions():
+        east_asia = (
+            "SimHei"
+            if definition.style_id == "ElftiaTitle"
+            or definition.style_id.startswith("ElftiaHeading")
+            else "SimSun"
+        )
+        changes: dict[str, Any] = {
+            "latin_font": "Times New Roman",
+            "east_asia_font": east_asia,
+        }
+        if definition.style_id in {"ElftiaBody", "ElftiaAbstract"}:
+            changes["first_line_chars"] = 200
+        if definition.style_id == "ElftiaBody":
+            changes["alignment"] = "both"
+        if definition.style_id == "ElftiaBibliography":
+            changes.update({"hanging_twips": 360, "left_twips": 360})
+        definitions.append(replace(definition, **changes))
+    return tuple(definitions)
+
+
 def _append_defaults(root: Element) -> None:
     defaults = SubElement(root, qn("w", "docDefaults"))
     run_default = SubElement(defaults, qn("w", "rPrDefault"))
     run_properties = SubElement(run_default, qn("w", "rPr"))
-    _append_fonts(run_properties)
+    _append_fonts(run_properties, StyleDefinition("Normal", "Normal"))
     SubElement(run_properties, qn("w", "sz"), {qn("w", "val"): "22"})
     SubElement(run_properties, qn("w", "szCs"), {qn("w", "val"): "22"})
     SubElement(
@@ -448,7 +565,7 @@ def _append_style(root: Element, definition: StyleDefinition) -> None:
     SubElement(style, qn("w", "qFormat"))
     paragraph_properties = _paragraph_properties(style, definition)
     run_properties = SubElement(style, qn("w", "rPr"))
-    _append_fonts(run_properties)
+    _append_fonts(run_properties, definition)
     if definition.bold:
         SubElement(run_properties, qn("w", "b"))
     size = str(definition.size_half_points)
@@ -493,18 +610,27 @@ def _paragraph_properties(
             qn("w", "outlineLvl"),
             {qn("w", "val"): str(definition.outline_level)},
         )
+    indentation = {}
+    if definition.first_line_chars is not None:
+        indentation[qn("w", "firstLineChars")] = str(definition.first_line_chars)
+    if definition.hanging_twips is not None:
+        indentation[qn("w", "hanging")] = str(definition.hanging_twips)
+    if definition.left_twips is not None:
+        indentation[qn("w", "left")] = str(definition.left_twips)
+    if indentation:
+        SubElement(properties, qn("w", "ind"), indentation)
     return properties
 
 
-def _append_fonts(properties: Element) -> None:
+def _append_fonts(properties: Element, definition: StyleDefinition) -> None:
     SubElement(
         properties,
         qn("w", "rFonts"),
         {
-            qn("w", "ascii"): "Arial",
-            qn("w", "hAnsi"): "Arial",
-            qn("w", "eastAsia"): "Microsoft YaHei",
-            qn("w", "cs"): "Arial",
+            qn("w", "ascii"): definition.latin_font,
+            qn("w", "hAnsi"): definition.latin_font,
+            qn("w", "eastAsia"): definition.east_asia_font,
+            qn("w", "cs"): definition.latin_font,
         },
     )
 

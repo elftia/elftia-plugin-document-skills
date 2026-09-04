@@ -1,6 +1,7 @@
 """Shared command parser and dispatcher for all four bundled entrypoints."""
 
 import argparse
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -195,10 +196,20 @@ def _resolve_request_artifact_paths(
     invocation_base: Path,
 ) -> dict[str, Any]:
     resolved = dict(request)
+    operation = request.get("operation")
+    no_follow = operation in {
+        "docx.template.import.inspect",
+        "docx.template.import.create",
+        "docx.template.pack.instantiate",
+    }
     for field in ("input", "output"):
         value = request.get(field)
         if type(value) is str:
-            resolved[field] = str(_resolve_user_path(value, invocation_base))
+            resolved[field] = str(
+                _absolute_user_path(value, invocation_base)
+                if no_follow
+                else _resolve_user_path(value, invocation_base)
+            )
     arguments = request.get("arguments")
     if type(arguments) is not dict:
         return resolved
@@ -207,6 +218,23 @@ def _resolve_request_artifact_paths(
         arguments,
         invocation_base,
     )
+    pack = resolved_arguments.get("pack")
+    if type(pack) is dict and pack.get("kind") == "local" and type(pack.get("path")) is str:
+        resolved_arguments["pack"] = {
+            **pack,
+            "path": str(_absolute_user_path(pack["path"], invocation_base)),
+        }
+    local_packs = resolved_arguments.get("local_packs")
+    if type(local_packs) is list:
+        resolved_arguments["local_packs"] = [
+            {
+                **item,
+                "path": str(_absolute_user_path(item["path"], invocation_base)),
+            }
+            if type(item) is dict and item.get("kind") == "local" and type(item.get("path")) is str
+            else item
+            for item in local_packs
+        ]
     report = resolved_arguments.get("report")
     if type(report) is dict:
         resolved_report = dict(report)
@@ -282,6 +310,15 @@ def _resolve_request_artifact_paths(
         ]
     resolved["arguments"] = resolved_arguments
     return resolved
+
+
+def _absolute_user_path(value: str, invocation_base: Path) -> Path:
+    """Make a user path absolute without erasing symlink/reparse evidence."""
+
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = invocation_base / path
+    return Path(os.path.abspath(path))
 
 
 def _resolve_local_image(

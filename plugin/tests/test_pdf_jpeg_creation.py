@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 import zlib
 
 from PIL import Image, ImageOps
@@ -427,7 +428,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     if check:
         diagnostic = process.stdout.decode("utf-8", errors="replace")

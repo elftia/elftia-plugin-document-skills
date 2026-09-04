@@ -17,6 +17,7 @@ Schemas validate protocol structure, closed keys, statuses, errors, gates, artif
 | [`doctor-report.schema.json`](doctor-report.schema.json) | Runtime/provider health evidence |
 | [`capability-report.schema.json`](capability-report.schema.json) | Registered operation/provider availability report |
 | [`validation-report.schema.json`](validation-report.schema.json) | Standalone artifact validation report |
+| [`docx-template-pack.schema.json`](docx-template-pack.schema.json) | Canonical immutable DOCX template-pack manifest, members, compatibility, provenance, and evidence |
 
 All public envelopes currently use `schema_version: "1.0"`. Use the [Skill catalog](../skills/README.md) and format references for operation-specific request examples.
 

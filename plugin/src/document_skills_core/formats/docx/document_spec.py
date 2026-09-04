@@ -252,8 +252,24 @@ def _parse_node(
             "node_type": kind,
         }
     if kind == "table":
-        _exact_keys(value, {"id", "rows", "type"})
-        table = _parse_table({"type": "table", "rows": value.get("rows")})
+        _exact_keys(
+            value,
+            {
+                "borders",
+                "column_widths_twips",
+                "id",
+                "rows",
+                "type",
+                "width_twips",
+            },
+        )
+        table = _parse_table(
+            {
+                key: item
+                for key, item in value.items()
+                if key not in {"id"}
+            }
+        )
         return {
             **table,
             "style": style_id_for(style_profile, "table"),

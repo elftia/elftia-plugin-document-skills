@@ -17,6 +17,9 @@ The suite tests public behavior through the frozen façade where the contract re
 - [`node/`](node/) contains private Node runtime tests.
 - `test_*_public.py` exercises public Skill/provider reporting and result truth.
 - Provider/consumer real tests are explicitly gated by executable availability and policy.
+- [`test_docx_template_packs.py`](test_docx_template_packs.py) covers canonical pack integrity,
+  safe DOCX/DOTX inspection/import, provenance, both instantiation adapters, the bundled academic
+  pack, language preservation, and deterministic regeneration.
 
 The producer harness owns invocation of the complete Python and private Node suites; the release artifact does not expose those developer commands as Agent entry points.
 

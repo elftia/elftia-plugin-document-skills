@@ -34,11 +34,22 @@ from document_skills_core.public_cli.supervisor import PublicCommandSupervisor
 from document_skills_core.providers import build_default_registry
 from document_skills_core.providers.libreoffice.constants import platform_known_paths
 from document_skills_core.providers.libreoffice.quota import hard_quota_capability
+from tests.support.public_cli import (
+    _PRODUCT_MAX_PUBLIC_AGGREGATE_TIMEOUT_SECONDS,
+    PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
+)
 
 
 # Leaves process-startup and teardown headroom above the supervisor's bounded
 # aggregate provider-report budget.
 _CORE_REPORT_TIMEOUT_SECONDS = 300
+
+
+def test_dynamic_core_report_timeout_covers_public_aggregate_budget() -> None:
+    assert _CORE_REPORT_TIMEOUT_SECONDS >= (
+        _PRODUCT_MAX_PUBLIC_AGGREGATE_TIMEOUT_SECONDS
+    )
+    assert _CORE_REPORT_TIMEOUT_SECONDS == PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 
 
 def _detector_state(provider_id: str = "fixture-provider") -> dict:
@@ -62,7 +73,7 @@ def test_provider_reports_cover_the_bounded_serial_probe_chain(
         assert supervisor._command_limits(
             PublicCommand(command_name, (command_name, "--json")),
             tmp_path,
-        ) == (210.0, 2_097_152)
+        ) == (270.0, 2_097_152)
 
 
 def test_core_only_optional_absence_is_honest(project_root, monkeypatch):
@@ -329,7 +340,11 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(
     dotnet = optional[str(ProviderId.DOTNET_OPENXML)]
     assert dotnet["required"] is False
     for field in ("available", "version", "path", "reason"):
-        assert dotnet[field] == expected_dotnet[field]
+        assert dotnet[field] == expected_dotnet[field], {
+            "field": field,
+            "actual": dotnet,
+            "expected": expected_dotnet,
+        }
     if command[0] == "doctor":
         assert report["status"] == "healthy"
     elif skill == "document-xlsx":

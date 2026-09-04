@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import Element, fromstring, SubElement, tostring
 import zipfile
 
@@ -34,7 +35,7 @@ def _public(
         capture_output=True,
         text=True,
         check=check,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     return json.loads(completed.stdout)
 

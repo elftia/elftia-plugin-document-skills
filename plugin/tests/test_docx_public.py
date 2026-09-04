@@ -78,4 +78,42 @@ def test_docx_dotnet_operations_have_a_private_worker_budget(
         assert supervisor._command_limits(
             PublicCommand("run", ("run", "--request", str(request))),
             tmp_path,
-        ) == (90.0, 2_097_152)
+        ) == (240.0, 2_097_152)
+
+
+def test_public_worker_default_and_explicit_short_budgets_remain_bounded(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    request = _request(
+        tmp_path,
+        "ordinary-public-budget.json",
+        {"operation": "docx.read"},
+    )
+    command = PublicCommand("run", ("run", "--request", str(request)))
+    validation_command = PublicCommand(
+        "validate",
+        ("validate", "--input", "fixture.docx", "--json"),
+    )
+    default_supervisor = PublicCommandSupervisor(project_root)
+    short_supervisor = PublicCommandSupervisor(
+        project_root,
+        timeout_seconds=0.01,
+    )
+
+    assert default_supervisor._command_limits(
+        command,
+        tmp_path,
+    ) == (30.0, 2_097_152)
+    assert default_supervisor._command_limits(
+        validation_command,
+        tmp_path,
+    ) == (30.0, 2_097_152)
+    assert short_supervisor._command_limits(
+        command,
+        tmp_path,
+    ) == (0.01, 2_097_152)
+    assert short_supervisor._command_limits(
+        validation_command,
+        tmp_path,
+    ) == (0.01, 2_097_152)

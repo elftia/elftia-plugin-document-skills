@@ -230,14 +230,45 @@ def _validate_argv(argv: list[str]) -> None:
             },
         )
     operation_argv = argv[expected_command_index:]
-    joined_operation = " ".join(operation_argv)
-    for forbidden in FORBIDDEN_TOKENS:
-        if forbidden.lower() in joined_operation.lower():
+    for token in operation_argv:
+        forbidden = _forbidden_operation_token(token)
+        if forbidden is not None:
             raise DocumentSkillsError(
                 ErrorCode.PROVIDER_FAILED,
                 "LibreOffice argv contains a forbidden macro/DDE token.",
                 details={"token": forbidden},
             )
+
+
+def _forbidden_operation_token(token: str) -> str | None:
+    """Return the forbidden token represented by one operation argument.
+
+    Operation values can contain arbitrary user-controlled paths.  Match the
+    dangerous forms at their argument boundaries instead of scanning a joined
+    command line, so a path or UUID containing ``dde`` cannot be mistaken for
+    a DDE argument.
+    """
+
+    normalized = token.casefold()
+    for forbidden in FORBIDDEN_TOKENS:
+        candidate = forbidden.casefold()
+        if candidate.startswith("--"):
+            if normalized == candidate or normalized.startswith(f"{candidate}="):
+                return forbidden
+        elif candidate in {".bas", ".xba"}:
+            if normalized.endswith(candidate):
+                return forbidden
+        elif candidate == "macro:":
+            if normalized.startswith(candidate):
+                return forbidden
+        elif candidate in {"dde", "ddelink"}:
+            if normalized == candidate or normalized.startswith(f"{candidate}:"):
+                return forbidden
+        elif candidate in normalized:
+            # A token shape without a boundary rule above keeps the
+            # conservative substring match so it can never fail open.
+            return forbidden
+    return None
 
 
 def _timeout_for_format(target_format: str) -> float:

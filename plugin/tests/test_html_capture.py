@@ -257,6 +257,7 @@ def test_capture_status_binds_success_failure_fields(change: dict[str, object]):
         _capture_status(status, nonce)
 
 
+@pytest.mark.slow
 def test_real_capture_uses_fixed_canvas_transform_pseudo_and_browser_paint_evidence(
     project_root: Path,
     tmp_path: Path,
@@ -357,6 +358,7 @@ def test_real_capture_uses_fixed_canvas_transform_pseudo_and_browser_paint_evide
             HtmlDeckCapture(project_root, detector).capture(wrong_size, private_root, "fail")
 
 
+@pytest.mark.slow
 def test_real_capture_binds_transparent_wrappers_and_positioned_pseudo_geometry(
     project_root: Path,
     tmp_path: Path,
@@ -420,6 +422,7 @@ def test_real_capture_binds_transparent_wrappers_and_positioned_pseudo_geometry(
     }
 
 
+@pytest.mark.slow
 def test_real_capture_classifies_css_layout_text_flow_media_and_svg(
     project_root: Path,
     tmp_path: Path,
@@ -501,6 +504,7 @@ def test_real_capture_classifies_css_layout_text_flow_media_and_svg(
         ("../outside.css", "path_escape"),
     ],
 )
+@pytest.mark.slow
 def test_real_capture_reports_each_forbidden_resource_reason(
     project_root: Path,
     tmp_path: Path,
@@ -529,6 +533,7 @@ def test_real_capture_reports_each_forbidden_resource_reason(
     assert deck.blocked_resources["truncated"] == 0
 
 
+@pytest.mark.slow
 def test_real_capture_counts_resource_occurrences_beyond_sample_limit(
     project_root: Path,
     tmp_path: Path,

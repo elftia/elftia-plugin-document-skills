@@ -3,18 +3,23 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.core.process import ProcessResult
 from document_skills_core.providers.html_browser import HtmlBrowserDetector
+from document_skills_core.providers.html_browser import detector as html_browser_detector
 
 
 class FakeRunner:
     def __init__(self, mode: str = "success") -> None:
         self.mode = mode
         self.probe_cwd: Path | None = None
+        self.probe_timeout_seconds: float | None = None
 
     def run(self, _provider, _executable, args, **kwargs):
         self.probe_cwd = kwargs["cwd"]
+        self.probe_timeout_seconds = kwargs["timeout_seconds"]
         if self.mode == "timeout":
             raise DocumentSkillsError(ErrorCode.PROCESS_TIMEOUT, "timeout")
         payload = {
@@ -64,6 +69,7 @@ def test_detector_accepts_exact_library_and_bounded_launch_evidence(tmp_path: Pa
     assert evidence.path == str(browser.resolve())
     assert "playwright-core 1.62.1" in (evidence.version or "")
     assert runner.probe_cwd is not None
+    assert runner.probe_timeout_seconds == 30.0
     assert not runner.probe_cwd.exists()
 
 
@@ -135,6 +141,47 @@ def test_detector_contains_version_launch_timeout_and_invalid_result(tmp_path: P
             assert not runner.probe_cwd.exists()
 
 
+def test_detector_preserves_timeout_when_windows_profile_cleanup_is_denied(
+    tmp_path: Path,
+    monkeypatch,
+):
+    project, node, browser = _project(tmp_path)
+
+    class CleanupFailingTemporaryDirectory:
+        ignore_cleanup_errors: bool | None = None
+
+        def __init__(self, *, prefix, dir, ignore_cleanup_errors=False):
+            type(self).ignore_cleanup_errors = ignore_cleanup_errors
+            self.path = Path(dir) / f"{prefix}fixture"
+            self.path.mkdir()
+
+        def __enter__(self):
+            return str(self.path)
+
+        def __exit__(self, _error_type, _error, _traceback):
+            self.path.rmdir()
+            if not self.ignore_cleanup_errors:
+                raise PermissionError("profile is still held by Chromium")
+            return False
+
+    monkeypatch.setattr(
+        html_browser_detector,
+        "TemporaryDirectory",
+        CleanupFailingTemporaryDirectory,
+    )
+    evidence = HtmlBrowserDetector(
+        project,
+        candidate_paths=(browser,),
+        node_path=str(node),
+        runner=FakeRunner("timeout"),
+    ).detect()
+
+    assert CleanupFailingTemporaryDirectory.ignore_cleanup_errors is True
+    assert evidence.available is False
+    assert evidence.reason == "Browser launch probe timed out."
+
+
+@pytest.mark.slow
 def test_real_detector_is_truthful_and_bounded(project_root: Path):
     evidence = HtmlBrowserDetector(project_root).detect()
     assert type(evidence.available) is bool

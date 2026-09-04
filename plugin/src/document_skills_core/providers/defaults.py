@@ -188,6 +188,10 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
                 Capability("docx.edit", "core", validation_strength=2),
                 Capability("docx.edit.replace-text", "core", validation_strength=2),
                 Capability("docx.merge", "core", validation_strength=2),
+                Capability("docx.template.pack.list", "core", validation_strength=3),
+                Capability("docx.template.pack.read", "core", validation_strength=3),
+                Capability("docx.template.import.inspect", "core", validation_strength=3),
+                Capability("docx.template.import.create", "core", validation_strength=3),
                 Capability("xlsx.read", "core", validation_strength=2),
                 Capability("xlsx.inspect.structure", "core", validation_strength=2),
                 Capability("xlsx.create", "core", validation_strength=2),
@@ -226,7 +230,8 @@ def build_default_registry(project_root: Path) -> ProviderCatalog:
             detect=detectors.detect_node_provider,
             execute=docx_service,
             capabilities=[
-                Capability("docx.template.apply", "core", validation_strength=2)
+                Capability("docx.template.apply", "core", validation_strength=2),
+                Capability("docx.template.pack.instantiate", "core", validation_strength=3),
             ],
             startup_cost=1,
             required=True,

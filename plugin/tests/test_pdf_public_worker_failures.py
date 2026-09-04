@@ -264,13 +264,15 @@ def _assert_workspace_lock_trace(mode: str, trace: dict[str, object]) -> None:
         < trace["supervisor_deadline_seconds"]
     )
     if mode == "workspace-lock-transient":
-        assert trace["cleanup_attempt_count"] == 2
+        # One successful operation-root removal now precedes the unchanged
+        # locked-workspace failure and retry sequence.
+        assert trace["cleanup_attempt_count"] == 3
         assert trace["cleanup_failure_count"] == 1
         assert trace["private_root_exists_after_supervisor"] is False
         assert trace["fixture_cleanup_used"] is False
     else:
         assert mode == "workspace-lock-permanent"
-        assert trace["cleanup_attempt_count"] == 4
+        assert trace["cleanup_attempt_count"] == 5
         assert trace["cleanup_failure_count"] == 4
         assert trace["private_root_exists_after_supervisor"] is True
         assert trace["fixture_cleanup_used"] is True

@@ -37,9 +37,15 @@ def test_public_capabilities_are_callable_not_detection_inferred(
         "docx.revisions.apply",
         "docx.revisions.read",
         "docx.template.apply",
+        "docx.template.import.create",
+        "docx.template.import.inspect",
+        "docx.template.pack.instantiate",
+        "docx.template.pack.list",
+        "docx.template.pack.read",
         "docx.validate.schema",
     }
     assert operations["docx.template.apply"]["providers"] == ["core-node"]
+    assert operations["docx.template.pack.instantiate"]["providers"] == ["core-node"]
     for operation in (
         "docx.create",
         "docx.compare.semantic",
@@ -50,6 +56,11 @@ def test_public_capabilities_are_callable_not_detection_inferred(
         "docx.merge",
         "docx.read",
         "docx.template.apply",
+        "docx.template.import.create",
+        "docx.template.import.inspect",
+        "docx.template.pack.instantiate",
+        "docx.template.pack.list",
+        "docx.template.pack.read",
     ):
         assert operations[operation]["available"] is True
     dotnet_available = next(

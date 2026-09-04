@@ -232,6 +232,7 @@ def test_malformed_capability_reports_fail_closed(payload: dict[str, object]) ->
     assert caught.value.code == "capability_report_malformed"
 
 
+@pytest.mark.slow
 def test_core_only_profile_runs_real_public_smokes(project_root: Path) -> None:
     process = subprocess.run(
         [
@@ -270,6 +271,7 @@ def test_core_only_profile_runs_real_public_smokes(project_root: Path) -> None:
     assert all(item["reason"] for item in optional.values())
 
 
+@pytest.mark.slow
 def test_full_profile_runs_available_pypdf_smokes_before_reporting_unavailable(
     project_root: Path,
     tmp_path: Path,

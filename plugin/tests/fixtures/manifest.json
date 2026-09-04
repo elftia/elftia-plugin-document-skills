@@ -25,7 +25,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign",
-      "sha256": "9b345775c8b1a4ed9e0f40a7be850a000a20f6ac63a0b46cc88bd4ff8defd803"
+      "sha256": "7749468f04fe016f54e060ec4116ec9765e742890cc6570852cf4f0063157d6a"
     },
     {
       "authorship": "original-elftia",
@@ -41,7 +41,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "consumer-negative",
-      "sha256": "788598c8c909a704d301563a6df68522df3c5a76f5b63015d06d17bbdbb33b5d"
+      "sha256": "c29c055f0d4554ec3e464ab7c72479989e2c5c45ded7dd2f950aa67aaa7a3f10"
     },
     {
       "authorship": "original-elftia",
@@ -57,7 +57,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "consumer-positive",
-      "sha256": "14e931a5ff6ec9200464705e90aa34b5d7ec428e45b52dc054cd89d3eeb13a7b"
+      "sha256": "495e889bc3a7f0f6eccee471b2ef24b994e7d939de552b045bb040b15329e36b"
     },
     {
       "authorship": "original-elftia",
@@ -73,7 +73,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "benign-preservation",
-      "sha256": "a52d2d7f2878cb4f7a784af0f6cd3f9c95935bcb7b8f7a280a9bed5cd37e6e2c"
+      "sha256": "0d4bf482c99c3dbb7b821cc71f790c90914aa2aefd0c1e71b3c92c13f5dd5f9c"
     },
     {
       "authorship": "original-elftia",
@@ -89,7 +89,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "protected-content",
-      "sha256": "5794c01c723f9cdf68a47ccd9cfc056f4d3e49ea39f2683f4f728f5e445f324f"
+      "sha256": "2ab29259697b82f06c41b048d000173df2242f850ec19531f4ecca6e45aed0d0"
     },
     {
       "authorship": "original-elftia",
@@ -105,7 +105,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "protected-content",
-      "sha256": "23acaefcda0b4e4960f4617ca042303542962f922cac2026c1c74123a5f394ba"
+      "sha256": "774746aebe089be8da302ee837c245bc841a96815168db57e3220bac3964e66c"
     },
     {
       "authorship": "original-elftia",
@@ -121,7 +121,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "af72625eb47607bfb2bc0182ea23daba6f0e75161c77e409d2cca9f4af552d4b"
+      "sha256": "8bf6876d0ceaf3e5f145c3312aab7a493b9cc994f4174d9d4d93047c884c3e09"
     },
     {
       "authorship": "original-elftia",
@@ -137,7 +137,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "091bec50e32e45692f6233b78e320ccad7b5594690d9e93aa1b6109d28623587"
+      "sha256": "7db071ca2662084cea39ca7263d477ed583b22ba5756a1e59601ecb57ba074b2"
     },
     {
       "authorship": "original-elftia",
@@ -153,7 +153,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "184f09a35a32508c66b84a58913674a4f5c15ff520a3c45852d75c63db3d4cc5"
+      "sha256": "0f7fdbb4dab472d6ec554e00113558e3a84f579bd7ced0a0815f4af195c20066"
     },
     {
       "authorship": "original-elftia",
@@ -169,7 +169,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "167f726393ee1287e7506d7ec14a884268afb2f0f194e43437ffe0abcb086bee"
+      "sha256": "559f34b000a2c69523ddc44bd23b5ebc1165536ab92a3bf5c5fd76d66b510c86"
     },
     {
       "authorship": "original-elftia",
@@ -201,7 +201,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "7e17bd8e213fee5bf86ad104e20677a60c5d43bc14ce0af3a119cc56316e1f6a"
+      "sha256": "db8c5748a8b49efe23da280f9d6401eafe1e1761d9017602cd5fc2c8cb10629f"
     },
     {
       "authorship": "original-elftia",
@@ -217,7 +217,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "b2705ed4e8e5b27f532ec831aecd14d2cd6afb96af261c38b36071e3fea37006"
+      "sha256": "10ab05a9a9170da9b15c4f6efaf5cd3703f48f0ff30dcf47d8e6a009cfdae951"
     },
     {
       "authorship": "original-elftia",
@@ -233,7 +233,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "91f40d1a074a004e35dc37ead574b964ac7dd94518468c3130e21f21d6eea7f0"
+      "sha256": "33032af3dbb888c24be286f2b339297f1569093a925e0a7eca30dff9c6ad3764"
     },
     {
       "authorship": "original-elftia",
@@ -249,7 +249,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "6011eedd2703b717ae3894344878544d79a8840d88d1fb8e90c40ba439a3f4e5"
+      "sha256": "3269aa5e63c293a60dfac1e71b5624c24103ab2653b9f011495fd47358161d1f"
     },
     {
       "authorship": "original-elftia",
@@ -265,7 +265,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "malicious",
-      "sha256": "c86c1ba1a42570830f734f5c08023162cf5b4bc4f94b94643e0409c753bc9fb4"
+      "sha256": "bcd6f0bcdbd3c358bd555bd0b5f9ae7326396d2e341ea72a4e5b98104f9d80e1"
     },
     {
       "authorship": "original-elftia",
@@ -281,7 +281,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "88e017c5bd8248ecd8c900ae0ff5d4370b035a4e3973635082120310290c4e34"
+      "sha256": "fa9d4578a76198ba2682d7ce161a00c5b68fcce70bbd43cb8c5dd1786bfb0b91"
     },
     {
       "authorship": "original-elftia",
@@ -297,7 +297,7 @@
       ],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "0421e00d2664e65af66d288ca7244a3e81536f8ecc12a27c441f4e0aed3b23a1"
+      "sha256": "f0f0bf5038a1fd099a0fcdc2eda96de0e6bba5c265a582fbb64b7c5cabb06f28"
     },
     {
       "authorship": "original-elftia",
@@ -1526,7 +1526,7 @@
       "recipe_dependencies": [],
       "redistribution_allowed": true,
       "security_classification": "oracle",
-      "sha256": "0e6aa02162c4005c9cc72de0d0ffa4367098f9ba3c47110987585ebdbefbd41f"
+      "sha256": "91d2db8223f87aa3e51b7e2668c769dda82d11ba42f9fc6cbf62c44beceddc90"
     },
     {
       "authorship": "original-elftia",

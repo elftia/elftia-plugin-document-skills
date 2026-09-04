@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import tostring
 
 from defusedxml.ElementTree import fromstring
@@ -68,7 +69,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=60,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     if check:
         assert process.returncode == 0, (

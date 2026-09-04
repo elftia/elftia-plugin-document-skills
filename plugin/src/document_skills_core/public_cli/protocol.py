@@ -49,6 +49,8 @@ def command_envelope(
     command: PublicCommand,
     format_id: str,
     invocation_base: Path,
+    operation_root: Path,
+    operation_root_identity: tuple[int, int],
 ) -> dict[str, Any]:
     return {
         "protocol_version": PROTOCOL_VERSION,
@@ -57,6 +59,8 @@ def command_envelope(
         "format": format_id,
         "argv": list(command.argv),
         "invocation_base": str(invocation_base),
+        "operation_root": str(operation_root),
+        "operation_root_identity": list(operation_root_identity),
     }
 
 
@@ -71,6 +75,8 @@ def validate_command_envelope(
         "format",
         "argv",
         "invocation_base",
+        "operation_root",
+        "operation_root_identity",
     }
     if type(value) is not dict or set(value) != expected:
         raise ValueError("invalid command envelope fields")
@@ -81,6 +87,7 @@ def validate_command_envelope(
         type(private_id) is not str
         or not private_id
         or len(private_id.encode("ascii", errors="strict")) > 128
+        or not all(character.isalnum() or character in "-_" for character in private_id)
     ):
         raise ValueError("invalid private nonce")
     if invocation_id is not None and private_id != invocation_id:
@@ -93,6 +100,22 @@ def validate_command_envelope(
         type(item) is not str for item in value["argv"]
     ):
         raise TypeError("private argv must be a string list")
+    operation_root = value["operation_root"]
+    if (
+        type(operation_root) is not str
+        or not operation_root
+        or len(operation_root.encode("utf-8", errors="strict"))
+        > MAX_INVOCATION_BASE_BYTES
+        or not Path(operation_root).is_absolute()
+    ):
+        raise ValueError("invalid private operation root")
+    operation_identity = value["operation_root_identity"]
+    if (
+        type(operation_identity) is not list
+        or len(operation_identity) != 2
+        or any(type(item) is not int or item < 0 for item in operation_identity)
+    ):
+        raise ValueError("invalid private operation root identity")
     value["invocation_base"] = str(validate_invocation_base(value["invocation_base"]))
     return value
 

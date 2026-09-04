@@ -50,6 +50,7 @@ The implementation sources are:
 | Styles/numbering/theme inspection    | `PRESENT`     | `formats/docx/formatting_inspection.py`, `numbering_editing.py`          |
 | Direct-formatting normalization report | `PRESENT`  | bounded contamination inventory; no automatic semantic normalization     |
 | Declarative template regions/style overlay | `PRESENT` | `template_regions.py`, `style_overlay.py`; no expressions or raw XML    |
+| Template pack catalog/import/instantiate | `PRESENT` | canonical hash-bound packs, local-only fail-closed import, two bounded adapters |
 | Bounded high-fidelity graph merge    | `PRESENT`     | `formats/docx/merge_operation.py` and graph-specific remappers           |
 | .dotx/.docm/legacy .doc handling     | `PRESENT`     | inert template/VBA boundaries + explicit LibreOffice legacy conversion  |
 | Edit replace-text (run-aware)        | `PRESENT`     | `formats/docx/replace.py`, `formats/docx/transaction.py`                 |

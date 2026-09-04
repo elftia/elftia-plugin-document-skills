@@ -31,12 +31,17 @@ argv = {
     "run": ["run", "--request", "fixture-request.json"],
 }[command]
 private_root = root / ".document-skills-tmp" / f"invocation-fixture-{mode}"
+# Only the hang mode needs a deliberately short budget. Every other mode
+# expects the worker to terminate on its own, so it inherits the product's
+# default cold-start worker budget; a tighter fixture budget turned a cold
+# spawn under parallel test load into a false DS_PROCESS_TIMEOUT.
+supervisor_options = {"timeout_seconds": 0.25} if mode == "hang" else {}
 try:
     payload, success = PublicCommandSupervisor(
         root,
-        timeout_seconds=0.25 if mode == "hang" else 8,
         output_limit=32_768,
         nonce_factory=lambda: f"fixture-{mode}",
+        **supervisor_options,
     ).run("docx", argv)
 finally:
     # POSIX production intentionally leaves this known empty random directory.

@@ -85,6 +85,8 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     for name, operation in (
         ("create", "pptx.create"),
         ("markdown", "pptx.create.from-markdown"),
+        ("svg", "pptx.create.from-svg"),
+        ("template", "pptx.create.from-template"),
         ("edit", "pptx.edit"),
         ("sanitize", "pptx.template.sanitize"),
     ):
@@ -117,16 +119,16 @@ def test_provider_operations_have_private_public_budgets_without_relaxing_existi
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(html_request))),
         tmp_path,
-    ) == (60.0, 1_048_576)
+    ) == (120.0, 1_048_576)
     for request in mutation_requests:
         assert supervisor._command_limits(
             PublicCommand("run", ("run", "--request", str(request))),
             tmp_path,
-        ) == (45.0, 2_097_152)
+        ) == (240.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(schema_request))),
         tmp_path,
-    ) == (45.0, 2_097_152)
+    ) == (240.0, 2_097_152)
     assert supervisor._command_limits(
         PublicCommand("run", ("run", "--request", str(convert_request))),
         tmp_path,
@@ -167,6 +169,7 @@ def test_private_capture_status_is_exact_and_nonce_bound():
         _capture_status({**status, "extra": True}, nonce)
 
 
+@pytest.mark.slow
 def test_public_html_conversion_creates_native_editable_shapes(project_root: Path, tmp_path: Path):
     capabilities = _public(project_root, tmp_path, "capabilities", "--json")
     operation = next(item for item in capabilities["operations"] if item["operation"] == "pptx.create.from-html")
@@ -203,6 +206,7 @@ def test_public_html_conversion_creates_native_editable_shapes(project_root: Pat
     assert source.is_file()
 
 
+@pytest.mark.slow
 def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
     project_root: Path,
     tmp_path: Path,
@@ -266,6 +270,7 @@ def test_public_fixture_reopens_with_editable_counts_and_repeats_exact_hash(
     )
 
 
+@pytest.mark.slow
 def test_public_nested_wrappers_shape_fallback_and_pseudo_layers_are_truthful(
     project_root: Path,
     tmp_path: Path,

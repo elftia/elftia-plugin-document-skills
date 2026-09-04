@@ -7,6 +7,7 @@ import posixpath
 import shutil
 import struct
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 import zlib
 from xml.etree.ElementTree import SubElement, tostring
 
@@ -235,7 +236,7 @@ def _public_run(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=75,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode in {0, 2}, process.stderr.decode("utf-8", errors="replace")
     assert process.stderr == b""

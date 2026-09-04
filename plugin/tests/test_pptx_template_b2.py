@@ -4,6 +4,7 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from types import SimpleNamespace
 
 from document_skills_core.formats.pptx.contact_sheet import PngImage, decode_png, encode_png
@@ -90,7 +91,7 @@ def _public_run(project_root: Path, request: Path) -> dict[str, object]:
         capture_output=True,
         text=False,
         shell=False,
-        timeout=75,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode in {0, 2}, process.stderr.decode("utf-8", errors="replace")
     assert process.stderr == b""

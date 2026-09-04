@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from typing import Any
 
 import pytest
@@ -32,7 +33,7 @@ def _public(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=100,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     assert process.returncode in {0, 2}, process.stderr.decode(
         "utf-8", errors="replace"

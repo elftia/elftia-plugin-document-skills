@@ -11,6 +11,7 @@ from document_skills_core.providers.libreoffice import build_libreoffice_provide
 from tests.test_pptx_equation import _supported_deck
 
 
+@pytest.mark.slow
 def test_real_libreoffice_observes_equation_deck_without_editability_claim(
     project_root: Path,
     tmp_path: Path,

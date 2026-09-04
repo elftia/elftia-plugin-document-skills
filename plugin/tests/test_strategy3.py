@@ -13,7 +13,9 @@ from tools.frozen_uv import FrozenUvGrammar
 from tools.html_pptx_provenance import pptx_module_profile
 from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
+    DOCX_TEMPLATE_PACK_REQUIREMENT,
     cross_format_capability_module_profile,
+    docx_template_pack_module_profile,
     regenerate,
     xlsx_data_profile,
     xlsx_module_profile,
@@ -585,8 +587,14 @@ def test_xlsx_provenance_composes_provider_and_existing_shared_owners(project_ro
         "src/document_skills_core/providers/defaults.py": _pptx_xlsx_requirement(
             "src/document_skills_core/providers/defaults.py"
         ),
-        "src/document_skills_core/public_cli/supervisor.py": _pptx_xlsx_requirement(
-            "src/document_skills_core/public_cli/supervisor.py"
+        "src/document_skills_core/public_cli/supervisor.py": _compose_requirements(
+            _pptx_requirement(
+                "src/document_skills_core/public_cli/supervisor.py"
+            ),
+            DOCX_TEMPLATE_PACK_REQUIREMENT,
+            _XLSX_REQUIREMENT,
+            _XLSX_COMPLETION_REQUIREMENT,
+            _XLSX_ADVANCED_REQUIREMENT,
         ),
         "tools/regenerate_provenance.py": _pptx_xlsx_requirement(
             "tools/regenerate_provenance.py"
@@ -845,12 +853,20 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
     for path in expected_paths:
         pptx_requirement = _pptx_requirement(path)
         cross_format_requirement = _cross_format_requirement(path)
+        template_pack_requirement = (
+            DOCX_TEMPLATE_PACK_REQUIREMENT
+            if docx_template_pack_module_profile(path)
+            else None
+        )
         format_requirement = (
             _compose_requirements(
                 cross_format_requirement,
                 pptx_requirement,
+                template_pack_requirement,
             )
-            if cross_format_requirement or pptx_requirement
+            if cross_format_requirement
+            or pptx_requirement
+            or template_pack_requirement
             else None
         )
         base_requirement = (

@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import subprocess
+from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from defusedxml.ElementTree import fromstring
@@ -178,7 +179,7 @@ def test_public_scene_export_rejects_excessive_group_depth(
         capture_output=True,
         text=False,
         shell=False,
-        timeout=100,
+        timeout=PUBLIC_CLI_TEST_TIMEOUT_SECONDS,
     )
     result = json.loads(process.stdout.decode("utf-8", errors="strict"))
 

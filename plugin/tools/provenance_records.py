@@ -7,9 +7,7 @@ from typing import Any
 
 
 _REVIEW_SELF_REFERENCE_FIELDS = {"reviewer", "review_evidence"}
-CURRENT_REVIEW_ARTIFACT = (
-    "provenance/reviews/ds-0.5.7-version-bump-2026-09-03.md"
-)
+CURRENT_REVIEW_ARTIFACT = "provenance/reviews/ds-0.5.8-merge-rebaseline-2026-09-04.md"
 CANONICAL_MAPPING_BOUND_REPORT = CURRENT_REVIEW_ARTIFACT
 SELF_REFERENTIAL_METADATA_ALLOWLIST = frozenset(
     {

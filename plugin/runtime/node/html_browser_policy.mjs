@@ -1,4 +1,5 @@
 const CONTAINED_ARGUMENTS = Object.freeze([
+  '--disable-background-mode',
   '--disable-background-networking',
   '--disable-component-update',
   '--disable-default-apps',

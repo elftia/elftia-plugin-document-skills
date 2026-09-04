@@ -90,15 +90,38 @@ sorted changed/added/removed part names. It is structural evidence, not a visual
 
 ## Validation
 
+Template-pack results keep pack identity separate from document identity. Catalog entries expose
+stable id/version, external manifest SHA-256, modes, language policy, and redistribution status.
+Read returns the public manifest, member/payload hashes and sizes, compatibility, declared
+controls/role coverage, provenance/license summary, recorded evidence, and diagnostics. Import
+success additionally returns the unchanged source digest, published manifest path/digest, complete
+member inventory, and no-replace promotion state. Inspection role candidates always carry
+`approved:false`; its content-free `format_inventory` and separate template/document-spec
+`compatible|degraded|incompatible` evidence state which direct formatting, geometry, and fields a
+mode preserves or cannot consume without an explicit mapping. A successful explicit mapping is
+returned by pack read as `capabilities.authoring_format`, and document-spec compatibility reports
+`status:"compatible"` plus `mapped_by:"explicit-authoring-format/v1"`. A degraded
+document-spec import with no profile returns `DS_DOCX_TEMPLATE_AUTHORING_FORMAT_REQUIRED`; a
+profile that invents, conflicts with, fails to consume, or cannot represent inspection evidence
+returns `DS_DOCX_TEMPLATE_AUTHORING_FORMAT_LOSSY`. Neither failure publishes a pack directory.
+
+Instantiation returns pack id/version, manifest and payload digests, selected mode, the
+`operation-owned-verified-snapshot` authoring boundary, and the normal
+DOCX creation/template semantic and promotion evidence. `rendered_evidence.status` is `not_run`,
+`unavailable`, `failed`, or `pass` after bounded provider rendering; an executed render records PDF
+identity/page evidence and optional page/layout findings. `visual_comparison_succeeded` is never
+true without a bounded comparable baseline. Unknown built-in versions, source/manifest drift, mode/profile/control
+gaps, or caller style-profile overrides publish no output and preserve their stable `DS_*` error.
+
 Required gates cover artifact existence/size, ZIP magic/CRC, bounded XML, content types,
 relationships, required Word parts, active-content policy, provider reopen, operation semantics,
 part preservation, and source preservation where applicable.
 
 `visual.render` and `schema.full` can be `unavailable` while another required operation succeeds.
-`unavailable` is never equivalent to `pass` and never raises achieved fidelity. PDF/PNG render can
-prove page generation and layout-rule execution without claiming reference comparison. Only
-`docx.compare.visual` with a hash-bound reference and complete explicit pairing marks the visual
-render evidence as executed; its comparison result remains a separate optional gate. Schema
+`unavailable` is never equivalent to `pass` and never raises achieved fidelity. PDF/PNG render and
+enhanced pack verification can prove page generation and layout-rule execution without claiming
+reference comparison. Only `docx.compare.visual` with a hash-bound reference and complete explicit
+pairing marks a reference comparison as executed; its comparison result remains a separate optional gate. Schema
 validation marks `schema.full` pass only when OpenXmlValidator actually ran.
 
 Provider chains are evidence, not configuration. Read/create/edit/replace/inspect/accessibility/

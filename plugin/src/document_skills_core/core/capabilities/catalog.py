@@ -1,6 +1,7 @@
 """Typed provider and runtime catalog contracts."""
 
 from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -79,3 +80,4 @@ class ProviderDefinition:
     startup_cost: int = 0
     risk: int = 0
     required: bool = False
+    operation_lease: Callable[[], AbstractContextManager[None]] | None = None

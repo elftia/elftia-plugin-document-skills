@@ -21,6 +21,11 @@ CORE_OPERATIONS = frozenset(
         "docx.edit.replace-text",
         "docx.merge",
         "docx.template.apply",
+        "docx.template.pack.list",
+        "docx.template.pack.read",
+        "docx.template.pack.instantiate",
+        "docx.template.import.inspect",
+        "docx.template.import.create",
     }
 )
 OPTIONAL_PROVIDERS = frozenset({"libreoffice", "dotnet-openxml"})
@@ -85,6 +90,112 @@ def main() -> int:
             },
         },
         "core-python",
+    )
+
+    results["docx.template.pack.list"] = _run(
+        project_root,
+        evidence_root,
+        catalog,
+        "template-pack-list",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.template.pack.list",
+            "arguments": {},
+        },
+        "core-python",
+    )
+    results["docx.template.pack.read"] = _run(
+        project_root,
+        evidence_root,
+        catalog,
+        "template-pack-read",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.template.pack.read",
+            "arguments": {
+                "pack": {
+                    "kind": "builtin",
+                    "id": "general-academic-paper",
+                    "version": "1.0.0",
+                }
+            },
+        },
+        "core-python",
+    )
+    results["docx.template.import.inspect"] = _run(
+        project_root,
+        evidence_root,
+        catalog,
+        "template-import-inspect",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.template.import.inspect",
+            "input": str(created),
+            "arguments": {"expected_source_sha256": _sha256(created)},
+        },
+        "core-python",
+    )
+    imported_pack = evidence_root / "imported-template-pack"
+    results["docx.template.import.create"] = _run(
+        project_root,
+        evidence_root,
+        catalog,
+        "template-import-create",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.template.import.create",
+            "input": str(created),
+            "output": str(imported_pack),
+            "arguments": {
+                "expected_source_sha256": _sha256(created),
+                "manifest": {
+                    "id": "ci-template",
+                    "version": "1.0.0",
+                    "display_name": "CI Template",
+                    "description": "Deterministic CI scalar template pack.",
+                    "modes": ["template"],
+                    "variables": [{"name": "name", "required": True}],
+                    "regions": [],
+                    "role_styles": {},
+                    "compatibility": {
+                        "document_spec_versions": [],
+                        "domain_profiles": [],
+                        "template_engine_versions": ["1.0"],
+                        "style_profile_versions": [],
+                    },
+                },
+                "provenance": {
+                    "source_kind": "local",
+                    "imported_at": "2026-08-29T00:00:00Z",
+                    "redistributable": False,
+                },
+            },
+        },
+        "core-python",
+    )
+    imported_digest = results["docx.template.import.create"]["diagnostics"][
+        "operation_result"
+    ]["manifest_sha256"]
+    results["docx.template.pack.instantiate"] = _run(
+        project_root,
+        evidence_root,
+        catalog,
+        "template-pack-instantiate",
+        {
+            "schema_version": "1.0",
+            "operation": "docx.template.pack.instantiate",
+            "output": str(evidence_root / "pack-instantiated.docx"),
+            "arguments": {
+                "pack": {
+                    "kind": "local",
+                    "path": str(imported_pack),
+                    "expected_manifest_sha256": imported_digest,
+                },
+                "mode": "template",
+                "variables": {"name": "Agent"},
+            },
+        },
+        "core-node",
     )
 
     read_only = {

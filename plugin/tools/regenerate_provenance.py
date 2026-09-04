@@ -43,6 +43,7 @@ XLSX_ADVANCED_REQUIREMENT = "Rasen document-skills-xlsx-advanced-authoring"
 LIBREOFFICE_REQUIREMENT = "Rasen document-skills-libreoffice-enhancement"
 OPENXML_DOTNET_REQUIREMENT = "Rasen document-skills-openxml-dotnet-enhancement"
 CORE_DOCX_REQUIREMENT = "Rasen document-skills-core-docx"
+DOCX_TEMPLATE_PACK_REQUIREMENT = "Rasen docx-template-packs-and-reference-import"
 CORE_PDF_REQUIREMENT = "Rasen document-skills-core-pdf"
 FOUNDATION_REQUIREMENT = "Rasen document-skills-foundation strategy-attempt-3"
 CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
@@ -113,6 +114,45 @@ _PPTX_OPENXML_MODULE_PROFILES: dict[str, tuple[str, list[str]]] = {
         ["tests/test_pptx_public.py"],
     ),
 }
+
+_DOCX_TEMPLATE_PACK_TESTS = [
+    "tests/test_docx_template_packs.py",
+    "tests/test_docx_template_pack_remediation.py",
+    "tests/test_docx_document_spec_public.py",
+    "tests/test_docx_create_gate.py",
+    "tests/test_docx_public.py",
+    "tests/test_strategy2.py",
+    "tests/test_supply_chain.py",
+]
+_DOCX_TEMPLATE_PACK_MODULES = {
+    "src/document_skills_core/public_cli/supervisor.py",
+    "src/document_skills_core/formats/docx/authoring_validation.py",
+    "src/document_skills_core/formats/docx/create.py",
+    "src/document_skills_core/formats/docx/create_contract.py",
+    "src/document_skills_core/formats/docx/create_validation.py",
+    "src/document_skills_core/formats/docx/document_spec.py",
+    "src/document_skills_core/formats/docx/story_contract.py",
+    "src/document_skills_core/formats/docx/style_profiles.py",
+    "src/document_skills_core/formats/docx/table.py",
+    "src/document_skills_core/formats/docx/template_format_inventory.py",
+    "src/document_skills_core/formats/docx/template_import.py",
+    "src/document_skills_core/formats/docx/template_pack.py",
+    "src/document_skills_core/formats/docx/template_pack_contract.py",
+    "src/document_skills_core/formats/docx/template_pack_operation.py",
+    "src/document_skills_core/formats/docx/template_regions.py",
+    "tests/test_docx_template_packs.py",
+    "tests/test_docx_template_pack_remediation.py",
+    "tests/test_docx_public.py",
+    "tools/build_docx_template_pack.py",
+    "tools/ci_docx_core_evidence.py",
+}
+_DOCX_TEMPLATE_PACK_DESCRIPTION = (
+    "Integrity-bound DOCX template-pack snapshots, truthful reference-format "
+    "inventory, backward-compatible structured stories, academic typography and "
+    "paragraph layout, positive table geometry/three-line borders, strict consumer "
+    "assertions, bounded public/OpenXML cold-start budgets with explicit short-timeout "
+    "cleanup, or focused source/distribution regression evidence."
+)
 
 _XLSX_FORMAT_PREFIX = "src/document_skills_core/formats/xlsx/"
 _XLSX_CORE_MODULES = {
@@ -633,12 +673,32 @@ def pptx_openxml_module_profile(path: str) -> tuple[str, list[str]] | None:
     return _PPTX_OPENXML_MODULE_PROFILES.get(path)
 
 
+def docx_template_pack_module_profile(path: str) -> tuple[str, list[str]] | None:
+    if path in _DOCX_TEMPLATE_PACK_MODULES or path.startswith(
+        "skills/document-docx/assets/template-packs/"
+    ):
+        return (_DOCX_TEMPLATE_PACK_DESCRIPTION, _DOCX_TEMPLATE_PACK_TESTS)
+    return None
+
+
+def docx_template_pack_data_profile(path: str) -> tuple[str, list[str]] | None:
+    if (
+        path == "schemas/docx-template-pack.schema.json"
+        or path.startswith("skills/document-docx/assets/template-packs/")
+        or "template-pack" in path
+        or "template-import" in path
+    ):
+        return (_DOCX_TEMPLATE_PACK_DESCRIPTION, _DOCX_TEMPLATE_PACK_TESTS)
+    return None
+
+
 def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     cross_format_profile = cross_format_capability_module_profile(artifact.path)
     pptx_profile = pptx_module_profile(artifact.path)
     pptx_openxml_profile = pptx_openxml_module_profile(artifact.path)
     xlsx_profile = xlsx_module_profile(artifact.path)
     readme_profile = readme_system_profile(artifact.path)
+    template_pack_profile = docx_template_pack_module_profile(artifact.path)
     pptx_record_profile = (
         (pptx_profile[0], pptx_profile[1]) if pptx_profile else None
     )
@@ -647,6 +707,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         pptx_record_profile,
         pptx_openxml_profile,
         readme_profile,
+        template_pack_profile,
     )
     is_consumer_gate = artifact.path.startswith("consumer_validation/") or artifact.path in {
         "tests/test_consumer_validation.py",
@@ -680,6 +741,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         pptx_profile[2] if pptx_profile else None,
         OPENXML_DOTNET_REQUIREMENT if pptx_openxml_profile else None,
         README_SYSTEM_REQUIREMENT if readme_profile else None,
+        DOCX_TEMPLATE_PACK_REQUIREMENT if template_pack_profile else None,
     )
     base_requirement = (
         format_requirement
@@ -822,6 +884,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
     reconstruction_b7_profile = reconstruction_b7_data_profile(artifact.path)
     xlsx_profile = xlsx_data_profile(artifact.path)
     readme_profile = readme_system_profile(artifact.path)
+    template_pack_profile = docx_template_pack_data_profile(artifact.path)
     selected_profiles = [
         profile
         for profile in (
@@ -833,6 +896,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
             reconstruction_b7_profile,
             xlsx_profile,
             readme_profile,
+            template_pack_profile,
         )
         if profile is not None
     ]
@@ -868,6 +932,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 if reconstruction_b7_profile
                 else None,
                 README_SYSTEM_REQUIREMENT if readme_profile else None,
+                DOCX_TEMPLATE_PACK_REQUIREMENT if template_pack_profile else None,
             )
             if (
                 html_profile
@@ -877,6 +942,7 @@ def _data_record(artifact: Any, reviewer: str) -> dict[str, Any]:
                 or equation_b6_profile
                 or reconstruction_b7_profile
                 or readme_profile
+                or template_pack_profile
             )
             else None
         )
