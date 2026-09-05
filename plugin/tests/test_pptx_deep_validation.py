@@ -10,6 +10,7 @@ import pytest
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 from document_skills_core.formats.pptx.constants import NS, local_name
+from document_skills_core.formats.pptx.create import create_pptx
 from document_skills_core.formats.pptx.deep_validation import validate_deep_package
 from document_skills_core.formats.pptx.package import write_deterministic_zip
 from document_skills_core.formats.pptx.service import PptxService
@@ -124,6 +125,36 @@ def test_deep_validator_rejects_wrong_embedded_workbook_content_type(
 
     failures = _failures(output)
     assert "chart-workbook-content-type:ppt/charts/chart1.xml" in failures
+
+
+def test_deep_validator_rejects_theme_shared_by_slide_and_notes_masters(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "notes.pptx"
+    create_pptx(source, {
+        "metadata": {"title": "Notes", "creator": "Test", "subject": ""},
+        "slides": [{
+            "layout": "content",
+            "title": "Notes",
+            "shapes": [{"text": "Body", "runs": []}],
+            "table": None,
+            "chart_reference": None,
+            "image_reference": None,
+            "notes": "Speaker notes",
+        }],
+    })
+    output = _mutate_xml(
+        source,
+        tmp_path / "shared-notes-theme.pptx",
+        "ppt/notesMasters/_rels/notesMaster1.xml.rels",
+        _share_notes_theme,
+    )
+
+    failures = _failures(output)
+    assert (
+        "notes-master-theme-shared:ppt/notesMasters/notesMaster1.xml:"
+        "ppt/theme/theme1.xml"
+    ) in failures
 
 
 @pytest.mark.parametrize("branch", ["fallback", "later-choice"])
@@ -304,6 +335,15 @@ def _replace_xlsx_content_type(root: Element) -> None:
         if node.attrib.get("Extension", "").casefold() == "xlsx"
     )
     declaration.attrib["ContentType"] = "application/octet-stream"
+
+
+def _share_notes_theme(root: Element) -> None:
+    relationship = next(
+        node
+        for node in root
+        if node.attrib.get("Type", "").endswith("/theme")
+    )
+    relationship.attrib["Target"] = "../theme/theme1.xml"
 
 
 def _tamper_equation_alternate(

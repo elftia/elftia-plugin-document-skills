@@ -296,6 +296,7 @@ def test_all_object_primitives_are_transactional_and_consumer_reopen(
     assert len(package.media_parts()) == 0
     assert len(package.chart_parts()) == 0
     assert len(package.notes_slide_parts()) == 1
+    assert len(package.theme_parts()) == 2
     evidence = result["diagnostics"]["operation_result"]["object_edits"]
     assert len(evidence) == len(edits)
     outcomes = {gate["id"]: gate["outcome"] for gate in result["validation"]["gates"]}

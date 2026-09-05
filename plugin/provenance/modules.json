@@ -9,7 +9,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "2cb4378b2b750fff7438e9cabdc6190c611fee7766b7e562b1fee33a173a272e"
+      "sha256": "29285b5eee35d4eb97348b10599a205e9ba21bf0ef992b2bb1eefc1f22304c55"
     },
     {
       "artifact": "PROVENANCE.md",
@@ -142,7 +142,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "69410e53a651776919e1d26ce67e39ab571d81e2f7377c570f313e982d3b7703"
+      "sha256": "7cbb961f3a4431daf9698cf943aef540b34d1a105d3beac45b50cee89a6d1b27"
     },
     {
       "artifact": "package-lock.json",
@@ -158,7 +158,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "a5639c02a86bc4c48775f670914c5ee3220babb44192fdad960104bb0f390e04"
+      "sha256": "9de2175dfe9a788be2c8274f4613663ed5526fc4aeba1567244902f4b27f1022"
     },
     {
       "artifact": "package.json",
@@ -174,7 +174,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8c73e04419a88de8ade57ae35fd6534c13db9c62296f34e9717bd0fe4f359dd4"
+      "sha256": "bae47aa6611454a119ba6778f78af9ec5fd73eaba04e644e370ae1903f0369e6"
     },
     {
       "artifact": "provenance/README.md",
@@ -615,6 +615,16 @@
       "sha256": "abf3fbba6e2d79c96f50e33d2c34e2c516dad1c99750bc1d5fc4c66028800d25"
     },
     {
+      "artifact": "provenance/reviews/ds-0.5.8-merge-rebaseline-2026-09-04.md",
+      "classification": "reviewed-data",
+      "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "e84352812000d2c67ca82909ede36e028a92ba3419ce9cbb58c7efbf1bdf6aa9"
+    },
+    {
       "artifact": "provenance/reviews/foundation-review-cycle-round-1.md",
       "classification": "reviewed-data",
       "reason": "Exact non-execution release bytes are classified by the shared release inventory and require independent review.",
@@ -801,7 +811,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d55d29bada9c06db474696e8ad819ac36a72d4f2149a9d9d8b524cb1aa2159e0"
+      "sha256": "e03901a77c992b471caf2c317a8a792c61fa57964cb2b4c75bcefc6cf86004c0"
     },
     {
       "artifact": "pyproject.toml",
@@ -811,7 +821,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "311e2392b0dcfd321f84a68b413e9830a5c2054ef132c8882b50a79535b0d3dc"
+      "sha256": "7840bce864af73925f9cda7d1594cf4ea14c9be8c50692b0fc2bb394cee1bb3e"
     },
     {
       "artifact": "sbom.cdx.json",
@@ -853,7 +863,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e9e72d2213fa2d86f325cc9775323dc55431edc5fde023d5910914665e12c45a"
+      "sha256": "8cc1ad9174b997c93b5a3f2028a97a567c1bf96a6da0a5b53db8d21f8c4669e8"
     },
     {
       "artifact": "schemas/README.md",
@@ -890,7 +900,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "40298f0b92e71de36bffdf3b2b80a7cf8bae31f823431d27bde4f2c02c5ef915"
+      "sha256": "b4ab8b6c2d4ba27e15c87306104b8891c5b2bf4082bfe8369f281962d7ced083"
     },
     {
       "artifact": "schemas/docx-template-pack.schema.json",
@@ -2006,7 +2016,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6ed805549515df2c9b9b82e59ece78220de818f273e2c24880d4c9a1dc650176"
+      "sha256": "033cf1ca2ca2f3b2ffa2f7d07bdab225a2da279fa0b04f0f228c466fb258a137"
     },
     {
       "artifact": "skills/document-xlsx/SKILL.md",
@@ -3050,7 +3060,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8660b3e499af9e44e05803824d2ffce3c0fafe21232331b8ecad0acf6bab6e6e"
+      "sha256": "5d993ecbaea86a0cb0b892613e1fef9bdcc0e089c7d21c2ed502ca90a1daa469"
     },
     {
       "artifact": "tests/fixtures/pdf-completion/emoji-success.pdf",
@@ -4573,7 +4583,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "5f067ce0e070794d3fab3b73d4ae9e70d48184117da53e8d512dda4289c58d33"
+      "sha256": "61dad50029dbf2ca52502ef8b3b0db62434b2eb7ec95278c5c6d396a255260e4"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/cjk-capacity.pptx.manifest.json",
@@ -4599,7 +4609,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "130e5af7d08f95416237a946c849399891c5dbcdd725c258070d0b2ec876241d"
+      "sha256": "e5c0152d7fda8ef4c3f4ed6536630f2405fc671c17a356721c8adc1bcc1520da"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/dependency-heavy.deck-ir.json",
@@ -4665,7 +4675,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "35e709b9f965c58e494f68b87bb9e04277f0aa96588bb492b1a0b6b23739aeb3"
+      "sha256": "e7c9bac337f7084a6a97a097c739fa76b53955bfadbfab86492066ce000573f4"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/dependency-heavy.pptx.manifest.json",
@@ -4687,7 +4697,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d409bc229fc7af367861aaf2d45dcaa662e18d908f950ea146578005f5b327d4"
+      "sha256": "d3d3bf05346e3a66452e504f7aeec9994301fd8d8830ee6a2a310d6359c57ca8"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/dependency-heavy.semantic-slots.json",
@@ -4753,7 +4763,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e0582a8383d23deda01267e33556d3c1894e7d009f4c6d0b591224a3e416092e"
+      "sha256": "709ce6ebf85d0dd9d41eb4be98de7609438ed059306b77177147514cabbdd20d"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/dependency-heavy.template-contract.json.manifest.json",
@@ -4775,7 +4785,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6f4929dc93779a49361f547bf5922758c7c8acba06ffd629e4fbf9f6d25aa6a4"
+      "sha256": "dd836eaa8ffe07e3ad1dbf897b281ea53da9c58f543328291432be7ace9d1ce0"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/external-and-ole.pptx",
@@ -4797,7 +4807,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "2a9a226ac23b86aa88f53485953e0588681f054730c9bfc4125ec43967771d25"
+      "sha256": "1ee74d53d3fe726e44286bf0621e457c5ef57a42e5af65d3e23322d9d5c4fe0d"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/external-and-ole.pptx.manifest.json",
@@ -4819,7 +4829,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "df8e480e59658386760bc8722303b28f99effb49c79ed9146b7c5aab562ef7c3"
+      "sha256": "ab140f16f701f1b8c9a602f8f1a1c647fab476f41b484d6d140d443342e4ae3e"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/mislabelled-active.pptx",
@@ -4841,7 +4851,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "7a4ee04caed04962e4689a671e5c1f231261480e1db6dc8e1db4b8241d440091"
+      "sha256": "0d23a1deb8fe2a9dce16c7379d5da721d91e176d8403973f63baa971403fef8d"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/mislabelled-active.pptx.manifest.json",
@@ -4863,7 +4873,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4a1f6ee4c2d8d070521abb69caa3c10872cf7cb9e7cc1e8b05f85c328e886683"
+      "sha256": "2869c68abfeb2df93227a829c2b139d7e1d342144618e4372d49d34f35fdee84"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/orphan-and-dangling.pptx",
@@ -4885,7 +4895,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "c806a2d65698921cd5d4be026f3ff0bfdbe53c0bdc427b789c4c38c52a79e7fe"
+      "sha256": "e814d7c0572090333ef936fc88707c3b9cf2001ae256a25d539bbe3ab4f51114"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/orphan-and-dangling.pptx.manifest.json",
@@ -4907,7 +4917,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8d38a958c3a2c7c6c1eae6ffcd19db1bc8218516f8b9afa4d1932c254786bada"
+      "sha256": "71a2719a5a308f8c04d4e6e41fc34c57f0f615ed26e9e34efb5895ab1ecc2cfc"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.deck-ir.json",
@@ -4973,7 +4983,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ed1c0229b18bfe1508a7cc4fa0e4667004794597e0946e5f0ad59e213b67d0d9"
+      "sha256": "43fa15fb8f2e850546ec8885120d5799fae3e457d3fe5564c3cd7ac889111ec2"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.pptx.manifest.json",
@@ -4995,7 +5005,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6e06f04c5f60e74c70a902a4529dd43b5deb39ea47dfee72a6907a96f30cc16e"
+      "sha256": "2d4d8d702d0d995942dee29ecc928124a7c7b82e36e20d28879046ae148fe700"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.semantic-slots.json",
@@ -5061,7 +5071,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "5a2ec679afed9b3dcb829f2e49495f1444e9e51c2a21d9ea203f57f0ae75538d"
+      "sha256": "5b7f8a402ec9001f83619972611c27c378ba51f6cde3aa56c3f4c617caa5c608"
     },
     {
       "artifact": "tests/fixtures/pptx/ecosystem_bc/templates/semantic-neutral.template-contract.json.manifest.json",
@@ -5083,7 +5093,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4e3444e10a37fbb47d2698e179945dbefb137f1366924662d9fa81c58301cf37"
+      "sha256": "80c65bdf62a7ae62d6ce01ecc2584b6aa904bf29df40600a55b53d6a94e1373a"
     },
     {
       "artifact": "uv.lock",
@@ -5093,7 +5103,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "af021c523af8e6503f0aea43239a3223fb43a15c408c7f7b738928783a42b6c5"
+      "sha256": "947ae74239a1f16812c89b24f986a5514ee487a0bcb38a2f6b24405da2c89cfa"
     }
   ],
   "executable_exclusions": [],
@@ -5117,7 +5127,7 @@
       "reviewer": "PENDING independent review"
     },
     {
-      "artifact": "provenance/reviews/ds-0.5.8-merge-rebaseline-2026-09-04.md",
+      "artifact": "provenance/reviews/ds-0.5.9-pptx-notes-repair-2026-09-05.md",
       "classification": "self-referential-audit-metadata",
       "reason": "This audit metadata contains or reports the mapping digest, so raw self-hashing would be circular; exact scope and classification require independent review.",
       "review_evidence": [
@@ -5756,7 +5766,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "27765474b8672be4fe1ba7f65212d5617a89bfe915f5719e382ba9ac09c6b858",
+      "sha256": "093646768deb5ff1e73e1e2ede3e412effdc86cc3ed784b1dc726af3731c9ffe",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12145,14 +12155,16 @@
     },
     {
       "artifact_tests": [
+        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
         "tests/test_pptx_operations.py",
         "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
         "tests/test_pptx_public.py",
         "tests/test_pptx_equation.py",
         "tests/test_pptx_equation_contracts.py",
         "tests/test_pptx_equation_public.py",
-        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_equation_libreoffice.py",
         "tests/test_pptx_equation_powerpoint.py",
         "tests/test_pptx_ecosystem_fixtures.py",
@@ -12165,23 +12177,29 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Schema-ordered native PresentationML creation, including valid body shape properties and presentation-namespace graphic-frame transforms. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
+      "modifications": "Schema-ordered native PresentationML creation, including independent notes-master themes required by PowerPoint, package-graph enforcement, and transactional speaker-notes creation. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
       "module": "src/document_skills_core/formats/pptx/create.py",
       "requirement_source": "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b6",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8e2032dd93ac2ac0fc3378c568e62f0a395d791eb07e41fbb80e8f829fec4829",
+      "sha256": "c49a8002614d75849b08d9d5d47b53dd6df342b96aa44163754376ffbe7526eb",
       "source_class": "original",
       "third_party_files": []
     },
     {
       "artifact_tests": [
+        "tests/test_pptx_deep_validation.py",
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
+        "tests/test_pptx_operations.py",
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
+        "tests/test_pptx_public.py",
         "tests/test_pptx_equation.py",
         "tests/test_pptx_equation_contracts.py",
         "tests/test_pptx_equation_public.py",
-        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_equation_libreoffice.py",
         "tests/test_pptx_equation_powerpoint.py",
         "tests/test_pptx_ecosystem_fixtures.py",
@@ -12194,14 +12212,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
+      "modifications": "Schema-ordered native PresentationML creation, including independent notes-master themes required by PowerPoint, package-graph enforcement, and transactional speaker-notes creation. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
       "module": "src/document_skills_core/formats/pptx/deep_graph_validation.py",
-      "requirement_source": "Rasen pptx-ecosystem-phase-bc-b6",
+      "requirement_source": "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b6",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b68b9221e0be1c1313c348f91b2d440fbf9264a8fb109944b524d68b386417ea",
+      "sha256": "c0f1f6f81ae1682247431b070c0379e844f22ed2a4231dcd4078907eda678b36",
       "source_class": "original",
       "third_party_files": []
     },
@@ -12921,21 +12939,49 @@
     },
     {
       "artifact_tests": [
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
-        "tests/test_runtime.py"
+        "tests/test_pptx_deep_validation.py",
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
+        "tests/test_pptx_operations.py",
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
+        "tests/test_pptx_public.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
-      "module": "src/document_skills_core/formats/pptx/object_actions.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "modifications": "Schema-ordered native PresentationML creation, including independent notes-master themes required by PowerPoint, package-graph enforcement, and transactional speaker-notes creation.",
+      "module": "src/document_skills_core/formats/pptx/notes_scaffold.py",
+      "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b17e18eaf90606746fa865c7eca2bb134d93e53a947165bf78e2d7401741fc56",
+      "sha256": "7e9f66d0053c01a9b0a15961313c8653c4943a6c0b09a2845f20c623a29b7dee",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pptx_deep_validation.py",
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
+        "tests/test_pptx_operations.py",
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
+        "tests/test_pptx_public.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Schema-ordered native PresentationML creation, including independent notes-master themes required by PowerPoint, package-graph enforcement, and transactional speaker-notes creation.",
+      "module": "src/document_skills_core/formats/pptx/object_actions.py",
+      "requirement_source": "Rasen document-skills-core-pptx",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "15ba58d6235281dfa2942e83f1c7a5e6e2150a7771e8a2220fc2a5b4b9f3dd03",
       "source_class": "original",
       "third_party_files": []
     },
@@ -13494,8 +13540,11 @@
       "artifact_tests": [
         "tests/test_html_scene_opc_safety.py",
         "tests/test_pptx_operations.py",
+        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
         "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
         "tests/test_pptx_public.py"
       ],
       "clean_room": true,
@@ -14029,18 +14078,23 @@
     },
     {
       "artifact_tests": [
+        "tests/test_pptx_deep_validation.py",
+        "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
+        "tests/test_pptx_operations.py",
+        "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
+        "tests/test_pptx_public.py",
         "tests/test_pptx_template_b2.py",
         "tests/test_pptx_template_b2_hardening.py",
         "tests/test_pptx_ecosystem_fixtures.py",
         "tests/test_html_pptx_public.py",
         "tests/test_pptx_contracts.py",
-        "tests/test_pptx_public.py",
         "tests/test_runtime.py",
         "tests/test_supply_chain.py",
         "tests/test_pptx_equation.py",
         "tests/test_pptx_equation_contracts.py",
         "tests/test_pptx_equation_public.py",
-        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_equation_libreoffice.py",
         "tests/test_pptx_equation_powerpoint.py",
         "tests/test_html_provenance.py",
@@ -14050,14 +14104,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Descriptor-bound structural and semantic template inspection, optional contact-sheet evidence, stable-slot materialization, content lint, and physical purge with truthful public and supply-chain evidence. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
+      "modifications": "Schema-ordered native PresentationML creation, including independent notes-master themes required by PowerPoint, package-graph enforcement, and transactional speaker-notes creation. Descriptor-bound structural and semantic template inspection, optional contact-sheet evidence, stable-slot materialization, content lint, and physical purge with truthful public and supply-chain evidence. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
       "module": "src/document_skills_core/formats/pptx/slide_graph.py",
-      "requirement_source": "Rasen pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b6",
+      "requirement_source": "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b6",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "1e128a9e5f707f3b39ef910ca05dc233653b01de60cf610dc966bf81c1607e77",
+      "sha256": "b9a9c6a707f2bd2aa1c029b6599c959ff914656287248a583d51c9424d1d4f85",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18270,7 +18324,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b542ee7549356f136077048cdf3c12fbb9b8398a5417772d29420cca5634deb3",
+      "sha256": "4e4cf05154d7745dd400315a03484c2454eb3cffa21cdced4a5247f51150c01d",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22894,10 +22948,10 @@
     },
     {
       "artifact_tests": [
+        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_equation.py",
         "tests/test_pptx_equation_contracts.py",
         "tests/test_pptx_equation_public.py",
-        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_equation_libreoffice.py",
         "tests/test_pptx_equation_powerpoint.py",
         "tests/test_pptx_ecosystem_fixtures.py",
@@ -22910,14 +22964,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes. Bounded LaTeX and typed-AST parsing, native Office Math emission and readback, transactional equation upsert, exact AlternateContent branch validation, and truthful PowerPoint/LibreOffice evidence.",
       "module": "tests/test_pptx_deep_validation.py",
-      "requirement_source": "Rasen pptx-ecosystem-phase-bc-b6",
+      "requirement_source": "Rasen document-skills-core-pptx + pptx-ecosystem-phase-bc-b6",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "16ff7e5dd4ad45e631260261fdc64fdf806a72a4b7bc8869d8acdbaa5edd9e44",
+      "sha256": "173883a8a1534c6fe62495e5cb4f4ea2462bdd4ae7eb32c926ef648d0dd88857",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22928,34 +22982,32 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression coverage for schema-valid native PresentationML creation.",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
       "module": "tests/test_pptx_design.py",
       "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "cd921ffbe5587e97d0d3bd6d72bde9eee9cc70f27be70f8fe2eb7dea95102145",
+      "sha256": "88eeb2cad481fcbfaf206821d7a8cc4dd4e1c2d4ae1000f64261610a022a1e5a",
       "source_class": "original",
       "third_party_files": []
     },
     {
       "artifact_tests": [
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
-        "tests/test_supply_chain.py"
+        "tests/test_pptx_design_graph_edit.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
       "module": "tests/test_pptx_design_graph_edit.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "342125677a737b68b920bc44a69122b2ac84303668adee391fb4e0691c3dd5b1",
+      "sha256": "62674cffd9fd8e7b3cbf1adad33b341bb959f8068b1177933b509250ef70f532",
       "source_class": "original",
       "third_party_files": []
     },
@@ -23171,21 +23223,37 @@
     },
     {
       "artifact_tests": [
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
-        "tests/test_supply_chain.py"
+        "tests/test_pptx_notes_powerpoint.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
-      "module": "tests/test_pptx_object_edit.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
+      "module": "tests/test_pptx_notes_powerpoint.py",
+      "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "a01d872204f16b5e58bc183a2605c9a3ea40043e56cc8bcf9de2e7813807be1d",
+      "sha256": "cbb72aa5c57c37f51dbcf34b4424cf0d24841dc9362deb1c247371fc12ff0325",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_pptx_object_edit.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
+      "module": "tests/test_pptx_object_edit.py",
+      "requirement_source": "Rasen document-skills-core-pptx",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "3af0b81c3fd3520de031314fc9bba8f82774f1912f87e558d0acc02ecad2f8ac",
       "source_class": "original",
       "third_party_files": []
     },
@@ -23196,14 +23264,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Direct Core PPTX regression coverage for schema-valid native PresentationML creation.",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
       "module": "tests/test_pptx_operations.py",
       "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "592fdcbf3dac91e07bfba0ae7c51f2b970641b24d0628acb4a801b134bfd4f18",
+      "sha256": "5c10e0d574946a1bfe583f9f36faab1560937038c7daa13785bd8990336a0caf",
       "source_class": "original",
       "third_party_files": []
     },
@@ -23636,21 +23704,19 @@
     },
     {
       "artifact_tests": [
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
-        "tests/test_supply_chain.py"
+        "tests/test_pptx_slide_lifecycle.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "modifications": "Direct Core and real PowerPoint regression coverage for native PresentationML creation, editing, validation, and speaker notes.",
       "module": "tests/test_pptx_slide_lifecycle.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "requirement_source": "Rasen document-skills-core-pptx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "191244b0558c5f9785e9931b64ae404136807987f409dd32562cc956fb31cf6e",
+      "sha256": "65a71fb3a57870a014557f91ae09a5a7580e33ceb90dd04a0f4c32d3962e375a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24532,7 +24598,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "0b96a371761da6957be29352bd3c8af24ee745b2e7da336fccea33b6abfaa36a",
+      "sha256": "d96fc8db6b6b368e9b9c410e7b07b7af274e43ae27381e3f879af3cd6344aaa7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26242,7 +26308,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e7e3b46592bbf28a4bc4fc0389585c6e1ad31fe320fe55ba9d3919ec77e3bdd4",
+      "sha256": "bec6f7276053c69d2ff2587b1ebf691c38b61ef4cd3dcba5268685684d5533f1",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26440,7 +26506,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "85f25a6aa39890739ef644a2dae526990315c5397a1f39a4d90f0db61f042b23",
+      "sha256": "d1a4d1089baa5957e7d30f6116e75cef47efb6c72a397ee351cca2853a65c57d",
       "source_class": "original",
       "third_party_files": []
     },

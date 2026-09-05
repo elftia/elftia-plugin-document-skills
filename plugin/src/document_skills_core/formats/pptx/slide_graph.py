@@ -11,16 +11,17 @@ from document_skills_core.core.contracts.errors import DocumentSkillsError, Erro
 from .chart import build_chart_part, prepare_chart, public_chart_record
 from .constants import CONTENT_TYPES_NS, NS
 from .design_contracts import DEFAULT_LAYOUT_TOKENS, DEFAULT_THEME
-from .create import (
-    _build_notes_master,
-    _build_notes_slide,
-    _build_slide,
-)
+from .create import _build_slide
 from .equation_contracts import validate_equation_frame
 from .image import load_pptx_image, public_image_record
 from .layout_recipes import layout_recipe
 from .mapping import map_slides
 from .mutation import MutablePptxPackage
+from .notes_scaffold import (
+    _build_notes_master,
+    _build_notes_master_rels,
+    _build_notes_slide,
+)
 from .projection import project_slide_size
 
 _P = NS["p"]
@@ -390,23 +391,22 @@ def _ensure_notes_master(
     notes_master = _allocate_part_name(
         "ppt/notesMasters/notesMaster1.xml", set(target.parts)
     )
-    theme = _first_theme_part(target)
+    source_theme = _first_theme_part(target)
+    notes_theme = _allocate_part_name(source_theme, set(target.parts))
+    target.set_part(notes_theme, target.parts[source_theme])
+    additions[notes_theme] = "application/vnd.openxmlformats-officedocument.theme+xml"
+    created_parts.append(notes_theme)
     target.set_part(notes_master, _build_notes_master())
     additions[notes_master] = (
         "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"
     )
     created_parts.append(notes_master)
-    rels = Element(RELS("Relationships"))
-    SubElement(
-        rels,
-        RELS("Relationship"),
-        {
-            "Id": "rIdTheme",
-            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
-            "Target": posixpath.relpath(theme, posixpath.dirname(notes_master)),
-        },
+    target.set_part(
+        relationship_part_for(notes_master),
+        _build_notes_master_rels(
+            posixpath.relpath(notes_theme, posixpath.dirname(notes_master))
+        ),
     )
-    target.set_part(relationship_part_for(notes_master), _xml_bytes(rels))
     created_parts.append(relationship_part_for(notes_master))
     presentation_rels = target.xml("ppt/_rels/presentation.xml.rels")
     relationship_id = _next_relationship_id(presentation_rels, "rIdNotesMaster")

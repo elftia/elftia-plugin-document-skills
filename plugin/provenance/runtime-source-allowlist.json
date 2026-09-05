@@ -342,6 +342,7 @@
     "src/document_skills_core/formats/pptx/markdown.py",
     "src/document_skills_core/formats/pptx/markdown_values.py",
     "src/document_skills_core/formats/pptx/mutation.py",
+    "src/document_skills_core/formats/pptx/notes_scaffold.py",
     "src/document_skills_core/formats/pptx/object_actions.py",
     "src/document_skills_core/formats/pptx/object_contracts.py",
     "src/document_skills_core/formats/pptx/object_edit.py",

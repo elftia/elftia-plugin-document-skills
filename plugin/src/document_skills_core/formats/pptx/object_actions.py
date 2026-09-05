@@ -7,8 +7,8 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
 
 from .constants import NS
-from .create import _build_notes_slide
 from .mapping import map_slides
+from .notes_scaffold import _build_notes_slide
 from .mutation import MutablePptxPackage
 from .object_parts import add_part_relationship, remove_relationship
 from .object_xml import A, R, non_visual_properties

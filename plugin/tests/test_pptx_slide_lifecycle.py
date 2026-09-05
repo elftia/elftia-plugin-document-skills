@@ -110,7 +110,8 @@ def test_slide_add_uses_target_layout_and_creates_native_objects(tmp_path: Path)
     assert len(slides) == 2
     assert len(package.slide_layout_parts()) == 7
     assert len(package.slide_master_parts()) == 1
-    assert len(package.theme_parts()) == 1
+    assert len(package.theme_parts()) == 2
+    assert package.parts["ppt/theme/theme1.xml"] == package.parts["ppt/theme/theme2.xml"]
     assert len(package.media_parts()) == 1
     assert len(package.chart_parts()) == 1
     assert len(package.notes_slide_parts()) == 1
@@ -123,6 +124,27 @@ def test_slide_add_uses_target_layout_and_creates_native_objects(tmp_path: Path)
     assert evidence["chart"]["editable"] is True
     presentation = Presentation(output)
     assert any(getattr(shape, "has_chart", False) for shape in presentation.slides[0].shapes)
+
+
+def test_repeated_note_slide_add_reuses_one_notes_master_theme(tmp_path: Path) -> None:
+    source = _created(tmp_path, "add-notes-source.pptx", [_slide("Existing")])
+    first = tmp_path / "first-notes.pptx"
+    edit_pptx(
+        source,
+        first,
+        {"edits": [{"type": "slide_add", "slide": _slide("First", rich=True)}]},
+    )
+    second = tmp_path / "second-notes.pptx"
+    edit_pptx(
+        first,
+        second,
+        {"edits": [{"type": "slide_add", "slide": _slide("Second", rich=True)}]},
+    )
+
+    package = OpcPackage.open(second)
+    assert len(package.notes_master_parts()) == 1
+    assert len(package.notes_slide_parts()) == 2
+    assert len(package.theme_parts()) == 2
 
 
 def test_slide_delete_removes_only_unreachable_dependency_graph(tmp_path: Path) -> None:
@@ -225,7 +247,7 @@ def test_cross_deck_slide_copy_imports_layout_master_theme_and_dependencies(tmp_
     assert len(slides) == 2
     assert len(package.slide_master_parts()) == 2
     assert len(package.slide_layout_parts()) == 14
-    assert len(package.theme_parts()) == 2
+    assert len(package.theme_parts()) == 3
     assert len(package.media_parts()) == 1
     assert len(package.chart_parts()) == 1
     assert len(package.notes_slide_parts()) == 1

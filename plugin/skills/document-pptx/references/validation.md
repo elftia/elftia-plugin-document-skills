@@ -10,6 +10,8 @@ The deep gate validates:
 - root reachability and orphan parts;
 - relationship sources, targets, XML relationship bindings, and content types;
 - slide order plus slide → layout → master → theme and notes dependency chains;
+- exactly one theme per slide/notes master, with notes masters bound to an
+  independent theme part rather than sharing a slide-master theme;
 - unique positive drawing ids and unique numeric slide ids;
 - chart series/order, data caches, axes and cross-axis references;
 - bounded simple-range agreement between chart caches and internal embedded

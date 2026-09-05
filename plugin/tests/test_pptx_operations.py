@@ -12,7 +12,7 @@ from document_skills_core.formats.pptx.constants import NS
 from document_skills_core.formats.pptx.create import create_pptx
 from document_skills_core.formats.pptx.edit import edit_pptx
 from document_skills_core.formats.pptx.inspect import inspect_pptx
-from document_skills_core.formats.pptx.package import write_deterministic_zip
+from document_skills_core.formats.pptx.package import OpcPackage, write_deterministic_zip
 from document_skills_core.formats.pptx.read import read_pptx
 from document_skills_core.formats.pptx.validation import (
     reopen_pptx,
@@ -103,6 +103,43 @@ class TestCreate:
         creation = create_pptx(destination, typed_deck)
         report = validate_created(destination, typed_deck, creation)
         assert report["status"] == "pass"
+
+    def test_notes_master_uses_an_independent_copy_of_the_slide_theme(
+        self,
+        created_deck: Path,
+    ) -> None:
+        package = OpcPackage.open(created_deck)
+        slide_theme = next(
+            relationship.resolved_target
+            for relationship in package.part_rels("ppt/slideMasters/slideMaster1.xml")
+            if relationship.relationship_type.endswith("/theme")
+        )
+        notes_theme = next(
+            relationship.resolved_target
+            for relationship in package.part_rels("ppt/notesMasters/notesMaster1.xml")
+            if relationship.relationship_type.endswith("/theme")
+        )
+
+        assert slide_theme == "ppt/theme/theme1.xml"
+        assert notes_theme == "ppt/theme/theme2.xml"
+        assert package.parts[slide_theme] == package.parts[notes_theme]
+        assert package.content_type_for(notes_theme) == (
+            "application/vnd.openxmlformats-officedocument.theme+xml"
+        )
+
+    def test_deck_without_notes_keeps_one_theme(
+        self,
+        tmp_path: Path,
+        typed_deck: dict[str, Any],
+    ) -> None:
+        deck = {
+            **typed_deck,
+            "slides": [{**slide, "notes": None} for slide in typed_deck["slides"]],
+        }
+        destination = tmp_path / "without-notes.pptx"
+        create_pptx(destination, deck)
+
+        assert OpcPackage.open(destination).theme_parts() == ["ppt/theme/theme1.xml"]
 
     def test_created_deck_reopens(self, created_deck: Path):
         result = reopen_pptx(created_deck)

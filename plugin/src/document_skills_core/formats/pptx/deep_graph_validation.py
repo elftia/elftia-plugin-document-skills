@@ -146,8 +146,27 @@ def _validate_required_chains(
         _require_relationship_count(by_source, part, "slideLayout", 1, failures)
     for part in package.slide_layout_parts():
         _require_relationship_count(by_source, part, "slideMaster", 1, failures)
+    slide_theme_targets = {
+        relationship.resolved_target
+        for part in package.slide_master_parts()
+        for relationship in by_source.get(part, [])
+        if relationship.target_mode == "Internal"
+        and _terminal(relationship) == "theme"
+        and relationship.resolved_target is not None
+    }
     for part in package.slide_master_parts():
         _require_relationship_count(by_source, part, "theme", 1, failures)
+    for part in package.notes_master_parts():
+        _require_relationship_count(by_source, part, "theme", 1, failures)
+        for relationship in by_source.get(part, []):
+            if (
+                relationship.target_mode == "Internal"
+                and _terminal(relationship) == "theme"
+                and relationship.resolved_target in slide_theme_targets
+            ):
+                failures.append(
+                    f"notes-master-theme-shared:{part}:{relationship.resolved_target}"
+                )
     for part in package.notes_slide_parts():
         _require_relationship_count(by_source, part, "notesMaster", 1, failures)
         _require_relationship_count(by_source, part, "slide", 1, failures)

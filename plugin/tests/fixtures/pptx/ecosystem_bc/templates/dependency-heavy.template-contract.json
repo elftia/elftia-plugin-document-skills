@@ -2,7 +2,7 @@
   "assetRef": {
     "assetId": "dependency-heavy",
     "catalogId": "synthetic",
-    "sha256": "sha256:35e709b9f965c58e494f68b87bb9e04277f0aa96588bb492b1a0b6b23739aeb3",
+    "sha256": "sha256:e7c9bac337f7084a6a97a097c739fa76b53955bfadbfab86492066ce000573f4",
     "version": "1.0.0"
   },
   "deckIrSchemaVersion": "1.0.0",

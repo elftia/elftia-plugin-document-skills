@@ -232,11 +232,13 @@ def test_master_copy_then_delete_round_trips_dependency_graph(
     assert len(package.theme_parts()) == 1
 
 
-def test_theme_update_clones_shared_theme_and_writes_effects(
+def test_theme_update_preserves_the_independent_notes_theme(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
     source = _created(tmp_path, notes=True)
+    source_package = OpcPackage.open(source)
+    notes_theme_before = source_package.parts["ppt/theme/theme2.xml"]
     output = tmp_path / "theme-updated.pptx"
     result = PptxService(project_root).execute("pptx.edit", _request(
         source,
@@ -246,9 +248,10 @@ def test_theme_update_clones_shared_theme_and_writes_effects(
 
     assert result["status"] == "success", result
     evidence = result["diagnostics"]["operation_result"]["design_edits"][0]
-    assert evidence["clone_on_write"] is True
+    assert evidence["clone_on_write"] is False
     package = OpcPackage.open(output)
     assert len(package.theme_parts()) == 2
+    assert package.parts["ppt/theme/theme2.xml"] == notes_theme_before
     theme = package.xml(evidence["theme_part"])
     assert theme.attrib["name"] == "Brand Theme"
     assert any(local_name(node.tag) == "outerShdw" for node in theme.iter())

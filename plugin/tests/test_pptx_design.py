@@ -238,6 +238,34 @@ def test_template_as_base_reuses_master_layout_theme_byte_for_byte(
     assert outcomes["operation.typed-design-correspondence"] == "pass"
 
 
+def test_template_as_base_adds_an_independent_notes_theme(
+    project_root: Path,
+    tmp_path: Path,
+) -> None:
+    service = PptxService(project_root)
+    template = tmp_path / "template.pptx"
+    assert service.execute(
+        "pptx.create",
+        _request(template, _deck(themed=True)),
+    )["status"] == "success"
+    deck = _deck(themed=False)
+    deck["slides"][0]["notes"] = "Template speaker notes"
+    output = tmp_path / "from-template-with-notes.pptx"
+
+    result = service.execute("pptx.create", _request(output, deck, template))
+
+    assert result["status"] == "success", result
+    package = OpcPackage.open(output)
+    assert package.theme_parts() == ["ppt/theme/theme1.xml", "ppt/theme/theme2.xml"]
+    assert package.parts["ppt/theme/theme1.xml"] == package.parts["ppt/theme/theme2.xml"]
+    notes_theme = next(
+        relationship.resolved_target
+        for relationship in package.part_rels("ppt/notesMasters/notesMaster1.xml")
+        if relationship.relationship_type.endswith("/theme")
+    )
+    assert notes_theme == "ppt/theme/theme2.xml"
+
+
 def test_potx_template_base_normalizes_output_identity_and_preserves_design(
     project_root: Path,
     tmp_path: Path,

@@ -18,8 +18,13 @@ from .image import (
 )
 from .package import write_deterministic_zip
 from .layout_recipes import layout_index, layout_recipe
+from .notes_scaffold import (
+    _build_notes_master,
+    _build_notes_master_rels,
+    _build_notes_slide,
+    _build_notes_slide_rels,
+)
 from .scaffold import (
-    _CLR_MAP,
     _build_app_props,
     _build_core_props,
     _build_root_rels,
@@ -110,7 +115,10 @@ def create_pptx(
         slides_data, layout_count, has_notes
     )
     parts["ppt/presentation.xml"] = _build_presentation(slides_data, slide_size, has_notes)
-    parts["ppt/theme/theme1.xml"] = _build_theme(theme)
+    theme_bytes = _build_theme(theme)
+    parts["ppt/theme/theme1.xml"] = theme_bytes
+    if has_notes:
+        parts["ppt/theme/theme2.xml"] = theme_bytes
     parts["ppt/slideMasters/slideMaster1.xml"] = _build_slide_master(
         layout_count,
         int(slide_size.get("cx", "9144000")),
@@ -129,7 +137,9 @@ def create_pptx(
         parts[f"ppt/slides/_rels/slide{slide_num}.xml.rels"] = _build_slide_rels(slide, slide_num, layout_count)
     if has_notes:
         parts["ppt/notesMasters/notesMaster1.xml"] = _build_notes_master()
-        parts["ppt/notesMasters/_rels/notesMaster1.xml.rels"] = _build_notes_master_rels()
+        parts["ppt/notesMasters/_rels/notesMaster1.xml.rels"] = (
+            _build_notes_master_rels("../theme/theme2.xml")
+        )
         for idx, slide in enumerate(slides_data):
             slide_num = idx + 1
             if slide.get("notes"):
@@ -222,6 +232,10 @@ def _build_content_types(
         "ContentType": "application/vnd.openxmlformats-officedocument.theme+xml",
     })
     if note_slide_numbers:
+        SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
+            "PartName": "/ppt/theme/theme2.xml",
+            "ContentType": "application/vnd.openxmlformats-officedocument.theme+xml",
+        })
         SubElement(root, f"{{{_CONTENT_TYPES_NS}}}Override", attrib={
             "PartName": "/ppt/notesMasters/notesMaster1.xml",
             "ContentType": "application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml",
@@ -571,66 +585,6 @@ def _build_slide_rels(slide: dict[str, Any], slide_num: int, layout_count: int) 
             "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide",
             "Target": f"../notesSlides/notesSlide{slide_num}.xml",
         })
-    return _to_xml_bytes(root)
-
-
-def _build_notes_master() -> bytes:
-    root = Element(f"{{{_P_NS}}}notesMaster")
-    cSld = SubElement(root, f"{{{_P_NS}}}cSld")
-    sp_tree = SubElement(cSld, f"{{{_P_NS}}}spTree")
-    _nv_grp_sp_pr(sp_tree)
-    _grp_sp_pr(sp_tree)
-    SubElement(root, f"{{{_P_NS}}}clrMap", attrib=_CLR_MAP)
-    return _to_xml_bytes(root)
-
-
-def _build_notes_master_rels() -> bytes:
-    root = Element(f"{{{_RELS_NS}}}Relationships")
-    SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-        "Id": "rIdNotes",
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme",
-        "Target": "../theme/theme1.xml",
-    })
-    return _to_xml_bytes(root)
-
-
-def _build_notes_slide(slide_num: int, notes_text: str) -> bytes:
-    root = Element(f"{{{_P_NS}}}notes")
-    cSld = SubElement(root, f"{{{_P_NS}}}cSld")
-    sp_tree = SubElement(cSld, f"{{{_P_NS}}}spTree")
-    _nv_grp_sp_pr(sp_tree)
-    _grp_sp_pr(sp_tree)
-    sp = SubElement(sp_tree, f"{{{_P_NS}}}sp")
-    nv_sp_pr = SubElement(sp, f"{{{_P_NS}}}nvSpPr")
-    SubElement(nv_sp_pr, f"{{{_P_NS}}}cNvPr", attrib={
-        "id": "3",
-        "name": f"NotesPlaceholder{slide_num}",
-    })
-    SubElement(nv_sp_pr, f"{{{_P_NS}}}cNvSpPr")
-    SubElement(nv_sp_pr, f"{{{_P_NS}}}nvPr")
-    SubElement(sp, f"{{{_P_NS}}}spPr")
-    tx_body = SubElement(sp, f"{{{_P_NS}}}txBody")
-    SubElement(tx_body, f"{{{_A_NS}}}bodyPr")
-    SubElement(tx_body, f"{{{_A_NS}}}lstStyle")
-    p = SubElement(tx_body, f"{{{_A_NS}}}p")
-    r = SubElement(p, f"{{{_A_NS}}}r")
-    t = SubElement(r, f"{{{_A_NS}}}t")
-    t.text = notes_text
-    return _to_xml_bytes(root)
-
-
-def _build_notes_slide_rels(slide_num: int) -> bytes:
-    root = Element(f"{{{_RELS_NS}}}Relationships")
-    SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-        "Id": "rIdSlide",
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide",
-        "Target": f"../slides/slide{slide_num}.xml",
-    })
-    SubElement(root, f"{{{_RELS_NS}}}Relationship", attrib={
-        "Id": "rIdNotesMaster",
-        "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster",
-        "Target": "../notesMasters/notesMaster1.xml",
-    })
     return _to_xml_bytes(root)
 
 

@@ -4,7 +4,7 @@
       "adopted_records": 0,
       "expression_detection": "not_claimed",
       "method": "exact-inventory-provenance-and-independent-review",
-      "module_records": 826,
+      "module_records": 828,
       "status": "pass"
     },
     "commands": {
@@ -12,11 +12,11 @@
       "status": "pass"
     },
     "execution_boundary": {
-      "classified_release_files": 1093,
+      "classified_release_files": 1098,
       "dependency_manifests": 6,
-      "executable_artifacts": 826,
+      "executable_artifacts": 828,
       "registration_manifests": 2,
-      "source_files": 810,
+      "source_files": 812,
       "status": "pass"
     },
     "fixtures": {
@@ -24,9 +24,9 @@
       "status": "pass"
     },
     "inventory": {
-      "classified_count": 1093,
-      "file_count": 1093,
-      "risky_count": 826,
+      "classified_count": 1098,
+      "file_count": 1098,
+      "risky_count": 828,
       "status": "pass"
     },
     "manifests": {
@@ -34,15 +34,7 @@
       "status": "pass"
     },
     "provenance": {
-      "data_classification_count": 264,
-      "exclusion_count": 0,
-      "mapping_sha256": "a1c9d28fbcec6472ca9170bb51e850a06f220b27cbd3071609de083f715115e1",
-      "metadata_exclusion_count": 3,
-      "module_count": 826,
-      "record_count": 826,
-      "release_file_count": 1093,
-      "review_attestations": 1,
-      "status": "pass"
+      "status": "fail"
     },
     "public_skills": {
       "count": 4,
@@ -55,11 +47,16 @@
       "status": "pass"
     },
     "sbom": {
-      "sha256": "7ed8baf0c38a2be1261c617317abce1942b45960f047b8ecba66205f468b626a",
+      "sha256": "8cc1ad9174b997c93b5a3f2028a97a567c1bf96a6da0a5b53db8d21f8c4669e8",
       "status": "pass"
     }
   },
-  "errors": [],
+  "errors": [
+    {
+      "check": "provenance",
+      "message": "Independent review attestation is missing"
+    }
+  ],
   "schema_version": "1.0",
-  "status": "pass"
+  "status": "fail"
 }

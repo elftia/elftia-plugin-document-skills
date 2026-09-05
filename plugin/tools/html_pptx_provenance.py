@@ -329,15 +329,25 @@ _PPTX_RECONSTRUCTION_B7_DATA_ARTIFACTS = {
 
 def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
     core_tests = [
+        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_design.py",
+        "tests/test_pptx_notes_powerpoint.py",
         "tests/test_pptx_operations.py",
         "tests/test_pptx_schema_validation.py",
+        "tests/test_pptx_slide_lifecycle.py",
         "tests/test_pptx_public.py",
     ]
-    if path == "src/document_skills_core/formats/pptx/create.py":
+    if path in {
+        "src/document_skills_core/formats/pptx/create.py",
+        "src/document_skills_core/formats/pptx/deep_graph_validation.py",
+        "src/document_skills_core/formats/pptx/notes_scaffold.py",
+        "src/document_skills_core/formats/pptx/object_actions.py",
+        "src/document_skills_core/formats/pptx/slide_graph.py",
+    }:
         return (
-            "Schema-ordered native PresentationML creation, including valid body "
-            "shape properties and presentation-namespace graphic-frame transforms.",
+            "Schema-ordered native PresentationML creation, including independent "
+            "notes-master themes required by PowerPoint, package-graph enforcement, "
+            "and transactional speaker-notes creation.",
             core_tests,
         )
     if path == "src/document_skills_core/formats/pptx/scaffold.py":
@@ -353,12 +363,17 @@ def core_pptx_module_profile(path: str) -> tuple[str, list[str]] | None:
             ["tests/test_html_pptx_public.py", "tests/test_pptx_public.py"],
         )
     if path in {
+        "tests/test_pptx_deep_validation.py",
         "tests/test_pptx_design.py",
+        "tests/test_pptx_design_graph_edit.py",
+        "tests/test_pptx_notes_powerpoint.py",
+        "tests/test_pptx_object_edit.py",
         "tests/test_pptx_operations.py",
+        "tests/test_pptx_slide_lifecycle.py",
     }:
         return (
-            "Direct Core PPTX regression coverage for schema-valid native "
-            "PresentationML creation.",
+            "Direct Core and real PowerPoint regression coverage for native "
+            "PresentationML creation, editing, validation, and speaker notes.",
             [path],
         )
     if path == "tests/test_html_pptx_public.py":
