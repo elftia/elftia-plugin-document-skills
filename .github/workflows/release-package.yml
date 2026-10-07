@@ -41,6 +41,7 @@ jobs:
           set -euo pipefail
           git tag --points-at HEAD | grep -Fx -- "$RELEASE_TAG"
           npm ci --ignore-scripts
+          npm --prefix plugin ci --omit=dev --ignore-scripts
           npm run verify:docs
           uv sync --project plugin --frozen --python 3.13
           (
@@ -64,7 +65,7 @@ jobs:
           path: .elftia-sign-tool
           token: ${{ secrets.ELFTIA_REPO_TOKEN }}
           persist-credentials: false
-      - name: Sign and package the reviewed bytes
+      - name: Sign and package the verified bytes
         shell: bash
         run: |
           set -euo pipefail
