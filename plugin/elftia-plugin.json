@@ -2,6 +2,7 @@
   "name": "document-skills",
   "version": "0.5.9",
   "kind": "agent",
+  "minElftiaVersion": "0.2.8",
   "description": "Portable DOCX, XLSX, PPTX, and PDF Agent Skills",
   "license": "GPL-3.0",
   "contributes": {

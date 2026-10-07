@@ -52,10 +52,11 @@ class RuntimeDetectors:
             )
         try:
             executable = self.policy.allow_executable("runtime-detection", uv)
+            # A user-level index override must not make the published lock look stale.
             result = self.runner.run(
                 "runtime-detection",
                 executable,
-                ["lock", "--check", "--offline", "--project", str(self.project_root)],
+                ["lock", "--no-config", "--check", "--offline", "--project", str(self.project_root)],
                 timeout_seconds=2.0,
                 output_limit=16_384,
             )

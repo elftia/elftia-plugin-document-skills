@@ -1,0 +1,110 @@
+name: Release document-skills package
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable version tag
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_ID: document-skills
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      ELFTIA_PUBLISHER_TOKEN: ${{ secrets.ELFTIA_PUBLISHER_TOKEN }}
+      ELFTIA_PLUGIN_SIGNING_KEY_B64: ${{ secrets.ELFTIA_PLUGIN_SIGNING_KEY_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.8.13'
+          enable-cache: true
+      - name: Verify tagged source and build the producer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag --points-at HEAD | grep -Fx -- "$RELEASE_TAG"
+          npm ci --ignore-scripts
+          npm run verify
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('dist/$PLUGIN_ID/elftia-plugin.json')).version")
+          test "$RELEASE_TAG" = "v$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+        with:
+          repository: elftia/elftia
+          ref: main
+          path: .elftia-sign-tool
+          token: ${{ secrets.ELFTIA_REPO_TOKEN }}
+          persist-credentials: false
+      - name: Sign and package the reviewed bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ELFTIA_PLUGIN_SIGNING_KEY_B64"
+          umask 077
+          KEY_FILE=$(mktemp "$RUNNER_TEMP/elftia-plugin-signing-key.XXXXXX")
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s' "$ELFTIA_PLUGIN_SIGNING_KEY_B64" | base64 --decode > "$KEY_FILE"
+          npm exec --yes --package=tsx@4.20.5 -- tsx .elftia-sign-tool/scripts/sign-plugin.mts sign "dist/$PLUGIN_ID" --key "$KEY_FILE"
+          npm exec --yes --package=tsx@4.20.5 -- tsx .elftia-sign-tool/scripts/sign-plugin.mts verify "dist/$PLUGIN_ID"
+          RELEASE_ROOT="$RUNNER_TEMP/elftia-official-release"
+          npx --no-install elftia-plugin release "dist/$PLUGIN_ID" --out "$RELEASE_ROOT"
+          node -e 'const fs=require("fs"),crypto=require("crypto");const [root,id,v]=process.argv.slice(1);const p=`${root}/${v}/${id}`;const b=fs.readFileSync(`${p}.epkg`),s=JSON.parse(fs.readFileSync(`${p}.json`));if(s.id!==id||s.version!==v||s.sha256!==crypto.createHash("sha256").update(b).digest("hex")||s.size!==b.length)process.exit(1)' "$RELEASE_ROOT" "$PLUGIN_ID" "$VERSION"
+          unzip -Z1 "$RELEASE_ROOT/$VERSION/$PLUGIN_ID.epkg" | grep -Fx -- 'elftia-plugin.sig.json'
+          echo "RELEASE_ROOT=$RELEASE_ROOT" >> "$GITHUB_ENV"
+      - name: Publish immutable GitHub Release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          EPKG="$RELEASE_ROOT/$VERSION/$PLUGIN_ID.epkg"
+          SIDECAR="$RELEASE_ROOT/$VERSION/$PLUGIN_ID.json"
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" "$EPKG" "$SIDECAR" --verify-tag --title "$RELEASE_TAG"
+          else
+            mkdir -p "$RUNNER_TEMP/elftia-existing-assets"
+            for asset in "$EPKG" "$SIDECAR"; do
+              name=$(basename "$asset")
+              if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fx -- "$name"; then
+                gh release download "$RELEASE_TAG" --pattern "$name" --dir "$RUNNER_TEMP/elftia-existing-assets"
+                cmp "$asset" "$RUNNER_TEMP/elftia-existing-assets/$name"
+              else
+                gh release upload "$RELEASE_TAG" "$asset"
+              fi
+            done
+          fi
+      - name: Publish the same signed package to the official catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          MANIFEST="dist/$PLUGIN_ID/elftia-plugin.json"
+          NAME=$(jq -r '.displayName // .name' "$MANIFEST")
+          KIND=$(jq -r '.kind' "$MANIFEST")
+          MIN_VERSION=$(jq -er '.minElftiaVersion' "$MANIFEST")
+          CODE_BEARING=$(jq -r '(.kind == "tool-pack") or ([.contributes.main?, .contributes.renderer?, .contributes.pet?] | any(.[]; type == "object"))' "$MANIFEST")
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $ELFTIA_PUBLISHER_TOKEN" \
+            --form "file=@$RELEASE_ROOT/$VERSION/$PLUGIN_ID.epkg" \
+            --form "name=$NAME" \
+            --form "slug=$PLUGIN_ID" \
+            --form "version=$VERSION" \
+            --form "pluginKind=$KIND" \
+            --form "codeBearing=$CODE_BEARING" \
+            --form "minElftiaVersion=$MIN_VERSION" \
+            'https://api.elftia.com/api/v1/marketplace/plugin/publish'
