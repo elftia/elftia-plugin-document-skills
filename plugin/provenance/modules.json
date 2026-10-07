@@ -19,7 +19,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e30c2c62a8f02730a376fa064e060f89ba92c0aceebb5748773ca53ae3f248df"
+      "sha256": "4dfa983de33a531396389c91a69b04475749a981f3188d71b4b643290d3cb761"
     },
     {
       "artifact": "README.md",
@@ -142,7 +142,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "7cbb961f3a4431daf9698cf943aef540b34d1a105d3beac45b50cee89a6d1b27"
+      "sha256": "10769f9801f0902c1e6402728570f462ec4cb3a3e207d2acfa651ade6f3efd36"
     },
     {
       "artifact": "package-lock.json",
@@ -191,7 +191,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ebd652736b8eff03e33f39ebaad43c0d2ffb414fa4ea5dd68b49c908b814b116"
+      "sha256": "f09f0e645390a529d6681a13eacb27aaa2f81765aa60931e771b11200b950a8e"
     },
     {
       "artifact": "provenance/adoption-review-template.md",
@@ -5884,7 +5884,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e7679293c3d5d46bd0d0d089a0726eb3a720bb161c7421f99f2f6d8c7dc36b89",
+      "sha256": "5cc0d8e32cbd055acc9e6ac354c749cd395aa46294a8f74e5b6e5a2ef1d012d6",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24661,7 +24661,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "bfc80df5fa74e5694fa06f1c7ee42d97a9702031c957cbdbf586385f9ab546c3",
+      "sha256": "ec5aa5b2fd48b5439b8f1a92a319e7e2e00fafa599251a015d7577c07b5e0896",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26070,7 +26070,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "dcd32ce615a98971c293bfaad1d21aa445625b10bfb550c3a00c13eea63f4040",
+      "sha256": "4052ab361004894f84aedf87305f8c19bf7533f0122d9e30dc5c05c499984971",
       "source_class": "original",
       "third_party_files": []
     },

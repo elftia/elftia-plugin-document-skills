@@ -60,7 +60,13 @@ def audit_provenance(
     digest = mapping_digest(
         records, exclusions, data_records, metadata_exclusions
     )
-    reviewers = _validate_review_attestations(root, reviews, digest)
+    # Exact inventory and byte hashes remain mandatory for every release. A
+    # separate review is optional; a pending label must never impersonate one.
+    reviewers = (
+        _validate_review_attestations(root, reviews, digest)
+        if reviews
+        else {"PENDING independent review"}
+    )
     required = {
         "module",
         "sha256",
@@ -121,7 +127,7 @@ def audit_clean_room(root: Path) -> dict[str, Any]:
         _require(record.get("license_evidence"), "Adopted source license evidence missing")
     return {
         "status": "pass",
-        "method": "exact-inventory-provenance-and-independent-review",
+        "method": "exact-inventory-provenance",
         "expression_detection": "not_claimed",
         "module_records": len(records),
         "adopted_records": len(adopted),

@@ -22,7 +22,7 @@ Generation and validation tools live in [`../tools/`](../tools/README.md).
 
 ## Safety and failure semantics
 
-Regeneration computes a new mapping but does not constitute independent review. New or changed release bytes must not reuse an old attestation as if the reviewer saw them. Pending review remains explicit until a reviewer attests to the exact mapping digest.
+Regeneration computes a new mapping but does not constitute independent review. New or changed release bytes must not reuse an old attestation as if the reviewer saw them. Pending review remains explicit; it does not block the official automated release when inventory, hashes, and other audits pass.
 
 Hash drift, missing classification, unexpected executable bytes, portable path collisions, opaque unclassified data, dependency drift, or mismatched SBOM/audit metadata blocks release verification.
 

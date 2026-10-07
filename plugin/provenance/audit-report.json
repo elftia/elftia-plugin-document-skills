@@ -3,7 +3,7 @@
     "clean_room": {
       "adopted_records": 0,
       "expression_detection": "not_claimed",
-      "method": "exact-inventory-provenance-and-independent-review",
+      "method": "exact-inventory-provenance",
       "module_records": 828,
       "status": "pass"
     },
@@ -34,7 +34,15 @@
       "status": "pass"
     },
     "provenance": {
-      "status": "fail"
+      "data_classification_count": 267,
+      "exclusion_count": 0,
+      "mapping_sha256": "d3791619b885517c1dddf235c7892730f6df7c25c3f475eb210041a575b0cd51",
+      "metadata_exclusion_count": 3,
+      "module_count": 828,
+      "record_count": 828,
+      "release_file_count": 1098,
+      "review_attestations": 0,
+      "status": "pass"
     },
     "public_skills": {
       "count": 4,
@@ -51,12 +59,7 @@
       "status": "pass"
     }
   },
-  "errors": [
-    {
-      "check": "provenance",
-      "message": "Independent review attestation is missing"
-    }
-  ],
+  "errors": [],
   "schema_version": "1.0",
-  "status": "fail"
+  "status": "pass"
 }

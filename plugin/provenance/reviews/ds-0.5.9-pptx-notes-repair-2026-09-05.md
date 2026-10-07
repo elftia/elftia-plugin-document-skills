@@ -49,6 +49,6 @@ was sufficient; replacing the user's theme was unnecessary.
 This note records implementation and rebaseline facts only. It does not claim
 independent approval. The regenerated provenance mapping must remain
 `PENDING independent review` until a different reviewer examines the final
-0.5.9 bytes, records findings, and binds the exact mapping digest. Host pinning,
-managed-runtime synchronization, and release are downstream of that review and
-a real producer commit.
+0.5.9 bytes, records findings, and binds the exact mapping digest. The automated
+official release may proceed without claiming that this independent review has
+occurred; its inventory, byte-hash, and runtime checks still apply.

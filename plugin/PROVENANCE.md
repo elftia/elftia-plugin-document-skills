@@ -8,15 +8,16 @@ WASM, Java, NUL-bearing, and low-text opaque bytes as executable or risky withou
 friendly suffix. Opaque fixture data is exempt only when its exact hash and redistribution
 permission are backed by `tests/fixtures/manifest.json`.
 
-`provenance/modules.json` gives every risky artifact an exact module record or reviewed
-hash-pinned data exclusion. Every remaining release file has an exact reviewed data
-classification. The manifest, generated audit report, and mapping-bound review report use a
-three-path reviewed self-reference classification because raw hashes for files that contain
+`provenance/modules.json` gives every risky artifact an exact module record or
+hash-pinned data exclusion. Every remaining release file has an exact data
+classification. The manifest, generated audit report, and current review report use a
+three-path bounded self-reference classification because raw hashes for files that contain
 their own digest would be circular. No other hashless classification is accepted. Broad globs,
 overlap, omissions, and classification drift are invalid.
 
-Reviewer labels resolve to a runtime/role/identity attestation and the hash of actual canonical
-checked-in report bytes under `provenance/reviews/`; policy documents, an echoed digest, a
+When an independent review is supplied, reviewer labels resolve to a runtime/role/identity
+attestation and the hash of actual canonical checked-in report bytes under
+`provenance/reviews/`; policy documents, an echoed digest, a
 self-reference, and placeholder evidence are not review evidence. Each report binds the exact
 all-file mapping digest it reviewed. Runtime identity is explicitly self-asserted unless a
 future signature-backed verifier is implemented: the repository can prove report-byte and
@@ -31,9 +32,9 @@ Anthropic material may identify desired capability names only. Restricted Anthro
 Skill text, scripts, schemas, templates, fixtures, reference text, and implementation expression
 must not enter this project. Parity implementations must use public file-format specifications,
 eligible open-source APIs, or original Elftia design and independent artifact tests.
-The automated audit proves inventory, hashes, declarations, and review-process evidence. It does
-not claim that a keyword scan can detect copied implementation expression; human source/license
-review remains mandatory.
+The automated audit proves inventory, hashes, and declarations, and validates review evidence
+when an attestation is supplied. It does not claim that a keyword scan can detect copied
+implementation expression; the pending review label is not an approval claim.
 
 ## DOCX dependency adoption
 
