@@ -856,6 +856,9 @@ def test_posix_spawn_replacement_uses_held_workspace_identity(
 
     private_root.unlink()
     displaced.rmdir()
+    operation_base = displaced.parent / "document-skills-operations"
+    (operation_base / "operation-fixture-cwd-identity").rmdir()
+    operation_base.rmdir()
     displaced.parent.rmdir()
 
 
@@ -928,6 +931,9 @@ def test_posix_worker_rejects_held_workspace_moved_outside_project_before_popen(
             displaced.rmdir()
         base = sandbox / ".document-skills-tmp"
         if base.is_dir():
+            operation_base = base / "document-skills-operations"
+            (operation_base / "operation-fixture-moved-outside").rmdir()
+            operation_base.rmdir()
             base.rmdir()
 
 

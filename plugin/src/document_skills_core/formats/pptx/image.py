@@ -161,10 +161,10 @@ def fit_existing_image(
 def _image_path(value: dict[str, Any]) -> Path:
     raw = value.get("path", value.get("filename"))
     if isinstance(raw, Path):
-        return raw.expanduser().resolve(strict=False)
+        return raw.expanduser().absolute()
     if type(raw) is not str or not raw or "://" in raw or raw.startswith(("\\\\", "//")):
         _invalid("The presentation image path must reference a local file.")
-    return Path(raw).expanduser().resolve(strict=False)
+    return Path(raw).expanduser().absolute()
 
 
 def _identify_image(payload: bytes) -> tuple[str, str, int, int, int]:

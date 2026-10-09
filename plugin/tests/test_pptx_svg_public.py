@@ -10,6 +10,7 @@ import subprocess
 from tests.support.public_cli import PUBLIC_CLI_TEST_TIMEOUT_SECONDS
 
 import pytest
+from tests.support.pptx_template_fixture import owner_contract_root
 
 from document_skills_core.formats.pptx.presentation_contracts import (
     PRESENTATION_CONTRACT_V1_PIN,
@@ -64,12 +65,7 @@ def _fixtures(project_root: Path) -> Path:
 
 
 def _owner_contract(project_root: Path) -> Path:
-    candidate = (
-        project_root.parents[1]
-        / "elftia"
-        / "packages"
-        / "presentation-contracts"
-    )
+    candidate = owner_contract_root(project_root)
     if not candidate.is_dir():
         pytest.skip("owner presentation-contract package is not installed")
     return candidate

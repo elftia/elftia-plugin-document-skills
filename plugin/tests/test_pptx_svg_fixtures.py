@@ -8,6 +8,7 @@ from pathlib import Path
 import uuid
 
 import pytest
+from tests.support.pptx_template_fixture import owner_contract_root
 
 from document_skills_core.core.contracts.errors import DocumentSkillsError
 from document_skills_core.formats.pptx.package import OpcPackage
@@ -231,12 +232,7 @@ def test_deterministic_svg_recipe_cannot_emit_powerpoint_pass(
     project_root: Path,
     tmp_path: Path,
 ) -> None:
-    contract_root = (
-        project_root.parents[1]
-        / "elftia"
-        / "packages"
-        / "presentation-contracts"
-    )
+    contract_root = owner_contract_root(project_root)
     if not contract_root.is_dir():
         pytest.skip("owner presentation-contract package is not installed")
 

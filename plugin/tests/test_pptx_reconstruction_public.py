@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import os
 import shutil
 import struct
 import zipfile
@@ -306,7 +307,13 @@ def test_reconstruction_supervisor_enforces_real_worker_limits_end_to_end(
     assert payload["errors"][0]["details"]["reason_category"] == expected_reason
     assert source.read_bytes() == source_payload
     assert output.read_bytes() == b"prior-destination"
-    assert not private_root.exists()
+    if os.name == "nt":
+        assert not private_root.exists()
+    else:
+        # POSIX conservatively retains the held directory because stat-at plus
+        # rmdir-at could remove a substituted object. It must remain empty.
+        assert private_root.is_dir()
+        assert list(private_root.iterdir()) == []
 
 
 def test_adapter_observes_only_a_private_screened_snapshot(

@@ -14,6 +14,9 @@ from tools.html_pptx_provenance import pptx_module_profile
 from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
     DOCX_TEMPLATE_PACK_REQUIREMENT,
+    DARWIN_LAUNCH_REQUIREMENT,
+    _DARWIN_LAUNCH_MODULES,
+    _DARWIN_LAUNCH_PROFILE,
     cross_format_capability_module_profile,
     docx_template_pack_module_profile,
     regenerate,
@@ -601,6 +604,8 @@ def test_xlsx_provenance_composes_provider_and_existing_shared_owners(project_ro
         ),
     }
     for path, requirement in expected_requirements.items():
+        if path in _DARWIN_LAUNCH_MODULES:
+            requirement = _compose_requirements(requirement, DARWIN_LAUNCH_REQUIREMENT)
         assert records[path]["requirement_source"] == requirement
 
 
@@ -891,6 +896,8 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
             else None,
         )
         record = records[path]
+        if path in _DARWIN_LAUNCH_MODULES:
+            requirement = _compose_requirements(requirement, DARWIN_LAUNCH_REQUIREMENT)
         assert record["requirement_source"] == requirement
         expected_shared_description = (
             advanced_shared_description
@@ -898,11 +905,15 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
             else shared_description
         )
         if path in atomic_launch_only_paths:
-            assert record["modifications"] == atomic_launch_description
+            expected = atomic_launch_description
+            if path in _DARWIN_LAUNCH_MODULES:
+                expected += " " + _DARWIN_LAUNCH_PROFILE[0]
+            assert record["modifications"] == expected
         elif path in atomic_launch_composed_paths:
-            assert record["modifications"] == (
-                f"{expected_shared_description} {atomic_launch_description}"
-            )
+            expected = f"{expected_shared_description} {atomic_launch_description}"
+            if path in _DARWIN_LAUNCH_MODULES:
+                expected += " " + _DARWIN_LAUNCH_PROFILE[0]
+            assert record["modifications"] == expected
         elif path.endswith("packages.lock.json"):
             assert "Exact NuGet dependency lock" in record["modifications"]
         else:

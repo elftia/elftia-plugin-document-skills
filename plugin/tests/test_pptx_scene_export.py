@@ -8,6 +8,7 @@ from xml.etree.ElementTree import SubElement, tostring
 
 from defusedxml.ElementTree import fromstring
 import pytest
+from tests.support.pptx_template_fixture import owner_contract_root
 
 from document_skills_core.formats.pptx.constants import qn
 from document_skills_core.formats.pptx.package import OpcPackage
@@ -23,7 +24,7 @@ from tests.fixtures.recipes.docx_fixture_support import PNG_1X1
 
 
 def _owner_contract_root(project_root: Path) -> Path:
-    root = project_root.parents[1] / "elftia" / "packages" / "presentation-contracts"
+    root = owner_contract_root(project_root)
     assert root.is_dir()
     return root
 

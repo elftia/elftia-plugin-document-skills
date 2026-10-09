@@ -225,11 +225,26 @@ class LibreOfficeDetector:
         for name in EXECUTABLE_NAMES:
             found = shutil.which(name)
             if found:
-                return found
+                return self._native_candidate(found)
         for path in platform_known_paths():
             if Path(path).is_file():
-                return path
+                return self._native_candidate(path)
         return None
+
+    @staticmethod
+    def _native_candidate(candidate: str) -> str:
+        if os.name == "nt":
+            return candidate
+        # POSIX soffice/libreoffice entries can be shell wrappers. Their
+        # installed native companion must pass the same identity and version
+        # probe as every other candidate; scripts never gain launch permission.
+        try:
+            companion = Path(candidate).resolve(strict=True).with_name("soffice.bin")
+            if companion.is_file():
+                return str(companion)
+        except (OSError, RuntimeError):
+            pass
+        return candidate
 
     def _validate_callability(self, candidate: str) -> DetectionEvidence:
         try:

@@ -56,8 +56,8 @@ def _english_scan() -> Image.Image:
 def _unicode_scan(cjk_path: Path, arabic_path: Path) -> Image.Image:
     image = Image.new("L", (1000, 300), 255)
     draw = ImageDraw.Draw(image)
-    cjk = ImageFont.truetype(str(cjk_path), 54)
-    arabic = ImageFont.truetype(str(arabic_path), 54)
+    cjk = ImageFont.truetype(str(cjk_path), 54, layout_engine=ImageFont.Layout.BASIC)
+    arabic = ImageFont.truetype(str(arabic_path), 54, layout_engine=ImageFont.Layout.BASIC)
     draw.text((35, 30), "中文测试 你好世界", font=cjk, fill=0)
     # Basic layout is intentional: this is an OCR input, not a shaping oracle.
     draw.text((965, 125), "مرحبا بالعالم", font=arabic, fill=0, anchor="ra")

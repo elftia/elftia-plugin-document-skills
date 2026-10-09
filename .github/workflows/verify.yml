@@ -10,6 +10,8 @@ permissions:
 jobs:
   verify:
     name: Node ${{ matrix.node }} (${{ matrix.os }})
+    env:
+      ELFTIA_PRESENTATION_CONTRACTS_ROOT: ${{ github.workspace }}/.ci-contract-owner/packages/presentation-contracts
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,6 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
+      - name: Checkout pinned presentation contract owner
+        uses: actions/checkout@v4
+        with:
+          repository: elftia/elftia
+          ref: ffa080f78f345c24f2dc293aefd7d931089d61bd
+          path: .ci-contract-owner
+          sparse-checkout: packages/presentation-contracts
+          token: ${{ secrets.ELFTIA_REPO_TOKEN }}
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:

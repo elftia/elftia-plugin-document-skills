@@ -70,7 +70,11 @@ def darwin_rename_no_replace(
 def darwin_descriptor_path(descriptor: int) -> Path:
     buffer = ctypes.create_string_buffer(4096)
     library = ctypes.CDLL(None, use_errno=True)
-    result = library.fcntl(descriptor, 50, buffer)
+    # fcntl is variadic. Apple ARM64 requires the fixed argument types so
+    # libffi places the trailing pointer in the variadic argument area.
+    library.fcntl.argtypes = [ctypes.c_int, ctypes.c_int]
+    library.fcntl.restype = ctypes.c_int
+    result = library.fcntl(descriptor, 50, buffer)  # F_GETPATH
     if result != 0:
         number = ctypes.get_errno()
         raise OSError(number, os.strerror(number))

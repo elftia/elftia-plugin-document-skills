@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 from typing import Any
 from xml.etree.ElementTree import tostring
@@ -387,8 +388,15 @@ def _slot(
     }
 
 
+def owner_contract_root(project_root: Path) -> Path:
+    configured = os.environ.get("ELFTIA_PRESENTATION_CONTRACTS_ROOT")
+    if configured:
+        return Path(configured).resolve(strict=True)
+    return project_root.parents[1] / "elftia" / "packages" / "presentation-contracts"
+
+
 def _owner_contract_root(project_root: Path) -> Path:
-    root = project_root.parents[1] / "elftia" / "packages" / "presentation-contracts"
+    root = owner_contract_root(project_root)
     if not root.is_dir():
         raise RuntimeError("presentation-contract owner package is required for B2 fixtures")
     return root

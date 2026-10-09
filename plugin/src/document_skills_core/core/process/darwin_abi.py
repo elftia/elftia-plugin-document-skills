@@ -108,7 +108,8 @@ class DarwinAPI:
             (self.libc.posix_spawnattr_setsigmask, [pointer, signal_set]),
             (self.libc.sigemptyset, [signal_set]),
             (self.libc.sigaddset, [signal_set, ctypes.c_int]),
-            (self.libc.fcntl, [ctypes.c_int, ctypes.c_int, ctypes.c_int]),
+            # Only the two fixed arguments belong in a variadic signature.
+            (self.libc.fcntl, [ctypes.c_int, ctypes.c_int]),
             (self.libproc.proc_pidpath, [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]),
             (
                 self.libproc.proc_pidinfo,

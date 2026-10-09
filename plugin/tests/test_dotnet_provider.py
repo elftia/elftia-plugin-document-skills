@@ -340,7 +340,7 @@ class TestDetector:
                                 "protocol_version": "1.0",
                                 "runtime_major": 8,
                                 "assembly_loaded": True,
-                                "openxml_version": "3.0.1",
+                                "openxml_version": "3.3.0",
                             }
                         ),
                         "",
@@ -383,7 +383,7 @@ class TestDetector:
                         "protocol_version": "1.0",
                         "runtime_major": 8,
                         "assembly_loaded": True,
-                        "openxml_version": "3.0.1",
+                        "openxml_version": "3.3.0",
                     }),
                     "",
                     1,
@@ -432,7 +432,7 @@ class TestDetector:
                             "protocol_version": "1.0",
                             "runtime_major": 8,
                             "assembly_loaded": True,
-                            "openxml_version": "3.0.1",
+                            "openxml_version": "3.3.0",
                         }),
                         "",
                         50,
@@ -443,7 +443,7 @@ class TestDetector:
         detector._runner = FakeRunner()
         evidence = detector.detect()
         assert evidence.available is True
-        assert evidence.version == "3.0.1"
+        assert evidence.version == "3.3.0"
         assert evidence.path is not None
         assert detector._runner.calls[1][0] == "restore"
         assert "--locked-mode" in detector._runner.calls[1]
@@ -827,7 +827,7 @@ class TestProductionRegistryIntegration:
                         "protocol_version": "1.0",
                         "runtime_major": 8,
                         "assembly_loaded": True,
-                        "openxml_version": "3.0.1",
+                        "openxml_version": "3.3.0",
                     }),
                     "",
                     1,

@@ -158,8 +158,8 @@ class _TestHardQuotaSession:
         self.root = root
         self.output_dir = root / "output"
         self.profile_dir = root / "profile"
-        self.output_dir.mkdir()
-        self.profile_dir.mkdir()
+        self.output_dir.mkdir(mode=0o700)
+        self.profile_dir.mkdir(mode=0o700)
         self.root_identity = capture_directory_identity(root)
         self.output_identity = capture_directory_identity(self.output_dir)
         self.byte_limit = byte_limit
@@ -399,6 +399,24 @@ def _active_xlsx(path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Constants tests
 # ---------------------------------------------------------------------------
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX native LibreOffice companion")
+def test_detector_selects_native_posix_companion(tmp_path):
+    wrapper = tmp_path / "soffice"
+    wrapper.write_bytes(b"#!/bin/sh\nexit 0\n")
+    companion = tmp_path / "soffice.bin"
+    companion.write_bytes(Path(sys.executable).read_bytes())
+
+    assert LibreOfficeDetector._native_candidate(str(wrapper)) == str(companion)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX wrapper without native companion")
+def test_detector_without_native_companion_keeps_original_candidate(tmp_path):
+    wrapper = tmp_path / "soffice"
+    wrapper.write_bytes(b"#!/bin/sh\nexit 0\n")
+
+    assert LibreOfficeDetector._native_candidate(str(wrapper)) == str(wrapper)
+
 
 class TestConstants:
     def test_headless_prefix_contains_required_flags(self):

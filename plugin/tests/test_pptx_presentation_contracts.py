@@ -6,6 +6,7 @@ import shutil
 
 from jsonschema import Draft202012Validator
 import pytest
+from tests.support.pptx_template_fixture import owner_contract_root
 
 from document_skills_core.formats.pptx.presentation_contracts import (
     PRESENTATION_CONTRACT_V1_PIN,
@@ -35,12 +36,7 @@ def _shallow_consumer(tmp_path: Path) -> PresentationContractConsumer:
 
 
 def _owner_contract_root(project_root: Path) -> Path | None:
-    candidate = (
-        project_root.parents[1]
-        / "elftia"
-        / "packages"
-        / "presentation-contracts"
-    )
+    candidate = owner_contract_root(project_root)
     return candidate if candidate.is_dir() else None
 
 
