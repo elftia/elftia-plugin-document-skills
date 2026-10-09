@@ -33,7 +33,7 @@
     {
       "schema_version": "1.0",
       "status": "healthy",
-      "project_version": "0.5.9",
+      "project_version": "0.5.10",
       "format": "docx",
       "runtime": [],
       "providers": [],

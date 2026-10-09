@@ -29,6 +29,16 @@ from .windows_handles import (
 )
 
 _HASH_CHUNK_BYTES = 64 * 1024
+_MACHO_MAGICS = (
+    b"\xfe\xed\xfa\xce",
+    b"\xce\xfa\xed\xfe",
+    b"\xfe\xed\xfa\xcf",
+    b"\xcf\xfa\xed\xfe",
+    b"\xca\xfe\xba\xbe",
+    b"\xbe\xba\xfe\xca",
+    b"\xca\xfe\xba\xbf",
+    b"\xbf\xba\xfe\xca",
+)
 
 
 @dataclass(frozen=True)
@@ -148,7 +158,7 @@ def _open_posix_authorized_lease(
     require_native: bool,
 ) -> ExecutableLaunchLease:
     if require_native:
-        _require_linux_proc_fd()
+        _require_posix_atomic_launch()
     try:
         alias = os.lstat(expected.launch_path)
         resolved = expected.launch_path.resolve(strict=True)
@@ -170,13 +180,15 @@ def _open_posix_authorized_lease(
         ctime_ns=snapshot.st_ctime_ns,
         sha256=digest,
     )
-    if require_native and not prefix.startswith(b"\x7fELF"):
+    darwin = sys.platform == "darwin"
+    native = prefix.startswith(_MACHO_MAGICS) if darwin else prefix.startswith(b"\x7fELF")
+    if require_native and not native:
         os.close(fd)
         _native_unavailable(expected.launch_path)
     return ExecutableLaunchLease(
         launch_path=expected.launch_path,
-        popen_executable=f"/proc/self/fd/{fd}",
-        pass_fds=(fd,),
+        popen_executable=str(expected.resolved_path) if darwin else f"/proc/self/fd/{fd}",
+        pass_fds=() if darwin else (fd,),
         identity=identity,
         _fd=fd,
     )
@@ -388,7 +400,9 @@ def _require_bounded_size(size: int, path: Path) -> None:
         raise OSError(f"{path.name} has an invalid executable size")
 
 
-def _require_linux_proc_fd() -> None:
+def _require_posix_atomic_launch() -> None:
+    if sys.platform == "darwin":
+        return
     if not sys.platform.startswith("linux") or not Path("/proc/self/fd").is_dir():
         raise DocumentSkillsError(
             ErrorCode.RUNTIME_UNAVAILABLE,

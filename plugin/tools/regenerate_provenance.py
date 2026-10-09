@@ -53,6 +53,30 @@ CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
     "document-skills-xlsx-completion"
 )
 README_SYSTEM_REQUIREMENT = "Rasen document-skills-readme-system"
+DARWIN_LAUNCH_REQUIREMENT = "Elftia macOS native launch and PDF repair (2026-10-09)"
+_DARWIN_LAUNCH_MODULES = {
+    "src/document_skills_core/core/process/darwin_abi.py",
+    "src/document_skills_core/core/process/darwin_image.py",
+    "src/document_skills_core/core/process/darwin_process.py",
+    "src/document_skills_core/core/process/darwin_spawn.py",
+    "src/document_skills_core/core/process/executable.py",
+    "src/document_skills_core/core/process/runner.py",
+    "tests/test_process_executable_identity.py",
+    "tests/test_private_workspace_identity.py",
+}
+_DARWIN_LAUNCH_PROFILE = (
+    "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode "
+    "identity and held-FD SHA-256 verification before SIGCONT, bounded child "
+    "cleanup, explicit descriptor inheritance, or launch/workspace regression "
+    "coverage adapted to the platform spawn implementation.",
+    [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py",
+    ],
+)
 
 _README_SYSTEM_DATA_ARTIFACTS = {
     "README.md",
@@ -693,6 +717,9 @@ def docx_template_pack_data_profile(path: str) -> tuple[str, list[str]] | None:
 
 
 def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
+    darwin_profile = (
+        _DARWIN_LAUNCH_PROFILE if artifact.path in _DARWIN_LAUNCH_MODULES else None
+    )
     cross_format_profile = cross_format_capability_module_profile(artifact.path)
     pptx_profile = pptx_module_profile(artifact.path)
     pptx_openxml_profile = pptx_openxml_module_profile(artifact.path)
@@ -703,6 +730,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         (pptx_profile[0], pptx_profile[1]) if pptx_profile else None
     )
     format_profile = _combined_profile(
+        darwin_profile,
         cross_format_profile,
         pptx_record_profile,
         pptx_openxml_profile,
@@ -734,6 +762,7 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         or "pdf-" in artifact.path
     )
     format_requirement = _compose_requirements(
+        DARWIN_LAUNCH_REQUIREMENT if darwin_profile else None,
         FOUNDATION_REQUIREMENT if pptx_openxml_profile else None,
         CROSS_FORMAT_CAPABILITY_REQUIREMENT
         if cross_format_profile

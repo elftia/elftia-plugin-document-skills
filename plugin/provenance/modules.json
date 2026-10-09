@@ -9,7 +9,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "29285b5eee35d4eb97348b10599a205e9ba21bf0ef992b2bb1eefc1f22304c55"
+      "sha256": "0b947360c6e79b921c2534458ded954c1cf9859e45ec850e012b6de9761a6607"
     },
     {
       "artifact": "PROVENANCE.md",
@@ -142,7 +142,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "10769f9801f0902c1e6402728570f462ec4cb3a3e207d2acfa651ade6f3efd36"
+      "sha256": "dd0fcc3158ec5f780f7f8c50b548871f43b6dfc4469b1598bac4602b34b4d791"
     },
     {
       "artifact": "package-lock.json",
@@ -158,7 +158,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "9de2175dfe9a788be2c8274f4613663ed5526fc4aeba1567244902f4b27f1022"
+      "sha256": "d831f5056d4d09229c3066656e095fc0332b0a2d07364ae788583ddd9ec19bff"
     },
     {
       "artifact": "package.json",
@@ -174,7 +174,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "bae47aa6611454a119ba6778f78af9ec5fd73eaba04e644e370ae1903f0369e6"
+      "sha256": "2a431645db057c184074ac04bf062438aafa0e76351fe998d31244123918898b"
     },
     {
       "artifact": "provenance/README.md",
@@ -811,7 +811,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e03901a77c992b471caf2c317a8a792c61fa57964cb2b4c75bcefc6cf86004c0"
+      "sha256": "751b69181948b9e2fc989969edd9aca03cb0c0d70d27df4b27f3f3479893112e"
     },
     {
       "artifact": "pyproject.toml",
@@ -821,7 +821,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "7840bce864af73925f9cda7d1594cf4ea14c9be8c50692b0fc2bb394cee1bb3e"
+      "sha256": "cf9317c1a404e8e925b83694e947081a0a60bcb988946fc7933ec84fd98933e5"
     },
     {
       "artifact": "sbom.cdx.json",
@@ -863,7 +863,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "8cc1ad9174b997c93b5a3f2028a97a567c1bf96a6da0a5b53db8d21f8c4669e8"
+      "sha256": "815a741abbc0f496ec498c2767e6cfd16f676bb0eb405a5bb2dde5c1abd0cdec"
     },
     {
       "artifact": "schemas/README.md",
@@ -900,7 +900,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b4ab8b6c2d4ba27e15c87306104b8891c5b2bf4082bfe8369f281962d7ced083"
+      "sha256": "d317ab608e1af33d3515d87464cb66cda0a23a7a51e3c098ec9cf94b4f9231b6"
     },
     {
       "artifact": "schemas/docx-template-pack.schema.json",
@@ -5103,7 +5103,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "947ae74239a1f16812c89b24f986a5514ee487a0bcb38a2f6b24405da2c89cfa"
+      "sha256": "50b320157412eca7e8c5ca63a73f5a13f2791f5010b09d3bd9c3d1e0f7422c5e"
     }
   ],
   "executable_exclusions": [],
@@ -5766,7 +5766,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "093646768deb5ff1e73e1e2ede3e412effdc86cc3ed784b1dc726af3731c9ffe",
+      "sha256": "73021ec40a39ea05e1d3f62ec7420427f7d6f026f51d0430e333fee6dc49e9d3",
       "source_class": "original",
       "third_party_files": []
     },
@@ -6551,60 +6551,99 @@
     },
     {
       "artifact_tests": [
-        "tests/test_xlsx_contracts.py",
-        "tests/test_xlsx_operations.py",
-        "tests/test_xlsx_provider_qa.py",
-        "tests/test_xlsx_public.py",
-        "tests/test_xlsx_recalculation.py",
-        "tests/test_dotnet_provider.py",
-        "tests/test_dotnet_xlsx_schema_real.py",
-        "tests/test_libreoffice_provider.py",
-        "tests/test_libreoffice_hard_quota.py",
-        "tests/test_provider_crash_isolation.py",
         "tests/test_process_executable_identity.py",
-        "tests/test_html_provenance.py",
-        "tests/test_input_snapshot_security.py",
+        "tests/test_private_workspace_identity.py",
         "tests/test_runtime.py",
-        "tests/test_safety.py",
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
-        "tests/test_structure.py",
-        "tests/test_supply_chain.py",
-        "tests/test_xlsx_annotations.py",
-        "tests/test_xlsx_chart_advanced.py",
-        "tests/test_xlsx_chart_advanced_public.py",
-        "tests/test_xlsx_chart_create.py",
-        "tests/test_xlsx_chart_edit.py",
-        "tests/test_xlsx_conditional_format.py",
-        "tests/test_xlsx_data_validation.py",
-        "tests/test_xlsx_formula_analysis.py",
-        "tests/test_xlsx_metadata_public.py",
-        "tests/test_xlsx_page_setup.py",
-        "tests/test_xlsx_sheet_edit.py",
-        "tests/test_xlsx_sparkline.py",
-        "tests/test_xlsx_sparkline_public.py",
-        "tests/test_xlsx_structural_edit.py",
-        "tests/test_xlsx_structural_refs.py",
-        "tests/test_xlsx_table_create.py",
-        "tests/test_xlsx_table_edit.py",
-        "tests/test_xlsx_worksheet_edit.py"
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
-      "module": "src/document_skills_core/core/process/executable.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation.",
+      "module": "src/document_skills_core/core/process/darwin_abi.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ce4297b6d7c36b1bae384f4eb00f594a2682d8615e313a8741a903e5407d273b",
+      "sha256": "63ca29012a223b772669352ad2916dbc0f8a4699a236e673cad467ccf04f170a",
       "source_class": "original",
       "third_party_files": []
     },
     {
       "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation.",
+      "module": "src/document_skills_core/core/process/darwin_image.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "d195516d84a2bd3241eade10d72883df0b997d4f30f35a8bad133799b36deb97",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation.",
+      "module": "src/document_skills_core/core/process/darwin_process.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "631e8c4e46d8b43ae463ccc158339d325d5ccfbdcf20e55c318746a2796ab3e4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation.",
+      "module": "src/document_skills_core/core/process/darwin_spawn.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "d445f55e5a0605510dee12bb4ed836c28c6aff55deaf95686f41067b62f54231",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py",
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -6615,15 +6654,12 @@
         "tests/test_libreoffice_provider.py",
         "tests/test_libreoffice_hard_quota.py",
         "tests/test_provider_crash_isolation.py",
-        "tests/test_process_executable_identity.py",
         "tests/test_html_provenance.py",
         "tests/test_input_snapshot_security.py",
-        "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_structure.py",
-        "tests/test_supply_chain.py",
         "tests/test_xlsx_annotations.py",
         "tests/test_xlsx_chart_advanced.py",
         "tests/test_xlsx_chart_advanced_public.py",
@@ -6646,14 +6682,70 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
-      "module": "src/document_skills_core/core/process/runner.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
+      "module": "src/document_skills_core/core/process/executable.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09) + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "0ab3e364b9fa11f0e79584f241e69e8dc22404c9cc72ae4860f55de5124ea033",
+      "sha256": "c36e9d8cb2f45c7f7da4a011484e14eebd8504e15599554b82aa50b653addf74",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py",
+        "tests/test_xlsx_contracts.py",
+        "tests/test_xlsx_operations.py",
+        "tests/test_xlsx_provider_qa.py",
+        "tests/test_xlsx_public.py",
+        "tests/test_xlsx_recalculation.py",
+        "tests/test_dotnet_provider.py",
+        "tests/test_dotnet_xlsx_schema_real.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_provider_crash_isolation.py",
+        "tests/test_html_provenance.py",
+        "tests/test_input_snapshot_security.py",
+        "tests/test_safety.py",
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_structure.py",
+        "tests/test_xlsx_annotations.py",
+        "tests/test_xlsx_chart_advanced.py",
+        "tests/test_xlsx_chart_advanced_public.py",
+        "tests/test_xlsx_chart_create.py",
+        "tests/test_xlsx_chart_edit.py",
+        "tests/test_xlsx_conditional_format.py",
+        "tests/test_xlsx_data_validation.py",
+        "tests/test_xlsx_formula_analysis.py",
+        "tests/test_xlsx_metadata_public.py",
+        "tests/test_xlsx_page_setup.py",
+        "tests/test_xlsx_sheet_edit.py",
+        "tests/test_xlsx_sparkline.py",
+        "tests/test_xlsx_sparkline_public.py",
+        "tests/test_xlsx_structural_edit.py",
+        "tests/test_xlsx_structural_refs.py",
+        "tests/test_xlsx_table_create.py",
+        "tests/test_xlsx_table_edit.py",
+        "tests/test_xlsx_worksheet_edit.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
+      "module": "src/document_skills_core/core/process/runner.py",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09) + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "b46beaf26e267df36f87eb60cc647cb73ed5a4e91ad16fdcaa9446e3c1a4ef1f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18324,7 +18416,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4e4cf05154d7745dd400315a03484c2454eb3cffa21cdced4a5247f51150c01d",
+      "sha256": "f8a6e807cb9245643868fda70e11633221c705a4c21730bb8ec30ece623a05fa",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24094,26 +24186,33 @@
     },
     {
       "artifact_tests": [
-        "tests/test_strategy2.py",
-        "tests/test_strategy3.py",
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
         "tests/test_supply_chain.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence.",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation.",
       "module": "tests/test_private_workspace_identity.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "4171fc4eb17d2540c60a6510fb4845c00c21d5f463e9264d985c8f38e6d03fcc",
+      "sha256": "5a0cb4ee4c151b5298e90dd37efbca3192f7465123e460f0d47faa8884d6a6d3",
       "source_class": "original",
       "third_party_files": []
     },
     {
       "artifact_tests": [
+        "tests/test_process_executable_identity.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_runtime.py",
+        "tests/test_pdf_public.py",
+        "tests/test_supply_chain.py",
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -24124,15 +24223,12 @@
         "tests/test_libreoffice_provider.py",
         "tests/test_libreoffice_hard_quota.py",
         "tests/test_provider_crash_isolation.py",
-        "tests/test_process_executable_identity.py",
         "tests/test_html_provenance.py",
         "tests/test_input_snapshot_security.py",
-        "tests/test_runtime.py",
         "tests/test_safety.py",
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_structure.py",
-        "tests/test_supply_chain.py",
         "tests/test_xlsx_annotations.py",
         "tests/test_xlsx_chart_advanced.py",
         "tests/test_xlsx_chart_advanced_public.py",
@@ -24155,14 +24251,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
+      "modifications": "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure.",
       "module": "tests/test_process_executable_identity.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "requirement_source": "Rasen Elftia macOS native launch and PDF repair (2026-10-09) + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "64c549a815db17f28ec53f97170c5a26720c0d7466351c51043fb41635bc0b8c",
+      "sha256": "70da319f2858596735babfcf8e390199f93f19a7d4a634e54bdc975df083e6de",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24598,7 +24694,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d96fc8db6b6b368e9b9c410e7b07b7af274e43ae27381e3f879af3cd6344aaa7",
+      "sha256": "644290383fb2c74fc8577aeeb4cbb3835fa4ab07e4ae76ffd7fe853265196faa",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26726,7 +26822,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b1e7ed9a9a669f97cb76cc36f41ae7be412949fc8030ddb523b5d5c1be7c7d23",
+      "sha256": "ae21aa0b555b2da3a0f0c49f37a5248074aed8e1919d1b305a59ddd9b0f8af3e",
       "source_class": "original",
       "third_party_files": []
     },

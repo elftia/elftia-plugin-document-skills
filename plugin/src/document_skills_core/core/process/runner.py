@@ -6,6 +6,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -20,6 +21,7 @@ from ..io.temp_roots import (
     cleanup_stale_roots,
     current_supervised_operation_root,
 )
+from .darwin_spawn import spawn_authorized_process
 from .executable import (
     ExecutableIdentity,
     ExecutableLaunchLease,
@@ -451,22 +453,31 @@ class ProcessRunner:
                 inherited_fds = tuple(dict.fromkeys((*launch.pass_fds, *pass_fds)))
                 if inherited_fds:
                     atomic_launch["pass_fds"] = inherited_fds
-                process = subprocess.Popen(
-                    command,
-                    cwd=launch_cwd,
-                    env=self._process_environment(
-                        private_environment,
-                        fixed_environment,
-                    ),
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=False,
-                    shell=False,
-                    start_new_session=os.name != "nt",
-                    creationflags=creation_flags,
-                    **atomic_launch,
-                )
+                environment = self._process_environment(private_environment, fixed_environment)
+                if sys.platform == "darwin":
+                    darwin_options = {"pass_fds": inherited_fds} if inherited_fds else {}
+                    process = spawn_authorized_process(
+                        command,
+                        launch=launch,
+                        cwd=launch_cwd,
+                        env=environment,
+                        close_fds=True,
+                        **darwin_options,
+                    )
+                else:
+                    process = subprocess.Popen(
+                        command,
+                        cwd=launch_cwd,
+                        env=environment,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=False,
+                        shell=False,
+                        start_new_session=os.name != "nt",
+                        creationflags=creation_flags,
+                        **atomic_launch,
+                    )
         except OSError as error:
             raise DocumentSkillsError(
                 ErrorCode.RUNTIME_UNAVAILABLE,

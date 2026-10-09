@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import document_skills_core.core.process.executable as executable_module
+import document_skills_core.core.process.runner as runner_module
 import pytest
 from document_skills_core.core.capabilities import DetectionEvidence
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -54,7 +55,7 @@ def test_final_launch_window_executes_the_authorized_object(
     target, replacement, args = _native_launch_fixture(tmp_path)
     policy = ProcessPolicy(project_root)
     executable = policy.allow_executable("identity-fixture", target)
-    real_popen = subprocess.Popen
+    spawn_module, spawn_name, real_popen = _spawn_target()
     race = {"attempted": False, "replacement_succeeded": False}
 
     def replacing_popen(*popen_args, **popen_kwargs):
@@ -67,7 +68,7 @@ def test_final_launch_window_executes_the_authorized_object(
             race["replacement_succeeded"] = True
         return real_popen(*popen_args, **popen_kwargs)
 
-    monkeypatch.setattr(subprocess, "Popen", replacing_popen)
+    monkeypatch.setattr(spawn_module, spawn_name, replacing_popen)
     result = ProcessRunner(policy).run("identity-fixture", executable, args)
 
     assert race["attempted"] is True
@@ -91,7 +92,8 @@ def test_atomic_spawn_failure_is_typed_and_releases_the_launch_lease(
     def failed_spawn(*_args, **_kwargs):
         raise OSError("private spawn failure details")
 
-    monkeypatch.setattr(subprocess, "Popen", failed_spawn)
+    spawn_module, spawn_name, _real_spawn = _spawn_target()
+    monkeypatch.setattr(spawn_module, spawn_name, failed_spawn)
     with pytest.raises(DocumentSkillsError) as failure:
         ProcessRunner(policy).run("identity-fixture", executable, args)
 
@@ -313,6 +315,12 @@ def test_posix_script_launcher_is_truthfully_unavailable(
         ProcessRunner(policy).run("script-fixture", executable, [])
 
     assert marker.exists() is False
+
+
+def _spawn_target():
+    if sys.platform == "darwin":
+        return runner_module, "spawn_authorized_process", runner_module.spawn_authorized_process
+    return subprocess, "Popen", subprocess.Popen
 
 
 def _native_launch_fixture(tmp_path: Path) -> tuple[Path, Path, list[str]]:

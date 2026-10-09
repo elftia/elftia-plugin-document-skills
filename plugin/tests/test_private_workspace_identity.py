@@ -532,13 +532,18 @@ def test_generic_runner_has_no_fd_capability_branch(
     policy = ProcessPolicy(project_root)
     executable = policy.allow_executable("fixture", sys.executable)
     observed: dict[str, object] = {}
-    real_popen = subprocess.Popen
+    spawn_module, spawn_name, real_popen = _spawn_target()
 
     def observe_popen(command: list[str], **kwargs: object) -> subprocess.Popen:
         observed.update(kwargs)
+        if sys.platform.startswith("linux"):
+            passed = kwargs["pass_fds"]
+            assert type(passed) is tuple and len(passed) == 1
+            metadata = os.fstat(passed[0])
+            observed["executable_identity"] = [metadata.st_dev, metadata.st_ino]
         return real_popen(command, **kwargs)
 
-    monkeypatch.setattr(runner_module.subprocess, "Popen", observe_popen)
+    monkeypatch.setattr(spawn_module, spawn_name, observe_popen)
     result = ProcessRunner(policy).run(
         "fixture",
         executable,
@@ -547,7 +552,15 @@ def test_generic_runner_has_no_fd_capability_branch(
 
     assert result.returncode == 0
     assert result.stdout.strip() == "generic"
-    assert "pass_fds" not in observed
+    if sys.platform.startswith("linux"):
+        # The sole Linux descriptor binds the executable, not a workspace.
+        pass_fds = observed["pass_fds"]
+        assert type(pass_fds) is tuple and len(pass_fds) == 1
+        assert observed["executable"] == f"/proc/self/fd/{pass_fds[0]}"
+        expected = os.stat(executable)
+        assert observed["executable_identity"] == [expected.st_dev, expected.st_ino]
+    else:
+        assert "pass_fds" not in observed
     assert observed["cwd"] == project_root.resolve()
 
 
@@ -812,12 +825,10 @@ def test_posix_spawn_replacement_uses_held_workspace_identity(
     private_root = sandbox / ".document-skills-tmp" / "invocation-fixture-cwd-identity"
     displaced = private_root.with_name("held-after-spawn-check")
     observed: dict[str, object] = {}
-    real_popen = subprocess.Popen
+    spawn_module, spawn_name, real_popen = _spawn_target()
 
     def replace_at_spawn(command: list[str], **kwargs: object) -> subprocess.Popen:
-        pass_fds = kwargs.get("pass_fds")
-        assert type(pass_fds) is tuple and len(pass_fds) == 1
-        descriptor = pass_fds[0]
+        descriptor = _workspace_descriptor(kwargs)
         metadata = os.fstat(descriptor)
         observed["identity"] = [metadata.st_dev, metadata.st_ino]
         observed["launch_cwd"] = kwargs.get("cwd")
@@ -826,7 +837,7 @@ def test_posix_spawn_replacement_uses_held_workspace_identity(
         private_root.symlink_to(outside, target_is_directory=True)
         return real_popen(command, **kwargs)
 
-    monkeypatch.setattr(runner_module.subprocess, "Popen", replace_at_spawn)
+    monkeypatch.setattr(spawn_module, spawn_name, replace_at_spawn)
     monkeypatch.chdir(invocation_base)
     payload, success = PublicCommandSupervisor(
         sandbox,
@@ -884,21 +895,20 @@ def test_posix_worker_rejects_held_workspace_moved_outside_project_before_popen(
     private_root = sandbox / ".document-skills-tmp" / "invocation-fixture-moved-outside"
     displaced = outside / "held-invocation"
     observed: dict[str, object] = {}
-    real_popen = subprocess.Popen
+    spawn_module, spawn_name, real_popen = _spawn_target()
 
     def move_outside_at_spawn(
         command: list[str],
         **kwargs: object,
     ) -> subprocess.Popen:
-        pass_fds = kwargs.get("pass_fds")
-        assert type(pass_fds) is tuple and len(pass_fds) == 1
+        _workspace_descriptor(kwargs)
         observed["launch_cwd"] = kwargs.get("cwd")
         observed["worker_argv0"] = command[1]
         private_root.rename(displaced)
         private_root.symlink_to(outside, target_is_directory=True)
         return real_popen(command, **kwargs)
 
-    monkeypatch.setattr(runner_module.subprocess, "Popen", move_outside_at_spawn)
+    monkeypatch.setattr(spawn_module, spawn_name, move_outside_at_spawn)
     monkeypatch.chdir(invocation_base)
     try:
         payload, success = PublicCommandSupervisor(
@@ -919,3 +929,24 @@ def test_posix_worker_rejects_held_workspace_moved_outside_project_before_popen(
         base = sandbox / ".document-skills-tmp"
         if base.is_dir():
             base.rmdir()
+
+
+def _spawn_target():
+    if sys.platform == "darwin":
+        return runner_module, "spawn_authorized_process", runner_module.spawn_authorized_process
+    return subprocess, "Popen", subprocess.Popen
+
+
+def _workspace_descriptor(kwargs: dict[str, object]) -> int:
+    passed = kwargs["pass_fds"]
+    assert type(passed) is tuple
+    directories = [fd for fd in passed if stat.S_ISDIR(os.fstat(fd).st_mode)]
+    assert len(directories) == 1
+    if sys.platform.startswith("linux"):
+        assert len(passed) == 2
+        executable = next(fd for fd in passed if fd != directories[0])
+        assert stat.S_ISREG(os.fstat(executable).st_mode)
+        assert kwargs["executable"] == f"/proc/self/fd/{executable}"
+    else:
+        assert len(passed) == 1
+    return directories[0]
