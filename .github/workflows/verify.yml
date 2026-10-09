@@ -502,7 +502,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libreoffice-writer fuse3 libfuse3-3 strace
+          sudo apt-get install --yes --no-install-recommends libreoffice-writer fuse3 libfuse3-3
           sudo modprobe fuse
           test -c /dev/fuse
           sudo chmod a+rw /dev/fuse
@@ -519,9 +519,7 @@ jobs:
         working-directory: plugin
         run: |
           mkdir -p ../.ci-evidence/docx-optional
-          strace -f -e trace=openat,mmap,socket,bind,connect \
-            -o ../.ci-evidence/docx-optional/native-syscalls.log \
-            uv run --project . --frozen python -m pytest \
+          uv run --project . --frozen python -m pytest \
               tests/test_libreoffice_quota_linux.py \
               -k real_libreoffice_runs_in_quota_filesystem -q
       - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
