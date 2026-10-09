@@ -236,7 +236,9 @@ def test_default_provider_identity_and_detection_only_capabilities(project_root)
         else "unavailable"
     )
     assert capability["validation"]["schema"] == expected_schema
-    assert capability["validation"]["visual"] == "unavailable"
+    assert capability["validation"]["visual"] == (
+        "available" if capability_state[str(ProviderId.LIBREOFFICE)]["available"] else "unavailable"
+    )
 
 
 def test_validation_capabilities_are_format_scoped_and_callable(project_root):

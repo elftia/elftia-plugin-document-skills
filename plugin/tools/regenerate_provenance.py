@@ -928,7 +928,8 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         record["requirement_source"] = _compose_requirements(record["requirement_source"], LINUX_QUOTA_REQUIREMENT)
         record["modifications"] += (
             " Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: "
-            "serialized aggregate logical-byte and entry quotas, synchronous direct I/O, "
+            "serialized aggregate logical-byte and entry quotas, cached write-through with "
+            "writeback-cache explicitly disabled and shared mappings limited to charged lengths, "
             "open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home "
             "environment, bounded cleanup and real kernel enforcement regressions."
         )

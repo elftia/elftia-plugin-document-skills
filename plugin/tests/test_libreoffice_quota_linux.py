@@ -154,9 +154,7 @@ def test_real_fuse_concurrent_writers_cannot_overcommit():
         assert sum(path.stat().st_size for path in session.profile_dir.iterdir()) <= 16384
 
 
-def test_real_fuse_forbids_links_special_files_and_writable_mmap(tmp_path):
-    import mmap
-
+def test_real_fuse_forbids_links_special_files_and_supports_shared_mmap(tmp_path):
     with _real_backend().open(byte_limit=16384, entry_limit=16) as session:
         source = session.output_dir / "result.pdf"
         source.write_bytes(b"x" * 4096)
@@ -167,20 +165,96 @@ def test_real_fuse_forbids_links_special_files_and_writable_mmap(tmp_path):
         ):
             with pytest.raises(OSError):
                 action()
-        with source.open("r+b") as stream:
-            with pytest.raises(OSError):
-                mmap.mmap(stream.fileno(), 4096, access=mmap.ACCESS_WRITE)
         # A page fault while Python holds the broker's GIL would deadlock its
         # own FUSE callbacks. Real providers map from a separate process.
         from document_skills_core.core.process import ProcessPolicy, ProcessRunner
 
         policy = ProcessPolicy(tmp_path)
         executable = policy.allow_executable("libreoffice", sys.executable)
-        code = "import mmap,sys; f=open(sys.argv[1],'rb'); m=mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_READ); assert m[:4]==b'xxxx'; m.close(); f.close()"
+        code = (
+            "import mmap,sys,os\n"
+            "with open(sys.argv[1],'r+b') as f:\n"
+            " with mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_READ) as m: assert m[:4]==b'xxxx'\n"
+            " with mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_WRITE) as m:\n"
+            "  m[:4]=b'yyyy'; m.flush()\n"
+            " os.fsync(f.fileno())\n"
+        )
         result = ProcessRunner(policy).run("libreoffice", executable, ["-c",code,str(source)],
                                            cwd=tmp_path, timeout_seconds=10)
         assert result.returncode == 0
+        assert source.read_bytes()[:4] == b"yyyy"
+        assert session.store.total_bytes == 4096
         assert session.validate_final_tree(expected_name="result.pdf").output_bytes == 4096
+
+
+def test_fuse_init_explicitly_disables_writeback_cache():
+    import ctypes
+
+    from document_skills_core.providers.libreoffice._quota_fuse_abi import (
+        FuseConfig, FuseConnInfo, FUSE_CAP_WRITEBACK_CACHE,
+    )
+    from document_skills_core.providers.libreoffice._quota_fuse_operations import FuseCallbacks
+
+    connection, config = FuseConnInfo(), FuseConfig()
+    connection.want = FUSE_CAP_WRITEBACK_CACHE | 1
+    callbacks = FuseCallbacks(QuotaStore(16384, 16))
+    callbacks._init(ctypes.pointer(connection), ctypes.pointer(config))
+    assert connection.want == 1
+    assert config.direct_io == config.kernel_cache == config.auto_cache == 0
+    assert callbacks.ready.is_set()
+
+
+def test_real_shared_mmap_cannot_bypass_growth_quota(tmp_path):
+    from document_skills_core.core.process import ProcessPolicy, ProcessRunner
+
+    with _real_backend().open(byte_limit=4096, entry_limit=16) as session:
+        source = session.output_dir / "result.pdf"
+        source.write_bytes(b"x" * 4096)
+        policy = ProcessPolicy(tmp_path)
+        executable = policy.allow_executable("libreoffice", sys.executable)
+        code = (
+            "import mmap,sys,os,errno\n"
+            "with open(sys.argv[1],'r+b',buffering=0) as f:\n"
+            " with mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_WRITE) as m:\n"
+            "  m[:4]=b'yyyy'; m.flush()\n"
+            "  for action in (lambda: m.resize(8192), lambda: os.ftruncate(f.fileno(),8192),\n"
+            "                 lambda: os.pwrite(f.fileno(),b'z',4096)):\n"
+            "   try: action()\n"
+            "   except OSError as e: assert e.errno==errno.ENOSPC\n"
+            "   else: raise AssertionError('Growth bypassed quota')\n"
+            "   assert os.fstat(f.fileno()).st_size==4096\n"
+            " os.fsync(f.fileno())\n"
+        )
+        result = ProcessRunner(policy).run("libreoffice", executable, ["-c",code,str(source)],
+                                           cwd=tmp_path, timeout_seconds=10)
+        assert result.returncode == 0, result.stderr
+        assert session.store.total_bytes == 4096
+        assert source.stat().st_size == 4096
+        assert source.read_bytes()[:4] == b"yyyy"
+        assert session.store.denials >= 3
+
+
+def test_real_dconf_sized_shared_mapping_on_writable_descriptor(tmp_path):
+    from document_skills_core.core.process import ProcessPolicy, ProcessRunner
+
+    with _real_backend().open(byte_limit=4096, entry_limit=16) as session:
+        source = session.profile_dir / "dconf-shm"
+        source.write_bytes(b"\0")
+        policy = ProcessPolicy(tmp_path)
+        executable = policy.allow_executable("libreoffice", sys.executable)
+        code = (
+            "import mmap,sys,os\n"
+            "fd=os.open(sys.argv[1],os.O_RDWR|os.O_CREAT,0o600)\n"
+            "with mmap.mmap(fd,1,flags=mmap.MAP_SHARED,prot=mmap.PROT_READ) as m: assert m[0]==0\n"
+            "with mmap.mmap(fd,1,flags=mmap.MAP_SHARED,prot=mmap.PROT_READ|mmap.PROT_WRITE) as m:\n"
+            " m[0]=1; m.flush()\n"
+            "os.fsync(fd); os.close(fd)\n"
+        )
+        result = ProcessRunner(policy).run("libreoffice", executable, ["-c",code,str(source)],
+                                           cwd=tmp_path, timeout_seconds=10)
+        assert result.returncode == 0, result.stderr
+        assert source.read_bytes() == b"\1"
+        assert session.store.total_bytes == 1
 
 
 def test_real_fuse_session_isolation_and_storage_environment():

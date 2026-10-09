@@ -42,6 +42,17 @@ class FuseArgs(c.Structure):
     _fields_ = [("count", c.c_int), ("values", c.POINTER(c.c_char_p)), ("allocated", c.c_int)]
 
 
+class FuseConnInfo(c.Structure):
+    # Public 3.14-3.16 prefix only; subsequent fields are never accessed.
+    _fields_ = [(name, c.c_uint) for name in (
+        "proto_major", "proto_minor", "max_write", "max_read",
+        "max_readahead", "capable", "want",
+    )]
+
+
+FUSE_CAP_WRITEBACK_CACHE = 1 << 16
+
+
 class FuseConfig(c.Structure):
     _fields_ = [
         ("set_gid", c.c_int), ("gid", c.c_uint),

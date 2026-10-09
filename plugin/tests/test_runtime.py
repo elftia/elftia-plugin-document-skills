@@ -316,6 +316,11 @@ def test_all_entrypoints_run_core_reports_through_frozen_uv(
         for path in platform_known_paths()
         if Path(path).is_file()
     ]
+    if os.name != "nt":
+        known_launchers = [
+            path.with_name("soffice.bin") if path.with_name("soffice.bin").is_file() else path
+            for path in known_launchers
+        ]
     assert libreoffice["required"] is False
     quota_supported = hard_quota_capability().supported
     provider_core_only = (

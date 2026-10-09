@@ -1,8 +1,9 @@
 """FUSE callbacks enforcing quotas before each filesystem mutation.
 
 All callbacks run under one session lock. No links, devices, xattrs,
-ioctls, writable mmap/writeback caching, or native copy/allocation shortcuts are
-exposed. Module provenance: original Elftia-authored clean-room implementation.
+ioctls, writeback caching, or native copy/allocation shortcuts are exposed.
+Mappings only change already charged file lengths. Module provenance: original
+Elftia-authored clean-room implementation.
 """
 
 from __future__ import annotations
@@ -14,8 +15,8 @@ import stat
 import threading
 
 from ._quota_fuse_abi import (
-    Filler, FuseConfig, InfoPointer, LinuxStat, LinuxStatVfs, OPERATION_NAMES, Operations,
-    Timespec,
+    Filler, FuseConfig, FuseConnInfo, FUSE_CAP_WRITEBACK_CACHE, InfoPointer,
+    LinuxStat, LinuxStatVfs, OPERATION_NAMES, Operations, Timespec,
 )
 from ._quota_store import QuotaStore, refuse
 
@@ -61,7 +62,7 @@ class FuseCallbacks:
             callback = c.CFUNCTYPE(i, *arguments)(self._guard(methods[name]))
             self.references.append(callback)
             self.operations[OPERATION_NAMES.index(name)] = c.cast(callback, v)
-        init = c.CFUNCTYPE(v, v, c.POINTER(FuseConfig))(self._init)
+        init = c.CFUNCTYPE(v, c.POINTER(FuseConnInfo), c.POINTER(FuseConfig))(self._init)
         self.references.append(init)
         self.operations[OPERATION_NAMES.index("init")] = c.cast(init, v)
 
@@ -79,13 +80,16 @@ class FuseCallbacks:
                     return -errno.EIO
         return callback
 
-    def _init(self, _connection, config):
+    def _init(self, connection, config):
+        # Cached write-through supports dconf's O_RDWR + read-only MAP_SHARED.
+        # Ordinary writes must reach the broker before returning success.
+        connection.contents.want &= ~FUSE_CAP_WRITEBACK_CACHE
         settings = config.contents
         # libfuse retains an unlinked open file under its private hidden name
         # until release. Its bytes and entry stay charged during that period.
         # hard_remove breaks fstat on Linux requests without a supplied fh.
         settings.hard_remove = 0
-        settings.direct_io = 0  # Per-handle direct I/O below; read-only mmap is safe.
+        settings.direct_io = 0
         settings.nullpath_ok = 1
         settings.use_ino = 1
         settings.kernel_cache = settings.auto_cache = 0
@@ -135,10 +139,7 @@ class FuseCallbacks:
 
     def open(self, path, info):
         info.contents.handle = self.store.open(self._path(path), info.contents.flags)
-        if info.contents.flags & (os.O_WRONLY | os.O_RDWR):
-            info.contents.bits |= 2  # Every writable handle uses synchronous direct I/O.
-        else:
-            info.contents.bits &= ~2  # Read-only mappings cannot grow persistent storage.
+        info.contents.bits &= ~2  # Cached write-through, never direct I/O.
         return 0
 
     def read(self, path, buffer, size, offset, info):
@@ -152,12 +153,13 @@ class FuseCallbacks:
     def write(self, _path, buffer, size, offset, info):
         handle = info.contents.handle
         node, flags = self.store.handles[handle]
-        end = (len(node.data) if flags & os.O_APPEND else offset) + size
+        writepage = bool(info.contents.bits & 1)
+        end = (len(node.data) if flags & os.O_APPEND and not writepage else offset) + size
         if offset < 0:
             refuse(errno.EINVAL)
         if self.store.total_bytes + max(0, end - len(node.data)) > self.store.byte_limit:
             self.store.deny_quota()
-        return self.store.write(handle, offset, c.string_at(buffer, size))
+        return self.store.write(handle, offset, c.string_at(buffer, size), writepage=writepage)
 
     def truncate(self, path, size, info):
         self.store.resize(self._node(path, info), size)

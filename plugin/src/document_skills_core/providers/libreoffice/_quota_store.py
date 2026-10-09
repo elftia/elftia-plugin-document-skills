@@ -125,11 +125,11 @@ class QuotaStore:
         self.total_bytes += growth
         node.modified_ns = time.time_ns()
 
-    def write(self, handle: int, offset: int, payload: bytes) -> int:
+    def write(self, handle: int, offset: int, payload: bytes, *, writepage: bool = False) -> int:
         node, flags = self.handles[handle]
         if flags & (os.O_WRONLY | os.O_RDWR) == os.O_RDONLY:
             refuse(errno.EBADF)
-        if flags & os.O_APPEND:
+        if flags & os.O_APPEND and not writepage:
             offset = len(node.data)
         if offset < 0:
             refuse(errno.EINVAL)

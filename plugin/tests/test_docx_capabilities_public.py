@@ -99,7 +99,9 @@ def test_public_capabilities_are_callable_not_detection_inferred(
         assert operations[operation]["providers"] == (
             ["libreoffice"] if libreoffice_available else []
         )
-    assert report["validation"]["visual"] == "unavailable"
+    assert report["validation"]["visual"] == (
+        "available" if libreoffice_available else "unavailable"
+    )
     skill_text = (project_root / "skills/document-docx/SKILL.md").read_text(
         encoding="utf-8"
     )
