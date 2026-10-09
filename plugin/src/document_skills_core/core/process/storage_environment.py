@@ -30,4 +30,7 @@ def quota_storage_environment(
     return {
         "TMPDIR": temporary, "TEMP": temporary, "TMP": temporary, "HOME": home,
         "XDG_CACHE_HOME": home, "XDG_CONFIG_HOME": home,
+        # Headless conversion must not use the desktop dconf service or its
+        # writable shared-memory cache. Settings remain process-local.
+        "GSETTINGS_BACKEND": "memory",
     }

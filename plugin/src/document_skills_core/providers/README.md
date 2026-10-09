@@ -44,6 +44,8 @@ This is a storage quota for the selected private tree, not OS privilege isolatio
 
 Before conversion, the fresh profile sets `DisableMacrosExecution=true`, `DisableActiveContent=true` and `MacroSecurityLevel=3`. These fixed values disable all macro runtimes, OLE and DDE; the profile bytes and entries are charged to the same quota. See the [LibreOffice configuration schema](https://github.com/LibreOffice/core/blob/libreoffice-24.2.7.2/officecfg/registry/schema/org/openoffice/Office/Common.xcs).
 
+The headless child also receives the fixed `GSETTINGS_BACKEND=memory`. GLib settings remain process-local instead of opening the desktop dconf service and its writable shared-memory cache. Writable handles still use synchronous direct I/O in the quota filesystem; this setting does not bypass any storage quota.
+
 ABI references: [libfuse high-level API](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse.h), [open-file ABI](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse_common.h).
 
 ## Verification

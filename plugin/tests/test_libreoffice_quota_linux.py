@@ -192,8 +192,10 @@ def test_real_fuse_session_isolation_and_storage_environment():
             (first.output_dir / "result.pdf").write_bytes(b"first")
             assert not (second.output_dir / "result.pdf").exists()
             environment = quota_storage_environment("libreoffice", first.process_storage)
-            assert set(environment) == {"HOME", "TMPDIR", "TMP", "TEMP", "XDG_CACHE_HOME", "XDG_CONFIG_HOME"}
-            assert all(Path(value).is_relative_to(first.root) for value in environment.values())
+            path_names = {"HOME", "TMPDIR", "TMP", "TEMP", "XDG_CACHE_HOME", "XDG_CONFIG_HOME"}
+            assert set(environment) == path_names | {"GSETTINGS_BACKEND"}
+            assert environment["GSETTINGS_BACKEND"] == "memory"
+            assert all(Path(environment[name]).is_relative_to(first.root) for name in path_names)
             with pytest.raises(DocumentSkillsError):
                 quota_storage_environment("other", first.process_storage)
             with pytest.raises(DocumentSkillsError):
@@ -212,6 +214,7 @@ def test_real_native_process_receives_quota_bound_temporary_and_home(tmp_path):
             "import os,pathlib,errno; "
             "t=pathlib.Path(os.environ['TMPDIR']); h=pathlib.Path(os.environ['HOME']); "
             "assert t.parent==h.parent; "
+            "assert os.environ['GSETTINGS_BACKEND']=='memory'; "
             "(t/'temp').write_bytes(b't'*8192); "
             "(h/'cache').write_bytes(b'c'*8192); "
             "print((t/'temp').stat().st_size+(h/'cache').stat().st_size)"

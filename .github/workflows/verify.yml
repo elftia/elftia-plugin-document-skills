@@ -521,6 +521,7 @@ jobs:
           mkdir -p ../.ci-evidence/docx-optional
           uv run --project . --frozen python -m pytest \
               tests/test_libreoffice_quota_linux.py \
+              --junitxml ../.ci-evidence/docx-optional/native-probe.xml \
               -k real_libreoffice_runs_in_quota_filesystem -q
       - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
         shell: bash
