@@ -1,7 +1,7 @@
 """FUSE callbacks enforcing quotas before each filesystem mutation.
 
 All callbacks run under one session lock. No links, devices, xattrs,
-ioctls, mmap/writeback caching, or native copy/allocation shortcuts are
+ioctls, writable mmap/writeback caching, or native copy/allocation shortcuts are
 exposed. Module provenance: original Elftia-authored clean-room implementation.
 """
 
@@ -85,7 +85,8 @@ class FuseCallbacks:
         # until release. Its bytes and entry stay charged during that period.
         # hard_remove breaks fstat on Linux requests without a supplied fh.
         settings.hard_remove = 0
-        settings.direct_io = settings.nullpath_ok = 1
+        settings.direct_io = 0  # Per-handle direct I/O below; read-only mmap is safe.
+        settings.nullpath_ok = 1
         settings.use_ino = 1
         settings.kernel_cache = settings.auto_cache = 0
         self.ready.set()
@@ -134,7 +135,10 @@ class FuseCallbacks:
 
     def open(self, path, info):
         info.contents.handle = self.store.open(self._path(path), info.contents.flags)
-        info.contents.bits |= 2  # direct_io; writes synchronously reach quota checks.
+        if info.contents.flags & (os.O_WRONLY | os.O_RDWR):
+            info.contents.bits |= 2  # Every writable handle uses synchronous direct I/O.
+        else:
+            info.contents.bits &= ~2  # Read-only mappings cannot grow persistent storage.
         return 0
 
     def read(self, path, buffer, size, offset, info):

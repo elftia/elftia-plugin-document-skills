@@ -88,6 +88,6 @@ def load_fuse(library_path: str):
     for function, arguments, result in declarations:
         function.argtypes = arguments
         function.restype = result
-    if not 314 <= library.fuse_version() < 400:
-        raise OSError("libfuse 3.14 or newer is required.")
+    if not 314 <= library.fuse_version() < 317:
+        raise OSError("The validated libfuse 3.14-3.16 ABI is required.")
     return library

@@ -1,6 +1,6 @@
 """Production Linux FUSE hard-quota backend with activation-time proof.
 
-Requires Linux x86-64/glibc, libfuse >= 3.14 and an accessible /dev/fuse.
+Requires Linux x86-64/glibc, libfuse 3.14-3.16 and an accessible /dev/fuse.
 All file data stays in bounded broker memory; there is no writable backing
 directory that can bypass accounting. Module provenance: original
 Elftia-authored clean-room implementation.
@@ -70,7 +70,7 @@ class LinuxFuseHardQuotaBackend(ActivatableQuotaBackend):
             reason=(
                 "Linux FUSE broker enforces aggregate logical bytes and entries before mutations; mount activation must still pass."
                 if available else
-                "Linux x86-64/glibc, libfuse 3.14+ and accessible /dev/fuse are required."
+                "Linux x86-64/glibc, libfuse 3.14-3.16 and accessible /dev/fuse are required."
             ),
             aggregate_byte_limit=available, entry_count_limit=available,
             private_namespace=available, fail_closed_activation=available,

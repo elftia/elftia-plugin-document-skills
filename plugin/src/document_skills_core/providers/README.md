@@ -36,7 +36,7 @@ LibreOffice output is never promoted directly when the contract requires Core re
 
 ### LibreOffice hard storage quotas
 
-[`quota_linux.py`](libreoffice/quota_linux.py) provides the production Linux x86-64/glibc backend. Install system `fuse3` and `libfuse3-3` (libfuse 3.14 or newer), and permit the invoking account to open `/dev/fuse` and create a FUSE mount. Each conversion uses one private mount, with output, profile, temporary files, home and XDG cache/config in the same quota. File data lives only in bounded broker memory; no writable backing disk tree is exposed.
+[`quota_linux.py`](libreoffice/quota_linux.py) provides the production Linux x86-64/glibc backend. Install system `fuse3` and `libfuse3-3` (validated libfuse ABI 3.14–3.16), and permit the invoking account to open `/dev/fuse` and create a FUSE mount. Each conversion uses one private mount, with output, profile, temporary files, home and XDG cache/config in the same quota. File data lives only in bounded broker memory; no writable backing disk tree is exposed.
 
 The broker serializes writes, sparse truncation, directory/file creation and rename replacement. It charges logical file length, directory/file entries, and open files retained after unlink; it releases those charges only when storage is actually discarded. Kernel direct I/O keeps successful writes synchronous with quota decisions. Links, special files, writable mappings and unimplemented allocation/copy shortcuts are rejected. An activation-time sparse growth and entry-creation probe must return real `ENOSPC` from the broker before LibreOffice can launch. A quota denial invalidates the conversion even if LibreOffice subsequently exits zero; the final identity/tree scan is an additional publication gate.
 

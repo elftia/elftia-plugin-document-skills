@@ -154,7 +154,7 @@ def test_real_fuse_concurrent_writers_cannot_overcommit():
         assert sum(path.stat().st_size for path in session.profile_dir.iterdir()) <= 16384
 
 
-def test_real_fuse_forbids_links_special_files_and_mmap():
+def test_real_fuse_forbids_links_special_files_and_writable_mmap(tmp_path):
     import mmap
 
     with _real_backend().open(byte_limit=16384, entry_limit=16) as session:
@@ -170,6 +170,16 @@ def test_real_fuse_forbids_links_special_files_and_mmap():
         with source.open("r+b") as stream:
             with pytest.raises(OSError):
                 mmap.mmap(stream.fileno(), 4096, access=mmap.ACCESS_WRITE)
+        # A page fault while Python holds the broker's GIL would deadlock its
+        # own FUSE callbacks. Real providers map from a separate process.
+        from document_skills_core.core.process import ProcessPolicy, ProcessRunner
+
+        policy = ProcessPolicy(tmp_path)
+        executable = policy.allow_executable("libreoffice", sys.executable)
+        code = "import mmap,sys; f=open(sys.argv[1],'rb'); m=mmap.mmap(f.fileno(),4096,access=mmap.ACCESS_READ); assert m[:4]==b'xxxx'; m.close(); f.close()"
+        result = ProcessRunner(policy).run("libreoffice", executable, ["-c",code,str(source)],
+                                           cwd=tmp_path, timeout_seconds=10)
+        assert result.returncode == 0
         assert session.validate_final_tree(expected_name="result.pdf").output_bytes == 4096
 
 
@@ -285,6 +295,43 @@ def test_optional_evidence_cannot_record_partial_or_unavailable_profile(tmp_path
         with pytest.raises(AssertionError):
             _write_final_evidence(tmp_path, results, libreoffice_available=available)
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Real Linux LibreOffice quota profile")
+def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(project_root, tmp_path):
+    from document_skills_core.core.process import ProcessPolicy, ProcessRunner
+    from document_skills_core.formats.docx.create import create_docx
+    from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
+    from document_skills_core.providers.libreoffice.runner import _build_argv
+
+    backend = _real_backend()
+    policy = ProcessPolicy(project_root)
+    detected = LibreOfficeDetector(project_root, policy=policy).detect()
+    if not detected.available:
+        if os.environ.get("ELFTIA_REQUIRE_LIBREOFFICE_PROFILE") == "1":
+            pytest.fail(f"Mandatory real LibreOffice unavailable: {detected.reason}")
+        pytest.skip("Real LibreOffice is not installed/callable.")
+    source = tmp_path / "quota-native.docx"
+    create_docx(source, {
+        "metadata": {"title": "Quota native probe"},
+        "blocks": [{"type": "paragraph", "text": "Quota native probe"}],
+        "image": None, "header": None, "footer": None,
+        "sections": [{"orientation": "portrait"}],
+    })
+    runner = ProcessRunner(policy)
+    with backend.open(byte_limit=16 * 1024 * 1024, entry_limit=4096) as session:
+        arguments = _build_argv(session.profile_dir, "--convert-to", "pdf", "--outdir",
+                                str(session.output_dir), str(source))
+        result = runner.run("libreoffice", detected.path, arguments, cwd=project_root,
+                            timeout_seconds=30, quota_storage=session.process_storage,
+                            runtime_check=session.assert_live)
+        # Diagnostic text comes only from this fixed, generated fixture; no
+        # user document, credential or inherited user profile is involved.
+        assert result.returncode == 0, {"returncode":result.returncode, "stderr":result.stderr[-6000:]}
+        snapshot = session.validate_final_tree(expected_name="quota-native.pdf")
+        assert snapshot.output_bytes > 0
+        assert (session.output_dir / "quota-native.pdf").read_bytes().startswith(b"%PDF-")
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux mount activation")
