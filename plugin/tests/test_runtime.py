@@ -507,7 +507,10 @@ def test_runtime_check_exception_is_typed_and_terminates_descendant(
     parent_script = (
         "import pathlib, subprocess, sys, time\n"
         "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])\n"
-        "pathlib.Path(sys.argv[1]).write_text(str(child.pid), encoding='ascii')\n"
+        "published = pathlib.Path(sys.argv[1])\n"
+        "staged = published.with_suffix('.tmp')\n"
+        "staged.write_text(str(child.pid), encoding='ascii')\n"
+        "staged.replace(published)\n"
         "time.sleep(30)\n"
     )
 

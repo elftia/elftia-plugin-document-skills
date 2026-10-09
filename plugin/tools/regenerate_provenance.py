@@ -66,6 +66,7 @@ _DARWIN_LAUNCH_MODULES = {
     "tests/test_libreoffice_provider.py",
     "tests/test_process_executable_identity.py",
     "tests/test_private_workspace_identity.py",
+    "tests/test_runtime.py",
 }
 _DARWIN_LAUNCH_PROFILE = (
     "Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode "

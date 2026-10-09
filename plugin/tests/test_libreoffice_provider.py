@@ -20,6 +20,8 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 import pytest
+import tools.ci_docx_optional_evidence as optional_evidence
+from tools.ci_docx_optional_requests import OPERATION_PROVIDERS
 
 from document_skills_core.core.capabilities import (
     DetectionEvidence,
@@ -399,6 +401,39 @@ def _active_xlsx(path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Constants tests
 # ---------------------------------------------------------------------------
+
+def _quota_unavailable_ci_reports():
+    providers = [
+        {"id": "dotnet-openxml", "available": True, "reason": None},
+        {"id": "libreoffice", "available": False,
+         "reason": "LibreOffice hard quota unavailable (hard_quota_backend_unavailable)"},
+    ]
+    operations = [
+        {"operation": operation, "available": provider == "dotnet-openxml",
+         "providers": [provider]}
+        for operation, provider in OPERATION_PROVIDERS.items()
+    ]
+    return {"providers": providers}, {"providers": providers, "operations": operations}
+
+
+def test_optional_ci_records_exact_quota_unavailability_and_requires_dotnet():
+    doctor, capabilities = _quota_unavailable_ci_reports()
+    assert optional_evidence._assert_optional_profile(doctor, capabilities) is False
+
+
+@pytest.mark.parametrize("broken", ["dotnet-unavailable", "other-libreoffice-failure", "false-libreoffice-availability"])
+def test_optional_ci_rejects_failures_outside_the_exact_quota_boundary(broken):
+    doctor, capabilities = _quota_unavailable_ci_reports()
+    if broken == "dotnet-unavailable":
+        doctor["providers"][0]["available"] = False
+    elif broken == "other-libreoffice-failure":
+        doctor["providers"][1]["reason"] = "native launch failed"
+    else:
+        next(item for item in capabilities["operations"]
+             if item["operation"] == "docx.render")["available"] = True
+    with pytest.raises(AssertionError):
+        optional_evidence._assert_optional_profile(doctor, capabilities)
+
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX native LibreOffice companion")
 def test_detector_selects_native_posix_companion(tmp_path):

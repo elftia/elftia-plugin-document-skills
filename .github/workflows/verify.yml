@@ -474,12 +474,11 @@ jobs:
           if-no-files-found: warn
 
   docx-optional-providers:
-    name: DOCX Optional Providers (Ubuntu)
+    name: DOCX .NET and LibreOffice boundary (Ubuntu)
     runs-on: ubuntu-latest
     env:
       DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: "0"
       ELFTIA_REQUIRE_DOTNET_PROFILE: "1"
-      ELFTIA_REQUIRE_LIBREOFFICE_PROFILE: "1"
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
       - uses: actions/checkout@v4
@@ -509,7 +508,7 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --packages "$NUGET_PACKAGES" \
             --property:BaseIntermediateOutputPath="$RUNNER_TEMP/docx-openxml-restore/"
-      - name: Execute every optional DOCX operation profile
+      - name: Execute available DOCX profiles and verify the LibreOffice quota boundary
         shell: bash
         working-directory: plugin
         run: |
@@ -517,6 +516,7 @@ jobs:
           mkdir -p ../.ci-evidence/docx-optional
           uv run --project . --frozen python -m pytest \
             tests/test_docx_dotnet_real.py \
+            tests/test_libreoffice_provider.py \
             tests/test_docx_render_compare_public.py \
             tests/test_docx_comparison_public.py \
             tests/test_docx_legacy_public.py \

@@ -47,6 +47,8 @@ Native process launches retain the authorized executable identity: Windows holds
 
 ## Verification
 
+The optional DOCX CI profile requires real .NET/OpenXML operations. LibreOffice currently has no production hard-quota backend, so its managed operations must report `hard_quota_backend_unavailable`; CI validates that exact boundary and records no LibreOffice operations as executed. If a complete quota backend becomes available, the same profile requires all LibreOffice operations. The separate DOCX artifact renderer remains mandatory for template pack acceptance, and PDF Core functionality requires actual operations on all three platforms.
+
 The verification layers are deliberately separate:
 
 - `npm run verify:docs` checks documentation structure, UTF-8, links, package commands, and registered-operation coverage.

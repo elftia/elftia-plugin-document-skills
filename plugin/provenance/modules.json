@@ -22067,7 +22067,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "46eb3e2d58cd356d21f7fb049b58c1badfd2ff87cb42666ae136cb4090ac12fe",
+      "sha256": "1d6360b43465afef926e8712101d82aec388090f2f2cfa986cdd28c3993b48b7",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24418,19 +24418,21 @@
         "tests/test_xlsx_structural_refs.py",
         "tests/test_xlsx_table_create.py",
         "tests/test_xlsx_table_edit.py",
-        "tests/test_xlsx_worksheet_edit.py"
+        "tests/test_xlsx_worksheet_edit.py",
+        "tests/test_private_workspace_identity.py",
+        "tests/test_pdf_public.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX. Descriptor-bound structural and semantic template inspection, optional contact-sheet evidence, stable-slot materialization, content lint, and physical purge with truthful public and supply-chain evidence. Bounded provider-gated raster observations, layered native projection, smallest-region fallback, independent editable coverage, transactional audit assets, deterministic fixtures, and truthful unavailable behavior. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+      "modifications": "Additive public operation, provider dispatch, managed runtime, supply-chain, and exact provenance support for HTML-to-editable-PPTX. Descriptor-bound structural and semantic template inspection, optional contact-sheet evidence, stable-slot materialization, content lint, and physical purge with truthful public and supply-chain evidence. Bounded provider-gated raster observations, layered native projection, smallest-region fallback, independent editable coverage, transactional audit assets, deterministic fixtures, and truthful unavailable behavior. Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "tests/test_runtime.py",
-      "requirement_source": "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b7 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring",
+      "requirement_source": "Rasen html-to-editable-pptx + pptx-ecosystem-phase-bc-b2 + pptx-ecosystem-phase-bc-b7 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "abc386497d8d2ebb7a9e4cf8e2899fb3d73fcdb0d92ea3f2e5b0ca8ae30430d4",
+      "sha256": "cc10594c81cdf083c3a283cb4c6d4dc48904264aa0e40f45b01eb0bff3b8dcfb",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26313,7 +26315,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "af477adf79e2266a243b96d16d22f3cba302efbfe9b6898c1b8ce012c12ca9f2",
+      "sha256": "1486090cd131016b9a910ce49b1473d8e3a5ce6f5be78d47b3f999b69d8e080f",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26846,7 +26848,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "47411c370faaa045c54404d4bf404d5305a349720e44563a97bed89ef0262d1d",
+      "sha256": "8ff32886630a630283b3e693f0d5315e7c9e73408df61d1a246d31c407fb2fef",
       "source_class": "original",
       "third_party_files": []
     },
