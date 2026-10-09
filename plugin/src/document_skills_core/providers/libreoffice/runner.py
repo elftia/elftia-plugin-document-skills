@@ -119,6 +119,7 @@ class LibreOfficeRunner:
         expected_name = input_path.stem + "." + target_format
         expected = output_root / expected_name
         with backend.open(byte_limit=artifact_limit) as session:
+            _prepare_private_profile(session.profile_dir)
             provider_expected = session.output_dir / expected_name
             runtime_check = output_runtime_observer(
                 session.output_dir,
@@ -204,6 +205,33 @@ def _build_argv(profile_root: Path, *operation_args: str) -> list[str]:
     ]
     _validate_argv(argv)
     return argv
+
+
+def _prepare_private_profile(profile_root: Path) -> None:
+    """Disable all macro runtimes, OLE and DDE before the native process starts."""
+    identity = capture_directory_identity(profile_root)
+    user = profile_root / "user"
+    configuration = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<oor:items xmlns:oor="http://openoffice.org/2001/registry">'
+        '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+        '<prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop>'
+        '<prop oor:name="DisableActiveContent" oor:op="fuse"><value>true</value></prop>'
+        '<prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop>'
+        '</item></oor:items>\n'
+    ).encode("utf-8")
+    try:
+        user.mkdir(mode=0o700)
+        capture_directory_identity(user)
+        with (user / "registrymodifications.xcu").open("xb") as stream:
+            stream.write(configuration)
+        if capture_directory_identity(profile_root) != identity:
+            raise OSError("Private profile identity changed.")
+    except OSError as error:
+        raise DocumentSkillsError(
+            ErrorCode.PROVIDER_FAILED, "LibreOffice macro-disabled profile could not be prepared.",
+            details={"reason": type(error).__name__},
+        ) from error
 
 
 def _validate_argv(argv: list[str]) -> None:

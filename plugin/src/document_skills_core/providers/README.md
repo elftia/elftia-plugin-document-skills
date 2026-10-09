@@ -42,6 +42,8 @@ The broker serializes writes, sparse truncation, directory/file creation and ren
 
 This is a storage quota for the selected private tree, not OS privilege isolation. The existing executable identity binding, macro/content screening, timeouts, cancellation and process-tree cleanup still apply. macOS/Windows and unsupported Linux architectures fail closed until they have an equivalent reviewed backend; installing LibreOffice alone does not satisfy its managed provider contract. PDF Core on those platforms does not depend on this optional provider.
 
+Before conversion, the fresh profile sets `DisableMacrosExecution=true`, `DisableActiveContent=true` and `MacroSecurityLevel=3`. These fixed values disable all macro runtimes, OLE and DDE; the profile bytes and entries are charged to the same quota. See the [LibreOffice configuration schema](https://github.com/LibreOffice/core/blob/libreoffice-24.2.7.2/officecfg/registry/schema/org/openoffice/Office/Common.xcs).
+
 ABI references: [libfuse high-level API](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse.h), [open-file ABI](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse_common.h).
 
 ## Verification

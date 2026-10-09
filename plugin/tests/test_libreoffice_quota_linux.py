@@ -247,8 +247,8 @@ def test_zero_exit_after_real_quota_denial_never_publishes(tmp_path, monkeypatch
             code = (
                 "import os,pathlib,errno,sys\n"
                 "temporary=pathlib.Path(os.environ['TMPDIR'])\n"
-                "(temporary/'first').write_bytes(b'a'*16000)\n"
-                "try: (temporary/'excess').write_bytes(b'b'*2000)\n"
+                "(temporary/'first').write_bytes(b'a'*8192)\n"
+                "try: (temporary/'excess').write_bytes(b'b'*16384)\n"
                 "except OSError as error: assert error.errno==errno.ENOSPC\n"
                 "else: raise AssertionError('quota did not reject growth')\n"
                 "pathlib.Path(sys.argv[1]).write_bytes(b'%PDF-1.7')\n"
@@ -301,9 +301,8 @@ def test_optional_evidence_cannot_record_partial_or_unavailable_profile(tmp_path
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Real Linux LibreOffice quota profile")
 def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(project_root, tmp_path):
     from document_skills_core.core.process import ProcessPolicy, ProcessRunner
-    from document_skills_core.formats.docx.create import create_docx
     from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
-    from document_skills_core.providers.libreoffice.runner import _build_argv
+    from document_skills_core.providers.libreoffice.runner import _build_argv, _prepare_private_profile
 
     backend = _real_backend()
     policy = ProcessPolicy(project_root)
@@ -313,14 +312,10 @@ def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(proj
             pytest.fail(f"Mandatory real LibreOffice unavailable: {detected.reason}")
         pytest.skip("Real LibreOffice is not installed/callable.")
     source = tmp_path / "quota-native.docx"
-    create_docx(source, {
-        "metadata": {"title": "Quota native probe"},
-        "blocks": [{"type": "paragraph", "text": "Quota native probe"}],
-        "image": None, "header": None, "footer": None,
-        "sections": [{"orientation": "portrait"}],
-    })
+    _write_native_probe_fixture(project_root, source)
     runner = ProcessRunner(policy)
     with backend.open(byte_limit=16 * 1024 * 1024, entry_limit=4096) as session:
+        _prepare_private_profile(session.profile_dir)
         arguments = _build_argv(session.profile_dir, "--convert-to", "pdf", "--outdir",
                                 str(session.output_dir), str(source))
         result = runner.run("libreoffice", detected.path, arguments, cwd=project_root,
@@ -332,6 +327,39 @@ def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(proj
         snapshot = session.validate_final_tree(expected_name="quota-native.pdf")
         assert snapshot.output_bytes > 0
         assert (session.output_dir / "quota-native.pdf").read_bytes().startswith(b"%PDF-")
+
+
+def _write_native_probe_fixture(project_root, source):
+    from document_skills_core.cli import execute_request
+    from document_skills_core.core.contracts.schemas import SchemaCatalog
+
+    result = execute_request({
+        "schema_version": "1.0", "operation": "docx.create", "output": str(source),
+        "arguments": {"report": {"metadata": {"title": "Quota native probe"},
+                                 "blocks": [{"type": "paragraph", "text": "Quota native probe"}]}},
+    }, project_root, SchemaCatalog(project_root))
+    assert result["status"] == "success", result
+
+
+def test_native_probe_fixture_uses_valid_public_request(project_root, tmp_path):
+    source = tmp_path / "probe.docx"
+    _write_native_probe_fixture(project_root, source)
+    assert source.read_bytes().startswith(b"PK")
+
+
+def test_profile_disables_all_macro_runtimes_and_active_content(tmp_path):
+    from xml.etree.ElementTree import fromstring
+    from document_skills_core.providers.libreoffice.runner import _prepare_private_profile
+
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    _prepare_private_profile(profile)
+    root = fromstring((profile / "user/registrymodifications.xcu").read_bytes())
+    names = {prop.get("{http://openoffice.org/2001/registry}name"):prop.findtext("value")
+             for prop in root.iter("prop")}
+    assert names == {"DisableMacrosExecution":"true", "DisableActiveContent":"true", "MacroSecurityLevel":"3"}
+    with pytest.raises(DocumentSkillsError):
+        _prepare_private_profile(profile)  # Never merge with an existing user profile.
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux mount activation")
