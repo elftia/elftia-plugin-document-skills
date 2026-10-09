@@ -861,7 +861,9 @@ def test_public_edit_claimed_features_reopen(
     project_root: Path,
     public_created: Path,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("DOCUMENT_SKILLS_XLSX_CORE_ONLY", "1")
     from openpyxl import load_workbook
 
     output = tmp_path / "claimed-edit-features.xlsx"
@@ -906,7 +908,9 @@ def test_public_edit_claimed_features_reopen(
 def test_public_edit_structural_sheet_and_range_features_reopen(
     project_root: Path,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("DOCUMENT_SKILLS_XLSX_CORE_ONLY", "1")
     from openpyxl import Workbook, load_workbook
     from openpyxl.workbook.defined_name import DefinedName
 
@@ -2028,8 +2032,10 @@ def test_public_formula_state_never_claims_unverified_recalculation(
     assert summary["no_unverified_claimed_recalculated"] is True
 
 
-def test_public_edit_invalidates_dependents(project_root: Path, public_created: Path, tmp_path: Path) -> None:
+def test_public_edit_invalidates_dependents(project_root: Path, public_created: Path, tmp_path: Path,
+                                          monkeypatch: pytest.MonkeyPatch) -> None:
     """Editing a precedent marks dependent formulas as recalculation_required."""
+    monkeypatch.setenv("DOCUMENT_SKILLS_XLSX_CORE_ONLY", "1")
     output = tmp_path / "invalidated.xlsx"
     edit_request = _request(
         tmp_path,
