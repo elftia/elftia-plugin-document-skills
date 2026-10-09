@@ -63,6 +63,7 @@ ALLOWED_STDLIB = {
     "datetime",
     "decimal",
     "enum",
+    "errno",
     "hashlib",
     "io",
     "json",

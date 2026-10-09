@@ -47,7 +47,7 @@ Native process launches retain the authorized executable identity: Windows holds
 
 ## Verification
 
-The optional DOCX CI profile requires real .NET/OpenXML operations. LibreOffice currently has no production hard-quota backend, so its managed operations must report `hard_quota_backend_unavailable`; CI validates that exact boundary and records no LibreOffice operations as executed. If a complete quota backend becomes available, the same profile requires all LibreOffice operations. The separate DOCX artifact renderer remains mandatory for template pack acceptance, and PDF Core functionality requires actual operations on all three platforms.
+The Ubuntu optional DOCX CI profile requires all real .NET/OpenXML and LibreOffice operations. LibreOffice uses a private Linux FUSE filesystem that enforces aggregate logical bytes and entry count before every growth or creation, including its profile, temporary files and cache. Activation proves real kernel quota denials before launching the provider. Linux x86-64/glibc, libfuse 3.14+ and accessible `/dev/fuse` are required; other platforms or missing mount support fail closed. The separate DOCX artifact renderer remains mandatory for template pack acceptance, and PDF Core functionality requires actual operations on all three platforms.
 
 The verification layers are deliberately separate:
 

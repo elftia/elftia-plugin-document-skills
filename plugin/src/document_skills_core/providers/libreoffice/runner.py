@@ -35,6 +35,7 @@ from .output import (
 )
 from .quota import (
     HardQuotaBackend,
+    ProcessStorageSession,
     capture_directory_identity,
     require_hard_quota_backend,
 )
@@ -53,6 +54,7 @@ class _ContainedRunner(Protocol):
         timeout_seconds: float = ...,
         output_limit: int = ...,
         runtime_check: Callable[[], None] | None = ...,
+        quota_storage: tuple[Path, tuple[int, int]] | None = ...,
     ) -> ProcessResult: ...
 
 
@@ -123,6 +125,14 @@ class LibreOfficeRunner:
                 provider_expected,
                 target_format,
             )
+            storage_options = {}
+            if isinstance(session, ProcessStorageSession):
+                storage_options["quota_storage"] = session.process_storage
+                observe_output = runtime_check
+
+                def runtime_check():
+                    session.assert_live()
+                    observe_output()
             argv = _build_argv(
                 session.profile_dir,
                 "--convert-to",
@@ -139,6 +149,7 @@ class LibreOfficeRunner:
                 timeout_seconds=timeout_seconds,
                 output_limit=OUTPUT_LIMIT,
                 runtime_check=runtime_check,
+                **storage_options,
             )
             if result.returncode != 0:
                 raise DocumentSkillsError(

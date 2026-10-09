@@ -811,7 +811,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "751b69181948b9e2fc989969edd9aca03cb0c0d70d27df4b27f3f3479893112e"
+      "sha256": "ee05a9b94adb0ecc1acb44a1cf77e4474498f822eba9b3328b1d9f68adc07af9"
     },
     {
       "artifact": "pyproject.toml",
@@ -6762,7 +6762,31 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "b46beaf26e267df36f87eb60cc647cb73ed5a4e91ad16fdcaa9446e3c1a4ef1f",
+      "sha256": "a61a2a4cc3f1f13c8ef11ab3b1eafbfa38b8caf23e3f98524f9efa5a385677e1",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "src/document_skills_core/core/process/storage_environment.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "df6e616696055f7913583108139c623eb2cdb7e8d35513ce2aa99b6807ddf583",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18113,7 +18137,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "1be0c4598256951993ba9ee16c53dd2ee2baec1d8f3dffaaed4ccfb82090d1d6",
+      "sha256": "1bf35ec1f5f7cf7e798dbd0c7423bbfb666d33c9466c99c36907e95386c719fc",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18750,6 +18774,78 @@
     },
     {
       "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_fuse_abi.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "61b10247e993a97ad8aea5fe6acff03f266fffff4c5fa8db1afcfd17e1eea74d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_fuse_operations.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "f158acf1b1244fafce7c7825aa9172b5f147d03568377a0e43e7e2ba3f0f2a7a",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_store.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "58095ca9d4c6a768f2534e843abc02aaf75172274378f37e4454e9f10a9d728f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -18854,7 +18950,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ad1cc79d9090470c3b3a239d05391708a5924cd2dbc163c22d8588b1b54329c6",
+      "sha256": "132430794cbe73b8bd3c38323027a2f762774a0d2a250277698b3e6c4a0ec1ea",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18962,7 +19058,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6d3ca2471e221ee32f6e24d44188f91656983ccac4a3351d26615e71accdea6e",
+      "sha256": "001343c5b53b64a3cfc0408e6c0c01e119fb7e024771456c0b02efd41482e853",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18998,7 +19094,31 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "a4172222a669f53270592876b9194d8a17a61c04e643fdc5d41f2400aef86ca0",
+      "sha256": "08e9612eaaf5834e66cb0f78591356317efe658b846b516d7b8f73f51a4bd094",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "src/document_skills_core/providers/libreoffice/quota_linux.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "0fed7a38cc0be685e3227a63ad08c3850e53f1a2dcdb27737e195c0bf82f4adf",
       "source_class": "original",
       "third_party_files": []
     },
@@ -19106,7 +19226,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "44c2c53901e432732d49ed3f2dcf45b574b35fa3b973640f390cdfd90bfc54a9",
+      "sha256": "1b8d0b61ce4d42d902bf48d79a204ca8f7433e10068b76aca16065cb6cd5bf25",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22034,7 +22154,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "26ed6a2f7520c6409f335a8b2f38ac0e9f43200c9473929a88c561a7ac77dcd7",
+      "sha256": "dccfc1a761c0a96e80ca314cdd14482c3f64f148cc5a0159f9599bfc387e13e5",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22072,7 +22192,30 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "1d6360b43465afef926e8712101d82aec388090f2f2cfa986cdd28c3993b48b7",
+      "sha256": "942c15812f2ff499abb9ea991cad5c005a4a1c2c2ea3ece2d413ce872e88871b",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py",
+        "tests/test_libreoffice_quota_linux.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, synchronous direct I/O, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "module": "tests/test_libreoffice_quota_linux.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "3b686ac8182ab689fa54025a48195c7b48bfb96591f233df7e2397627ee12e91",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26320,7 +26463,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "1486090cd131016b9a910ce49b1473d8e3a5ce6f5be78d47b3f999b69d8e080f",
+      "sha256": "e746fdada6a0ffc6fbe61d8e648895fdd1c635b1974ddc915e1273e0ae95918a",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26687,7 +26830,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "5832b42d4b77d0fefdb75e8e43835d1c4f0b3833b59e4c6e86edb4bcddd7bea4",
+      "sha256": "f1888eed57d51cb690c0fa8fd1460e4300df675a769b6055a9f54ca1db869e76",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26853,7 +26996,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "a7db8312a516480c19892b0eacaa2902afd0dd8e9d5b6a76dc8a832874874b1a",
+      "sha256": "ac7932293ee402b63524be83a2575092d494ef882564cbba025eb5db8f0cc278",
       "source_class": "original",
       "third_party_files": []
     },

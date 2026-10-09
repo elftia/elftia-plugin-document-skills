@@ -13,6 +13,7 @@ from document_skills_core.core.contracts.errors import (
 )
 from document_skills_core.providers.libreoffice.quota import (
     HardQuotaCapability,
+    _UnsupportedHardQuotaBackend,
     capture_directory_identity,
     hard_quota_capability,
     require_hard_quota_backend,
@@ -48,8 +49,8 @@ def _validate(
     )
 
 
-def test_default_capability_truthfully_reports_no_hard_quota() -> None:
-    capability = hard_quota_capability()
+def test_unsupported_capability_truthfully_reports_no_hard_quota() -> None:
+    capability = hard_quota_capability(_UnsupportedHardQuotaBackend())
 
     assert capability.backend_id == "none"
     assert capability.supported is False
@@ -64,7 +65,7 @@ def test_default_backend_fails_before_filesystem_side_effect(tmp_path: Path) -> 
     before = list(tmp_path.iterdir())
 
     with pytest.raises(DocumentSkillsError) as caught:
-        require_hard_quota_backend()
+        require_hard_quota_backend(_UnsupportedHardQuotaBackend())
 
     assert caught.value.code == ErrorCode.PROVIDER_UNAVAILABLE
     assert caught.value.details["supported"] is False
@@ -101,6 +102,7 @@ def test_one_shot_32_mib_writer_never_launches_or_persists_over_16_kib(
         project_root,
         executable=executable,
         runner=OneShotWriter(),
+        quota_backend=_UnsupportedHardQuotaBackend(),
     )
 
     with pytest.raises(DocumentSkillsError) as caught:

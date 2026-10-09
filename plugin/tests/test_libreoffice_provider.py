@@ -418,7 +418,8 @@ def _quota_unavailable_ci_reports():
 
 def test_optional_ci_records_exact_quota_unavailability_and_requires_dotnet():
     doctor, capabilities = _quota_unavailable_ci_reports()
-    assert optional_evidence._assert_optional_profile(doctor, capabilities) is False
+    with pytest.raises(AssertionError):
+        optional_evidence._assert_optional_profile(doctor, capabilities)
 
 
 @pytest.mark.parametrize("broken", ["dotnet-unavailable", "other-libreoffice-failure", "false-libreoffice-availability"])
@@ -512,7 +513,10 @@ class TestDetector:
                 raise AssertionError("version probe must wait for hard-quota support")
 
         monkeypatch.setattr(shutil_module(), "which", lambda _name: str(executable))
-        detector = LibreOfficeDetector(project_root, runner=MustNotProbeRunner())
+        from document_skills_core.providers.libreoffice.quota import _UnsupportedHardQuotaBackend
+
+        detector = LibreOfficeDetector(project_root, runner=MustNotProbeRunner(),
+                                      quota_backend=_UnsupportedHardQuotaBackend())
 
         evidence = detector.detect()
 
@@ -1250,10 +1254,13 @@ class TestRunnerContainment:
         input_file.write_bytes(b"input")
         output_dir = tmp_path / "output"
         output_dir.mkdir()
+        from document_skills_core.providers.libreoffice.quota import _UnsupportedHardQuotaBackend
+
         runner = LibreOfficeRunner(
             project_root,
             executable=executable,
             runner=MustNotRun(),
+            quota_backend=_UnsupportedHardQuotaBackend(),
         )
 
         with pytest.raises(DocumentSkillsError) as failure:

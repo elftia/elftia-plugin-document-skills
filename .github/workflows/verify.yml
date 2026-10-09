@@ -476,11 +476,12 @@ jobs:
           if-no-files-found: warn
 
   docx-optional-providers:
-    name: DOCX .NET and LibreOffice boundary (Ubuntu)
+    name: DOCX .NET and LibreOffice hard quota (Ubuntu)
     runs-on: ubuntu-latest
     env:
       DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: "0"
       ELFTIA_REQUIRE_DOTNET_PROFILE: "1"
+      ELFTIA_REQUIRE_LIBREOFFICE_PROFILE: "1"
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
       - uses: actions/checkout@v4
@@ -501,7 +502,10 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libreoffice-writer
+          sudo apt-get install --yes --no-install-recommends libreoffice-writer fuse3 libfuse3-3
+          sudo modprobe fuse
+          test -c /dev/fuse
+          sudo chmod a+rw /dev/fuse
           npm ci --ignore-scripts
           npm ci --prefix plugin --omit=dev --ignore-scripts
           uv lock --check --offline --project plugin
@@ -510,7 +514,7 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --packages "$NUGET_PACKAGES" \
             --property:BaseIntermediateOutputPath="$RUNNER_TEMP/docx-openxml-restore/"
-      - name: Execute available DOCX profiles and verify the LibreOffice quota boundary
+      - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
         shell: bash
         working-directory: plugin
         run: |
@@ -519,6 +523,8 @@ jobs:
           uv run --project . --frozen python -m pytest \
             tests/test_docx_dotnet_real.py \
             tests/test_libreoffice_provider.py \
+            tests/test_libreoffice_hard_quota.py \
+            tests/test_libreoffice_quota_linux.py \
             tests/test_docx_render_compare_public.py \
             tests/test_docx_comparison_public.py \
             tests/test_docx_legacy_public.py \

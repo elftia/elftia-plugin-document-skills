@@ -20,6 +20,8 @@ from ...formats.xlsx.constants import MAX_XLSX_BYTES
 
 MAX_IMAGE_BYTES = 128 * 1024 * 1024
 OUTPUT_LIMITS = {
+    # Private legacy DOC fixture preparation uses the same bounded runner.
+    "doc": MAX_DOCX_BYTES,
     "docx": MAX_DOCX_BYTES,
     # Recalculation uses ODS only as a private, bounded intermediate artifact.
     "ods": MAX_XLSX_BYTES,

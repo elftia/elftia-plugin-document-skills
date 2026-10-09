@@ -54,6 +54,15 @@ CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
 )
 README_SYSTEM_REQUIREMENT = "Rasen document-skills-readme-system"
 DARWIN_LAUNCH_REQUIREMENT = "Elftia macOS native launch and PDF repair (2026-10-09)"
+LINUX_QUOTA_REQUIREMENT = "Elftia production LibreOffice hard storage quotas (2026-10-09)"
+_LINUX_QUOTA_MODULES = {
+    "src/document_skills_core/core/process/storage_environment.py",
+    "src/document_skills_core/providers/libreoffice/_quota_fuse_abi.py",
+    "src/document_skills_core/providers/libreoffice/_quota_fuse_operations.py",
+    "src/document_skills_core/providers/libreoffice/_quota_store.py",
+    "src/document_skills_core/providers/libreoffice/quota_linux.py",
+    "tests/test_libreoffice_quota_linux.py",
+}
 _DARWIN_LAUNCH_MODULES = {
     "src/document_skills_core/core/io/parent_anchor_posix.py",
     "src/document_skills_core/core/process/darwin_abi.py",
@@ -915,6 +924,18 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         )
         record["modifications"] += " " + _DARWIN_LAUNCH_PROFILE[0]
         record["artifact_tests"] = _merged_values(tests, _DARWIN_LAUNCH_PROFILE[1])
+    if artifact.path in _LINUX_QUOTA_MODULES:
+        record["requirement_source"] = _compose_requirements(record["requirement_source"], LINUX_QUOTA_REQUIREMENT)
+        record["modifications"] += (
+            " Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: "
+            "serialized aggregate logical-byte and entry quotas, synchronous direct I/O, "
+            "open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home "
+            "environment, bounded cleanup and real kernel enforcement regressions."
+        )
+        record["artifact_tests"] = _merged_values(record["artifact_tests"], [
+            "tests/test_libreoffice_quota_linux.py", "tests/test_libreoffice_hard_quota.py",
+            "tests/test_libreoffice_provider.py", "tests/test_supply_chain.py",
+        ])
     return record
 
 

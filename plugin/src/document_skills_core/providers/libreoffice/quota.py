@@ -122,6 +122,22 @@ class HardQuotaBackend(Protocol):
         ...
 
 
+class ProcessStorageSession:
+    """Opt-in session base binding provider environment to active storage."""
+
+    process_storage: tuple[Path, tuple[int, int]]
+
+    def assert_live(self) -> None:
+        raise NotImplementedError
+
+
+class ActivatableQuotaBackend:
+    """Backend whose OS prerequisites must be proved during detection."""
+
+    def validate_activation(self) -> None:
+        raise NotImplementedError
+
+
 class _UnsupportedHardQuotaBackend:
     """Explicit default until a reviewed platform implementation exists."""
 
@@ -144,7 +160,13 @@ class _UnsupportedHardQuotaBackend:
         _raise_unavailable(self.capability())
 
 
-_DEFAULT_BACKEND = _UnsupportedHardQuotaBackend()
+def _default_backend() -> HardQuotaBackend:
+    if sys.platform.startswith("linux"):
+        # Lazy import keeps the portable quota contract independent of libfuse.
+        from .quota_linux import LinuxFuseHardQuotaBackend
+
+        return LinuxFuseHardQuotaBackend()
+    return _UnsupportedHardQuotaBackend()
 
 
 def hard_quota_capability(
@@ -152,7 +174,7 @@ def hard_quota_capability(
 ) -> HardQuotaCapability:
     """Inspect a code-selected backend without activating it."""
 
-    selected = backend or _DEFAULT_BACKEND
+    selected = backend if backend is not None else _default_backend()
     try:
         capability = selected.capability()
     except Exception as error:
@@ -177,7 +199,7 @@ def require_hard_quota_backend(
 ) -> HardQuotaBackend:
     """Return a complete backend or fail before any filesystem side effect."""
 
-    selected = backend or _DEFAULT_BACKEND
+    selected = backend if backend is not None else _default_backend()
     capability = hard_quota_capability(selected)
     if not capability.supported:
         _raise_unavailable(capability)

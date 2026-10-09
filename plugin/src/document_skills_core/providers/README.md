@@ -34,6 +34,16 @@ Native executable selection is identity-bound and rechecked around launch. Provi
 
 LibreOffice output is never promoted directly when the contract requires Core reconstruction or reopen. Browser capture uses a tokenized loopback origin, blocks scripts/service workers and undeclared resources, and keeps the browser sandbox. OCR observations cannot control paths, relationships, OOXML, or aggregate coverage claims.
 
+### LibreOffice hard storage quotas
+
+[`quota_linux.py`](libreoffice/quota_linux.py) provides the production Linux x86-64/glibc backend. Install system `fuse3` and `libfuse3-3` (libfuse 3.14 or newer), and permit the invoking account to open `/dev/fuse` and create a FUSE mount. Each conversion uses one private mount, with output, profile, temporary files, home and XDG cache/config in the same quota. File data lives only in bounded broker memory; no writable backing disk tree is exposed.
+
+The broker serializes writes, sparse truncation, directory/file creation and rename replacement. It charges logical file length, directory/file entries, and open files retained after unlink; it releases those charges only when storage is actually discarded. Kernel direct I/O keeps successful writes synchronous with quota decisions. Links, special files, writable mappings and unimplemented allocation/copy shortcuts are rejected. An activation-time sparse growth and entry-creation probe must return real `ENOSPC` from the broker before LibreOffice can launch. A quota denial invalidates the conversion even if LibreOffice subsequently exits zero; the final identity/tree scan is an additional publication gate.
+
+This is a storage quota for the selected private tree, not OS privilege isolation. The existing executable identity binding, macro/content screening, timeouts, cancellation and process-tree cleanup still apply. macOS/Windows and unsupported Linux architectures fail closed until they have an equivalent reviewed backend; installing LibreOffice alone does not satisfy its managed provider contract. PDF Core on those platforms does not depend on this optional provider.
+
+ABI references: [libfuse high-level API](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse.h), [open-file ABI](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse_common.h).
+
 ## Verification
 
 Provider contracts have focused detector, isolation, crash, timeout, identity, hard-quota, and real-provider tests in the [plugin test suite](../../../tests/README.md). The [producer verification guide](../../../../scripts/README.md) owns the exact commands. Environment-gated real-provider skips remain skips; they do not prove availability.

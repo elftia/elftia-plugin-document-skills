@@ -29,7 +29,10 @@ from .constants import (
     VERSION_REGEX,
     platform_known_paths,
 )
-from .quota import HardQuotaBackend, HardQuotaCapability, hard_quota_capability
+from .quota import (
+    ActivatableQuotaBackend, HardQuotaBackend, HardQuotaCapability,
+    hard_quota_capability, require_hard_quota_backend,
+)
 
 _IDENTITY_HASH_CHUNK_BYTES = 64 * 1024
 _MAX_EXECUTABLE_IDENTITY_BYTES = 64 * 1024 * 1024
@@ -193,6 +196,15 @@ class LibreOfficeDetector:
                 return cached.evidence
         self._cache_entry = None
         launch_path = str(identity.launch_path)
+        backend = require_hard_quota_backend(self._quota_backend)
+        if isinstance(backend, ActivatableQuotaBackend):
+            try:
+                backend.validate_activation()
+            except (DocumentSkillsError, OSError):
+                return DetectionEvidence(
+                    available=False,
+                    reason="LibreOffice hard quota activation failed (hard_quota_activation_failed).",
+                )
         evidence = self._validate_callability(launch_path)
         if not evidence.available:
             return evidence

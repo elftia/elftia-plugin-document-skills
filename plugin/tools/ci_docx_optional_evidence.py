@@ -53,17 +53,10 @@ def main() -> int:
         "core-python",
     )
     results: dict[str, dict[str, Any]] = {}
-    if libreoffice_available:
-        repair_source = _prepare_repair_source(
-            project_root, evidence_root, catalog
-        )
-        legacy_source = _prepare_legacy_source(project_root, evidence_root, source)
-        for request in libreoffice_requests(
-            source, repair_source, legacy_source, evidence_root
-        ):
-            results[request["operation"]] = _run_optional(
-                project_root, evidence_root, catalog, request
-            )
+    repair_source = _prepare_repair_source(project_root, evidence_root, catalog)
+    legacy_source = _prepare_legacy_source(project_root, evidence_root, source)
+    for request in libreoffice_requests(source, repair_source, legacy_source, evidence_root):
+        results[request["operation"]] = _run_optional(project_root, evidence_root, catalog, request)
     _run_dotnet_operations(
         project_root, evidence_root, catalog, results
     )
@@ -171,10 +164,9 @@ def _assert_optional_profile(
     capabilities: dict[str, Any],
 ) -> bool:
     quota = hard_quota_capability()
-    libreoffice_available = quota.supported
-    if not libreoffice_available and quota.reason_category != "hard_quota_backend_unavailable":
-        raise AssertionError(f"Unexpected LibreOffice quota failure: {quota.reason_category}")
-    required = OPTIONAL_PROVIDERS if libreoffice_available else {"dotnet-openxml"}
+    if not quota.supported:
+        raise AssertionError(f"Mandatory LibreOffice hard quota is unavailable: {quota.reason_category}")
+    required = OPTIONAL_PROVIDERS
     for report in (doctor, capabilities):
         providers = {
             item["id"]: item
@@ -185,13 +177,6 @@ def _assert_optional_profile(
             raise AssertionError(f"Optional provider set is incomplete: {providers}")
         if any(providers[provider]["available"] is not True for provider in required):
             raise AssertionError(f"Optional provider is unavailable: {providers}")
-        if not libreoffice_available:
-            libreoffice = providers["libreoffice"]
-            if (
-                libreoffice["available"] is not False
-                or quota.reason_category not in str(libreoffice.get("reason", ""))
-            ):
-                raise AssertionError(f"LibreOffice did not report the exact quota boundary: {libreoffice}")
     operations = {
         item["operation"]: item for item in capabilities["operations"]
     }
@@ -217,7 +202,7 @@ def _assert_optional_profile(
             continue
         if item["available"] is not True or item["providers"] != [provider]:
             raise AssertionError(f"Unexpected {operation} capability: {item}")
-    return libreoffice_available
+    return True
 
 
 def _run_optional(
@@ -294,7 +279,9 @@ def _write_final_evidence(
     *,
     libreoffice_available: bool = True,
 ) -> None:
-    required = OPTIONAL_PROVIDERS if libreoffice_available else {"dotnet-openxml"}
+    if libreoffice_available is not True:
+        raise AssertionError("Optional-provider evidence requires real LibreOffice execution.")
+    required = OPTIONAL_PROVIDERS
     expected = {operation for operation, provider in OPERATION_PROVIDERS.items() if provider in required}
     if set(results) != expected:
         raise AssertionError(
@@ -314,22 +301,13 @@ def _write_final_evidence(
         }
         for operation, result in sorted(results.items())
     ]
-    unavailable = {} if libreoffice_available else {
-        "libreoffice": {
-            "available": False,
-            "reason_category": "hard_quota_backend_unavailable",
-            "availability_evidence": ["doctor.json", "capabilities.json"],
-            "quota": hard_quota_capability().evidence(),
-            "operations_executed": [],
-        }
-    }
     _write_json(
         evidence_root / "evidence-index.json",
         {
             "schema_version": "1.0",
-            "provider_profile": "optional-providers-required" if libreoffice_available else "dotnet-required-libreoffice-quota-unavailable",
+            "provider_profile": "optional-providers-required",
             "operations": operations,
-            "unavailable_providers": unavailable,
+            "quota": hard_quota_capability().evidence(),
         },
     )
     _write_json(
@@ -340,7 +318,7 @@ def _write_final_evidence(
             "platform": os.environ.get("RUNNER_OS", platform.system()),
             "revision": os.environ.get("GITHUB_SHA", "local"),
             "operations": operations,
-            "unavailable_providers": unavailable,
+            "quota": hard_quota_capability().evidence(),
             "junit": "junit.xml",
             "pytest_log": "pytest.log",
         },

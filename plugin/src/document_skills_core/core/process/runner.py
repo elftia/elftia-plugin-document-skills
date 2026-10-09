@@ -29,6 +29,7 @@ from .executable import (
     capture_executable_identity,
 )
 from .streams import BoundedPipeCollector
+from .storage_environment import quota_storage_environment
 from .tree import ProcessTree
 
 _SECRET_PATTERN = re.compile(r"(?i)(token|secret|password|api[_-]?key)=\S+")
@@ -359,6 +360,7 @@ class ProcessRunner:
         runtime_check: Callable[[], None] | None = None,
         private_environment: tuple[str, ...] = (),
         fixed_environment: dict[str, str] | None = None,
+        quota_storage: tuple[Path, tuple[int, int]] | None = None,
     ) -> ProcessResult:
         executable_path = _executable_path(executable)
         if script is not None:
@@ -382,6 +384,7 @@ class ProcessRunner:
             runtime_check=runtime_check,
             private_environment=private_environment,
             fixed_environment=fixed_environment,
+            quota_storage=quota_storage,
         )
 
     def run_public_command_worker(
@@ -441,6 +444,7 @@ class ProcessRunner:
         runtime_check: Callable[[], None] | None = None,
         private_environment: tuple[str, ...] = (),
         fixed_environment: dict[str, str] | None = None,
+        quota_storage: tuple[Path, tuple[int, int]] | None = None,
     ) -> ProcessResult:
         creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         started = time.monotonic()
@@ -454,6 +458,8 @@ class ProcessRunner:
                 if inherited_fds:
                     atomic_launch["pass_fds"] = inherited_fds
                 environment = self._process_environment(private_environment, fixed_environment)
+                if quota_storage is not None:
+                    environment.update(quota_storage_environment(provider_id, quota_storage))
                 if sys.platform == "darwin":
                     darwin_options = {"pass_fds": inherited_fds} if inherited_fds else {}
                     process = spawn_authorized_process(
