@@ -5,10 +5,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 import document_skills_core.cli as facade
+import document_skills_core.core.process.tree as tree_module
 from document_skills_core.cli import execute_request
 from document_skills_core.core.capabilities import (
     Capability,
@@ -428,6 +430,41 @@ def test_darwin_native_python_retains_venv_and_owns_its_process_group(project_ro
     assert Path(payload["prefix"]) == Path(sys.prefix)
     assert Path(payload["executable"]) == Path(sys.executable)
     assert payload["pid"] == payload["group"] == payload["session"]
+
+
+def test_darwin_process_cleanup_reaps_zombie_group_and_retries(monkeypatch):
+    tree = tree_module.ProcessTree.__new__(tree_module.ProcessTree)
+    reaped = []
+    tree.process = SimpleNamespace(pid=123, poll=lambda: reaped.append(True) or 0)
+    monkeypatch.setattr(tree_module, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(tree_module, "signal", SimpleNamespace(SIGKILL=9))
+    calls = []
+
+    def kill_group(pid, sig):
+        calls.append((pid, sig))
+        if len(calls) == 1:
+            raise PermissionError(1, "zombie-only group")
+        raise ProcessLookupError(3, "reaped group")
+
+    monkeypatch.setattr(tree_module.os, "killpg", kill_group, raising=False)
+    tree._terminate_posix_group()
+    assert reaped == [True]
+    assert calls == [(123, tree_module.signal.SIGKILL)] * 2
+
+
+@pytest.mark.parametrize("exit_status", [None, 0])
+def test_darwin_process_cleanup_keeps_genuine_permission_failures(monkeypatch, exit_status):
+    tree = tree_module.ProcessTree.__new__(tree_module.ProcessTree)
+    tree.process = SimpleNamespace(pid=123, poll=lambda: exit_status)
+    monkeypatch.setattr(tree_module, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(tree_module, "signal", SimpleNamespace(SIGKILL=9))
+
+    def denied_group(*_args):
+        raise PermissionError(1, "permission denied")
+
+    monkeypatch.setattr(tree_module.os, "killpg", denied_group, raising=False)
+    with pytest.raises(PermissionError):
+        tree._terminate_posix_group()
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX executable identity uses symlinks")

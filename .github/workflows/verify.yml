@@ -49,6 +49,8 @@ jobs:
           tests/test_process_executable_identity.py
           tests/test_runtime.py::test_process_runner_preserves_allowlisted_executable_symlink
           tests/test_runtime.py::test_darwin_native_python_retains_venv_and_owns_its_process_group
+          tests/test_runtime.py::test_process_output_is_bounded_while_streaming
+          tests/test_runtime.py::test_runtime_check_exception_is_typed_and_terminates_descendant
           tests/test_private_workspace_identity.py::test_posix_spawn_replacement_uses_held_workspace_identity
       - run: npm run verify
       - name: Verify explicit PDF Core-only profile

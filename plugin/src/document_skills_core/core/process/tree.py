@@ -5,6 +5,7 @@ from ctypes import wintypes
 import os
 import signal
 import subprocess
+import sys
 
 
 class ProcessTree:
@@ -26,10 +27,22 @@ class ProcessTree:
             except OSError:
                 pass
             return
+        self._terminate_posix_group()
+
+    def _terminate_posix_group(self) -> None:
         try:
             os.killpg(self.process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            # Darwin's killpg returns EPERM for a group containing only zombies.
+            # Reap our exited child and retry; genuine denial must still fail.
+            if sys.platform != "darwin" or self.process.poll() is None:
+                raise
+            try:
+                os.killpg(self.process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
     def close(self) -> None:
         if self._job is not None:

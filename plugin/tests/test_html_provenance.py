@@ -30,6 +30,9 @@ from tools.html_pptx_provenance import (
 from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
     DOCX_TEMPLATE_PACK_REQUIREMENT,
+    DARWIN_LAUNCH_REQUIREMENT,
+    _DARWIN_LAUNCH_MODULES,
+    _DARWIN_LAUNCH_PROFILE,
     README_SYSTEM_REQUIREMENT,
     cross_format_capability_module_profile,
     docx_template_pack_module_profile,
@@ -567,6 +570,12 @@ def test_html_pptx_release_records_use_truthful_requirement_and_tests(project_ro
             expected_requirement = _with_all_xlsx_requirements(base_requirement)
         else:
             expected_requirement = base_requirement
+        if record["module"] in _DARWIN_LAUNCH_MODULES:
+            expected_requirement = _compose_requirements(expected_requirement, DARWIN_LAUNCH_REQUIREMENT)
+            expected_profile = (
+                expected_profile[0] + " " + _DARWIN_LAUNCH_PROFILE[0],
+                _merged_values(expected_profile[1], _DARWIN_LAUNCH_PROFILE[1]),
+            )
         assert record["requirement_source"] == expected_requirement
         assert record["modifications"] == expected_profile[0]
         assert record["artifact_tests"] == expected_profile[1]

@@ -62,6 +62,7 @@ _DARWIN_LAUNCH_MODULES = {
     "src/document_skills_core/core/process/darwin_spawn.py",
     "src/document_skills_core/core/process/executable.py",
     "src/document_skills_core/core/process/runner.py",
+    "src/document_skills_core/core/process/tree.py",
     "src/document_skills_core/providers/libreoffice/detector.py",
     "tests/test_libreoffice_provider.py",
     "tests/test_process_executable_identity.py",
@@ -76,7 +77,9 @@ _DARWIN_LAUNCH_PROFILE = (
     "fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects "
     "the native soffice.bin companion while retaining launch/probe enforcement. "
     "Darwin's own Python launches preserve the authorized virtualenv alias "
-    "using a code-selected PYTHONEXECUTABLE override.",
+    "using a code-selected PYTHONEXECUTABLE override. Process cleanup reaps an "
+    "exited Darwin child before retrying EPERM from a zombie-only group, while "
+    "retaining genuine signal permission failures.",
     [
         "tests/test_process_executable_identity.py",
         "tests/test_private_workspace_identity.py",
