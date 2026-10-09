@@ -379,7 +379,9 @@ def test_optional_evidence_cannot_record_partial_or_unavailable_profile(tmp_path
 def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(project_root, tmp_path):
     from document_skills_core.core.process import ProcessPolicy, ProcessRunner
     from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
-    from document_skills_core.providers.libreoffice.runner import _build_argv, _prepare_private_profile
+    from document_skills_core.providers.libreoffice.runner import (
+        _build_argv, _prepare_private_profile, _run_with_normal_restart,
+    )
 
     backend = _real_backend()
     policy = ProcessPolicy(project_root)
@@ -395,7 +397,7 @@ def test_real_libreoffice_runs_in_quota_filesystem_with_bounded_diagnostics(proj
         _prepare_private_profile(session.profile_dir)
         arguments = _build_argv(session.profile_dir, "--convert-to", "pdf", "--outdir",
                                 str(session.output_dir), str(source))
-        result = runner.run("libreoffice", detected.path, arguments, cwd=project_root,
+        result = _run_with_normal_restart(runner, detected.path, arguments, cwd=project_root,
                             timeout_seconds=30, quota_storage=session.process_storage,
                             runtime_check=session.assert_live)
         # Diagnostic text comes only from this fixed, generated fixture; no
@@ -456,3 +458,48 @@ def test_activation_failure_cleans_empty_directories_and_never_yields(monkeypatc
             pytest.fail("Failed activation yielded a session")
     assert error.value.code == ErrorCode.PROVIDER_UNAVAILABLE
     assert all(not path.exists() and not path.parent.exists() for path in created)
+
+
+@pytest.mark.parametrize("codes,expected_calls", [([81,0],2), ([81,81,81,0],3), ([79,0],1), ([1,0],1)])
+def test_native_normal_restart_is_bounded_and_crashes_are_not_retried(codes, expected_calls):
+    from document_skills_core.core.process import ProcessResult
+    from document_skills_core.providers.libreoffice.runner import _run_with_normal_restart
+
+    calls = []
+    class Runner:
+        def run(self, provider, executable, argv, **options):
+            calls.append(options)
+            assert (provider, executable, argv) == ("libreoffice", "native", ["fixed"])
+            return ProcessResult(codes[len(calls)-1], "log", "", 1)
+    result = _run_with_normal_restart(Runner(), "native", ["fixed"], timeout_seconds=10, output_limit=12)
+    assert len(calls) == expected_calls
+    assert result.returncode == codes[expected_calls-1]
+    assert [call["output_limit"] for call in calls] == [12-3*i for i in range(expected_calls)]
+    assert all(0 < call["timeout_seconds"] <= 10 for call in calls)
+    assert all(calls[i+1]["timeout_seconds"] <= calls[i]["timeout_seconds"] for i in range(len(calls)-1))
+
+
+def test_native_restart_cannot_reset_deadline_or_ignore_quota_failure(monkeypatch):
+    from document_skills_core.core.process import ProcessResult
+    from document_skills_core.providers.libreoffice import runner as module
+
+    calls = []
+    class Runner:
+        def run(self, *args, **options):
+            calls.append(options)
+            return ProcessResult(81, "", "", 1)
+    ticks = iter([0,0,11])
+    monkeypatch.setattr(module.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(DocumentSkillsError) as error:
+        module._run_with_normal_restart(Runner(), "native", [], timeout_seconds=10)
+    assert error.value.code == ErrorCode.PROCESS_TIMEOUT
+    assert len(calls) == 1
+    monkeypatch.setattr(module.time, "monotonic", lambda: 0)
+    def check_quota():
+        if len(calls) == 2:
+            raise DocumentSkillsError(ErrorCode.PROVIDER_FAILED, "Quota session denied growth")
+    with pytest.raises(DocumentSkillsError) as error:
+        module._run_with_normal_restart(Runner(), "native", [], timeout_seconds=10,
+                                       runtime_check=check_quota)
+    assert error.value.code == ErrorCode.PROVIDER_FAILED
+    assert len(calls) == 2

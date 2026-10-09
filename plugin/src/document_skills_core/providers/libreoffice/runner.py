@@ -11,6 +11,7 @@ Module provenance: original Elftia-authored clean-room implementation.
 from collections.abc import Callable
 import os
 from pathlib import Path
+import time
 from typing import Protocol
 import uuid
 
@@ -142,8 +143,8 @@ class LibreOfficeRunner:
                 str(session.output_dir),
                 str(input_path.resolve(strict=True)),
             )
-            result = self._runner.run(
-                "libreoffice",
+            result = _run_with_normal_restart(
+                self._runner,
                 self._executable,
                 argv,
                 cwd=self.project_root,
@@ -168,6 +169,35 @@ class LibreOfficeRunner:
         _atomic_publish(payload, expected)
         assert_output_within_limit(expected, target_format)
         return expected
+
+
+def _run_with_normal_restart(runner, executable, argv, *, timeout_seconds,
+                             output_limit=OUTPUT_LIMIT, runtime_check=None, **options):
+    """Handle native soffice's normal initialization restart within one budget.
+
+    LibreOffice's oosplash repeats all arguments for EXITHELPER_NORMAL_RESTART
+    (81). Crash restart (79) is deliberately not retried. Every attempt still
+    binds the same executable, quota session, private profile and process tree.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    remaining_output = output_limit
+    for _attempt in range(3):
+        if runtime_check is not None:
+            runtime_check()
+        remaining_time = deadline - time.monotonic()
+        if remaining_time <= 0:
+            raise DocumentSkillsError(ErrorCode.PROCESS_TIMEOUT,
+                                      "LibreOffice startup exhausted its conversion deadline.")
+        if remaining_output <= 0:
+            raise DocumentSkillsError(ErrorCode.RESOURCE_LIMIT,
+                                      "LibreOffice startup exhausted its output budget.")
+        result = runner.run("libreoffice", executable, argv,
+                            timeout_seconds=remaining_time, output_limit=remaining_output,
+                            runtime_check=runtime_check, **options)
+        remaining_output -= len(result.stdout.encode("utf-8")) + len(result.stderr.encode("utf-8"))
+        if result.returncode != 81:
+            return result
+    return result  # The caller rejects the bounded, still non-zero restart code.
 
 
 def _atomic_publish(payload: bytes, destination: Path) -> None:

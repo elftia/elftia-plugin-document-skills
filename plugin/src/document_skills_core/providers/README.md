@@ -46,6 +46,8 @@ Before conversion, the fresh profile sets `DisableMacrosExecution=true`, `Disabl
 
 The headless child also receives the fixed `GSETTINGS_BACKEND=memory` for GLib settings. LibreOffice can still access dconf directly; its shared file mappings therefore use the same quota filesystem. This environment setting does not bypass any storage quota.
 
+Direct native `soffice.bin` launches handle LibreOffice's normal initialization restart code 81 with at most three attempts, preserving the same quota, profile, aggregate timeout and output budget. Crash restart code 79 and other failures are not retried.
+
 ABI references: [libfuse high-level API](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse.h), [open-file ABI](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse_common.h).
 
 ## Verification

@@ -1569,7 +1569,7 @@ class TestRunnerContainment:
             if value.startswith("-env:UserInstallation=file:")
         ]
         assert len(profiles) == 1
-        assert captured["timeout"] == 17.0
+        assert 0 < captured["timeout"] <= 17.0
         assert captured["output_limit"] > 0
 
     @pytest.mark.parametrize(
@@ -1710,7 +1710,7 @@ class TestRunnerContainment:
             runner.convert(source, "pdf", output)
         assert captured.value.code == ErrorCode.PROVIDER_FAILED
         assert captured.value.details["returncode"] == 3
-        assert process_runner.timeout == 30.0
+        assert 0 < process_runner.timeout <= 30.0
         assert not (output / "source.pdf").exists()
 
     def test_env_sanitized_by_process_runner(self, project_root):
