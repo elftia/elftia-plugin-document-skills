@@ -40,6 +40,16 @@ jobs:
           version: "0.8.13"
           enable-cache: true
       - run: npm ci --ignore-scripts
+      - name: Install the mandatory DOCX artifact renderer
+        uses: ./.github/actions/setup-libreoffice
+      - name: Verify native launch and private workspace regressions
+        working-directory: plugin
+        run: >-
+          uv run --project . --frozen python -m pytest -q
+          tests/test_process_executable_identity.py
+          tests/test_runtime.py::test_process_runner_preserves_allowlisted_executable_symlink
+          tests/test_runtime.py::test_darwin_native_python_retains_venv_and_owns_its_process_group
+          tests/test_private_workspace_identity.py::test_posix_spawn_replacement_uses_held_workspace_identity
       - run: npm run verify
       - name: Verify explicit PDF Core-only profile
         run: uv run --project plugin --frozen python plugin/tools/pdf_provider_profile.py --profile core-only --strict
@@ -423,6 +433,8 @@ jobs:
         with:
           version: "0.8.13"
           enable-cache: true
+      - name: Install the mandatory DOCX artifact renderer
+        uses: ./.github/actions/setup-libreoffice
       - name: Install frozen Node dependencies
         shell: bash
         run: |

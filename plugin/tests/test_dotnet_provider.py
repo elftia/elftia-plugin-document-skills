@@ -366,7 +366,7 @@ class TestDetector:
                 actual = super().run(
                     provider_id,
                     executable,
-                    ["--version"],
+                    ["-c", "import sys; sys.stdin.buffer.read(); print(sys.version)"],
                     **kwargs,
                 )
                 assert actual.returncode == 0
@@ -397,7 +397,7 @@ class TestDetector:
             runner=process_runner,
         ).detect()
 
-        assert evidence.available is True
+        assert evidence.available is True, evidence.reason
         assert process_runner.provider_ids == [
             "runtime-detection",
             "dotnet-openxml",
@@ -812,7 +812,7 @@ class TestProductionRegistryIntegration:
                 process_runner,
                 provider_id,
                 executable,
-                ["--version"],
+                ["-c", "import sys; sys.stdin.buffer.read(); print(sys.version)"],
                 **kwargs,
             )
             assert actual.returncode == 0

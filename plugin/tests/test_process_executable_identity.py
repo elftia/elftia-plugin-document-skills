@@ -5,9 +5,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from dataclasses import replace
 
 import document_skills_core.core.process.executable as executable_module
 import document_skills_core.core.process.runner as runner_module
+from document_skills_core.core.process.darwin_spawn import _launch_environment
 import pytest
 from document_skills_core.core.capabilities import DetectionEvidence
 from document_skills_core.core.contracts.errors import DocumentSkillsError, ErrorCode
@@ -19,6 +21,23 @@ from document_skills_core.providers.dotnet.runner import DotnetOpenXmlRunner
 from tools.audit_python import audit_python_source
 
 _AUTHORIZED_OUTPUT = "AUTHORIZED-LAUNCH-OBJECT"
+
+
+def test_darwin_python_environment_preserves_only_the_authorized_alias(tmp_path):
+    identity = executable_module.capture_executable_identity(Path(sys.executable))
+    alias = tmp_path / "authorized-python"
+    lease = executable_module.ExecutableLaunchLease(
+        launch_path=alias, popen_executable=str(identity.resolved_path),
+        pass_fds=(), identity=identity,
+    )
+    source = {"PATH": "fixture-path"}
+    assert _launch_environment(lease, source) == {
+        "PATH": "fixture-path", "PYTHONEXECUTABLE": str(alias),
+    }
+    assert source == {"PATH": "fixture-path"}
+
+    lease.identity = replace(identity, resolved_path=tmp_path / "other-native-image")
+    assert _launch_environment(lease, source) == source
 
 
 def test_same_path_replacement_cannot_be_reauthorized(

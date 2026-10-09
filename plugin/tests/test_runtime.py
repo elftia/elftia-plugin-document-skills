@@ -413,6 +413,23 @@ def test_process_runner_preserves_allowlisted_executable_symlink(project_root, t
     assert Path(result.json()["executable"]) == executable_link
 
 
+@pytest.mark.skipif(sys.platform != "darwin", reason="Darwin native Python launch")
+def test_darwin_native_python_retains_venv_and_owns_its_process_group(project_root):
+    policy = ProcessPolicy(project_root)
+    executable = policy.allow_executable("fixture", sys.executable)
+    result = ProcessRunner(policy).run(
+        "fixture", executable,
+        ["-c", "import json, os, sys; import defusedxml; "
+         "print(json.dumps({'prefix': sys.prefix, 'executable': sys.executable, "
+         "'pid': os.getpid(), 'group': os.getpgrp(), 'session': os.getsid(0)}))"],
+    )
+    assert result.returncode == 0, result.stderr
+    payload = result.json()
+    assert Path(payload["prefix"]) == Path(sys.prefix)
+    assert Path(payload["executable"]) == Path(sys.executable)
+    assert payload["pid"] == payload["group"] == payload["session"]
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX executable identity uses symlinks")
 def test_process_runner_rejects_retargeted_executable_symlink(project_root, tmp_path):
     executable_link = tmp_path / "python3"

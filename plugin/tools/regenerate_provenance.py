@@ -73,7 +73,9 @@ _DARWIN_LAUNCH_PROFILE = (
     "cleanup, explicit descriptor inheritance, or launch/workspace regression "
     "coverage adapted to the platform spawn implementation. Darwin variadic "
     "fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects "
-    "the native soffice.bin companion while retaining launch/probe enforcement.",
+    "the native soffice.bin companion while retaining launch/probe enforcement. "
+    "Darwin's own Python launches preserve the authorized virtualenv alias "
+    "using a code-selected PYTHONEXECUTABLE override.",
     [
         "tests/test_process_executable_identity.py",
         "tests/test_private_workspace_identity.py",

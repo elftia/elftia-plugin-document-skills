@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 import os
 import signal
+import sys
 from contextlib import ExitStack
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -27,6 +28,16 @@ def _encoded(value: str | Path) -> bytes:
     if b"\0" in result:
         raise ValueError("Process argument contains a NUL byte")
     return result
+
+
+def _launch_environment(launch: ExecutableLaunchLease, env: dict[str, str]) -> dict[str, str]:
+    environment = dict(env)
+    if launch.identity.resolved_path == Path(sys.executable).resolve(strict=True):
+        # Framework Python uses its kernel executable path instead of argv[0].
+        # Preserve the authorized venv alias while still spawning and checking
+        # the canonical native image. Never inherit a caller-selected override.
+        environment["PYTHONEXECUTABLE"] = str(launch.launch_path)
+    return environment
 
 
 def _pipe(api: DarwinAPI, owned: set[int]) -> tuple[int, int]:
@@ -117,8 +128,9 @@ def spawn_authorized_process(
             ))
             attributes = _attributes(api, resources)
             arguments = (ctypes.c_char_p * (len(command) + 1))(*map(_encoded, command), None)
-            environment = (ctypes.c_char_p * (len(env) + 1))(
-                *[_encoded(f"{key}={value}") for key, value in env.items()], None
+            launch_env = _launch_environment(launch, env)
+            environment = (ctypes.c_char_p * (len(launch_env) + 1))(
+                *[_encoded(f"{key}={value}") for key, value in launch_env.items()], None
             )
             pid = ctypes.c_int()
             _check(api.libc.posix_spawn(

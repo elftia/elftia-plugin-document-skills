@@ -6309,7 +6309,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/io/parent_anchor_posix.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -6568,7 +6568,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/darwin_abi.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -6593,7 +6593,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/darwin_image.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -6618,7 +6618,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/darwin_process.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -6643,14 +6643,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/darwin_spawn.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d445f55e5a0605510dee12bb4ed836c28c6aff55deaf95686f41067b62f54231",
+      "sha256": "cdbe658d0cbc2f8fe9f849be7e9093c089657a7d784a950d997f450bdfdb8958",
       "source_class": "original",
       "third_party_files": []
     },
@@ -6699,7 +6699,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/executable.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -6755,7 +6755,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Shared Core/completion/advanced XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/core/process/runner.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -18842,7 +18842,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "src/document_skills_core/providers/libreoffice/detector.py",
       "requirement_source": "Rasen document-skills-libreoffice-enhancement + document-skills-core-xlsx + document-skills-xlsx-completion + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -21656,7 +21656,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "3fdcf533fedd27caace5559871e460a32cae4bfeb7ed5796b51e2f8fe4013a9d",
+      "sha256": "a30b4e5c48109c90cc9641ff988fed3f016192acc3d9425a0a4e5703df9e31ce",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22060,7 +22060,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "tests/test_libreoffice_provider.py",
       "requirement_source": "Rasen document-skills-libreoffice-enhancement + document-skills-core-xlsx + document-skills-xlsx-completion + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -24219,7 +24219,7 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "tests/test_private_workspace_identity.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
@@ -24275,14 +24275,14 @@
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement.",
+      "modifications": "Identity-bound top-level native executable launch: Windows hashes and resolves one followed handle, then holds canonical parent and executable handles through CreateProcess; Linux executes the verified fd via /proc/self/fd with pass_fds. Pre-lease identity drift and detector-to-operation races fail closed; final-window same-path replacement cannot redirect the pinned launch object. Windows share mode blocks hardlink-alias writes, and partial handle acquisition closes each owned handle exactly once. Identity capture or change, non-Linux POSIX or script native-unavailable cases, and spawn failures use sanitized typed categories without raw OS details. The binding excludes argv-selected helpers and the dynamic DLL or dependency closure. Native Mach-O launch with posix_spawn START_SUSPENDED, kernel-mapped vnode identity and held-FD SHA-256 verification before SIGCONT, bounded child cleanup, explicit descriptor inheritance, or launch/workspace regression coverage adapted to the platform spawn implementation. Darwin variadic fcntl calls use the Apple ARM64 ABI; POSIX LibreOffice detection selects the native soffice.bin companion while retaining launch/probe enforcement. Darwin's own Python launches preserve the authorized virtualenv alias using a code-selected PYTHONEXECUTABLE override.",
       "module": "tests/test_process_executable_identity.py",
       "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + document-skills-core-xlsx + document-skills-xlsx-completion + document-skills-xlsx-advanced-authoring + Elftia macOS native launch and PDF repair (2026-10-09)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "70da319f2858596735babfcf8e390199f93f19a7d4a634e54bdc975df083e6de",
+      "sha256": "62bf0c542ab36a125b9a122eb80731c3f597faee67e397ea4a57418cf6e3cada",
       "source_class": "original",
       "third_party_files": []
     },
@@ -24430,7 +24430,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "74545c8d80ba109bfac862ce8e72e447d772ee5915a522a7cedbdcd3d9a52553",
+      "sha256": "abc386497d8d2ebb7a9e4cf8e2899fb3d73fcdb0d92ea3f2e5b0ca8ae30430d4",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26846,7 +26846,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e4c0983ec1618c65f789cd76524e3cb1fb482c8a45d3eda9b69be2b296aebb51",
+      "sha256": "47411c370faaa045c54404d4bf404d5305a349720e44563a97bed89ef0262d1d",
       "source_class": "original",
       "third_party_files": []
     },
