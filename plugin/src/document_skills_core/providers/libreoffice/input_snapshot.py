@@ -69,7 +69,7 @@ _OOXML_MAIN_TYPES = {
 _OPERATION_FORMATS = {
     "libreoffice.recalc-xlsx": frozenset({"xlsx"}),
     "libreoffice.convert-pdf": frozenset({"docx", "xlsx", "pptx"}),
-    "libreoffice.render-image": frozenset({"docx", "pptx"}),
+    "libreoffice.render-image": frozenset({"docx", "pptx", "pdf"}),
     "libreoffice.read-legacy": frozenset({"doc", "xls", "ppt"}),
 }
 _LEGACY_STREAM_NAMES = {
@@ -117,6 +117,8 @@ def private_libreoffice_input(
             _assert_operation_accepts(operation, actual_format)
             if actual_format in {"xlsx", "xlsm", "xltx", "xltm"}:
                 assert_provider_formula_safe(snapshot)
+            if actual_format == "pdf":
+                _assert_single_page_pdf_safe(snapshot)
             yield LibreOfficeInput(snapshot, actual_format)
         assert_bounded_source_preserved(source, byte_limit=byte_limit)
     except BaseException as error:
@@ -141,11 +143,27 @@ def _detect_format(path: Path) -> str:
         return _detect_ooxml_format(path)
     if signature == _CFB_SIGNATURE:
         return _detect_legacy_format(path)
+    if signature.startswith(b"%PDF-"):
+        return "pdf"
     raise DocumentSkillsError(
         ErrorCode.REQUEST_INVALID,
         "LibreOffice input bytes are not an accepted Office document.",
         status="invalid_request",
     )
+
+
+def _assert_single_page_pdf_safe(path: Path) -> None:
+    from ...formats.pdf.actions import classify_actions, has_dangerous_actions, has_executable_embedded_files
+    from ...formats.pdf.object_model import parse_pdf
+    from ...formats.pdf.page_tree import walk_pages
+
+    model = parse_pdf(path)
+    if model.trailer.encrypt is not None or has_dangerous_actions(classify_actions(model)) or has_executable_embedded_files(model):
+        _unsafe("LibreOffice PDF raster input contains encryption or active content.")
+    if len(walk_pages(model)) != 1:
+        raise DocumentSkillsError(ErrorCode.REQUEST_INVALID,
+                                  "LibreOffice PNG evidence requires one bounded PDF page.",
+                                  status="invalid_request")
 
 
 def _detect_ooxml_format(path: Path) -> str:

@@ -50,6 +50,8 @@ Mutations require distinct outputs and immutable selectors from public read/insp
 
 `.docm` editing requires explicit inert `keep_vba: true` copy-through and preserves VBA bytes without parsing or execution. Legacy `.doc` is accepted only by the provider-backed conversion operation. Missing optional providers return `unavailable` without output.
 
+DOCX subset rendering and individual page images use [visual PDF projection](render_pdf_projection.py). The projection screens active content first, omits initial internal navigation and accessibility tag graphs, and preserves the selected page content/resources. It does not claim PDF/UA or accessibility-tag preservation. Full PDF conversion keeps its original output; general PDF editing still rejects unsupported Catalog reconciliation.
+
 ## Verification
 
 The [plugin test suite](../../../../tests/README.md) owns the public DOCX contract, operation, and security coverage. Exact focused and aggregate commands belong to the [producer verification guide](../../../../../scripts/README.md).

@@ -502,7 +502,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libreoffice-writer fuse3 libfuse3-3
+          sudo apt-get install --yes --no-install-recommends libreoffice-writer libreoffice-draw fuse3 libfuse3-3
           sudo modprobe fuse
           test -c /dev/fuse
           sudo chmod a+rw /dev/fuse
@@ -534,6 +534,7 @@ jobs:
             tests/test_libreoffice_provider.py \
             tests/test_libreoffice_hard_quota.py \
             tests/test_libreoffice_quota_linux.py \
+            tests/test_docx_render_pdf_projection.py \
             tests/test_docx_render_compare_public.py \
             tests/test_docx_comparison_public.py \
             tests/test_docx_legacy_public.py \

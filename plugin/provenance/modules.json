@@ -811,7 +811,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ee05a9b94adb0ecc1acb44a1cf77e4474498f822eba9b3328b1d9f68adc07af9"
+      "sha256": "c329970dfbad720a78bc5e54c2761eed6f8241b664bdae421830c661456d8fe2"
     },
     {
       "artifact": "pyproject.toml",
@@ -2603,7 +2603,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "f3f2f01786e5dfa38cae3899509ee757366c35ed10c192a58250f9c44eb0efda"
+      "sha256": "43fbd18bd53cb327976d8212ff6946b19d9ca7d14b6d34b93ed6ca538e063d81"
     },
     {
       "artifact": "src/document_skills_core/formats/pdf/README.md",
@@ -8444,13 +8444,34 @@
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
       "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "src/document_skills_core/formats/docx/render_pdf_projection.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "101c86a40ead5fd4f9b0298e358b3d00896eafa6a1933fdee5ff04ce7b1d5c0d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
       "module": "src/document_skills_core/formats/docx/rendering.py",
       "requirement_source": "Rasen document-skills-core-docx",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "beb0b7417c228aae3f5692729533aaf1a1e637ecd7ad23826b40ffc90fe5b9b1",
+      "sha256": "c17ec9f22d8bae81dfbff15f1b7bf17a6235ade3b72e137fe28de835f22d061b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18986,7 +19007,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ed59dc4e836df792252a2e54cc745e4e07439d294131f092904056d8a2652eca",
+      "sha256": "ff646485b0de6d879c3a27137b14c8ea249069445a43e9afe6dad903d28dffef",
       "source_class": "original",
       "third_party_files": []
     },
@@ -21551,6 +21572,27 @@
       ],
       "reviewer": "PENDING independent review",
       "sha256": "e56fb14e129b86e8ddaf4302e148f69d181850b6dcb31b9c99da97800300b2fc",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_docx_contracts.py",
+        "tests/test_docx_operations.py",
+        "tests/test_docx_public.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Original Core DOCX contract, package, projection, mutation, validation, Skill guidance, tests, or release evidence.",
+      "module": "tests/test_docx_render_pdf_projection.py",
+      "requirement_source": "Rasen document-skills-core-docx",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "d10a9655c90bc0c2971f6bb3bc162b6acd7832809633f2463659731106982985",
       "source_class": "original",
       "third_party_files": []
     },

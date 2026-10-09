@@ -15,7 +15,6 @@ from document_skills_core.core.io.paths import (
     merge_source_preservation_failure,
 )
 from document_skills_core.core.io.temp_roots import OperationTempRoot
-from document_skills_core.formats.pdf.edit import edit_pdf
 from document_skills_core.formats.pdf.object_model import parse_pdf
 from document_skills_core.formats.pdf.page_tree import walk_pages
 from document_skills_core.formats.pptx.png_compare import decode_png
@@ -24,6 +23,7 @@ from .contracts import ParsedDocxRequest
 from .conversion import validate_pdf_conversion, validate_pdf_render
 from .layout_inspection import inspect_rendered_layout
 from .package import OpcPackage
+from .render_pdf_projection import split_render_pages
 from .transaction import promote_candidate, write_candidate_result
 
 
@@ -202,11 +202,7 @@ def _render_page_evidence(
             one_page = pdf
         else:
             one_page = private_root / f"page-{index:04d}.pdf"
-            edit_pdf(
-                pdf,
-                one_page,
-                {"primitives": [{"type": "split", "page_ranges": [[index, index]]}]},
-            )
+            split_render_pages(pdf, one_page, index, index)
         payload = raster(one_page)
         if type(payload) is not bytes:
             raise DocumentSkillsError(
@@ -301,9 +297,5 @@ def _select_pages(
         return converted, expected_pages
 
     staged = private_root / "rendered.pdf"
-    edit_pdf(
-        converted,
-        staged,
-        {"primitives": [{"type": "split", "page_ranges": [[start, end]]}]},
-    )
+    split_render_pages(converted, staged, start, end)
     return staged, expected_pages

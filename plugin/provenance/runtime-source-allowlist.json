@@ -134,6 +134,7 @@
     "src/document_skills_core/formats/docx/references.py",
     "src/document_skills_core/formats/docx/relationships.py",
     "src/document_skills_core/formats/docx/render_contract.py",
+    "src/document_skills_core/formats/docx/render_pdf_projection.py",
     "src/document_skills_core/formats/docx/rendering.py",
     "src/document_skills_core/formats/docx/replace.py",
     "src/document_skills_core/formats/docx/results.py",

@@ -8,7 +8,10 @@ runs:
       run: |
         set -euo pipefail
         sudo apt-get update
-        sudo apt-get install --yes --no-install-recommends libreoffice-writer
+        sudo apt-get install --yes --no-install-recommends libreoffice-writer libreoffice-draw libreoffice-impress libreoffice-calc fuse3 libfuse3-3
+        sudo modprobe fuse
+        test -c /dev/fuse
+        sudo chmod a+rw /dev/fuse
     - if: runner.os == 'macOS'
       shell: bash
       env:
