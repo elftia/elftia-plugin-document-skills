@@ -53,6 +53,8 @@ Direct native `soffice.bin` launches handle LibreOffice's normal initialization 
 ABI references: [libfuse high-level API](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse.h), [open-file ABI](https://github.com/libfuse/libfuse/blob/fuse-3.14.0/include/fuse_common.h).
 Windows ABI references: [WinFsp 2.1 filesystem interface](https://github.com/winfsp/winfsp/blob/v2.1/inc/winfsp/winfsp.h), [volume/file structures](https://github.com/winfsp/winfsp/blob/v2.1/inc/winfsp/fsctl.h).
 
+In the process serving a Windows quota volume, use `quota.resolve_existing_directory` and `os.scandir` for directory resolution and enumeration. CPython 3.12's `Path.resolve` and `os.listdir` (also used by `Path.iterdir`) close native handles while holding the GIL, which blocks Python filesystem cleanup callbacks. The selected APIs release the GIL during native cleanup; the resolver also binds the handle's NT path to the private DOS drive identity without requiring a Mount Manager volume GUID.
+
 ## Verification
 
 Provider contracts have focused detector, isolation, crash, timeout, identity, hard-quota, and real-provider tests in the [plugin test suite](../../../tests/README.md). The [producer verification guide](../../../../scripts/README.md) owns the exact commands. Environment-gated real-provider skips remain skips; they do not prove availability.

@@ -531,12 +531,13 @@ jobs:
               -k real_libreoffice_runs_in_quota_filesystem -q \
               2>&1 | tee ../.ci-evidence/docx-optional/native-probe.log
       - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
+        timeout-minutes: 15
         shell: bash
         working-directory: plugin
         run: |
           set -o pipefail
           mkdir -p ../.ci-evidence/docx-optional
-          uv run --project . --frozen python -m pytest \
+          uv run --project . --frozen python -m pytest -s -o faulthandler_timeout=60 \
             tests/test_docx_dotnet_real.py \
             tests/test_libreoffice_provider.py \
             tests/test_libreoffice_hard_quota.py \

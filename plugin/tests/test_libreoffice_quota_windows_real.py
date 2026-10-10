@@ -89,7 +89,8 @@ def test_real_winfsp_concurrent_writes_are_bounded():
         with ThreadPoolExecutor(max_workers=8) as executor:
             list(executor.map(write, range(16)))
         assert session.store.total_bytes <= 16384
-        assert sum(path.stat().st_size for path in session.profile_dir.iterdir()) <= 16384
+        with os.scandir(session.profile_dir) as entries:
+            assert sum(entry.stat().st_size for entry in entries) <= 16384
 
 
 def test_real_winfsp_delete_shared_open_handle_keeps_allocation(tmp_path):
@@ -147,7 +148,8 @@ def test_real_winfsp_refuses_streams_links_and_preserves_case():
         source = session.output_dir / "MixedName"
         source.write_bytes(b"first")
         assert (session.output_dir / "MIXEDNAME").read_bytes() == b"first"
-        assert [path.name for path in session.output_dir.iterdir()] == ["MixedName"]
+        with os.scandir(session.output_dir) as entries:
+            assert [entry.name for entry in entries] == ["MixedName"]
         for action in (
             lambda: Path(str(source) + ":stream").write_bytes(b"bypass"),
             lambda: os.link(source, session.profile_dir / "link"),
