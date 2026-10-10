@@ -29,6 +29,8 @@ Tests use temporary directories and explicit artifacts; they must not overwrite 
 
 Environment-dependent tests must state their gate and preserve skip/failure semantics. Remote CI results are separate from local execution and must not be inferred from a committed test file.
 
+The Windows optional-provider job requires the pinned WinFsp runtime and real LibreOffice. [`test_libreoffice_quota_windows.py`](test_libreoffice_quota_windows.py) checks native pointer outputs and allocation accounting; [`test_libreoffice_quota_windows_real.py`](test_libreoffice_quota_windows_real.py) proves kernel-backed denial, mappings, open-delete accounting, namespace identity, environment isolation, cleanup and real conversion. `ELFTIA_REQUIRE_LIBREOFFICE_PROFILE=1` makes missing prerequisites a failure. The DOCX optional evidence script must observe every optional operation succeeding on both Linux and Windows.
+
 ## Verification
 
 The normal producer path prepares the frozen graphs, runs the complete Python and private Node suites, compiles Python into a private temporary bytecode root, and runs the audit. Focused documentation and distribution XLSX E2E remain separate gates. The [producer verification guide](../../scripts/README.md) owns all exact commands.

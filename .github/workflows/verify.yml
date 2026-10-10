@@ -476,8 +476,12 @@ jobs:
           if-no-files-found: warn
 
   docx-optional-providers:
-    name: DOCX .NET and LibreOffice hard quota (Ubuntu)
-    runs-on: ubuntu-latest
+    name: DOCX .NET and LibreOffice hard quota (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     env:
       DOTNET_ADD_GLOBAL_TOOLS_TO_PATH: "0"
       ELFTIA_REQUIRE_DOTNET_PROFILE: "1"
@@ -498,14 +502,11 @@ jobs:
         with:
           version: "0.8.13"
           enable-cache: true
+      - name: Install mandatory native renderer and hard-quota runtime
+        uses: ./.github/actions/setup-libreoffice
       - name: Install the real optional-provider profile
         shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libreoffice-writer libreoffice-draw fuse3 libfuse3-3
-          sudo modprobe fuse
-          test -c /dev/fuse
-          sudo chmod a+rw /dev/fuse
           npm ci --ignore-scripts
           npm ci --prefix plugin --omit=dev --ignore-scripts
           uv lock --check --offline --project plugin
@@ -521,6 +522,7 @@ jobs:
           mkdir -p ../.ci-evidence/docx-optional
           uv run --project . --frozen python -m pytest \
               tests/test_libreoffice_quota_linux.py \
+              tests/test_libreoffice_quota_windows_real.py \
               --junitxml ../.ci-evidence/docx-optional/native-probe.xml \
               -k real_libreoffice_runs_in_quota_filesystem -q
       - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
@@ -534,6 +536,8 @@ jobs:
             tests/test_libreoffice_provider.py \
             tests/test_libreoffice_hard_quota.py \
             tests/test_libreoffice_quota_linux.py \
+            tests/test_libreoffice_quota_windows.py \
+            tests/test_libreoffice_quota_windows_real.py \
             tests/test_docx_render_pdf_projection.py \
             tests/test_docx_render_compare_public.py \
             tests/test_docx_comparison_public.py \

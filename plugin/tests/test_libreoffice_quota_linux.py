@@ -88,6 +88,8 @@ def test_accounting_rejects_unbounded_or_invalid_limits(byte_limit, entry_limit)
 
 
 def _real_backend():
+    if not sys.platform.startswith("linux"):
+        pytest.skip("Real FUSE profile requires Linux; Windows has its own mandatory WinFsp profile.")
     if not hard_quota_capability().supported:
         if os.environ.get("ELFTIA_REQUIRE_LIBREOFFICE_PROFILE") == "1":
             pytest.fail("Mandatory real LibreOffice quota backend is unavailable.")

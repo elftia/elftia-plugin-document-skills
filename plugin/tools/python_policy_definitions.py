@@ -79,6 +79,7 @@ ALLOWED_STDLIB = {
     "struct",
     "subprocess",
     "sys",
+    "sysconfig",  # Fixed Windows x64 ABI selection, without probing external tools.
     "tempfile",
     "threading",
     "time",
@@ -87,6 +88,7 @@ ALLOWED_STDLIB = {
     "urllib",
     "uuid",
     "warnings",
+    "winreg",  # Read the installed WinFsp runtime location on Windows.
     "xml",
     "zipfile",
     "zlib",

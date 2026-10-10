@@ -55,6 +55,19 @@ CROSS_FORMAT_CAPABILITY_REQUIREMENT = (
 README_SYSTEM_REQUIREMENT = "Rasen document-skills-readme-system"
 DARWIN_LAUNCH_REQUIREMENT = "Elftia macOS native launch and PDF repair (2026-10-09)"
 LINUX_QUOTA_REQUIREMENT = "Elftia production LibreOffice hard storage quotas (2026-10-09)"
+WINDOWS_QUOTA_REQUIREMENT = "Elftia Windows LibreOffice hard storage quotas (2026-10-10)"
+_WINDOWS_QUOTA_MODULES = {
+    "src/document_skills_core/core/process/storage_environment.py",
+    "src/document_skills_core/providers/libreoffice/_quota_windows_security.py",
+    "src/document_skills_core/providers/libreoffice/_quota_windows_store.py",
+    "src/document_skills_core/providers/libreoffice/_quota_winfsp_abi.py",
+    "src/document_skills_core/providers/libreoffice/_quota_winfsp_library.py",
+    "src/document_skills_core/providers/libreoffice/_quota_winfsp_operations.py",
+    "src/document_skills_core/providers/libreoffice/quota.py",
+    "src/document_skills_core/providers/libreoffice/quota_windows.py",
+    "tests/test_libreoffice_quota_windows.py",
+    "tests/test_libreoffice_quota_windows_real.py",
+}
 _LINUX_QUOTA_MODULES = {
     "src/document_skills_core/core/process/storage_environment.py",
     "src/document_skills_core/providers/libreoffice/_quota_fuse_abi.py",
@@ -936,6 +949,20 @@ def _module_record(artifact: Any, reviewer: str) -> dict[str, Any]:
         record["artifact_tests"] = _merged_values(record["artifact_tests"], [
             "tests/test_libreoffice_quota_linux.py", "tests/test_libreoffice_hard_quota.py",
             "tests/test_libreoffice_provider.py", "tests/test_supply_chain.py",
+        ])
+    if artifact.path in _WINDOWS_QUOTA_MODULES:
+        record["requirement_source"] = _compose_requirements(record["requirement_source"], WINDOWS_QUOTA_REQUIREMENT)
+        record["modifications"] += (
+            " Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: "
+            "identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation "
+            "and entry quotas, mapped growth gate, open-deleted accounting, native activation "
+            "probes, private Windows environment and owned-volume cleanup. No WinFsp "
+            "implementation or binary is redistributed; native ABI declarations use public headers."
+        )
+        record["artifact_tests"] = _merged_values(record["artifact_tests"], [
+            "tests/test_libreoffice_quota_windows.py", "tests/test_libreoffice_quota_windows_real.py",
+            "tests/test_libreoffice_hard_quota.py", "tests/test_libreoffice_provider.py",
+            "tests/test_supply_chain.py",
         ])
     return record
 

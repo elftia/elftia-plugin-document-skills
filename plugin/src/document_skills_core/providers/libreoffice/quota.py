@@ -161,6 +161,10 @@ class _UnsupportedHardQuotaBackend:
 
 
 def _default_backend() -> HardQuotaBackend:
+    if sys.platform == "win32":
+        from .quota_windows import WindowsWinFspHardQuotaBackend
+
+        return WindowsWinFspHardQuotaBackend()
     if sys.platform.startswith("linux"):
         # Lazy import keeps the portable quota contract independent of libfuse.
         from .quota_linux import LinuxFuseHardQuotaBackend

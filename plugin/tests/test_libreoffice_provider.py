@@ -528,10 +528,12 @@ class TestDetector:
         sys.platform != "win32",
         reason="Windows standard-install launcher integration",
     )
-    def test_default_registry_reports_hard_quota_unavailable_before_probe(
+    def test_default_registry_reports_missing_winfsp_before_probe(
         self, project_root, monkeypatch
     ):
         monkeypatch.delenv("DOCUMENT_SKILLS_PROVIDER_PROFILE", raising=False)
+        from document_skills_core.providers.libreoffice import quota_windows
+        monkeypatch.setattr(quota_windows, "library_path", lambda: None)
         installed = _standard_windows_soffice()
         if installed is None:
             pytest.skip("LibreOffice is not installed in a standard Windows location")

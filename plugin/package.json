@@ -1,6 +1,6 @@
 {
   "name": "@elftia/document-skills-runtime",
-  "version": "0.5.10",
+  "version": "0.5.11",
   "private": true,
   "description": "Internal Node providers behind the document-skills Python facade",
   "license": "GPL-3.0",

@@ -9,7 +9,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "0b947360c6e79b921c2534458ded954c1cf9859e45ec850e012b6de9761a6607"
+      "sha256": "fdcc61e9db3f3a3964e656879035e81adfa667625ec464221b60a488b0b03a8d"
     },
     {
       "artifact": "PROVENANCE.md",
@@ -142,7 +142,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "dd0fcc3158ec5f780f7f8c50b548871f43b6dfc4469b1598bac4602b34b4d791"
+      "sha256": "5d951bcaeeb3b626b82712474395d5dc752595ad224923bff2e73d42f35a4e40"
     },
     {
       "artifact": "package-lock.json",
@@ -158,7 +158,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d831f5056d4d09229c3066656e095fc0332b0a2d07364ae788583ddd9ec19bff"
+      "sha256": "8b22af8e7fc575c4c75581aadc950614983d2b14eb234e7efe9a829cd2d4104e"
     },
     {
       "artifact": "package.json",
@@ -174,7 +174,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "2a431645db057c184074ac04bf062438aafa0e76351fe998d31244123918898b"
+      "sha256": "57cdade48343ec7761828bd52728c4a63de08a1b92fa0451771ba2e4976b6dd4"
     },
     {
       "artifact": "provenance/README.md",
@@ -811,7 +811,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "c329970dfbad720a78bc5e54c2761eed6f8241b664bdae421830c661456d8fe2"
+      "sha256": "caa647adf35464b272319d0597b572064eb517ad1ddf224b7da6c6344aeea6be"
     },
     {
       "artifact": "pyproject.toml",
@@ -821,7 +821,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "cf9317c1a404e8e925b83694e947081a0a60bcb988946fc7933ec84fd98933e5"
+      "sha256": "97dd8eb89b08120af927bee6d5ba0da4e07d859c1280113eb18b2ffd0907834b"
     },
     {
       "artifact": "sbom.cdx.json",
@@ -863,7 +863,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "815a741abbc0f496ec498c2767e6cfd16f676bb0eb405a5bb2dde5c1abd0cdec"
+      "sha256": "705f7d1ab74ea07e239c8a9a0add076a547738e9a62b8d5ddc979acfe2f9f8c1"
     },
     {
       "artifact": "schemas/README.md",
@@ -900,7 +900,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "d317ab608e1af33d3515d87464cb66cda0a23a7a51e3c098ec9cf94b4f9231b6"
+      "sha256": "925e77510806cb4bd6b574f5bf432a5d6ea093be59ccb40ec72d766e7cd39d77"
     },
     {
       "artifact": "schemas/docx-template-pack.schema.json",
@@ -2671,7 +2671,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "ccbb3530eb8180aad9bee312916d0e2262d9c544d83e84c65902b52809124be5"
+      "sha256": "3951150f5662a59f7d42ad8c84d288b783034ac8e1c338e3d80b195593ccb243"
     },
     {
       "artifact": "tests/fixtures/POLICY.md",
@@ -5103,7 +5103,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "50b320157412eca7e8c5ca63a73f5a13f2791f5010b09d3bd9c3d1e0f7422c5e"
+      "sha256": "bbc57e40b6eb95da6c55be597c1f49e683c73f20a9642ba0aa318cc2bcf1a0a0"
     }
   ],
   "executable_exclusions": [],
@@ -6774,19 +6774,21 @@
         "tests/test_libreoffice_quota_linux.py",
         "tests/test_libreoffice_hard_quota.py",
         "tests/test_libreoffice_provider.py",
-        "tests/test_supply_chain.py"
+        "tests/test_supply_chain.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, cached write-through with writeback-cache explicitly disabled and shared mappings limited to charged lengths, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions.",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Linux x86-64/glibc libfuse3 ABI binding and private in-memory filesystem: serialized aggregate logical-byte and entry quotas, cached write-through with writeback-cache explicitly disabled and shared mappings limited to charged lengths, open-unlinked accounting, fail-closed activation probes, identity-bound temporary/home environment, bounded cleanup and real kernel enforcement regressions. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
       "module": "src/document_skills_core/core/process/storage_environment.py",
-      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09)",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia production LibreOffice hard storage quotas (2026-10-09) + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "e5e28c0e8ade27de027ccc0ce28cef9a233fb1a9391d1feeb766562546c7cd44",
+      "sha256": "4cc2671c40b222e7d6dd4b827f8066dfbb99dd1df9ec94d0cd62406281a879db",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18158,7 +18160,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "6eb3bc9adc67469de70fb54acbaf06b0f072c33cfee98c0d0695cf7d90d7eca5",
+      "sha256": "7afefb79cc52bd43c42ae543ce41f510604d2b71aaa7905b35d419ae123c1d40",
       "source_class": "original",
       "third_party_files": []
     },
@@ -18867,6 +18869,131 @@
     },
     {
       "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_windows_security.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "aba7ad372983fcd5b7b9a8a78134c457241a4ac7f83d73b6fc93d16949876c47",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_windows_store.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "ab2f59429a8b878e37135b8cb6afc82e69814462673bed1a02e0f80bcd5601fb",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_winfsp_abi.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "470c50ebdf8d10aebaf5e7bb87c1609c25ec657b0e8baf4da5ecfc739265d4f4",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_winfsp_library.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "a556747b77193afd79759d570dd6bbae7bc02b846b30d6b739422a34cd106294",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/_quota_winfsp_operations.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "364d4a28c3f955ab4148d35d2fdd515c64d89ea251ffc85b0c79a26bbae99711",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
         "tests/test_xlsx_contracts.py",
         "tests/test_xlsx_operations.py",
         "tests/test_xlsx_provider_qa.py",
@@ -19103,19 +19230,21 @@
         "tests/test_strategy2.py",
         "tests/test_strategy3.py",
         "tests/test_structure.py",
-        "tests/test_supply_chain.py"
+        "tests/test_supply_chain.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py"
       ],
       "clean_room": true,
       "implementation_source": "Original Elftia project code",
       "license": "GPL-3.0",
-      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering.",
+      "modifications": "Shared Core/completion XLSX provider execution, managed CLI supervision, and exact supply-chain policy for bounded OpenXML validation and LibreOffice rendering. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
       "module": "src/document_skills_core/providers/libreoffice/quota.py",
-      "requirement_source": "Rasen document-skills-libreoffice-enhancement + document-skills-core-xlsx + document-skills-xlsx-completion",
+      "requirement_source": "Rasen document-skills-libreoffice-enhancement + document-skills-core-xlsx + document-skills-xlsx-completion + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
       "review_evidence": [
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "08e9612eaaf5834e66cb0f78591356317efe658b846b516d7b8f73f51a4bd094",
+      "sha256": "3db627616b93dd341946954a6541eb90c82c8a9afe9862fad434a94b7189e53b",
       "source_class": "original",
       "third_party_files": []
     },
@@ -19140,6 +19269,31 @@
       ],
       "reviewer": "PENDING independent review",
       "sha256": "90134e277d10d424ae85a784a7f07d54319452fcef68aa16e37eaa1dcffa240d",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_runtime.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py",
+        "tests/test_supply_chain.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "src/document_skills_core/providers/libreoffice/quota_windows.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "9da844446885abaf949600fe15cab711eb838af958e07eacde6e51df50b12547",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22234,7 +22388,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "0be038ed54fb708d06840a6ae7a5c9b8c320dcdb7620b427bafde319bac32dd9",
+      "sha256": "645ffb9e6ba20f0fdc3a284d3531bf4be7fab1fdf58306355889623346eba3ac",
       "source_class": "original",
       "third_party_files": []
     },
@@ -22257,7 +22411,55 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "672bee0cd989275c6c47acea913eac08afc7dd3401639e0b537a99edc81c4ce3",
+      "sha256": "3ab535caabcebef5991f2030589b5f43413d5728476e55a80d83ced9baecb87f",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "tests/test_libreoffice_quota_windows.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "1660d4a53228933e539d766a9323c188b3674133e1bd8a58a8dc791e87248d73",
+      "source_class": "original",
+      "third_party_files": []
+    },
+    {
+      "artifact_tests": [
+        "tests/test_strategy2.py",
+        "tests/test_strategy3.py",
+        "tests/test_supply_chain.py",
+        "tests/test_libreoffice_quota_windows.py",
+        "tests/test_libreoffice_quota_windows_real.py",
+        "tests/test_libreoffice_hard_quota.py",
+        "tests/test_libreoffice_provider.py"
+      ],
+      "clean_room": true,
+      "implementation_source": "Original Elftia project code",
+      "license": "GPL-3.0",
+      "modifications": "Strategy-attempt-3 semantic loader/reflection, command discovery, portable release inventory, tests, or release evidence. Original Windows x64 WinFsp 2.1 ABI binding and private memory volume: identity-held digest-pinned DLL, current-user/SYSTEM ACL, serialized allocation and entry quotas, mapped growth gate, open-deleted accounting, native activation probes, private Windows environment and owned-volume cleanup. No WinFsp implementation or binary is redistributed; native ABI declarations use public headers.",
+      "module": "tests/test_libreoffice_quota_windows_real.py",
+      "requirement_source": "Rasen document-skills-foundation strategy-attempt-3 + Elftia Windows LibreOffice hard storage quotas (2026-10-10)",
+      "review_evidence": [
+        "PROVENANCE.md"
+      ],
+      "reviewer": "PENDING independent review",
+      "sha256": "515f9036ef209b413e9371f8318cd08923e3a1f60474a5629696efbbd00bdbfd",
       "source_class": "original",
       "third_party_files": []
     },
@@ -26872,7 +27074,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "f1888eed57d51cb690c0fa8fd1460e4300df675a769b6055a9f54ca1db869e76",
+      "sha256": "0f7dc182f74b0b32eec438119decc4509abd40e4c4a3cb816bcf0aea5d58e034",
       "source_class": "original",
       "third_party_files": []
     },
@@ -27038,7 +27240,7 @@
         "PROVENANCE.md"
       ],
       "reviewer": "PENDING independent review",
-      "sha256": "f2c5e40e5f1378e2f29d54ddddc6dd2ea37414e097e5dda07339d540cc024710",
+      "sha256": "eb7ab9976f1abe7eb923b5d13a00642b0c77799e7ad5c5e273ff0b4195af3fa2",
       "source_class": "original",
       "third_party_files": []
     },
