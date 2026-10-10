@@ -478,6 +478,7 @@ jobs:
   docx-optional-providers:
     name: DOCX .NET and LibreOffice hard quota (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

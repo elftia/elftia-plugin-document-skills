@@ -21,6 +21,8 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Real Windows Wi
 def _backend():
     if not hard_quota_capability().supported:
         if os.environ.get("ELFTIA_REQUIRE_LIBREOFFICE_PROFILE") == "1":
+            from document_skills_core.providers.libreoffice._quota_winfsp_library import library_path
+            library_path(strict=True)
             pytest.fail("Mandatory Windows WinFsp backend is unavailable")
         pytest.skip("Official WinFsp 2.1.25156 x64 runtime is required")
     return require_hard_quota_backend()
@@ -250,3 +252,35 @@ def test_real_libreoffice_runs_in_quota_filesystem_windows(project_root, tmp_pat
     output.mkdir()
     result = LibreOfficeRunner(project_root, executable=detected.path).convert(source, "pdf", output)
     assert result.read_bytes().startswith(b"%PDF-")
+
+
+@pytest.mark.slow
+def test_real_windows_xlsx_recalculation_and_render_use_production_quota(project_root, tmp_path):
+    from document_skills_core.core.capabilities import ProviderCatalog
+    from document_skills_core.formats.xlsx.create import create_xlsx
+    from document_skills_core.formats.pdf.validation import reopen_pdf
+    from document_skills_core.providers.libreoffice import build_libreoffice_provider
+    from document_skills_core.providers.libreoffice.detector import LibreOfficeDetector
+    from document_skills_core.providers.libreoffice.recalc import recalculate_xlsx_artifact
+    from document_skills_core.providers.libreoffice.runner import LibreOfficeRunner
+    _backend().validate_activation()
+    detected = LibreOfficeDetector(project_root).detect()
+    assert detected.available, detected.reason
+    source = tmp_path / "stale-cache.xlsx"
+    create_xlsx(source, {"metadata": {}, "sheets": [{"name": "Inputs", "rows": [{"cells": [
+        {"ref": "A1", "value": "2", "type": "n"},
+        {"ref": "A2", "value": "3", "type": "n"},
+        {"ref": "A3", "formula": "SUM(A1:A2)", "cached_value": "999", "type": "n"},
+    ]}], "number_formats": []}], "defined_names": [], "tables": []})
+    before = source.read_bytes()
+    recalculated = recalculate_xlsx_artifact(source, LibreOfficeRunner(project_root, executable=detected.path))
+    assert recalculated.cached_values == {"Inputs!A3": "5"}
+    registry = ProviderCatalog()
+    definition, _ = build_libreoffice_provider(project_root)
+    registry.register_provider(definition)
+    output = tmp_path / "rendered.pdf"
+    result = registry.execute({"schema_version": "1.0", "operation": "xlsx.render",
+                               "input": str(source), "output": str(output),
+                               "arguments": {"max_sheets": 5, "max_cells_per_sheet": 50}})
+    assert result["status"] == "success" and result["provider_chain"] == ["libreoffice"], result
+    assert reopen_pdf(output)["pages"] >= 1 and source.read_bytes() == before

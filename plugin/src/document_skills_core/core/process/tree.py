@@ -6,6 +6,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 
 
 class ProcessTree:
@@ -35,14 +36,22 @@ class ProcessTree:
         except ProcessLookupError:
             pass
         except PermissionError:
-            # Darwin's killpg returns EPERM for a group containing only zombies.
-            # Reap our exited child and retry; genuine denial must still fail.
-            if sys.platform != "darwin" or self.process.poll() is None:
+            # Darwin can return EPERM while an exiting group is being removed,
+            # even after waitpid has reaped its leader. Retry within a fixed
+            # budget, reaping on each attempt; persistent denial still fails.
+            if sys.platform != "darwin":
                 raise
-            try:
-                os.killpg(self.process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            for attempt in range(20):
+                self.process.poll()
+                try:
+                    os.killpg(self.process.pid, signal.SIGKILL)
+                    return
+                except ProcessLookupError:
+                    return
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.01)
 
     def close(self) -> None:
         if self._job is not None:

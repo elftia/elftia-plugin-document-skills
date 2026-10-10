@@ -20,15 +20,18 @@ from ._quota_winfsp_abi import U32, check_abi, configure_library
 DLL_SHA256 = "08d7389b8d030770a4de108a60a86047d5cdd00b9ecafc6dd66e957bc51c2437"
 
 
-def library_path() -> Path | None:
+def library_path(*, strict: bool = False) -> Path | None:
     if sys.platform != "win32" or sysconfig.get_platform() != "win-amd64":
         return None
     import winreg
 
+    last_error = None
     for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
         try:
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WinFsp", 0, winreg.KEY_READ | view) as key:
-                directory, kind = winreg.QueryValueEx(key, "InstallDir")
+                # WinFsp 2.1's public InstallDir/bin is a compatibility junction.
+                # Pin the actual side-by-side payload, never that redirect.
+                directory, kind = winreg.QueryValueEx(key, "SxsDir")
             if kind != winreg.REG_SZ or not isinstance(directory, str):
                 continue
             root = Path(directory)
@@ -37,8 +40,11 @@ def library_path() -> Path | None:
             candidate = root / "bin" / "winfsp-x64.dll"
             with PinnedLibraryFile(candidate):
                 return candidate
-        except (OSError, ValueError, DocumentSkillsError):
+        except (OSError, ValueError, DocumentSkillsError) as error:
+            last_error = error
             continue
+    if strict and last_error is not None:
+        raise last_error
     return None
 
 

@@ -472,6 +472,23 @@ def test_darwin_process_cleanup_keeps_genuine_permission_failures(monkeypatch, e
         tree._terminate_posix_group()
 
 
+def test_darwin_process_cleanup_handles_delayed_group_removal(monkeypatch):
+    tree = tree_module.ProcessTree.__new__(tree_module.ProcessTree)
+    statuses = iter([None, 0, 0])
+    tree.process = SimpleNamespace(pid=123, poll=lambda: next(statuses))
+    monkeypatch.setattr(tree_module, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(tree_module, "signal", SimpleNamespace(SIGKILL=9))
+    calls = []
+    def kill_group(*args):
+        calls.append(args)
+        if len(calls) < 4:
+            raise PermissionError(1, "exiting group")
+        raise ProcessLookupError(3, "group removed")
+    monkeypatch.setattr(tree_module.os, "killpg", kill_group, raising=False)
+    tree._terminate_posix_group()
+    assert len(calls) == 4
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX executable identity uses symlinks")
 def test_process_runner_rejects_retargeted_executable_symlink(project_root, tmp_path):
     executable_link = tmp_path / "python3"
