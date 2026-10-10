@@ -517,12 +517,13 @@ jobs:
             --packages "$NUGET_PACKAGES" \
             --property:BaseIntermediateOutputPath="$RUNNER_TEMP/docx-openxml-restore/"
       - name: Prove native LibreOffice conversion before the full optional suite
+        timeout-minutes: 4
         shell: bash
         working-directory: plugin
         run: |
           set -o pipefail
           mkdir -p ../.ci-evidence/docx-optional
-          timeout --signal=KILL 180s uv run --project . --frozen python -m pytest -s \
+          uv run --project . --frozen python -m pytest -s \
               -o faulthandler_timeout=45 \
               tests/test_libreoffice_quota_linux.py \
               tests/test_libreoffice_quota_windows_real.py \

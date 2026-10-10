@@ -1440,6 +1440,7 @@ class TestRunnerContainment:
 
     def test_valid_convert_to_argv_accepted(self, tmp_path):
         profile_root = tmp_path / "profile with spaces #1"
+        profile_root.mkdir()
         argv = _build_argv(
             profile_root,
             "--convert-to", "xlsx", "--outdir", "/tmp", "input.xlsx"

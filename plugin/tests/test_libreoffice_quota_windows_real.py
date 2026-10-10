@@ -184,6 +184,19 @@ def test_real_winfsp_session_isolation_and_private_environment(tmp_path):
     assert not first.root.exists()
 
 
+def test_real_winfsp_directory_resolution_and_profile_uri_are_callable():
+    from document_skills_core.providers.libreoffice.quota import resolve_existing_directory
+    from document_skills_core.providers.libreoffice.runner import _build_argv
+    from document_skills_core.providers.libreoffice.output import output_runtime_observer
+    with _backend().open(byte_limit=16384, entry_limit=16) as session:
+        assert resolve_existing_directory(session.output_dir) == session.output_dir
+        argv = _build_argv(session.profile_dir, "--convert-to", "pdf", "input.docx")
+        assert "-env:UserInstallation=" + session.profile_dir.as_uri() in argv
+        observe = output_runtime_observer(session.output_dir, session.output_dir / "result.pdf", "pdf")
+        observe()
+        session.assert_live()
+
+
 def test_real_winfsp_mount_identity_drift_is_rejected(monkeypatch):
     with _backend().open(byte_limit=16384, entry_limit=16) as session:
         monkeypatch.setattr(session, "volume_name", "\\Device\\wrong-volume")

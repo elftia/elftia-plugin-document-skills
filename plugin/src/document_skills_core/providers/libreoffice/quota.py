@@ -24,6 +24,25 @@ from ...core.contracts.errors import DocumentSkillsError, ErrorCode
 DEFAULT_HARD_QUOTA_ENTRY_LIMIT = 4_096
 
 
+def resolve_existing_directory(path: Path) -> Path:
+    """Resolve a directory without holding the GIL across WinFsp cleanup.
+
+    CPython 3.12's ntpath realpath closes its native handle with the GIL held.
+    A filesystem served by Python then cannot run the synchronous Cleanup
+    callback. The ctypes handle operations release the GIL, including Close.
+    """
+    if sys.platform != "win32":
+        return path.resolve(strict=True)
+    from ...core.process import windows_handles as handles
+    handle = handles.create_handle(path, access=0, flags=handles.FILE_FLAG_BACKUP_SEMANTICS)
+    try:
+        if not handles.handle_attributes(handle) & handles.FILE_ATTRIBUTE_DIRECTORY:
+            raise NotADirectoryError(str(path))
+        return handles.final_path(handle)
+    finally:
+        handles.close_handle(handle)
+
+
 @dataclass(frozen=True)
 class DirectoryIdentity:
     """Stable directory identity captured before an untrusted process runs."""

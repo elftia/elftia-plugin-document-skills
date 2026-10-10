@@ -17,6 +17,7 @@ from ...formats.docx.constants import MAX_DOCX_BYTES
 from ...formats.pdf.constants import MAX_PDF_BYTES
 from ...formats.pptx.constants import MAX_PPTX_BYTES
 from ...formats.xlsx.constants import MAX_XLSX_BYTES
+from .quota import resolve_existing_directory
 
 MAX_IMAGE_BYTES = 128 * 1024 * 1024
 OUTPUT_LIMITS = {
@@ -118,7 +119,7 @@ def output_runtime_observer(
     as an aggregate hard-storage quota.
     """
 
-    root = output_dir.resolve()
+    root = resolve_existing_directory(output_dir)
     expected_name = expected_output.name
     limit = output_limit(target_format)
 

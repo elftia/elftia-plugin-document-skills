@@ -39,6 +39,7 @@ from .quota import (
     ProcessStorageSession,
     capture_directory_identity,
     require_hard_quota_backend,
+    resolve_existing_directory,
 )
 
 
@@ -227,7 +228,7 @@ def _atomic_publish(payload: bytes, destination: Path) -> None:
 
 def _build_argv(profile_root: Path, *operation_args: str) -> list[str]:
     """Build the full argv: headless prefix + operation args, validated."""
-    profile_uri = profile_root.resolve().as_uri()
+    profile_uri = resolve_existing_directory(profile_root).as_uri()
     argv = [
         *HEADLESS_PREFIX,
         f"{USER_INSTALLATION_PREFIX}{profile_uri}",

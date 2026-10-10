@@ -155,6 +155,64 @@ def test_unknown_callback_failure_invalidates_session(monkeypatch):
     assert callbacks.store.failed
 
 
+def test_shutdown_retains_callbacks_and_data_until_native_dispatch_has_stopped():
+    from document_skills_core.providers.libreoffice.quota_windows import WindowsWinFspQuotaSession
+    session = WindowsWinFspQuotaSession(4096, 16)
+    session.store.create_windows("\\file", False, 0, 512)
+    references = [object()]
+    session.callbacks = SimpleNamespace(references=references)
+    calls = []
+    def operation(name):
+        def invoke(handle):
+            assert handle.value == 123 and references and session.store.total_bytes == 512
+            calls.append(name)
+        return invoke
+    session.loaded = SimpleNamespace(library=SimpleNamespace(
+        FspFileSystemRemoveMountPoint=operation("unmount"),
+        FspFileSystemStopDispatcher=operation("stop"),
+        FspFileSystemDelete=operation("delete"),
+    ), close=lambda: calls.append("unload"))
+    session.file_system, session.mounted, session.started = PTR(123), True, True
+    session.close()
+    assert calls == ["unmount", "stop", "delete", "unload"]
+    assert not references and not session.store.nodes and session.store.total_bytes == 0
+    assert not session.file_system
+    session.close()
+    assert len(calls) == 4
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_directory_resolution_uses_gil_releasing_handles_and_always_closes(tmp_path, monkeypatch, fail):
+    from document_skills_core.providers.libreoffice import quota
+    from document_skills_core.core.process import windows_handles as handles
+    expected = tmp_path / "resolved"
+    calls = []
+    monkeypatch.setattr(quota.sys, "platform", "win32")
+    def forbidden_resolve(*args, **kwargs):
+        pytest.fail("Path.resolve can deadlock a Python-served WinFsp volume")
+    monkeypatch.setattr(type(tmp_path), "resolve", forbidden_resolve)
+    def create(path, *, access, flags):
+        assert path == tmp_path and access == 0 and flags == handles.FILE_FLAG_BACKUP_SEMANTICS
+        calls.append("open")
+        return 123
+    def final(handle):
+        assert handle == 123
+        calls.append("resolve")
+        if fail:
+            raise OSError("Injected resolution failure")
+        return expected
+    monkeypatch.setattr(handles, "create_handle", create)
+    monkeypatch.setattr(handles, "handle_attributes", lambda handle: handles.FILE_ATTRIBUTE_DIRECTORY)
+    monkeypatch.setattr(handles, "final_path", final)
+    monkeypatch.setattr(handles, "close_handle", lambda handle: calls.append("close"))
+    if fail:
+        with pytest.raises(OSError, match="Injected"):
+            quota.resolve_existing_directory(tmp_path)
+    else:
+        assert quota.resolve_existing_directory(tmp_path) == expected
+    assert calls == ["open", "resolve", "close"]
+
+
 def test_security_queries_report_required_capacity_without_overwrite():
     callbacks = _callbacks()
     capacity = c.c_size_t(0)
