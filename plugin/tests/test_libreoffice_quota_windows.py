@@ -185,31 +185,38 @@ def test_shutdown_retains_callbacks_and_data_until_native_dispatch_has_stopped()
 def test_directory_resolution_uses_gil_releasing_handles_and_always_closes(tmp_path, monkeypatch, fail):
     from document_skills_core.providers.libreoffice import quota
     from document_skills_core.core.process import windows_handles as handles
-    expected = tmp_path / "resolved"
+    from pathlib import PureWindowsPath
+    expected = PureWindowsPath("Q:/resolved")
+    requested = PureWindowsPath("Q:/input")
     calls = []
     monkeypatch.setattr(quota.sys, "platform", "win32")
     def forbidden_resolve(*args, **kwargs):
         pytest.fail("Path.resolve can deadlock a Python-served WinFsp volume")
     monkeypatch.setattr(type(tmp_path), "resolve", forbidden_resolve)
     def create(path, *, access, flags):
-        assert path == tmp_path and access == 0 and flags == handles.FILE_FLAG_BACKUP_SEMANTICS
+        assert path == requested and access == 0 and flags == handles.FILE_FLAG_BACKUP_SEMANTICS
         calls.append("open")
         return 123
-    def final(handle):
-        assert handle == 123
+    def final(handle, *, volume_flags):
+        assert handle == 123 and volume_flags == 2
         calls.append("resolve")
         if fail:
             raise OSError("Injected resolution failure")
-        return expected
+        return PureWindowsPath("/Device/ElftiaQuota/resolved")
+    def query(drive, buffer, length):
+        assert drive == "Q:" and length == 32768
+        buffer.value = "\\Device\\ElftiaQuota"
+        return len(buffer.value) + 1
+    monkeypatch.setattr(c, "windll", SimpleNamespace(kernel32=SimpleNamespace(QueryDosDeviceW=query)), raising=False)
     monkeypatch.setattr(handles, "create_handle", create)
     monkeypatch.setattr(handles, "handle_attributes", lambda handle: handles.FILE_ATTRIBUTE_DIRECTORY)
     monkeypatch.setattr(handles, "final_path", final)
     monkeypatch.setattr(handles, "close_handle", lambda handle: calls.append("close"))
     if fail:
         with pytest.raises(OSError, match="Injected"):
-            quota.resolve_existing_directory(tmp_path)
+            quota.resolve_existing_directory(requested)
     else:
-        assert quota.resolve_existing_directory(tmp_path) == expected
+        assert str(quota.resolve_existing_directory(requested)) == str(expected)
     assert calls == ["open", "resolve", "close"]
 
 

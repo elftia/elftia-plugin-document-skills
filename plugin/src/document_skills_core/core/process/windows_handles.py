@@ -177,7 +177,7 @@ def hash_handle(handle: int) -> tuple[str, bytes]:
     return digest.hexdigest(), bytes(prefix)
 
 
-def final_path(handle: int) -> Path:
+def final_path(handle: int, *, volume_flags: int = 0) -> Path:
     get_final_path = ctypes.windll.kernel32.GetFinalPathNameByHandleW
     get_final_path.argtypes = [
         wintypes.HANDLE,
@@ -186,11 +186,11 @@ def final_path(handle: int) -> Path:
         wintypes.DWORD,
     ]
     get_final_path.restype = wintypes.DWORD
-    required = get_final_path(wintypes.HANDLE(handle), None, 0, 0)
+    required = get_final_path(wintypes.HANDLE(handle), None, 0, volume_flags)
     if required == 0:
         raise ctypes.WinError()
     buffer = ctypes.create_unicode_buffer(required + 1)
-    written = get_final_path(wintypes.HANDLE(handle), buffer, len(buffer), 0)
+    written = get_final_path(wintypes.HANDLE(handle), buffer, len(buffer), volume_flags)
     if written == 0 or written >= len(buffer):
         raise ctypes.WinError()
     value = buffer.value

@@ -38,7 +38,21 @@ def resolve_existing_directory(path: Path) -> Path:
     try:
         if not handles.handle_attributes(handle) & handles.FILE_ATTRIBUTE_DIRECTORY:
             raise NotADirectoryError(str(path))
-        return handles.final_path(handle)
+        # A private DOS-device mount has no Mount Manager volume GUID. Asking
+        # for a DOS final path fails with ERROR_UNRECOGNIZED_VOLUME; instead
+        # bind the native NT path to the drive's current device identity.
+        import ctypes
+        query = ctypes.windll.kernel32.QueryDosDeviceW
+        query.argtypes = [ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32]
+        query.restype = ctypes.c_uint32
+        device = ctypes.create_unicode_buffer(32768)
+        if not path.drive or not query(path.drive, device, len(device)):
+            raise OSError("Quota directory drive identity is unavailable.")
+        native = str(handles.final_path(handle, volume_flags=2))
+        prefix = device.value + "\\"
+        if not native.casefold().startswith(prefix.casefold()):
+            raise OSError("Quota directory handle does not belong to its drive.")
+        return Path(path.drive + native[len(device.value):])
     finally:
         handles.close_handle(handle)
 
