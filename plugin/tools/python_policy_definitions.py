@@ -68,6 +68,7 @@ ALLOWED_STDLIB = {
     "io",
     "json",
     "math",
+    "msvcrt",  # Convert an owned CRT descriptor to its native Windows handle.
     "os",
     "pathlib",
     "posixpath",

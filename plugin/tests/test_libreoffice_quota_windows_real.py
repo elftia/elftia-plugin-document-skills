@@ -34,6 +34,12 @@ def _denied(action):
     assert caught.value.errno == errno.ENOSPC
 
 
+def _native_truncate(path, size):
+    from document_skills_core.providers.libreoffice.quota_windows import _set_windows_eof
+    with path.open("r+b", buffering=0) as stream:
+        _set_windows_eof(stream.fileno(), size)
+
+
 def _child(tmp_path, code, arguments, **options):
     policy = ProcessPolicy(tmp_path)
     executable = policy.allow_executable("libreoffice", sys.executable)
@@ -54,7 +60,7 @@ def test_real_winfsp_aggregate_sparse_and_one_shot_denial():
         first.write_bytes(b"a" * 9000)
         _denied(lambda: second.write_bytes(b"b" * 9000))
         assert session.store.total_bytes <= 16384
-        _denied(lambda: os.truncate(first, 2**40))
+        _denied(lambda: _native_truncate(first, 2**40))
         assert first.stat().st_size == 9000
         _denied(lambda: (session.output_dir / "large").write_bytes(b"x" * (32 * 1024 * 1024)))
         assert session.store.total_bytes <= 16384

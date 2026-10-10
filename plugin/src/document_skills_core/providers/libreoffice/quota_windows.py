@@ -29,6 +29,18 @@ from .quota import (
 BACKEND_ID = "windows-winfsp-memory"
 
 
+def _set_windows_eof(descriptor: int, size: int) -> None:
+    """One native EOF request, without the CRT's chunked zero-fill expansion."""
+    import msvcrt
+    handle = PTR(msvcrt.get_osfhandle(descriptor))
+    kernel = c.WinDLL("kernel32.dll", winmode=0x800, use_last_error=True)
+    kernel.SetFilePointerEx.argtypes = [PTR, c.c_int64, c.POINTER(c.c_int64), U32]
+    kernel.SetFilePointerEx.restype = c.c_int32
+    kernel.SetEndOfFile.argtypes, kernel.SetEndOfFile.restype = [PTR], c.c_int32
+    if not kernel.SetFilePointerEx(handle, size, None, 0) or not kernel.SetEndOfFile(handle):
+        raise c.WinError(c.get_last_error())
+
+
 class WindowsWinFspHardQuotaBackend(ActivatableQuotaBackend):
     def capability(self) -> HardQuotaCapability:
         available = library_path() is not None
@@ -158,14 +170,14 @@ class WindowsWinFspQuotaSession(ProcessStorageSession):
         try:
             before = self.store.denials
             try:
-                os.ftruncate(descriptor, self.byte_limit + 512)
+                _set_windows_eof(descriptor, self.byte_limit + 512)
             except OSError as error:
                 if error.errno != errno.ENOSPC:
                     raise
             else:
                 raise OSError("Windows byte quota was not enforced.")
             if self.store.denials <= before or os.fstat(descriptor).st_size != 0:
-                raise OSError("Windows quota denial changed the file.")
+                raise OSError(f"Windows quota denial changed the file (denials={self.store.denials-before}, size={os.fstat(descriptor).st_size}).")
             os.write(descriptor, b"x")
             os.lseek(descriptor, 0, os.SEEK_SET)
             if os.read(descriptor, 1) != b"x":

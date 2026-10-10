@@ -186,3 +186,49 @@ def test_security_descriptor_and_untrusted_dll_rejection(tmp_path):
     with pytest.raises(OSError):
         with PinnedLibraryFile(fake):
             pytest.fail("An untrusted DLL was accepted")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows runtime registry")
+def test_runtime_discovery_pins_sxs_payload_instead_of_compatibility_junction(tmp_path, monkeypatch):
+    import winreg
+    from document_skills_core.providers.libreoffice import _quota_winfsp_library as module
+    selected = []
+    class Key:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+    def query(_key, name):
+        assert name == "SxsDir"
+        return str(tmp_path), winreg.REG_SZ
+    class Pin(Key):
+        def __init__(self, path):
+            selected.append(path)
+    monkeypatch.setattr(winreg, "OpenKey", lambda *args: Key())
+    monkeypatch.setattr(winreg, "QueryValueEx", query)
+    monkeypatch.setattr(module, "PinnedLibraryFile", Pin)
+    assert module.library_path(strict=True) == tmp_path / "bin/winfsp-x64.dll"
+    assert selected == [tmp_path / "bin/winfsp-x64.dll"]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows held DLL identity")
+def test_trusted_dll_copy_cannot_be_written_or_replaced_while_pinned(tmp_path):
+    import os
+    import shutil
+    from document_skills_core.providers.libreoffice._quota_winfsp_library import PinnedLibraryFile, library_path
+    source = library_path()
+    if source is None:
+        if os.environ.get("ELFTIA_REQUIRE_LIBREOFFICE_PROFILE") == "1":
+            pytest.fail("Mandatory pinned runtime is absent")
+        pytest.skip("Pinned WinFsp runtime is not installed")
+    directory = tmp_path / "runtime"
+    directory.mkdir()
+    target = directory / "winfsp-x64.dll"
+    shutil.copyfile(source, target)
+    with PinnedLibraryFile(target):
+        for action in (lambda: target.write_bytes(b"changed"),
+                       lambda: target.rename(directory / "replacement.dll"),
+                       lambda: directory.rename(tmp_path / "renamed")):
+            with pytest.raises(OSError):
+                action()
+    target.rename(directory / "released.dll")
