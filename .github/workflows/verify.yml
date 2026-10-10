@@ -520,12 +520,15 @@ jobs:
         shell: bash
         working-directory: plugin
         run: |
+          set -o pipefail
           mkdir -p ../.ci-evidence/docx-optional
-          uv run --project . --frozen python -m pytest \
+          timeout --signal=KILL 180s uv run --project . --frozen python -m pytest -s \
+              -o faulthandler_timeout=45 \
               tests/test_libreoffice_quota_linux.py \
               tests/test_libreoffice_quota_windows_real.py \
               --junitxml ../.ci-evidence/docx-optional/native-probe.xml \
-              -k real_libreoffice_runs_in_quota_filesystem -q
+              -k real_libreoffice_runs_in_quota_filesystem -q \
+              2>&1 | tee ../.ci-evidence/docx-optional/native-probe.log
       - name: Execute all DOCX profiles and prove real LibreOffice hard quotas
         shell: bash
         working-directory: plugin
