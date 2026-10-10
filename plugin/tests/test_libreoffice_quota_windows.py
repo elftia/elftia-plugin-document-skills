@@ -188,6 +188,21 @@ def test_security_descriptor_and_untrusted_dll_rejection(tmp_path):
             pytest.fail("An untrusted DLL was accepted")
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Native Windows EOF request")
+def test_native_eof_helper_preserves_the_owned_descriptor_position(tmp_path):
+    from document_skills_core.providers.libreoffice.quota_windows import _set_windows_eof
+    with (tmp_path / "file").open("w+b", buffering=0) as stream:
+        stream.write(b"original")
+        stream.seek(2)
+        _set_windows_eof(stream.fileno(), 512)
+        assert stream.tell() == 2
+        assert __import__("os").fstat(stream.fileno()).st_size == 512
+        _set_windows_eof(stream.fileno(), 4)
+        assert stream.tell() == 2
+        stream.seek(0)
+        assert stream.read() == b"orig"
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows runtime registry")
 def test_runtime_discovery_pins_sxs_payload_instead_of_compatibility_junction(tmp_path, monkeypatch):
     import winreg

@@ -37,8 +37,15 @@ def _set_windows_eof(descriptor: int, size: int) -> None:
     kernel.SetFilePointerEx.argtypes = [PTR, c.c_int64, c.POINTER(c.c_int64), U32]
     kernel.SetFilePointerEx.restype = c.c_int32
     kernel.SetEndOfFile.argtypes, kernel.SetEndOfFile.restype = [PTR], c.c_int32
-    if not kernel.SetFilePointerEx(handle, size, None, 0) or not kernel.SetEndOfFile(handle):
+    previous = c.c_int64()
+    if not kernel.SetFilePointerEx(handle, 0, c.byref(previous), 1):
         raise c.WinError(c.get_last_error())
+    try:
+        if not kernel.SetFilePointerEx(handle, size, None, 0) or not kernel.SetEndOfFile(handle):
+            raise c.WinError(c.get_last_error())
+    finally:
+        if not kernel.SetFilePointerEx(handle, previous.value, None, 0):
+            raise c.WinError(c.get_last_error())
 
 
 class WindowsWinFspHardQuotaBackend(ActivatableQuotaBackend):
