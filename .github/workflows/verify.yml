@@ -12,6 +12,9 @@ jobs:
     name: Node ${{ matrix.node }} (${{ matrix.os }})
     env:
       ELFTIA_PRESENTATION_CONTRACTS_ROOT: ${{ github.workspace }}/.ci-contract-owner/packages/presentation-contracts
+      # Public workers retain their 30-second deadline. Limit nested Python
+      # startup contention on Windows instead of increasing runtime budgets.
+      DS_PYTEST_WORKERS: ${{ matrix.os == 'windows-latest' && '2' || '4' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
