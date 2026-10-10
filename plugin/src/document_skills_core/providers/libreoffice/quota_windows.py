@@ -107,7 +107,9 @@ class WindowsWinFspQuotaSession(ProcessStorageSession):
         ))
         self.callbacks.expected_file_system = self.file_system.value
         header = c.cast(self.file_system, c.POINTER(FileSystemHeader)).contents
-        if header.Version != 792:
+        # The pinned WinFsp 2.1 implementation zero-initializes this reserved
+        # field; it does not put sizeof(FSP_FILE_SYSTEM) into Version.
+        if header.Version != 0:
             raise OSError("WinFsp filesystem instance ABI differs.")
         volume_bytes = bytes(header.VolumeName)
         self.volume_name = volume_bytes.decode("utf-16-le", errors="strict").split("\0", 1)[0]
