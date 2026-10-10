@@ -173,6 +173,8 @@ class WindowsWinFspQuotaSession(ProcessStorageSession):
 
     def _prove_limits(self) -> None:
         probe = self.temporary_dir / "activation-probe"
+        with self.store.lock:
+            baseline_entries = self.store.entry_count
         descriptor = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_RDWR | os.O_BINARY, 0o600)
         try:
             before = self.store.denials
@@ -192,13 +194,26 @@ class WindowsWinFspQuotaSession(ProcessStorageSession):
         finally:
             os.close(descriptor)
             probe.unlink()
+        # Native Close is queued after cleanup; its final release must finish
+        # before freezing the entry quota. Otherwise that asynchronous release
+        # would create room during the entry-denial probe.
+        deadline = time.monotonic() + 3
+        while True:
+            with self.store.lock:
+                released = self.store.entry_count == baseline_entries and self.store.total_bytes == 0
+            if released:
+                break
+            if time.monotonic() >= deadline:
+                raise OSError("WinFsp did not release the owned activation file in time.")
+            time.sleep(0.01)
+        entry_probe = self.temporary_dir / "activation-entry-probe"
         with self.store.lock:
             original = self.store.entry_limit
             self.store.entry_limit = self.store.entry_count
             before = self.store.denials
         try:
             try:
-                probe.touch(exist_ok=False)
+                entry_probe.touch(exist_ok=False)
             except OSError as error:
                 if error.errno != errno.ENOSPC:
                     raise
