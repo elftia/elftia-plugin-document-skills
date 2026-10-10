@@ -193,7 +193,7 @@ def test_real_winfsp_directory_resolution_and_profile_uri_are_callable():
     with _backend().open(byte_limit=16384, entry_limit=16) as session:
         assert resolve_existing_directory(session.output_dir) == session.output_dir
         argv = _build_argv(session.profile_dir, "--convert-to", "pdf", "input.docx")
-        assert "-env:UserInstallation=" + session.profile_dir.as_uri() in argv
+        assert ("-env:UserInstallation=" + session.profile_dir.as_uri()).casefold() in [arg.casefold() for arg in argv]
         observe = output_runtime_observer(session.output_dir, session.output_dir / "result.pdf", "pdf")
         observe()
         session.assert_live()
@@ -294,7 +294,9 @@ def test_real_windows_xlsx_recalculation_and_render_use_production_quota(project
         {"ref": "A3", "formula": "SUM(A1:A2)", "cached_value": "999", "type": "n"},
     ]}], "number_formats": []}], "defined_names": [], "tables": []})
     before = source.read_bytes()
-    recalculated = recalculate_xlsx_artifact(source, LibreOfficeRunner(project_root, executable=detected.path))
+    recalculated = recalculate_xlsx_artifact(
+        source, LibreOfficeRunner(project_root, executable=detected.path), timeout_seconds=30,
+    )
     assert recalculated.cached_values == {"Inputs!A3": "5"}
     registry = ProviderCatalog()
     definition, _ = build_libreoffice_provider(project_root)

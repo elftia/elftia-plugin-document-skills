@@ -124,7 +124,7 @@ class _RuntimeCheckWatcher:
             self._error = None
         if error is None:
             return
-        if isinstance(error, DocumentSkillsError):
+        if isinstance(error, (DocumentSkillsError, KeyboardInterrupt)):
             raise error
         raise DocumentSkillsError(
             ErrorCode.PROVIDER_FAILED,

@@ -556,9 +556,14 @@ def test_runtime_check_cannot_extend_process_deadline(project_root):
     assert time.monotonic() - started < 0.75
 
 
+@pytest.mark.parametrize("exception,category", [
+    (RuntimeError, "runtime_check_failed"), (KeyboardInterrupt, "cancelled"),
+])
 def test_runtime_check_exception_is_typed_and_terminates_descendant(
     project_root,
     tmp_path,
+    exception,
+    category,
 ):
     child_pid_path = tmp_path / "runtime-check-child.pid"
     policy = ProcessPolicy(project_root)
@@ -575,7 +580,7 @@ def test_runtime_check_exception_is_typed_and_terminates_descendant(
 
     def reject_after_child_starts() -> None:
         if child_pid_path.is_file():
-            raise RuntimeError("private runtime-check failure")
+            raise exception("private runtime-check failure")
 
     with pytest.raises(DocumentSkillsError) as failure:
         ProcessRunner(policy).run(
@@ -587,7 +592,7 @@ def test_runtime_check_exception_is_typed_and_terminates_descendant(
         )
 
     assert failure.value.code == ErrorCode.PROVIDER_FAILED
-    assert failure.value.details["reason_category"] == "runtime_check_failed"
+    assert failure.value.details["reason_category"] == category
     assert "private runtime-check failure" not in str(failure.value)
     child_pid = int(child_pid_path.read_text(encoding="ascii"))
     deadline = time.monotonic() + 2.0

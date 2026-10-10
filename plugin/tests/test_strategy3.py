@@ -15,8 +15,10 @@ from tools.regenerate_provenance import (
     CROSS_FORMAT_CAPABILITY_REQUIREMENT,
     DOCX_TEMPLATE_PACK_REQUIREMENT,
     DARWIN_LAUNCH_REQUIREMENT,
+    WINDOWS_QUOTA_REQUIREMENT,
     _DARWIN_LAUNCH_MODULES,
     _DARWIN_LAUNCH_PROFILE,
+    _WINDOWS_QUOTA_MODULES,
     cross_format_capability_module_profile,
     docx_template_pack_module_profile,
     regenerate,
@@ -898,6 +900,8 @@ def test_shared_xlsx_provenance_composes_requirements_and_direct_evidence(
         record = records[path]
         if path in _DARWIN_LAUNCH_MODULES:
             requirement = _compose_requirements(requirement, DARWIN_LAUNCH_REQUIREMENT)
+        if path in _WINDOWS_QUOTA_MODULES:
+            requirement = _compose_requirements(requirement, WINDOWS_QUOTA_REQUIREMENT)
         assert record["requirement_source"] == requirement
         expected_shared_description = (
             advanced_shared_description
